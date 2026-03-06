@@ -71,60 +71,6 @@
       display: block;
     }
 
-    /* SPINNER LOADER */
-    .loader-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(255, 255, 255, 0.95);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9998;
-      backdrop-filter: blur(2px);
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
-
-    .loader-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-
-    .loader-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .spinner {
-      width: 60px;
-      height: 60px;
-      border: 4px solid #eef2ff;
-      border-top: 4px solid var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .loader-text {
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--accent-2);
-      letter-spacing: 0.5px;
-    }
-
-    .loader-subtext {
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
     /* SIDEBAR */
     .sidebar {
       width: var(--sidebar-w);
@@ -681,15 +627,6 @@
   </style>
 </head>
 <body>
-  <!-- Loader Overlay -->
-  <div class="loader-overlay" id="loaderOverlay">
-    <div class="loader-container">
-      <div class="spinner"></div>
-      <div class="loader-text">Loading Results</div>
-      <div class="loader-subtext">Please wait...</div>
-    </div>
-  </div>
-
   <div class="app" id="app">
     <div class="overlay" id="overlay" aria-hidden="true"></div>
 
@@ -842,11 +779,9 @@
 
   <script>
     const API_BASE_URL = "https://goldlincschools.onrender.com";
-    const API_TIMEOUT = 5000; // 15 seconds timeout
+    const API_TIMEOUT = 15000; // 15 seconds timeout
 
     let lastStudentProfile = null;
-    let lastSkillsReport = null;
-    let lastClassSize = null;
     let isLoadingResults = false;
 
     // ============================================
@@ -905,19 +840,6 @@
       if (href && href !== '#') {
         window.location.href = href;
       }
-    }
-
-    // ============================================
-    // Loader Functions
-    // ============================================
-    function showLoader() {
-      const loader = document.getElementById('loaderOverlay');
-      loader.classList.remove('hidden');
-    }
-
-    function hideLoader() {
-      const loader = document.getElementById('loaderOverlay');
-      loader.classList.add('hidden');
     }
 
     // Affixed values
@@ -1045,7 +967,6 @@
         return false;
       }
 
-      showLoader();
       isLoadingResults = true;
 
       const regNo = document.getElementById("regNoInput").value.trim();
@@ -1066,7 +987,6 @@
         ) {
           errorBox.textContent = "You can only check results for your assigned class, session and term.";
           errorBox.style.display = "block";
-          hideLoader();
           submitBtn.disabled = false;
           isLoadingResults = false;
           return false;
@@ -1075,14 +995,10 @@
         if (!regNo || !klass || !session || !term) {
           errorBox.textContent = "All fields are required!";
           errorBox.style.display = "block";
-          hideLoader();
           submitBtn.disabled = false;
           isLoadingResults = false;
           return false;
         }
-
-        lastSkillsReport = null;
-        lastClassSize = null;
 
         // Fetch results with timeout
         const params = new URLSearchParams({
@@ -1113,7 +1029,6 @@
           errorBox.textContent = "No result found! Please check your details or contact the school.";
           errorBox.style.display = "block";
           document.getElementById("resultsDisplaySection").style.display = "none";
-          hideLoader();
           submitBtn.disabled = false;
           isLoadingResults = false;
           return false;
@@ -1142,7 +1057,6 @@
           studentProfile: lastStudentProfile
         });
 
-        hideLoader();
         submitBtn.disabled = false;
         isLoadingResults = false;
       } catch (err) {
@@ -1151,7 +1065,6 @@
           ? "Request timed out. Please check your connection and try again."
           : "Error fetching results. Please try again later.";
         errorBox.style.display = "block";
-        hideLoader();
         submitBtn.disabled = false;
         isLoadingResults = false;
       }
