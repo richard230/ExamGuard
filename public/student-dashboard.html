@@ -249,11 +249,11 @@
       min-height: 100vh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding-top: 85px;
       width: 100%;
       max-width: calc(100vw - var(--sidebar-w));
       box-sizing: border-box;
       overflow-x: hidden;
+      padding-top: 20px;
     }
 
     .main.full {
@@ -781,8 +781,8 @@
 
       .main {
         margin-left: 0;
-        padding: 14px;
-        padding-top: 90px;
+        padding: 20px 14px;
+        padding-top: 20px;
         max-width: 100vw;
       }
 
@@ -834,7 +834,7 @@
 
     @media (max-width: 480px) {
       .main {
-        padding: 14px 2vw;
+        padding: 20px 2vw;
       }
 
       .topbar {
@@ -1162,11 +1162,21 @@
     // ============================================
     // Mobile Menu Toggle
     // ============================================
-    hamburger.addEventListener('click', () => {
-      sidebar.classList.toggle('open');
-      sidebar.classList.toggle('hidden');
-      overlay.classList.toggle('visible');
-      document.body.classList.toggle('no-scroll');
+    hamburger.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // On mobile: show overlay, then slide in sidebar
+      if (window.innerWidth <= 720) {
+        overlay.classList.add('visible');
+        sidebar.classList.add('open');
+        sidebar.classList.remove('hidden');
+        document.body.classList.add('no-scroll');
+      } else {
+        // On desktop: normal toggle
+        sidebar.classList.toggle('open');
+        sidebar.classList.toggle('hidden');
+      }
     });
 
     overlay.addEventListener('click', () => {
@@ -1174,6 +1184,18 @@
       sidebar.classList.remove('open');
       overlay.classList.remove('visible');
       document.body.classList.remove('no-scroll');
+    });
+
+    // Close sidebar when clicking nav items on mobile
+    document.querySelectorAll('.nav a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 720) {
+          sidebar.classList.add('hidden');
+          sidebar.classList.remove('open');
+          overlay.classList.remove('visible');
+          document.body.classList.remove('no-scroll');
+        }
+      });
     });
 
     // ============================================
@@ -1187,12 +1209,6 @@
 
     function navTo(section) {
       currentSection = section;
-      // Close sidebar on mobile
-      if (window.innerWidth <= 720) {
-        sidebar.classList.add('hidden');
-        overlay.classList.remove('visible');
-        document.body.classList.remove('no-scroll');
-      }
 
       // Hide all sections
       document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
