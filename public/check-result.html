@@ -16,12 +16,15 @@
       --muted: #6b7280;
       --card-bg: #ffffff;
       --radius: 12px;
+      --sidebar-w: 300px;
       --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
       --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
       --text-main: #0b2a44;
+      --text-muted: #7a90b3;
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
+      --primary: #2647a6;
     }
 
     * {
@@ -43,6 +46,29 @@
     a {
       color: inherit;
       text-decoration: none;
+    }
+
+    /* App layout */
+    .app {
+      display: flex;
+      min-height: 100vh;
+      align-items: stretch;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
+      display: none;
+    }
+
+    .overlay.visible {
+      display: block;
     }
 
     /* SPINNER LOADER */
@@ -99,60 +125,182 @@
       color: var(--muted);
     }
 
-    /* MAIN CONTAINER */
-    .results-root {
-      min-height: 100vh;
-      width: 100vw;
-      max-width: 100vw;
-      overflow-x: hidden;
-      padding-bottom: 70px;
-    }
-
-    /* HEADER */
-    .results-header {
-      background: var(--card-bg);
-      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
-      padding: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: var(--shadow);
-      position: sticky;
-      top: 0;
-      z-index: 50;
-    }
-
-    .results-title {
-      font-size: 1.5rem;
-      font-weight: 800;
-      color: var(--accent-2);
-    }
-
-    .results-actions a {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
       color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-110%);
+      transition: transform 0.28s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+      transition: transform 0.28s ease;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 700;
+      font-size: 1.18rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.96rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
       border-radius: 10px;
       font-weight: 700;
-      transition: all 0.12s ease;
+      font-size: 1.05rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
       cursor: pointer;
     }
 
-    .results-actions a:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
+    .nav a.active,
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+      transform: translateX(3px);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .profile img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ffe066;
+    }
+
+    .profile .name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: #ffe066;
+    }
+
+    .profile .muted {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100vw - var(--sidebar-w));
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
+      min-height: 64px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .topbar .hamburger {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+
+    .topbar .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
     }
 
     /* MAIN CONTENT */
-    .results-main {
+    .main {
+      margin-left: var(--sidebar-w);
       padding: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
+      flex: 1;
+      transition: margin-left 0.28s;
+      min-height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       width: 100%;
+      max-width: calc(100vw - var(--sidebar-w));
       box-sizing: border-box;
+      overflow-x: hidden;
+      padding-top: 90px;
+    }
+
+    .main.full {
+      margin-left: 0;
+      max-width: 100vw;
     }
 
     /* SECTIONS */
@@ -393,113 +541,88 @@
       color: var(--muted);
     }
 
-    /* NEWS SECTION */
-    .news-section {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: var(--shadow);
-      border: 1px solid rgba(11, 42, 60, 0.03);
+    /* Accessibility */
+    .nav a:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.18);
+      outline-offset: 3px;
+      border-radius: 8px;
     }
 
-    .news-title {
-      font-size: 1.2rem;
-      font-weight: 800;
-      color: var(--accent-2);
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    /* Helper */
+    .small {
+      font-size: 0.92rem;
+      color: var(--muted);
     }
 
-    .news-title i {
-      color: var(--accent);
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .main {
+        padding: 20px 13px;
+      }
     }
 
-    .news-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    @media (max-width: 980px) {
+      .topbar .hamburger {
+        display: inline-flex;
+      }
     }
 
-    .news-item {
-      padding: 12px 14px;
-      background: #fffbeb;
-      border-left: 4px solid var(--warning);
-      border-radius: 6px;
-      font-size: 0.95rem;
-      color: var(--text-main);
-    }
-
-    .news-item b {
-      color: var(--warning);
-      font-weight: 700;
-    }
-
-    /* BOTTOM NAV */
-    .bottom-nav {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100vw;
-      height: 60px;
-      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
-      box-shadow: 0 -2px 12px rgba(59, 130, 246, 0.1);
-      z-index: 100;
-      align-items: center;
-      justify-content: space-evenly;
-      border-radius: 18px 18px 0 0;
-      display: none;
-      max-width: 100vw;
-      min-width: 0;
-      box-sizing: border-box;
-    }
-
-    .bottom-nav-btn {
-      flex: 1;
-      background: none;
-      border: none;
-      outline: none;
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 1.2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.85;
-      transition: color 0.12s, opacity 0.12s;
-      height: 100%;
-      cursor: pointer;
-      min-width: 0;
-    }
-
-    .bottom-nav-btn.active,
-    .bottom-nav-btn:active,
-    .bottom-nav-btn:focus {
-      color: #ffe066;
-      opacity: 1;
-    }
-
-    .bottom-nav-label {
-      font-size: 0.65rem;
-      margin-top: 2px;
-      color: rgba(255, 255, 255, 0.7);
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* RESPONSIVE */
-    @media (max-width: 768px) {
-      .results-main {
-        padding: 14px;
+    @media (max-width: 720px) {
+      :root {
+        --sidebar-w: 86vw;
       }
 
-      .results-section {
-        padding: 14px;
+      .sidebar {
+        transform: translateX(-110%);
+        position: fixed;
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+      }
+
+      .sidebar.hidden {
+        transform: translateX(-110%);
+      }
+
+      .overlay {
+        display: none;
+      }
+
+      .overlay.visible {
+        display: block;
+      }
+
+      body.no-scroll {
+        overflow: hidden;
+        height: 100vh;
+        touch-action: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 20px 14px;
+        padding-top: 20px;
+        max-width: 100vw;
+      }
+
+      .main.full {
+        margin-left: 0;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100vw;
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .nav a {
+        padding: 14px 14px;
+        font-size: 1.08rem;
       }
 
       .result-search-form {
@@ -518,32 +641,16 @@
       .result-display-info {
         gap: 12px;
       }
-
-      .bottom-nav {
-        display: flex !important;
-      }
-
-      .results-root {
-        padding-bottom: 80px;
-      }
-
-      .results-header {
-        padding: 14px;
-      }
-
-      .results-title {
-        font-size: 1.2rem;
-      }
-
-      .results-actions a {
-        padding: 8px 12px;
-        font-size: 0.9rem;
-      }
     }
 
     @media (max-width: 480px) {
-      .results-main {
-        padding: 10px;
+      .main {
+        padding: 20px 2vw;
+        padding-top: 80px;
+      }
+
+      .topbar {
+        padding: 10px 2vw;
       }
 
       .results-section {
@@ -552,10 +659,6 @@
 
       .section-title {
         font-size: 1.05rem;
-      }
-
-      .results-title {
-        font-size: 1.1rem;
       }
 
       .results-table {
@@ -587,17 +690,57 @@
     </div>
   </div>
 
-  <div class="results-root">
-    <!-- Header -->
-    <div class="results-header">
-      <div class="results-title">📊 Check Results</div>
-      <div class="results-actions">
-        <a href="student-dashboard.html"><i class="fa fa-arrow-left"></i> Dashboard</a>
+  <div class="app" id="app">
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
+      <div class="brand" aria-hidden="false">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
+        <div>
+          <div class="title">ExamGuard</div>
+          <div class="subtitle" id="schoolSubtitle">Gold & Linc Schools</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav" aria-label="Primary">
+        <a href="student-dashboard.html" data-section="home" onclick="navClick(event)">🏠 Home</a>
+        <a href="#" data-section="courses" onclick="navClick(event)">📘 My Courses</a>
+        <a href="#" data-section="assignments" onclick="navClick(event)">📝 Assignments</a>
+        <a href="check-result.html" data-section="grades" class="active" onclick="navClick(event)">📊 Grades</a>
+        <a href="#" data-section="timetable" onclick="navClick(event)">⏰ Timetable</a>
+        <a href="#" data-section="messages" onclick="navClick(event)">✉️ Messages</a>
+        <a href="#" data-section="resources" onclick="navClick(event)">📂 Resources</a>
+        <a href="#" data-section="settings" onclick="navClick(event)">⚙️ Settings</a>
+      </nav>
+
+      <div class="spacer" aria-hidden="true"></div>
+
+      <div class="profile" role="region" aria-label="Student profile">
+        <img src="" alt="Student avatar" id="studentAvatar">
+        <div>
+          <div class="name" id="studentName"></div>
+          <div class="muted" id="studentClass"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Fixed Topbar -->
+    <div class="topbar" id="fixedTopbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <div>
+          <div class="page-title" id="pageTitle">📊 Check Results</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
       </div>
     </div>
 
     <!-- Main Content -->
-    <main class="results-main">
+    <main class="main" id="main" role="main" tabindex="-1">
       <!-- Search Section -->
       <section class="results-section" id="searchSection">
         <div class="section-title"><i class="fa fa-search"></i> Check Your Result</div>
@@ -694,41 +837,7 @@
         <div class="section-title"><i class="fa fa-history"></i> Previously Viewed Results</div>
         <div class="previous-results-list" id="previousResultsList"></div>
       </section>
-
-      <!-- News Section -->
-      <section class="news-section">
-        <div class="news-title"><i class="fa fa-newspaper"></i> Result News & Announcements</div>
-        <div class="news-list" id="newsList">
-          <div class="news-item"><b>2024/2025 2nd Term Results Released!</b> Check your results now using your registration number.</div>
-          <div class="news-item"><b>All 2023/2024 Results Archived</b> – You can still access them by searching with your details.</div>
-          <div class="news-item"><b>New Online Scratch Card Sales</b> – Cards are now available at the school portal and accredited vendors.</div>
-        </div>
-      </section>
     </main>
-
-    <!-- Bottom Nav -->
-    <nav class="bottom-nav">
-      <button class="bottom-nav-btn" title="Home" onclick="window.location.href='student-dashboard.html'">
-        <i class="fa fa-home"></i>
-        <div class="bottom-nav-label">Home</div>
-      </button>
-      <button class="bottom-nav-btn" title="E-Class" onclick="window.location.href='cbt-warning.html'">
-        <i class="fa fa-laptop"></i>
-        <div class="bottom-nav-label">CBT</div>
-      </button>
-      <button class="bottom-nav-btn" title="Assignments" onclick="window.location.href='assignments.html'">
-        <i class="fa fa-file-alt"></i>
-        <div class="bottom-nav-label">Tasks</div>
-      </button>
-      <button class="bottom-nav-btn active" title="Results" onclick="window.location.href='#'">
-        <i class="fa fa-chart-bar"></i>
-        <div class="bottom-nav-label">Results</div>
-      </button>
-      <button class="bottom-nav-btn" title="Profile" onclick="window.location.href='profile.html'">
-        <i class="fa fa-user"></i>
-        <div class="bottom-nav-label">Me</div>
-      </button>
-    </nav>
   </div>
 
   <script>
@@ -737,6 +846,45 @@
     let lastStudentProfile = null;
     let lastSkillsReport = null;
     let lastClassSize = null;
+
+    // ============================================
+    // Sidebar & Navigation Functions
+    // ============================================
+    const hamburger = document.getElementById('hamburger');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+
+    hamburger?.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('visible');
+      document.body.classList.toggle('no-scroll');
+    });
+
+    overlay?.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+      document.body.classList.remove('no-scroll');
+    });
+
+    function navClick(event) {
+      event.preventDefault();
+      const link = event.currentTarget;
+      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+      link.classList.add('active');
+      
+      // Close sidebar on mobile
+      if (window.innerWidth <= 720) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('visible');
+        document.body.classList.remove('no-scroll');
+      }
+
+      // Navigate if href is set
+      const href = link.getAttribute('href');
+      if (href && href !== '#') {
+        window.location.href = href;
+      }
+    }
 
     // ============================================
     // Loader Functions
@@ -800,6 +948,12 @@
             termInput.value = affixedTerm;
             termInput.disabled = true;
           }
+
+          // Update sidebar profile
+          document.getElementById('studentName').textContent = student.full_name || student.name || 'Student';
+          document.getElementById('studentClass').textContent = affixedClass || 'N/A';
+          document.getElementById('studentAvatar').src = student.avatar || student.profile_pic || '';
+          document.getElementById('topbarAvatar').src = student.avatar || student.profile_pic || '';
         } else {
           regNoInput.value = '';
           regNoInput.placeholder = 'Login required';
@@ -1002,206 +1156,125 @@
           });
           const classRes = await fetch(`${API_BASE_URL}/api/results?${classParams.toString()}`);
           if (classRes.ok) {
-            const classResults = await classRes.json();
-            const studentSet = new Set();
-            for (const r of classResults) {
-              if (r.student_id) studentSet.add(r.student_id);
-              else if (r.student && r.student.student_id) studentSet.add(r.student.student_id);
-              else if (r.student && r.student.regNo) studentSet.add(r.student.regNo);
-              else if (r.regNo) studentSet.add(r.regNo);
-            }
-            classSize = studentSet.size;
+            const classData = await classRes.json();
+            classSize = Array.isArray(classData) ? classData.length : null;
+            lastClassSize = classSize;
           }
         } catch (e) {}
 
-        function randomRating() {
-          return Math.floor(Math.random() * 3) + 3;
-        }
-        const affectiveNames = ["punctuality", "attentiveness", "neatness", "honesty", "politeness"];
-        const psychomotorNames = ["handwriting", "drawing", "sports", "organization"];
-
-        if (!skillsReport || !skillsReport.skills) {
-          skillsReport = {
-            skills: {
-              affective: {},
-              psychomotor: {}
-            },
-            comment: "Randomized for demo."
-          };
-          affectiveNames.forEach(name => {
-            skillsReport.skills.affective[name] = randomRating();
-          });
-          psychomotorNames.forEach(name => {
-            skillsReport.skills.psychomotor[name] = randomRating();
-          });
-        } else {
-          if (!skillsReport.skills.affective) skillsReport.skills.affective = {};
-          if (!skillsReport.skills.psychomotor) skillsReport.skills.psychomotor = {};
-          affectiveNames.forEach(name => {
-            if (skillsReport.skills.affective[name] === undefined)
-              skillsReport.skills.affective[name] = randomRating();
-          });
-          psychomotorNames.forEach(name => {
-            if (skillsReport.skills.psychomotor[name] === undefined)
-              skillsReport.skills.psychomotor[name] = randomRating();
-          });
-        }
-
-        lastSkillsReport = skillsReport;
-        lastClassSize = classSize;
-
-        saveViewedResult({
-          regNo, class: klass, session, term, results: filteredResults,
-          skillsReport, classSize,
-          student: studentProfile
-        });
         displayResult({
-          regNo, class: klass, session, term,
+          regNo: regNo,
+          class: klass,
+          session: session,
+          term: term,
           results: filteredResults,
-          skillsReport, classSize,
-          student: studentProfile
+          studentProfile: studentProfile,
+          skillsReport: skillsReport,
+          classSize: classSize
         });
-        renderPreviousResults();
+
+        hideLoader();
       } catch (err) {
-        errorBox.textContent = err.message || "No result found! Please check your details or contact the school.";
+        errorBox.textContent = "Error fetching results. Please try again later.";
         errorBox.style.display = "block";
-        document.getElementById("resultsDisplaySection").style.display = "none";
+        hideLoader();
       }
-      hideLoader();
+
       return false;
     }
 
-    function displayResult(r) {
-      document.getElementById("resultsDisplaySection").style.display = "";
-      document.getElementById("dispRegNo").textContent = r.regNo;
-      document.getElementById("dispClass").textContent = r.class;
-      document.getElementById("dispSession").textContent = r.session;
-      document.getElementById("dispTerm").textContent = r.term;
-      const tbody = document.getElementById("resultsTable").querySelector("tbody");
-      tbody.innerHTML = r.results.map(res => `
-        <tr>
-          <td>${res.subject && res.subject.name ? res.subject.name : (res.subject_name || res.subject || "")}</td>
-          <td>${res.ca1_score !== undefined ? res.ca1_score : ""}</td>
-          <td>${res.ca2_score !== undefined ? res.ca2_score : ""}</td>
-          <td>${res.midterm_score !== undefined ? res.midterm_score : ""}</td>
-          <td>${res.exam_score !== undefined ? res.exam_score : ""}</td>
-          <td>${res.total !== undefined ? res.total :
-            (parseFloat(res.ca1_score || 0) + parseFloat(res.ca2_score || 0) + parseFloat(res.midterm_score || 0) + parseFloat(res.exam_score || 0))}</td>
-          <td class="${res.grade === 'A' ? 'grade-high' : res.grade === 'D' ? 'grade-low' : 'grade-mid'}">${res.grade || ""}</td>
-          <td>${res.remarks || res.remark || ""}</td>
-          <td>${res.subject_position || ""}</td>
-        </tr>
-      `).join("");
-      window._lastDisplayedResult = r;
+    function getGradeRemark(score) {
+      if (score >= 70) return { grade: 'A', remark: 'Excellent' };
+      if (score >= 60) return { grade: 'B', remark: 'Very Good' };
+      if (score >= 50) return { grade: 'C', remark: 'Good' };
+      if (score >= 40) return { grade: 'D', remark: 'Pass' };
+      return { grade: 'F', remark: 'Fail' };
+    }
+
+    function getGradeClass(score) {
+      if (score >= 60) return 'grade-high';
+      if (score >= 40) return 'grade-mid';
+      return 'grade-low';
+    }
+
+    function displayResult(result) {
+      document.getElementById("dispRegNo").textContent = result.regNo;
+      document.getElementById("dispClass").textContent = result.class;
+      document.getElementById("dispSession").textContent = result.session;
+      document.getElementById("dispTerm").textContent = result.term;
+
+      const tbody = document.querySelector('.results-table tbody');
+      tbody.innerHTML = '';
+
+      if (Array.isArray(result.results) && result.results.length > 0) {
+        result.results.forEach(r => {
+          const ca1 = r.ca1 || 0;
+          const ca2 = r.ca2 || 0;
+          const midterm = r.midterm || 0;
+          const exam = r.exam || 0;
+          const total = ca1 + ca2 + midterm + exam;
+          const { grade, remark } = getGradeRemark(total);
+          const position = r.subject_position || r.position || '-';
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><strong>${r.subject || 'N/A'}</strong></td>
+            <td>${ca1}</td>
+            <td>${ca2}</td>
+            <td>${midterm}</td>
+            <td>${exam}</td>
+            <td><strong>${total}</strong></td>
+            <td class="${getGradeClass(total)}"><strong>${grade}</strong></td>
+            <td>${remark}</td>
+            <td><strong>${position}</strong></td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      document.getElementById("resultsDisplaySection").style.display = "block";
+
+      saveViewedResult({
+        regNo: result.regNo,
+        class: result.class,
+        session: result.session,
+        term: result.term
+      });
+
+      renderPreviousResults();
     }
 
     function downloadCurrentResult() {
-      const r = window._lastDisplayedResult;
-      if (!r || !r.results || !r.results.length) {
-        alert("No result to download. Please check a result first.");
-        return;
-      }
+      const regNo = document.getElementById("dispRegNo").textContent;
+      const klass = document.getElementById("dispClass").textContent;
+      const session = document.getElementById("dispSession").textContent;
+      const term = document.getElementById("dispTerm").textContent;
 
-      let affectiveSkills = [];
-      let psychomotorSkills = [];
-      let attendance = [];
-      let principalComment = "This is an excellent result, do not rest on your oars.";
-      let principalName = "ABIODUN FESTUS ADENIYI";
-      let classSize = r.classSize || 17;
+      let content = `RESULT SLIP\n`;
+      content += `Registration Number: ${regNo}\n`;
+      content += `Class: ${klass}\n`;
+      content += `Session: ${session}\n`;
+      content += `Term: ${term}\n\n`;
+      content += `SUBJECTS AND SCORES\n`;
+      content += `-------------------\n`;
 
-      if (r.skillsReport && r.skillsReport.skills) {
-        if (r.skillsReport.skills.affective) {
-          affectiveSkills = Object.entries(r.skillsReport.skills.affective).map(([name, score]) => ({ name, score }));
-        }
-        if (r.skillsReport.skills.psychomotor) {
-          psychomotorSkills = Object.entries(r.skillsReport.skills.psychomotor).map(([name, score]) => ({ name, score }));
-        }
-      }
-      if (r.skillsReport && r.skillsReport.attendance) {
-        const a = r.skillsReport.attendance;
-        attendance = [
-          { label: "No. of School Days", value: a.total_days },
-          { label: "No. of Days Present", value: a.days_present },
-          { label: "No. of Days Absent", value: a.days_absent },
-          { label: "% Attendance", value: (a.total_days && a.days_present ? ((a.days_present / a.total_days) * 100).toFixed(2) + "%" : "") }
-        ];
-      }
-      if (r.skillsReport && r.skillsReport.comment) {
-        principalComment = r.skillsReport.comment;
-      }
-
-      const numSubjects = r.results.length;
-      let totalScore = 0, totalMax = numSubjects * 100, gpaSum = 0;
-      let gradeMap = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
-      let perfGrade = "N/A";
-      r.results.forEach(res => {
-        const tot = parseFloat(res.total || 0);
-        totalScore += tot;
-        if (res.grade && gradeMap[res.grade] !== undefined) gpaSum += gradeMap[res.grade];
+      const rows = document.querySelectorAll('.results-table tbody tr');
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const subject = cells[0].textContent;
+        const total = cells[5].textContent;
+        const grade = cells[6].textContent;
+        const remark = cells[7].textContent;
+        content += `${subject}: ${total} (${grade}) - ${remark}\n`;
       });
-      const stuAverage = numSubjects ? ((totalScore / totalMax) * 100).toFixed(2) + "%" : "";
-      const stuGPA = numSubjects ? (gpaSum / numSubjects).toFixed(2) : "";
-      if (stuGPA >= 4.5) perfGrade = "A (Excellent)";
-      else if (stuGPA >= 4.0) perfGrade = "B (Very Good)";
-      else if (stuGPA >= 3.0) perfGrade = "C (Good)";
-      else if (stuGPA >= 2.0) perfGrade = "D (Pass)";
-      else if (stuGPA >= 1.0) perfGrade = "E (Poor)";
-      else perfGrade = "F (Fail)";
 
-      let studentObj = null;
-      if (r.student) {
-        let dobVal = r.student.dob || r.student.DOB || "";
-        let ageVal = r.student.age || calcAge(dobVal);
-        let emailVal = r.student.studentEmail || r.student.email || r.student.parentEmail || "";
-        let photoVal = r.student.photoBase64 || r.student.photo || "";
-        studentObj = {
-          name: r.student.name || r.student.fullname || "",
-          regNo: r.student.regNo || r.student.student_id || r.regNo,
-          gender: r.student.gender || "",
-          DOB: dobVal,
-          email: emailVal,
-          photoBase64: photoVal,
-          age: ageVal
-        };
-      }
-
-      const reportData = {
-        regNo: r.regNo,
-        class: r.class,
-        session: r.session,
-        term: r.term,
-        results: r.results.map(res => ({
-          subject: res.subject && res.subject.name ? res.subject.name : (res.subject_name || res.subject || ""),
-          ca1_score: res.ca1_score !== undefined ? res.ca1_score : "",
-          ca2_score: res.ca2_score !== undefined ? res.ca2_score : "",
-          midterm_score: res.midterm_score !== undefined ? res.midterm_score : "",
-          exam_score: res.exam_score !== undefined ? res.exam_score : "",
-          total: res.total !== undefined ? res.total :
-            (parseFloat(res.ca1_score || 0) + parseFloat(res.ca2_score || 0) + parseFloat(res.midterm_score || 0) + parseFloat(res.exam_score || 0)),
-          grade: res.grade || "",
-          remarks: res.remarks || res.remark || "",
-          grade_point: gradeMap[res.grade] !== undefined ? gradeMap[res.grade] : "",
-          teacher_comment: res.teacher_comment || res.comment || "",
-          subject_position: res.subject_position || ""
-        })),
-        student: studentObj,
-        perfGrade: perfGrade,
-        classSize: classSize,
-        numSubjects: numSubjects,
-        stuTotalScore: `${totalScore} / ${totalMax}`,
-        stuAverage: stuAverage,
-        stuGPA: stuGPA,
-        resultSummary: perfGrade.split('(')[1]?.replace(')', '') || perfGrade,
-        principalComment,
-        principalName,
-        nextTermDate: "Monday 6th of January 2025.",
-        affectiveSkills,
-        psychomotorSkills,
-        attendance
-      };
-
-      sessionStorage.setItem("reportData", JSON.stringify(reportData));
-      window.open('report.html', '_blank');
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `result_${regNo}_${session}_${term}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     renderPreviousResults();
