@@ -4,234 +4,1047 @@
   <meta charset="UTF-8">
   <title>My Assignments | Gold and Linc Schools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Fonts + Icons + Tailwind/Flowbite -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Inter Font + FontAwesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body {
-      font-family: 'Inter', Arial, sans-serif;
-      background: #f6f8fa;
-      color: #22305a;
+    :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #3b82f6;
+      --accent-2: #6366f1;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --sidebar-w: 300px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+      --text-main: #0b2a44;
+      --text-muted: #7a90b3;
+      --primary: #2647a6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      color: var(--text-main);
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* App layout */
+    .app {
+      display: flex;
       min-height: 100vh;
+      align-items: stretch;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
     }
-    .avatar {
-      border: 2px solid #2647a6;
-      background: #ddeaff;
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
+      display: none;
     }
-    .bg-primary { background: #2647a6; }
-    .text-primary { color: #2647a6; }
-    .rounded-xl { border-radius: 1rem; }
+
+    .overlay.visible {
+      display: block;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
+      color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-110%);
+      transition: transform 0.28s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+      transition: transform 0.28s ease;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 700;
+      font-size: 1.18rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.96rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    .nav a.active,
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+      transform: translateX(3px);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .profile img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ffe066;
+    }
+
+    .profile .name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: #ffe066;
+    }
+
+    .profile .muted {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 20px;
+      flex: 1;
+      transition: margin-left 0.28s;
+      min-height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-width: calc(100vw - var(--sidebar-w));
+      box-sizing: border-box;
+      overflow-x: hidden;
+      padding-top: 90px;
+    }
+
+    .main.full {
+      margin-left: 0;
+      max-width: 100vw;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100vw - var(--sidebar-w));
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
+      min-height: 64px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .topbar .hamburger {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+
+    .topbar .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
+    }
+
+    .topbar .small {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .card-header {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Table Styles */
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+    }
+
+    thead {
+      background: #f8faff;
+      border-bottom: 2px solid #eef3ff;
+    }
+
+    th {
+      padding: 14px 16px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--text-main);
+      font-size: 0.95rem;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #eef3ff;
+      transition: background 0.12s ease;
+    }
+
+    tbody tr:hover {
+      background: #f9fbff;
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    /* Badge */
     .badge {
       display: inline-block;
       border-radius: 9999px;
-      padding: 0.2em 0.8em;
-      font-size: 0.91em;
+      padding: 6px 12px;
+      font-size: 0.85rem;
       font-weight: 700;
       margin-right: 0.2em;
     }
+
     .badge-pending { background: #e9f0fe; color: #2647a6; }
     .badge-completed { background: #18ba89; color: #fff; }
     .badge-overdue { background: #e74c3c; color: #fff; }
     .badge-reviewed { background: #ffd600; color: #22305a; }
-    .hover-link:hover { text-decoration: underline; color: #18308b; }
-    /* CBT Modal Styles */
-    .cbt-modal-bg {
-      position: fixed; z-index: 50; left: 0; top: 0; width: 100vw; height: 100vh;
-      background: rgba(32,40,71,0.17);
+
+    /* Buttons */
+    .btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.12s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--accent-2);
+      border: 1px solid rgba(59, 130, 246, 0.08);
+    }
+
+    .btn.ghost:hover {
+      background: rgba(59, 130, 246, 0.04);
+    }
+
+    .btn.success {
+      background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    .action-link {
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 700;
+      transition: color 0.12s ease;
+    }
+
+    .action-link:hover {
+      color: var(--accent-2);
+      text-decoration: underline;
+    }
+
+    .action-link.success {
+      color: #18ba89;
+    }
+
+    /* Modal Styles */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
       display: none;
       align-items: center;
       justify-content: center;
+      z-index: 9999;
+      padding: 20px;
     }
+
+    .modal.active {
+      display: flex;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: #ffffff;
+      width: 600px;
+      max-width: 95vw;
+      max-height: 85vh;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+    }
+
+    .modal-header {
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #eef3ff;
+      background: #f8faff;
+    }
+
+    .modal-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--text-main);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #64748b;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      transition: all 0.12s ease;
+    }
+
+    .modal-close:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #eef3ff;
+      background: #f8faff;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* CBT Modal */
     .cbt-modal {
       background: #fff;
-      border-radius: 1.2em;
+      border-radius: 16px;
       max-width: 700px;
-      width: 96vw;
+      width: 95vw;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 8px 32px #22305a22;
-      padding: 2.4em 2em 2em 2em;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+      padding: 24px;
       position: relative;
-      animation: cbtmodalin .2s;
+      animation: cbtmodalin 0.2s;
     }
-    @media (max-width: 600px) {
-      .cbt-modal { max-width: 99vw; padding: 1.2em 0.3em 1em 0.7em; }
-    }
+
     @keyframes cbtmodalin {
-      from { transform: scale(.96) translateY(35px); opacity: 0.3;}
-      to   { transform: scale(1) translateY(0); opacity: 1;}
+      from { transform: scale(0.96) translateY(35px); opacity: 0.3; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
     }
-    .cbt-modal-close {
-      position: absolute; top: 16px; right: 18px;
-      font-size: 1.8em; color: #bbb; background: none; border: none;
-      cursor: pointer;
-      transition: color .15s;
-      z-index: 1;
-    }
-    .cbt-modal-close:hover { color: #d03b41; }
+
     .cbt-timer {
       font-weight: bold;
       color: #18308b;
       background: #e9f0fe;
       border-radius: 0.6em;
-      padding: 2px 14px;
+      padding: 6px 16px;
       font-size: 1.1em;
       display: inline-block;
-      margin-bottom: 1em;
+      margin-bottom: 16px;
       letter-spacing: 1px;
     }
+
     .cbt-q-block {
-      border-radius: 0.7em;
+      border-radius: 12px;
       background: #f7fafd;
       border: 1.5px solid #e9f0fe;
-      margin-bottom: 1.2em;
-      padding: 1em 1em 0.7em 1em;
+      margin-bottom: 16px;
+      padding: 16px;
     }
-    .cbt-q-block h4 { font-weight: 600; margin-bottom: 0.2em; }
+
+    .cbt-q-block h4 {
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text-main);
+    }
+
     .cbt-opt-row {
-      margin-bottom: 0.5em;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
-      gap: 0.5em;
+      gap: 10px;
     }
+
+    .cbt-opt-row input[type="radio"] {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+    }
+
     .cbt-opt-row label {
       font-weight: 500;
       cursor: pointer;
+      flex: 1;
     }
-    .cbt-modal-header {
-      font-size: 1.15em;
-      font-weight: bold;
-      color: #22305a;
-      margin-bottom: 0.7em;
-    }
-    .cbt-q-block img {
-      max-width: 97%;
-      height: auto;
-      display: block;
-      margin: 7px 0;
-      border-radius: 7px;
-      box-shadow: 0 2px 10px #0001;
-    }
+
     .cbt-submit-btn {
-      background: #18ba89;
+      background: linear-gradient(90deg, #10b981, #059669);
       color: #fff;
-      padding: 11px 28px;
+      padding: 12px 28px;
       font-weight: bold;
       border-radius: 8px;
       font-size: 1.05em;
       border: none;
-      transition: background .15s;
+      transition: all 0.12s ease;
+      cursor: pointer;
     }
-    .cbt-submit-btn:disabled { background: #c9e8df; color: #444; }
+
+    .cbt-submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .cbt-submit-btn:disabled {
+      background: #c9e8df;
+      color: #444;
+      cursor: not-allowed;
+    }
+
     .cbt-feedback {
       font-weight: bold;
       color: #159d5e;
-      padding: 0.7em 0 0 0;
+      padding: 10px 0 0 0;
       font-size: 1.1em;
     }
+
     .cbt-loader {
-      display: flex; align-items: center; justify-content: center; color: #1e88e5;
-      font-weight: bold; font-size: 1.1em; gap: 12px; margin: 1.5em 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #3b82f6;
+      font-weight: bold;
+      font-size: 1.1em;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    /* Form Styles */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+
+    .form-input,
+    .form-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #eef3ff;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: border-color 0.12s ease;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .file-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.12s ease;
+    }
+
+    .file-label:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    /* Status Messages */
+    .status-message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .status-warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+
+    .status-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    .empty-state-title {
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1.5px solid #eef3ff;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-main);
+      transition: all 0.12s ease;
+    }
+
+    .filter-btn.active {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .filter-btn:hover {
+      border-color: var(--accent);
+    }
+
+    /* Accessibility */
+    .nav a:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.18);
+      outline-offset: 3px;
+      border-radius: 8px;
+    }
+
+    .btn:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.12);
+      outline-offset: 3px;
+    }
+
+    /* Helper Classes */
+    .text-muted {
+      color: var(--muted);
+    }
+
+    .text-success {
+      color: #18ba89;
+    }
+
+    .text-danger {
+      color: #e74c3c;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .main {
+        padding: 20px 13px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .topbar .hamburger {
+        display: inline-flex;
+      }
+    }
+
+    @media (max-width: 720px) {
+      :root {
+        --sidebar-w: 86vw;
+      }
+
+      .sidebar {
+        transform: translateX(-110%);
+        position: fixed;
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+      }
+
+      .overlay {
+        display: none;
+      }
+
+      .overlay.visible {
+        display: block;
+      }
+
+      body.no-scroll {
+        overflow: hidden;
+        height: 100vh;
+        touch-action: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 20px 14px;
+        padding-top: 80px;
+        max-width: 100vw;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100vw;
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .modal-content {
+        width: 98vw;
+      }
+
+      .cbt-modal {
+        padding: 16px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .main {
+        padding: 20px 2vw;
+        padding-top: 80px;
+      }
+
+      .topbar {
+        padding: 10px 2vw;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .modal-header {
+        padding: 16px;
+      }
+
+      .modal-body {
+        padding: 16px;
+      }
+
+      .filters {
+        flex-direction: column;
+      }
+
+      .filter-btn {
+        width: 100%;
+      }
+
+      table {
+        font-size: 0.85rem;
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Top Navbar -->
-  <nav class="bg-white shadow-md rounded-b-2xl py-4 px-6 flex items-center justify-between sticky top-0 z-10">
-    <div class="flex items-center gap-3">
-      <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" class="h-9 w-9 rounded-lg shadow" alt="Logo">
-      <span class="text-xl font-bold text-primary">Assignments</span>
-    </div>
-    <div class="flex items-center gap-4">
-      <button class="hidden md:inline-block px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-[#18308b] transition" onclick="window.location.href='student-dashboard.html'">
-        <i class="fa fa-arrow-left mr-1"></i> Dashboard
-      </button>
-      <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.href='profile.html'">
-        <img id="profileAvatar" class="rounded-full h-8 w-8 avatar" src="https://ui-avatars.com/api/?name=Student&background=2647a6&color=fff" alt="Student">
-        <div class="text-sm font-bold text-primary" id="profileName">Student Name</div>
-      </div>
-    </div>
-  </nav>
-  <!-- Main Content -->
-  <main class="max-w-4xl mx-auto mt-8 px-2">
-    <!-- Assignments Table -->
-    <div class="bg-white rounded-xl shadow-md p-6 mb-8">
-      <h1 class="text-xl font-bold text-primary mb-2 flex items-center gap-2"><i class="fa fa-file-alt"></i> My Assignments</h1>
-      <div class="overflow-x-auto mt-5">
-        <table class="min-w-full text-sm">
-          <thead class="bg-[#e9f0fe]">
-            <tr>
-              <th class="py-3 px-4 text-left font-bold text-primary">Title</th>
-              <th class="py-3 px-4 text-left font-bold text-primary">Subject</th>
-              <th class="py-3 px-4 text-left font-bold text-primary">Due Date</th>
-              <th class="py-3 px-4 text-left font-bold text-primary">Status</th>
-              <th class="py-3 px-4 text-left font-bold text-primary">Score</th>
-              <th class="py-3 px-4 text-left font-bold text-primary">Action</th>
-            </tr>
-          </thead>
-          <tbody id="assignmentsTableBody" class="bg-white divide-y divide-[#e9f0fe]">
-            <tr><td class="py-2 px-4" colspan="6">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <!-- Assignment Details Modal -->
-    <div id="assignmentModal" tabindex="-1" class="hidden fixed top-0 left-0 right-0 z-50 w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-[100vh] max-h-full bg-black bg-opacity-40">
-      <div class="relative w-full max-w-lg max-h-full mx-auto mt-20">
-        <div class="relative bg-white rounded-lg shadow p-6">
-          <button type="button" class="absolute top-2 right-2 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-2 ml-auto inline-flex items-center" onclick="closeAssignmentModal()">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
-          </button>
-          <h3 class="text-xl font-bold mb-2 text-primary" id="modalTitle">Assignment Details</h3>
-          <div class="mb-2 text-gray-700" id="modalSubject"></div>
-          <div class="mb-2 text-sm text-gray-500" id="modalDue"></div>
-          <div class="mb-2" id="modalDescription"></div>
-          <div class="mb-3" id="modalUploadSection"></div>
-          <div id="modalSubmissionStatus" class="mb-2"></div>
+  <div class="app" id="app">
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
+      <div class="brand" aria-hidden="false">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
+        <div>
+          <div class="title">ExamGuard</div>
+          <div class="subtitle" id="schoolSubtitle">Gold & Linc Schools</div>
         </div>
       </div>
-    </div>
-    <!-- CBT/Mock Modal -->
-    <div id="cbtModalBg" class="cbt-modal-bg">
-      <div class="cbt-modal" id="cbtModal">
-        <button class="cbt-modal-close" onclick="closeCbtModal()">&times;</button>
-        <div class="cbt-modal-header" id="cbtModalHeader"></div>
-        <div class="text-center mb-2">
-          <span class="cbt-timer" id="cbtTimer"></span>
+
+      <nav class="nav" id="nav" aria-label="Primary">
+        <a href="student-dashboard.html" data-section="home">🏠 Home</a>
+        <a href="#" data-section="courses">📘 My Courses</a>
+        <a href="assignments.html" data-section="assignments" class="active">📝 Assignments</a>
+        <a href="#" data-section="grades">📊 Grades</a>
+        <a href="#" data-section="timetable">⏰ Timetable</a>
+        <a href="#" data-section="messages">✉️ Messages</a>
+        <a href="#" data-section="resources">📂 Resources</a>
+        <a href="#" data-section="settings">⚙️ Settings</a>
+      </nav>
+
+      <div class="spacer" aria-hidden="true"></div>
+
+      <div class="profile" role="region" aria-label="Student profile">
+        <img src="" alt="Student avatar" id="studentAvatar">
+        <div>
+          <div class="name" id="studentName"></div>
+          <div class="muted" id="studentClass">Student</div>
         </div>
-        <form id="cbtQuizForm">
-          <div id="cbtQuestionsBlock"></div>
-          <div class="mt-6 flex flex-col items-center">
-            <button type="submit" class="cbt-submit-btn" id="cbtSubmitBtn">Submit CBT</button>
-            <div id="cbtFeedback" class="cbt-feedback"></div>
-          </div>
-        </form>
-        <div id="cbtQuizLoader" class="cbt-loader" style="display:none;"><i class="fa fa-spinner fa-spin"></i> Loading CBT...</div>
+      </div>
+    </aside>
+
+    <!-- Fixed Topbar -->
+    <div class="topbar" id="fixedTopbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <div>
+          <div class="page-title" id="pageTitle">My Assignments</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
       </div>
     </div>
-  </main>
+
+    <!-- Main Content -->
+    <main class="main" id="main" role="main">
+      <!-- Assignments Card -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-file-alt"></i>
+          My Assignments
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+          <button class="filter-btn active" onclick="filterAssignments('all')">All</button>
+          <button class="filter-btn" onclick="filterAssignments('pending')">Pending</button>
+          <button class="filter-btn" onclick="filterAssignments('submitted')">Submitted</button>
+          <button class="filter-btn" onclick="filterAssignments('reviewed')">Reviewed</button>
+          <button class="filter-btn" onclick="filterAssignments('overdue')">Overdue</button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrapper">
+          <table id="assignmentsTable">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Subject</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="assignmentsTableBody">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:40px;">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">📚</div>
+                    <div class="empty-state-title">Loading assignments...</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Assignment Details Modal -->
+  <div id="assignmentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Assignment Details</h2>
+        <button type="button" class="modal-close" onclick="closeAssignmentModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Subject</label>
+          <div id="modalSubject" style="color: var(--text-muted);"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <div id="modalDue" class="text-muted"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <div id="modalDescription" style="color: var(--text-muted); line-height: 1.6;"></div>
+        </div>
+        <div id="modalSubmissionStatus" class="form-group"></div>
+        <div id="modalUploadSection" class="form-group"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn ghost" onclick="closeAssignmentModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CBT/Mock Modal -->
+  <div id="cbtModalBg" class="modal">
+    <div class="cbt-modal" id="cbtModal">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="modal-title" id="cbtModalHeader"></div>
+        <button class="modal-close" onclick="closeCbtModal()">&times;</button>
+      </div>
+      <div class="text-center mb-2">
+        <span class="cbt-timer" id="cbtTimer"></span>
+      </div>
+      <form id="cbtQuizForm">
+        <div id="cbtQuestionsBlock"></div>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; align-items: center;">
+          <button type="submit" class="cbt-submit-btn" id="cbtSubmitBtn">Submit CBT</button>
+          <div id="cbtFeedback" class="cbt-feedback"></div>
+        </div>
+      </form>
+      <div id="cbtQuizLoader" class="cbt-loader" style="display:none;"><i class="fa fa-spinner fa-spin"></i> Loading CBT...</div>
+    </div>
+  </div>
+
   <script>
     // Backend API
     const API_BASE = "https://goldlincschools.onrender.com/api";
-    const token =
-      localStorage.getItem('student_token') ||
-      localStorage.getItem('studentToken') ||
-      localStorage.getItem('token');
+    const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
+    let currentFilter = 'all';
+
+    // Sidebar & Topbar Logic
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const hamburger = document.getElementById('hamburger');
+
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('visible');
+    });
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+    });
+
+    // Close sidebar on link click (mobile)
+    document.querySelectorAll('.nav a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth < 980) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('visible');
+        }
+      });
+    });
+
     // Profile filling
     function fillProfile(data) {
-      document.getElementById('profileName').textContent = data.name || 'Student Name';
-      document.getElementById('profileAvatar').src = data.photo_url
-        ? data.photo_url
-        : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name || 'Student') + '&background=2647a6&color=fff';
+      document.getElementById('studentName').textContent = data.name || 'Student Name';
+      document.getElementById('studentClass').textContent = data.class || 'Student';
+      const avatarUrl = data.photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name || 'Student') + '&background=2647a6&color=fff';
+      document.getElementById('studentAvatar').src = avatarUrl;
+      document.getElementById('topbarAvatar').src = avatarUrl;
     }
 
     // Fetch and fill assignments
     async function fetchAssignments() {
       try {
-        // Student profile for name/avatar (for nav)
+        // Student profile
         const resProfile = await fetch(API_BASE + "/student/me", {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -247,102 +1060,188 @@
 
         const tbody = document.getElementById('assignmentsTableBody');
         if (!assignments.length) {
-          tbody.innerHTML = `<tr><td class="py-2 px-4" colspan="6">No assignments found.</td></tr>`;
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">
+                  <div class="empty-state-icon">📭</div>
+                  <div class="empty-state-title">No assignments found</div>
+                  <p class="text-muted">Check back later for new assignments</p>
+                </div>
+              </td>
+            </tr>
+          `;
           return;
         }
 
         tbody.innerHTML = assignments.map((a, i) => {
-          // Status badge
+          // Status
           let statusClass = "badge-pending", statusLabel = "Pending";
           if (a.status === "Completed" || a.status === "Submitted") { statusClass = "badge-completed"; statusLabel = "Submitted"; }
           if (a.status === "Reviewed") { statusClass = "badge-reviewed"; statusLabel = "Reviewed"; }
           if (a.status === "Overdue" || (a.dueDate && new Date(a.dueDate) < new Date() && !a.submitted)) { statusClass = "badge-overdue"; statusLabel = "Overdue"; }
+
           // Score
           let score = a.score !== undefined && a.score !== null ? `${a.score}/${a.totalScore || 100}` : "-";
+
           // Action button: CBT or regular
           let cbtId = (a.cbt && typeof a.cbt === 'object') ? a.cbt._id : a.cbt;
-let cbtBtn = cbtId ?
-  `<button class="text-green-700 hover-link font-bold" onclick="openCbtModal('${cbtId}','${a.subject && a.subject.name ? a.subject.name : a.subject}','${a.title.replace(/'/g,"&#39;")}')"><i class='fa fa-lightbulb'></i> Mock/CBT</button>`
-  : `<button class="text-primary hover-link font-bold" onclick="openAssignmentModal(${i})"><i class="fa fa-eye"></i> View</button>`;
+          let cbtBtn = cbtId
+            ? `<a class="action-link success" onclick="openCbtModal('${cbtId}','${a.subject && a.subject.name ? a.subject.name : a.subject}','${a.title.replace(/'/g,"&#39;")}')"><i class='fa fa-desktop'></i> Take Test</a>`
+            : `<a class="action-link" onclick="openAssignmentModal(${i})"><i class="fa fa-eye"></i> View</a>`;
+
           return `
             <tr>
-              <td class="py-2 px-4 font-semibold">${a.title}</td>
-              <td class="py-2 px-4">${a.subject?.name || a.subject || ''}</td>
-              <td class="py-2 px-4">${a.dueDate ? a.dueDate.slice(0,10) : ''}</td>
-              <td class="py-2 px-4"><span class="badge ${statusClass}">${statusLabel}</span></td>
-              <td class="py-2 px-4">${score}</td>
-              <td class="py-2 px-4">${cbtBtn}</td>
+              <td><strong>${a.title}</strong></td>
+              <td>${a.subject?.name || a.subject || ''}</td>
+              <td>${a.dueDate ? a.dueDate.slice(0,10) : ''}</td>
+              <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+              <td>${score}</td>
+              <td>${cbtBtn}</td>
             </tr>
           `;
         }).join('');
 
-        // Store assignments globally for modal use
+        // Store for modal use
         window._assignments = assignments;
       } catch (err) {
-        document.getElementById('assignmentsTableBody').innerHTML = `<tr><td class="py-2 px-4" colspan="6">Unable to load assignments.</td></tr>`;
+        console.error(err);
+        document.getElementById('assignmentsTableBody').innerHTML = `
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-title">Unable to load assignments</div>
+                <p class="text-muted">Please refresh the page or contact support</p>
+              </div>
+            </td>
+          </tr>
+        `;
       }
     }
 
-    // Modal logic for regular assignment
+    // Filter logic
+    function filterAssignments(status) {
+      currentFilter = status;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const tbody = document.getElementById('assignmentsTableBody');
+      const rows = tbody.querySelectorAll('tr');
+
+      rows.forEach(row => {
+        if (status === 'all') {
+          row.style.display = '';
+        } else {
+          const badge = row.querySelector('.badge');
+          if (!badge) return;
+          const badgeText = badge.textContent.toLowerCase();
+          let show = false;
+
+          if (status === 'pending' && badgeText.includes('pending')) show = true;
+          if (status === 'submitted' && badgeText.includes('submitted')) show = true;
+          if (status === 'reviewed' && badgeText.includes('reviewed')) show = true;
+          if (status === 'overdue' && badgeText.includes('overdue')) show = true;
+
+          row.style.display = show ? '' : 'none';
+        }
+      });
+    }
+
+    // Modal logic
     function openAssignmentModal(idx) {
       const a = window._assignments[idx];
       document.getElementById('modalTitle').textContent = a.title;
-      document.getElementById('modalSubject').innerHTML = `<strong>Subject:</strong> ${a.subject?.name || a.subject || ''}`;
-      document.getElementById('modalDue').innerHTML = `<strong>Due:</strong> ${a.dueDate ? a.dueDate.slice(0,16).replace('T',' ') : 'N/A'}`;
-      document.getElementById('modalDescription').innerHTML = `<strong>Description:</strong><br>${(a.description || '').replace(/\n/g,'<br>')}`;
-      // Submission
+      document.getElementById('modalSubject').textContent = a.subject?.name || a.subject || '';
+      document.getElementById('modalDue').textContent = a.dueDate ? new Date(a.dueDate).toLocaleString() : 'N/A';
+      document.getElementById('modalDescription').innerHTML = (a.description || 'No description').replace(/\n/g,'<br>');
+
+      // Submission section
       let uploadSection = '';
       if (a.status === "Reviewed") {
-        uploadSection += `<div class="my-2"><strong>Feedback:</strong><br>${a.feedback || 'No feedback.'}</div>`;
+        uploadSection += `<div class="status-message status-success"><strong>✓ Reviewed</strong><br>${a.feedback || 'No feedback provided'}</div>`;
       }
+
       if (!a.submitted && (!a.status || a.status === "Pending" || a.status === "Overdue")) {
         uploadSection += `
-          <form id="uploadForm" class="mt-2" enctype="multipart/form-data">
-            <label class="block mb-2 font-bold text-primary" for="submissionFile">Upload your work:</label>
-            <input type="file" name="file" id="submissionFile" required class="mb-2 block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-[#18308b]"/>
-            <button type="submit" class="bg-primary text-white px-5 py-2 rounded-lg font-bold hover:bg-[#18308b] transition"><i class="fa fa-upload mr-1"></i>Submit</button>
+          <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+              <label class="form-label">Upload your work</label>
+              <div class="file-input-wrapper">
+                <input type="file" name="file" id="submissionFile" required class="file-input">
+                <label for="submissionFile" class="file-label">
+                  <i class="fa fa-upload"></i> Choose File
+                </label>
+              </div>
+              <small class="text-muted" id="fileName" style="display:block; margin-top:8px;"></small>
+            </div>
+            <button type="submit" class="btn success" style="width: 100%;">
+              <i class="fa fa-check"></i> Submit Assignment
+            </button>
           </form>
         `;
       } else if (a.submitted) {
-        uploadSection += `<div class="mb-2"><span class="badge badge-completed">Submitted</span></div>`;
+        uploadSection += `
+          <div class="status-message status-info">
+            <strong>✓ Submitted</strong><br>
+            <small>Submitted on ${new Date(a.submittedAt || Date.now()).toLocaleString()}</small>
+          </div>
+        `;
         if (a.submissionFile) {
-          uploadSection += `<div><a class="text-primary hover-link" href="${a.submissionFile}" target="_blank"><i class="fa fa-download"></i> View Submission</a></div>`;
+          uploadSection += `<a href="${a.submissionFile}" target="_blank" class="btn ghost" style="width: 100%; display: block;"><i class="fa fa-download"></i> Download Submission</a>`;
         }
       }
+
       document.getElementById('modalUploadSection').innerHTML = uploadSection;
 
-      // Submission status
+      // Status message
       let statusMsg = '';
       if (a.status === "Reviewed" && a.score !== undefined && a.score !== null) {
-        statusMsg = `<div class="font-bold text-green-600">Score: ${a.score}/${a.totalScore || 100}</div>`;
+        statusMsg = `<div class="status-message status-success"><strong>Score: ${a.score}/${a.totalScore || 100}</strong></div>`;
       } else if (a.status === "Overdue" || (!a.submitted && a.dueDate && new Date(a.dueDate) < new Date())) {
-        statusMsg = `<div class="font-bold text-red-600">This assignment is overdue!</div>`;
+        statusMsg = `<div class="status-message status-error"><strong>Overdue!</strong> This assignment was due on ${new Date(a.dueDate).toLocaleDateString()}</div>`;
       }
       document.getElementById('modalSubmissionStatus').innerHTML = statusMsg;
 
-      // Add upload event if form present
-      if (document.getElementById('uploadForm')) {
-        document.getElementById('uploadForm').onsubmit = function(ev) {
+      // File input change listener
+      const fileInput = document.getElementById('submissionFile');
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          document.getElementById('fileName').textContent = e.target.files[0]?.name || '';
+        });
+      }
+
+      // Form submit
+      const form = document.getElementById('uploadForm');
+      if (form) {
+        form.onsubmit = (ev) => {
           ev.preventDefault();
           submitAssignment(a._id || a.id);
-        }
+        };
       }
-      document.getElementById('assignmentModal').classList.remove('hidden');
+
+      document.getElementById('assignmentModal').classList.add('active');
     }
+
     function closeAssignmentModal() {
-      document.getElementById('assignmentModal').classList.add('hidden');
+      document.getElementById('assignmentModal').classList.remove('active');
     }
+
+    // Modal backdrop click
     window.onclick = function(e) {
       const modal = document.getElementById('assignmentModal');
       const cbtModalBg = document.getElementById('cbtModalBg');
-      if (!modal.classList.contains('hidden') && e.target === modal) closeAssignmentModal();
-      if (cbtModalBg.style.display === 'flex' && e.target === cbtModalBg) closeCbtModal();
+      if (modal.classList.contains('active') && e.target === modal) closeAssignmentModal();
+      if (cbtModalBg.classList.contains('active') && e.target === cbtModalBg) closeCbtModal();
     }
 
-    // Submission logic
+    // Submit assignment
     async function submitAssignment(assignmentId) {
       const fileInput = document.getElementById('submissionFile');
-      if (!fileInput.files.length) return alert('Please select a file.');
+      if (!fileInput.files.length) {
+        alert('Please select a file.');
+        return;
+      }
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
       try {
@@ -352,7 +1251,7 @@ let cbtBtn = cbtId ?
           body: formData
         });
         if (!res.ok) throw new Error("Failed to submit assignment.");
-        alert("Submission successful!");
+        alert("✓ Submission successful!");
         closeAssignmentModal();
         fetchAssignments();
       } catch {
@@ -370,24 +1269,26 @@ let cbtBtn = cbtId ?
     let cbtExamId = null;
 
     async function openCbtModal(cbtId, subject, title) {
-      // Reset
-      cbtQuestions = []; cbtAnswers = [];
-      cbtAssignmentId = null; cbtExamId = null;
-      document.getElementById('cbtModalHeader').innerHTML = `<i class="fa fa-lightbulb text-green-600"></i> ${subject} <span class="font-normal">(${title})</span>`;
+      cbtQuestions = [];
+      cbtAnswers = [];
+      cbtAssignmentId = null;
+      cbtExamId = null;
+
+      document.getElementById('cbtModalHeader').innerHTML = `<i class="fa fa-lightbulb" style="color: #10b981; margin-right: 8px;"></i> ${subject} <span style="font-weight: 400; font-size: 0.9rem;">(${title})</span>`;
       document.getElementById('cbtQuestionsBlock').innerHTML = '';
       document.getElementById('cbtFeedback').innerHTML = '';
       document.getElementById('cbtSubmitBtn').disabled = false;
       document.getElementById('cbtQuizLoader').style.display = '';
       document.getElementById('cbtQuizForm').style.display = 'none';
       document.getElementById('cbtTimer').textContent = '--:--';
-      document.getElementById('cbtModalBg').style.display = 'flex';
+      document.getElementById('cbtModalBg').classList.add('active');
 
-      // Find assignment id for submission (from global assignments)
+      // Find assignment id
       const a = (window._assignments||[]).find(ass=>ass.cbt && ass.cbt._id ? ass.cbt._id === cbtId : ass.cbt === cbtId);
       cbtAssignmentId = a?._id || a?.id;
       cbtExamId = cbtId;
 
-      // Fetch CBT info
+      // Fetch CBT
       let cbt = null;
       try {
         const res = await fetch(`${API_BASE}/exam/${cbtId}`, { headers: { 'Authorization': 'Bearer ' + token } });
@@ -395,10 +1296,10 @@ let cbtBtn = cbtId ?
         const data = await res.json();
         cbt = data.cbt || data;
       } catch {
-        document.getElementById('cbtQuizLoader').innerHTML = `<span class="text-red-600">Failed to load CBT.</span>`;
+        document.getElementById('cbtQuizLoader').innerHTML = `<span style="color: #e74c3c;">Failed to load CBT. Please try again.</span>`;
         return;
       }
-      // Timer
+
       cbtDuration = cbt.duration || 30;
       cbtQuestions = cbt.questions || [];
       cbtAnswers = Array(cbtQuestions.length).fill(null);
@@ -406,12 +1307,12 @@ let cbtBtn = cbtId ?
       // Render questions
       let qHtml = cbtQuestions.map((q, i) => `
         <div class="cbt-q-block">
-          <h4>Q${i+1}:</h4>
-          <div class="mb-2">${q.text}</div>
+          <h4>Question ${i+1}</h4>
+          <div style="margin-bottom: 12px; color: var(--text-main);">${q.text}</div>
           <div>
             ${(q.options||[]).map((opt, oi) => `
               <div class="cbt-opt-row">
-                <input type="radio" id="cbt-q${i}-opt${oi}" name="cbt-q${i}" value="${oi}" required onclick="cbtAnswers[${i}]=${oi}">
+                <input type="radio" id="cbt-q${i}-opt${oi}" name="cbt-q${i}" value="${oi}" required onchange="cbtAnswers[${i}]=${oi}">
                 <label for="cbt-q${i}-opt${oi}">${opt.value || opt}</label>
               </div>
             `).join('')}
@@ -427,13 +1328,10 @@ let cbtBtn = cbtId ?
       updateCbtTimer();
       clearInterval(cbtTimerInterval);
       cbtTimerInterval = setInterval(updateCbtTimer, 1000);
-
-      // Reset feedback
-      document.getElementById('cbtFeedback').innerHTML = '';
     }
 
     function closeCbtModal() {
-      document.getElementById('cbtModalBg').style.display = 'none';
+      document.getElementById('cbtModalBg').classList.remove('active');
       clearInterval(cbtTimerInterval);
     }
 
@@ -443,15 +1341,15 @@ let cbtBtn = cbtId ?
       const left = Math.max(0, cbtDuration*60 - elapsed);
       const min = Math.floor(left/60), sec = left%60;
       document.getElementById('cbtTimer').textContent = min.toString().padStart(2,'0')+':'+sec.toString().padStart(2,'0');
-      if (left === 0) { // Time up!
+      if (left === 0) {
         clearInterval(cbtTimerInterval);
-        document.getElementById('cbtFeedback').innerHTML = `<span class="text-red-600">Time is up! Submitting your CBT...</span>`;
+        document.getElementById('cbtFeedback').innerHTML = `<span style="color: #e74c3c;">⏱️ Time is up! Submitting...</span>`;
         setTimeout(()=>{ submitCbtQuiz(); }, 1200);
         document.getElementById('cbtSubmitBtn').disabled = true;
       }
     }
 
-    // CBT Quiz submission
+    // CBT submission
     document.getElementById('cbtQuizForm').onsubmit = function(ev) {
       ev.preventDefault();
       submitCbtQuiz();
@@ -459,20 +1357,19 @@ let cbtBtn = cbtId ?
 
     async function submitCbtQuiz() {
       document.getElementById('cbtSubmitBtn').disabled = true;
-      // Get answers from radio inputs
       let answers = [];
       for (let i=0; i<cbtQuestions.length; i++) {
         let sel = document.querySelector(`input[name="cbt-q${i}"]:checked`);
         answers[i] = sel ? Number(sel.value) : null;
       }
-      // Score calculation (optional, for instant feedback)
+
       let score = 0, total = cbtQuestions.length;
       for (let i=0; i<cbtQuestions.length; i++) {
         if (answers[i] !== null && answers[i] === cbtQuestions[i].answer) score++;
       }
-      // Show feedback
-      document.getElementById('cbtFeedback').innerHTML = `Submitted! Your score: <span class="text-green-600">${score}</span> / ${total}`;
-      // Optionally send to backend for saving
+
+      document.getElementById('cbtFeedback').innerHTML = `<span style="color: #10b981;">✓ Submitted! Your score: <strong>${score}/${total}</strong></span>`;
+
       if (cbtAssignmentId) {
         try {
           await fetch(`${API_BASE}/assignments/${cbtAssignmentId}/submit`, {
@@ -488,11 +1385,13 @@ let cbtBtn = cbtId ?
           });
         } catch {}
       }
+
       setTimeout(()=>{
         closeCbtModal();
         fetchAssignments();
       }, 2200);
     }
+
     // Initial load
     fetchAssignments();
   </script>
