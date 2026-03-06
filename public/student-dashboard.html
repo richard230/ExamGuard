@@ -5,854 +5,1283 @@
   <title>Student Dashboard | Gold and Linc Schools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Inter Font + FontAwesome -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <style>
     :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #3b82f6;
+      --accent-2: #6366f1;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --sidebar-w: 300px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+      --text-main: #0b2a44;
+      --text-muted: #7a90b3;
       --primary: #2647a6;
-      --sidebar: #f5f8ff;
-      --sidebar-dark: #2647a6;
-      --sidebar-accent: #e9f0fe;
-      --sidebar-icon: #fff;
-      --bg: #f6f8fa;
-      --card: #fff;
-      --radius: 18px;
-      --shadow: 0 4px 32px 0 rgba(38,71,166,0.10);
-      --shadow-hover: 0 8px 44px 0 rgba(38,71,166,0.15);
-      --text-main: #22305a;
-      --text-muted: #a6b1d0;
-      --accent: #ddeaff;
-      --accent2: #e3eefd;
-      --transition: 0.18s cubic-bezier(.39,.58,.57,1.01);
-      --highlight: #f9f5e3;
-      --success: #18ba89;
-      --danger: #e74c3c;
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
     html, body {
-      margin: 0; padding: 0;
-      background: var(--bg);
-      font-family: 'Inter', Arial, sans-serif;
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
       color: var(--text-main);
-      min-height: 100vh;
       width: 100vw;
       overflow-x: hidden;
-      box-sizing: border-box;
-      overscroll-behavior-x: none;
     }
-    body {
-      width: 100vw;
-      min-height: 100vh;
-      overflow-x: hidden;
-      box-sizing: border-box;
-      overscroll-behavior-x: none;
-      /* padding-bottom handled by media query for bottom-nav */
+
+    a {
+      color: inherit;
+      text-decoration: none;
     }
-    .dashboard-root {
+
+    /* App layout */
+    .app {
       display: flex;
       min-height: 100vh;
-      background: var(--bg);
+      align-items: stretch;
       width: 100vw;
-      overflow-x: hidden;
-      box-sizing: border-box;
       max-width: 100vw;
+      overflow-x: hidden;
     }
-    /* SIDEBAR */
-    .sidebar {
-      width: 80px;
-      background: var(--sidebar-dark);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 18px 0 14px 0;
-      box-shadow: 2px 0 12px 0 rgba(20,40,100,0.09);
-      z-index: 10;
-      min-height: 100vh;
-      transition: width 0.18s;
-    }
-    .sidebar-logo {
-      margin-bottom: 25px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 47px; height: 47px;
-      border-radius: 13px;
-      background: #fff;
-      box-shadow: 0 1px 10px #ddf2ff;
-    }
-    .sidebar-logo img {
-      width: 33px; height: 33px;
-    }
-    .sidebar-nav {
-      display: flex; flex-direction: column; gap: 17px;
-      flex: 1;
-      align-items: center;
-      width: 100%;
-    }
-    .sidebar-link {
-      color: var(--sidebar-icon);
-      background: none;
-      border: none;
-      outline: none;
-      width: 54px; height: 54px;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.35rem;
-      cursor: pointer;
-      margin-bottom: 2px;
-      opacity: 0.89;
-      transition: background var(--transition), color var(--transition), opacity var(--transition);
-      position: relative;
-    }
-    .sidebar-link.active, .sidebar-link:hover {
-      background: var(--sidebar-accent);
-      color: var(--primary);
-      opacity: 1;
-    }
-    .sidebar-link .fa {
-      pointer-events: none;
-    }
-    .sidebar-bottom {
-      margin-bottom: 12px; margin-top: 20px;
-    }
-    /* BOTTOM NAV FOR MOBILE */
-    .bottom-nav {
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
       display: none;
     }
-    /* MAIN CONTENT */
-    .dashboard-main {
-      flex: 1;
+
+    .overlay.visible {
+      display: block;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
+      color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
       display: flex;
       flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-110%);
+      transition: transform 0.28s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+      transition: transform 0.28s ease;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 700;
+      font-size: 1.18rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.96rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    .nav a.active,
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+      transform: translateX(3px);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .profile img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ffe066;
+    }
+
+    .profile .name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: #ffe066;
+    }
+
+    .profile .muted {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 20px;
+      flex: 1;
+      transition: margin-left 0.28s;
       min-height: 100vh;
-      background: var(--bg);
-      transition: margin-left 0.18s;
-      width: 100vw;
-      max-width: 100vw;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-top: 85px;
+      width: 100%;
+      max-width: calc(100vw - var(--sidebar-w));
       box-sizing: border-box;
       overflow-x: hidden;
     }
+
+    .main.full {
+      margin-left: 0;
+      max-width: 100vw;
+    }
+
     /* TOPBAR */
     .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100vw - var(--sidebar-w));
+      z-index: 90;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 19px 37px 15px 37px;
-      background: #fff;
-      border-radius: 0 0 23px 23px;
-      box-shadow: 0 2px 16px rgba(38,71,166,0.06);
-      margin-bottom: 21px;
-      position: sticky; top: 0; z-index: 9;
-      width: 100%;
-      max-width: 100vw;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-    .topbar-search {
-      flex: 1;
-      max-width: 340px;
-      margin-right: 18px;
-      position: relative;
-    }
-    .topbar-search input {
-      width: 100%;
-      background: var(--accent2);
-      border: none;
-      border-radius: 7px;
-      padding: 10px 35px 10px 15px;
-      font-size: 1.02rem;
-      transition: background var(--transition);
-      box-sizing: border-box;
-      max-width: 100%;
-    }
-    .topbar-search .fa-search {
-      position: absolute;
-      right: 12px; top: 50%; transform: translateY(-50%);
-      color: #959dc3;
-      font-size: 1.09rem;
-    }
-    .topbar-actions {
-      display: flex; align-items: center; gap: 22px;
-    }
-    .topbar-actions .icon {
-      font-size: 1.15rem;
-      color: #a6b1d0;
-      cursor: pointer;
-      transition: color var(--transition);
-      position: relative;
-    }
-    .topbar-actions .icon:hover { color: var(--primary);}
-    .topbar-actions .notif-dot {
-      position: absolute;
-      right: 2px; top: 2px;
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: var(--danger);
-      border: 2px solid #fff;
-      display: inline-block;
-    }
-    .topbar-profile {
-      display: flex; align-items: center; gap: 11px;
-      background: var(--accent2);
-      padding: 6px 17px 6px 8px;
-      border-radius: 18px;
-      font-size: 0.99rem;
-      font-weight: 600;
-      min-width: 0;
-      box-shadow: 0 3px 12px #eaf3ff73;
-      cursor: pointer;
-      transition: box-shadow var(--transition), background var(--transition);
-      max-width: 180px;
-      overflow: hidden;
-    }
-    .topbar-profile:hover {
-      background: var(--accent);
-      box-shadow: 0 6px 15px #eaf3ff66;
-    }
-    .topbar-profile-img {
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid var(--primary);
-      background: #ddeaff;
-      flex-shrink: 0;
-    }
-    .topbar-profile-info {
-      display: flex; flex-direction: column;
-      min-width: 0;
-      overflow: hidden;
-    }
-    .topbar-profile-name {
-      font-weight: 700; font-size: 1.03rem; color: var(--primary);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .topbar-profile-role {
-      color: #7a90b3; font-size: 0.92rem; font-weight: 400;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    /* CARDS */
-    .main-content {
-      display: flex;
-      flex-direction: column;
-      gap: 28px;
-      padding: 0 37px 0 37px;
-      margin-bottom: 38px;
-      width: 100vw;
-      max-width: 100vw;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-    .dashboard-widgets {
-      display: flex;
-      gap: 22px;
-      margin-bottom: 5px;
-      flex-wrap: wrap;
-      width: 100%;
-      max-width: 100vw;
-      box-sizing: border-box;
-    }
-    .widget-card {
-      flex: 1 1 145px;
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 28px 0 21px 0;
-      min-width: 140px; min-height: 95px;
-      text-align: center;
-      cursor: pointer;
-      transition: box-shadow var(--transition), transform var(--transition), border var(--transition);
-      border: 2px solid transparent;
-      position: relative;
+      gap: 12px;
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
+      min-height: 64px;
       max-width: 100%;
       box-sizing: border-box;
-      overflow-x: hidden;
     }
-    .widget-card:hover, .widget-card:focus-visible {
-      box-shadow: var(--shadow-hover);
-      border: 2px solid var(--primary);
-      transform: scale(1.045);
-      outline: none;
-      z-index: 2;
-    }
-    .widget-card .icon {
-      font-size: 1.55rem;
-      margin-bottom: 10px;
-      color: var(--primary);
-    }
-    .widget-card .label {
-      font-weight: 700;
-      color: #2f365a;
-      margin-bottom: 2px;
-      font-size: 1.08rem;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
-      max-width: 95vw;
-      box-sizing: border-box;
-    }
-    /* My Courses/Groups */
-    .courses-section {
-      margin-top: 12px;
-      width: 100%;
-      max-width: 100vw;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-    .section-title {
-      font-size: 1.18rem;
-      font-weight: 800;
-      color: var(--primary);
-      margin-bottom: 12px;
-      margin-top: 7px;
-      letter-spacing: 0.02em;
-      width: 100%;
-      max-width: 100vw;
-      box-sizing: border-box;
-    }
-    .courses-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 19px;
-      width: 100%;
-      max-width: 100vw;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-    .course-card {
-      background: var(--card);
-      border-radius: 14px;
-      box-shadow: 0 2px 12px rgba(38,71,166,0.07);
-      padding: 19px 21px 17px 21px;
-      min-width: 170px;
-      min-height: 86px;
-      flex: 1 1 170px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      cursor: pointer;
-      transition: box-shadow var(--transition), border var(--transition), transform var(--transition);
-      border: 2px solid transparent;
-      margin-bottom: 7px;
-      position: relative;
-      width: 100%;
-      max-width: 100vw;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-    .course-card.selected, .course-card:hover {
-      border: 2px solid var(--primary);
+
+    .topbar .hamburger {
+      display: none;
       background: var(--accent);
-      box-shadow: var(--shadow-hover);
-      transform: scale(1.04);
-      z-index: 1;
-    }
-    .course-title {
-      font-weight: 700; font-size: 1.08rem; margin-bottom: 2px;
-      color: var(--primary);
-      letter-spacing: 0.01em;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
-      max-width: 100vw;
-      box-sizing: border-box;
-    }
-    .course-meta {
-      color: #7a90b3; font-size: 0.96rem; margin-bottom: 3px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 100vw;
-      box-sizing: border-box;
-    }
-    .course-users {
-      display: flex; align-items: center; gap: 0.2em; font-size: 1.1rem; margin-top: 2px;
-    }
-    .course-users .fa-user {
-      color: var(--primary);
-      margin-right: 2px;
-    }
-    /* PARTICIPANT PANEL */
-    .participant-panel {
-      background: var(--card);
-      border-radius: 14px;
-      box-shadow: 0 2px 12px rgba(38,71,166,0.10);
-      padding: 22px 17px 17px 21px;
-      min-width: 220px;
-      margin-left: 25px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      max-width: 270px;
-    }
-    .participant-header {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 13px;
-      width: 100%;
-    }
-    .participant-main-avatar {
-      width: 43px; height: 43px; border-radius: 50%; object-fit: cover; background: var(--accent2); font-size: 1.5rem;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--primary); font-weight: bold;
-    }
-    .participant-info {
-      flex: 1; min-width: 0;
-    }
-    .participant-name { font-weight: bold; color: #22305a; font-size: 1.04rem; }
-    .participant-detail { font-size: 0.93rem; color: #7a90b3; }
-    .participant-tags {
-      display: flex; gap: 6px; margin-top: 7px; margin-bottom: 8px;
-    }
-    .participant-tag {
-      background: var(--accent2);
-      color: var(--primary);
-      border-radius: 7px;
-      padding: 2px 11px;
-      font-size: 0.93rem;
-      font-weight: 600;
-    }
-    .participant-label {
-      font-size: 0.98rem; color: #7a90b3; margin-bottom: 6px;
-    }
-    .participant-list {
-      display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 3px;
-    }
-    .participant-avatar {
-      width: 31px; height: 31px; border-radius: 50%; object-fit: cover; background: #ddeaff;
-      border: 2px solid #e3eefd;
-    }
-    /* NEWS CARD */
-    .news-card {
-      background: var(--card);
-      border-radius: 14px;
-      box-shadow: 0 2px 12px rgba(38,71,166,0.10);
-      padding: 20px 22px 18px 22px;
-      margin-top: 8px;
-      margin-bottom: 2px;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      align-items: flex-start;
-      width: 100%;
-      max-width: 100vw;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-    .news-title {
-      font-size: 1.13rem;
-      font-weight: 700;
-      color: var(--primary);
-      margin-bottom: 6px;
-    }
-    .news-item {
-      padding: 7px 0 7px 0;
-      font-size: 1.02rem;
-      border-bottom: 1px solid #e3eefd;
-      margin-bottom: 5px;
-    }
-    .news-item:last-child { border-bottom: none; }
-    .news-btn {
-      background: var(--primary);
       color: #fff;
       border: none;
-      border-radius: 7px;
-      padding: 7px 19px;
-      font-size: 0.99rem;
-      font-weight: 600;
-      margin-top: 8px;
+      padding: 9px 12px;
+      border-radius: 10px;
       cursor: pointer;
-      box-shadow: 0 2px 8px #ddeaff73;
-      transition: background var(--transition), box-shadow var(--transition);
+      font-weight: 800;
+      font-size: 1.05rem;
     }
-    .news-btn:hover { background: #18308b; }
-    /* Responsive */
-    @media (max-width: 1100px) {
-      .main-content { padding: 0 13px 0 13px; }
-      .topbar { padding-left: 15px; padding-right: 15px; }
+
+    .topbar .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
     }
-    @media (max-width: 900px) {
-      .dashboard-root { flex-direction: column; }
-      .dashboard-main { min-height: unset;}
-      .main-content { padding: 0 5vw 0 5vw;}
-      .participant-panel { margin-left: 0; max-width: 100vw; }
+
+    .topbar .small {
+      font-size: 0.92rem;
+      color: var(--muted);
     }
-    @media (max-width: 700px) {
-      html, body, .dashboard-root, .dashboard-main, .main-content, .news-card, .widget-card, .courses-list, .course-card, .courses-section {
-        width: 100vw !important;
-        max-width: 100vw !important;
-        min-width: 0 !important;
-        overflow-x: hidden !important;
-        box-sizing: border-box !important;
+
+    /* CARDS & GRID */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+      align-items: start;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .col-4 {
+      grid-column: span 4;
+    }
+
+    .col-8 {
+      grid-column: span 8;
+    }
+
+    .col-6 {
+      grid-column: span 6;
+    }
+
+    .col-12 {
+      grid-column: 1 / -1;
+    }
+
+    /* Progress & KPIs */
+    .progress {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .circle {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background: conic-gradient(var(--accent) 70%, #eef2ff 0%);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .kpis {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* Assignments list */
+    .assignments .item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #eef3ff;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    /* Messages */
+    .messages {
+      display: flex;
+      gap: 12px;
+    }
+
+    .conversations {
+      width: 260px;
+      max-width: 36%;
+      min-width: 200px;
+    }
+
+    .chat {
+      flex: 1;
+      min-height: 200px;
+      border-radius: 10px;
+      overflow: auto;
+      border: 1px solid #eef3ff;
+      background: #fff;
+      padding: 10px;
+    }
+
+    /* LINK GRID (Quick Actions) */
+    .link-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 12px 0;
+      align-items: stretch;
+      grid-auto-rows: 1fr;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .link-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #eef3ff;
+      text-align: center;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      cursor: pointer;
+      min-height: 110px;
+      justify-content: center;
+      height: 100%;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .link-card:focus,
+    .link-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-hover);
+      outline: none;
+    }
+
+    .link-card .icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 22px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.08);
+    }
+
+    .link-card .title {
+      font-weight: 800;
+      color: var(--text-main);
+      font-size: 0.98rem;
+    }
+
+    .link-card .subtitle {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    /* Timetable */
+    .timetable-wrapper {
+      margin-top: 16px;
+      overflow-x: auto;
+    }
+
+    .timetable {
+      display: grid;
+      grid-template-columns: 100px repeat(5, 1fr);
+      min-width: 800px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #eef3ff;
+    }
+
+    .timetable div {
+      padding: 12px;
+      border-bottom: 1px solid #eef3ff;
+      border-right: 1px solid #eef3ff;
+      font-size: 0.9rem;
+    }
+
+    .timetable div:nth-child(-n+6) {
+      font-weight: 700;
+      background: #f8faff;
+      text-align: center;
+    }
+
+    .time-slot {
+      font-weight: 700;
+      background: #f1f5ff;
+    }
+
+    .subject {
+      border-left: 4px solid var(--accent);
+      background: #ffffff;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .subject:hover {
+      background: #f9fbff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.08);
+    }
+
+    /* Resources Grid */
+    .resources-grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .resource-card {
+      background: #ffffff;
+      border: 1px solid #eef3ff;
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .resource-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .resource-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .resource-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #fff;
+      font-size: 0.8rem;
+    }
+
+    .icon-pdf {
+      background: #ef4444;
+    }
+
+    .icon-doc {
+      background: #2563eb;
+    }
+
+    .icon-video {
+      background: #10b981;
+    }
+
+    .icon-link {
+      background: #6366f1;
+    }
+
+    .resource-title {
+      font-weight: 700;
+    }
+
+    .resource-sub {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .resource-actions {
+      margin-top: auto;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Modal */
+    .resource-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+
+    .resource-modal.active {
+      display: flex;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
       }
-      .dashboard-root { flex-direction: column;}
-      .sidebar { display: none !important; }
-      .dashboard-main {padding-top: 9px;}
-      .topbar {flex-direction: column; align-items: stretch; gap: 9px; padding: 10px 5vw 13px 5vw; border-radius: 0 0 17px 17px;}
-      .main-content { padding: 0 1vw 0 1vw;}
-      .dashboard-widgets { flex-wrap: wrap; gap: 11px;}
-      .widget-card { min-width: 45vw; min-height: 68px; padding: 15px 0 14px 0; font-size: 0.97em;}
-      .courses-list { flex-direction: column; gap: 7px;}
-      .course-card { min-width: 0; width: 100vw; }
-      .participant-panel { display: none !important;}
-      .news-card { padding: 13px 7px 13px 7px; }
-      .bottom-nav {
-        display: flex !important;
-        position: fixed;
-        left: 0; right: 0; bottom: 0;
-        width: 100vw; height: 53px;
-        background: var(--sidebar-dark);
-        box-shadow: 0 -2px 12px #ddeaff;
-        z-index: 9999;
-        align-items: center;
-        justify-content: space-evenly;
-        border-radius: 18px 18px 0 0;
-        max-width: 100vw;
-        min-width: 0;
-        box-sizing: border-box;
-      }
-      .bottom-nav-btn {
-        flex: 1;
-        background: none;
-        border: none;
-        outline: none;
-        color: var(--sidebar-icon);
-        font-size: 1.33rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        opacity: 0.85;
-        transition: color var(--transition), opacity var(--transition);
-        height: 100%;
-        cursor: pointer;
-        min-width: 0;
-      }
-      .bottom-nav-btn.active, .bottom-nav-btn:active, .bottom-nav-btn:focus {
-        color: var(--primary);
+      to {
         opacity: 1;
       }
-      .bottom-nav-label {
-        font-size: 0.71rem;
-        margin-top: 1px;
-        color: #e4ecff;
-        font-weight: 500;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      body { padding-bottom: 70px !important; }
     }
+
+    .resource-modal-content {
+      background: #ffffff;
+      width: 900px;
+      max-width: 95vw;
+      height: 80vh;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+    }
+
+    .resource-modal-header {
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #eef3ff;
+      background: #f8faff;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      font-weight: 700;
+      color: #64748b;
+    }
+
+    .modal-close:hover {
+      color: #ef4444;
+    }
+
+    .resource-modal-body {
+      flex: 1;
+      overflow: auto;
+      padding: 0;
+    }
+
+    .resource-modal-body iframe,
+    .resource-modal-body video {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Buttons */
+    .muted {
+      color: var(--muted);
+    }
+
+    .btn {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-weight: 700;
+      transition: all 0.12s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--accent-2);
+      border: 1px solid rgba(59, 130, 246, 0.08);
+    }
+
+    .btn.ghost:hover {
+      background: rgba(59, 130, 246, 0.04);
+    }
+
+    /* Accessibility */
+    .nav a:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.18);
+      outline-offset: 3px;
+      border-radius: 8px;
+    }
+
+    .link-card:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.12);
+      outline-offset: 3px;
+    }
+
+    /* Helper */
+    .small {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .main {
+        padding: 20px 13px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .link-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+
+      .col-4 {
+        grid-column: span 3;
+      }
+
+      .col-8 {
+        grid-column: span 6;
+      }
+
+      .col-6 {
+        grid-column: span 3;
+      }
+
+      .topbar .hamburger {
+        display: inline-flex;
+      }
+    }
+
+    @media (max-width: 720px) {
+      :root {
+        --sidebar-w: 86vw;
+      }
+
+      .sidebar {
+        transform: translateX(-110%);
+        position: fixed;
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+      }
+
+      .sidebar.hidden {
+        transform: translateX(-110%);
+      }
+
+      .overlay {
+        display: none;
+      }
+
+      .overlay.visible {
+        display: block;
+      }
+
+      body.no-scroll {
+        overflow: hidden;
+        height: 100vh;
+        touch-action: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 14px;
+        padding-top: 90px;
+        max-width: 100vw;
+      }
+
+      .main.full {
+        margin-left: 0;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100vw;
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .nav a {
+        padding: 14px 14px;
+        font-size: 1.08rem;
+      }
+
+      .conversations {
+        display: none;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .col-4,
+      .col-8,
+      .col-6,
+      .col-12 {
+        grid-column: auto;
+      }
+
+      .link-grid {
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: minmax(100px, 1fr);
+      }
+
+      .link-card {
+        height: 100%;
+        min-height: 100px;
+      }
+
+      .timetable {
+        grid-template-columns: 80px repeat(5, 140px);
+      }
+    }
+
     @media (max-width: 480px) {
-      .main-content { padding: 0 2vw 0 2vw;}
-      .topbar {padding-left: 2vw; padding-right: 2vw;}
-      .news-card { padding: 12px 5px 10px 5px; }
+      .main {
+        padding: 14px 2vw;
+      }
+
+      .topbar {
+        padding: 10px 2vw;
+      }
+
+      .link-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .card {
+        padding: 12px;
+      }
     }
   </style>
 </head>
 <body>
-<div class="dashboard-root">
-  <!-- Sidebar (desktop) -->
-  <nav class="sidebar">
-    <div class="sidebar-logo">
-      <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
-    </div>
-    <div class="sidebar-nav">
-      <button class="sidebar-link active" title="Home"><i class="fa fa-home"></i></button>
-      <button class="sidebar-link" title="CBT MOCK/EXAM" onclick="window.location.href='cbt.html'"><i class="fa fa-laptop"></i></button>
-      <button class="sidebar-link" title="Assignments" onclick="window.location.href='assignments.html'"><i class="fa fa-file-alt"></i></button>
-      <button class="sidebar-link" title="Fees" onclick="window.location.href='fees.html'"><i class="fa fa-wallet"></i></button>
-      <button class="sidebar-link" title="Results" onclick="window.location.href='check-results.html'"><i class="fa fa-chart-bar"></i></button>
-      <button class="sidebar-link" title="Subjects" onclick="window.location.href='subjects.html'"><i class="fa fa-users"></i></button>
-      <button class="sidebar-link" title="Hostel" onclick="window.location.href='hostel.html'"><i class="fa fa-bed"></i></button>
-      <button class="sidebar-link" title="Transport" onclick="window.location.href='transport.html'"><i class="fa fa-bus"></i></button>
-      <button class="sidebar-link" title="Profile" onclick="window.location.href='profile.html'"><i class="fa fa-user"></i></button>
-    </div>
-    <div class="sidebar-bottom">
-      <button class="sidebar-link" title="More" onclick="window.location.href='menu.html'"><i class="fa fa-ellipsis-h"></i></button>
-    </div>
-  </nav>
-  <!-- Main Content -->
-  <main class="dashboard-main">
-    <!-- Top Bar -->
-    <div class="topbar">
-      <div class="topbar-search">
-        <input type="text" placeholder="Search for something..." id="searchInput">
-        <i class="fa fa-search"></i>
-      </div>
-      <div class="topbar-actions">
-        <span class="icon" title="Notifications">
-          <i class="fa fa-bell"></i>
-          <span class="notif-dot" id="notifDot" style="display:none;"></span>
-        </span>
-      </div>
-      <div class="topbar-profile" tabindex="0" onclick="window.location.href='profile.html'">
-        <img class="topbar-profile-img" id="profileAvatar" src="https://ui-avatars.com/api/?name=Student&background=2647a6&color=fff" alt="Student">
-        <div class="topbar-profile-info">
-          <div class="topbar-profile-name" id="profileName">Student Name</div>
-          <div class="topbar-profile-role">Student</div>
+  <div class="app" id="app">
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
+      <div class="brand" aria-hidden="false">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
+        <div>
+          <div class="title">ExamGuard</div>
+          <div class="subtitle" id="schoolSubtitle">Gold & Linc Schools</div>
         </div>
       </div>
-    </div>
-    <!-- Main Cards -->
-    <div class="main-content">
-      <!-- Widget Buttons -->
-      <div class="dashboard-widgets">
-        <div class="widget-card" tabindex="0" onclick="window.location.href='cbt-warning.html'">
-          <span class="icon"><i class="fa fa-laptop"></i></span>
-          <span class="label">CBT Mock/Exam</span>
-        </div>
-        <div class="widget-card" tabindex="0" onclick="window.location.href='assignments.html'">
-          <span class="icon"><i class="fa fa-file-alt"></i></span>
-          <span class="label">Assignments</span>
-        </div>
-        <div class="widget-card" tabindex="0" onclick="window.location.href='fees.html'">
-          <span class="icon"><i class="fa fa-wallet"></i></span>
-          <span class="label">Fees</span>
-        </div>
-        <div class="widget-card" tabindex="0" onclick="window.location.href='check-result.html'">
-          <span class="icon"><i class="fa fa-chart-bar"></i></span>
-          <span class="label">Results</span>
-        </div>
-        <div class="widget-card" tabindex="0" onclick="window.location.href='subjects.html'">
-          <span class="icon"><i class="fa fa-users"></i></span>
-          <span class="label">Subjects</span>
-        </div>
-        <div class="widget-card" tabindex="0" onclick="window.location.href='hostel.html'">
-          <span class="icon"><i class="fa fa-bed"></i></span>
-          <span class="label">Hostel</span>
-        </div>
-        <div class="widget-card" tabindex="0" onclick="window.location.href='transport.html'">
-          <span class="icon"><i class="fa fa-bus"></i></span>
-          <span class="label">Transport</span>
-        </div>
-        <div class="widget-card" tabindex="0" onclick="window.location.href='profile.html'">
-          <span class="icon"><i class="fa fa-user"></i></span>
-          <span class="label">Profile</span>
+
+      <nav class="nav" id="nav" aria-label="Primary">
+        <a href="#" data-section="home" class="active" onclick="navClick(event)">🏠 Home</a>
+        <a href="#" data-section="courses" onclick="navClick(event)">📘 My Courses</a>
+        <a href="#" data-section="assignments" onclick="navClick(event)">📝 Assignments</a>
+        <a href="#" data-section="grades" onclick="navClick(event)">📊 Grades</a>
+        <a href="#" data-section="timetable" onclick="navClick(event)">⏰ Timetable</a>
+        <a href="#" data-section="messages" onclick="navClick(event)">✉️ Messages</a>
+        <a href="#" data-section="resources" onclick="navClick(event)">📂 Resources</a>
+        <a href="#" data-section="settings" onclick="navClick(event)">⚙️ Settings</a>
+      </nav>
+
+      <div class="spacer" aria-hidden="true"></div>
+
+      <div class="profile" role="region" aria-label="Student profile">
+        <img src="" alt="Student avatar" id="studentAvatar">
+        <div>
+          <div class="name" id="studentName"></div>
+          <div class="muted" id="studentClass"></div>
         </div>
       </div>
+    </aside>
+
+    <!-- Fixed Topbar -->
+    <div class="topbar" id="fixedTopbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <div>
+          <div class="page-title" id="pageTitle">Welcome back</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main" id="main" role="main" tabindex="-1">
+
+      <!-- Home Section -->
+      <section id="home" class="section">
+        <div class="grid" style="margin-bottom:12px;">
+          <!-- Overall Progress -->
+          <div class="card col-4">
+            <div class="small muted">Overall Progress</div>
+            <div style="margin-top:10px" class="progress">
+              <div class="circle" id="progCircle">--%</div>
+              <div>
+                <div class="small muted">Cumulative Average</div>
+                <div style="font-weight:900; font-size:1.18rem;" id="cumAvg">--%</div>
+                <div class="small muted">-- of cohort</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- This Term Stats -->
+          <div class="card col-4">
+            <div class="small muted">This Term</div>
+            <div style="margin-top:10px" class="kpis">
+              <div style="flex:1">
+                <div class="small muted">Assignments Due</div>
+                <div class="small" id="dueCount" style="font-weight:900;font-size:1.18rem">--</div>
+                <div class="small muted">Due this week</div>
+              </div>
+              <div style="flex:1">
+                <div class="small muted">Attendance</div>
+                <div class="small" id="attPct" style="font-weight:900;font-size:1.18rem">--%</div>
+                <div class="small muted">This term</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upcoming -->
+          <div class="card col-4">
+            <div class="small muted">Upcoming</div>
+            <div style="margin-top:10px">
+              <div id="upcomingTitle" style="font-weight:800">--</div>
+              <div class="small muted" id="upcomingMeta">--</div>
+              <div style="margin-top:10px; padding:10px; border-left:4px solid var(--accent); background:linear-gradient(90deg,#fff,#fbfdff); border-radius:8px;" id="upcomingNote">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Links Grid -->
+        <div class="link-grid" aria-label="Quick links">
+          <a class="link-card" href="cbt-warning.html" aria-label="CBT exam">
+            <div class="icon" aria-hidden="true">
+              <i class="fa fa-laptop"></i>
+            </div>
+            <div class="title">CBT Mock/Exam</div>
+            <div class="subtitle">Start tests</div>
+          </a>
+
+          <a class="link-card" href="check-results.html" aria-label="Results">
+            <div class="icon" aria-hidden="true">
+              <i class="fa fa-chart-bar"></i>
+            </div>
+            <div class="title">Results</div>
+            <div class="subtitle">View report cards</div>
+          </a>
+
+          <a class="link-card" href="fees.html" aria-label="School fees">
+            <div class="icon" aria-hidden="true">
+              <i class="fa fa-wallet"></i>
+            </div>
+            <div class="title">School Fees</div>
+            <div class="subtitle">Payments</div>
+          </a>
+
+          <a class="link-card" href="assignments.html" aria-label="Assignments">
+            <div class="icon" aria-hidden="true">
+              <i class="fa fa-file-alt"></i>
+            </div>
+            <div class="title">Assignments</div>
+            <div class="subtitle">Submit work</div>
+          </a>
+        </div>
+
+        <!-- Assignments Section -->
+        <div class="grid">
+          <div class="card col-8">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-weight:800">Assignments</div>
+              <div class="small muted">Track & submit</div>
+            </div>
+            <div class="assignments" id="assignmentsList" style="margin-top:10px"></div>
+            <div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="btn" onclick="navTo('assignments')">View all</button></div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card col-4">
+            <div style="font-weight:800">Quick Actions</div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+              <button class="btn ghost" onclick="navTo('timetable')">View Timetable</button>
+              <button class="btn ghost" onclick="navTo('resources')">Resources</button>
+              <button class="btn" onclick="navTo('assignments')">Assignments</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grades & Messages -->
+        <div class="grid" style="margin-top:12px;">
+          <div class="card col-6">
+            <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800">Grades Snapshot</div><div class="small muted">Latest</div></div>
+            <div style="margin-top:10px">
+              <table style="width:100%;border-collapse:collapse">
+                <thead><tr><th style="text-align:left;padding:8px">Subject</th><th style="text-align:left;padding:8px">Latest</th><th style="text-align:left;padding:8px">Term Avg</th></tr></thead>
+                <tbody id="gradesTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card col-6">
+            <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800">Today's Timetable</div><div class="small muted">Schedule</div></div>
+            <div id="todayTimetable" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <!-- News & Updates -->
+        <div class="card col-12" style="margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:800;font-size:1.1rem;">News & Updates</div>
+            <div class="small muted">Latest</div>
+          </div>
+          <div id="newsContent" style="margin-top:10px"></div>
+          <div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="btn" onclick="window.location.href='news.html'">News & Events →</button></div>
+        </div>
+      </section>
+
+      <!-- Courses Section -->
+      <section id="courses" class="section" style="display:none">
+        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">My Courses</div>
+        <div class="link-grid" id="coursesGrid"></div>
+      </section>
+
+      <!-- Assignments Section -->
+      <section id="assignments" class="section" style="display:none">
+        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Assignments</div>
+        <div id="assignmentsFull"></div>
+      </section>
+
+      <!-- Grades Section -->
+      <section id="grades" class="section" style="display:none">
+        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Grades</div>
+        <div id="gradesFull"></div>
+      </section>
+
       <!-- Timetable Section -->
-      <div class="courses-section">
-        <div class="section-title">Today's Timetable</div>
-        <div class="courses-list" id="timetableList">
-          <!-- JS will fill today's classes as cards -->
-          <div class="course-card" id="timetableLoading">Loading...</div>
-        </div>
-      </div>
-      <!-- My Courses Section -->
-      <div class="courses-section">
-        <div class="section-title">My Courses</div>
-        <div class="courses-list" id="coursesList">
-          <!-- JS will fill courses/groups as cards -->
-        </div>
-      </div>
-      <!-- News & Updates -->
-      <div class="news-card" id="newsCard">
-        <div class="news-title">News &amp; Updates</div>
-        <div class="news-empty" id="newsContent">No items found</div>
-        <button class="news-btn" onclick="window.location.href='news.html'">News &amp; Events →</button>
-      </div>
-    </div>
-  </main>
-  <!-- Side participant panel (desktop/tablet only) -->
-  <aside class="participant-panel" id="participantPanel" style="display: none;">
-    <div class="participant-header">
-      <div class="participant-main-avatar" id="mainCourseAvatar">B</div>
-      <div class="participant-info">
-        <div class="participant-name" id="mainCourseName">Class XB</div>
-        <div class="participant-detail" id="mainCourseDetail">Mathematics</div>
-      </div>
-    </div>
-    <div class="participant-tags" id="mainCourseTags">
-      <div class="participant-tag">Ongoing</div>
-      <div class="participant-tag">70 Students</div>
-    </div>
-    <div class="participant-label">Participants</div>
-    <div class="participant-list" id="participantList">
-      <!-- JS: Avatars -->
-    </div>
-  </aside>
-  <!-- Bottom Nav (mobile) -->
-  <nav class="bottom-nav">
-    <button class="bottom-nav-btn active" title="Home" onclick="window.location.href='dashboard.html'">
-      <i class="fa fa-home"></i>
-      <div class="bottom-nav-label">Home</div>
-    </button>
-    <button class="bottom-nav-btn" title="E-Class" onclick="window.location.href='cbt-warning.html'">
-      <i class="fa fa-laptop"></i>
-      <div class="bottom-nav-label">CBT</div>
-    </button>
-    <button class="bottom-nav-btn" title="Assignments" onclick="window.location.href='assignments.html'">
-      <i class="fa fa-file-alt"></i>
-      <div class="bottom-nav-label">Tasks</div>
-    </button>
-    <button class="bottom-nav-btn" title="Fees" onclick="window.location.href='fees.html'">
-      <i class="fa fa-wallet"></i>
-      <div class="bottom-nav-label">Fees</div>
-    </button>
-    <button class="bottom-nav-btn" title="Profile" onclick="window.location.href='profile.html'">
-      <i class="fa fa-user"></i>
-      <div class="bottom-nav-label">Me</div>
-    </button>
-  </nav>
-</div><script>
-  // Use your backend URL
-  const API_BASE_URL = "https://goldlincschools.onrender.com";
+      <section id="timetable" class="section" style="display:none">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:800;font-size:1.1rem;">Weekly Timetable</div>
+            <div class="small muted" id="timetableMeta">Your Schedule</div>
+          </div>
 
-  // Responsive: participant panel only on wide screens
-  function toggleParticipantPanel() {
-    const panel = document.getElementById('participantPanel');
-    panel.style.display = window.innerWidth >= 900 ? 'flex' : 'none';
-  }
-  toggleParticipantPanel();
-  window.addEventListener('resize', toggleParticipantPanel);
+          <div class="timetable-wrapper">
+            <div class="timetable" id="timetableGrid"></div>
+          </div>
+        </div>
+      </section>
 
-  // Keyboard nav for widget-cards
-  document.querySelectorAll('.widget-card').forEach(card => {
-    card.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault(); card.click();
-      }
+      <!-- Messages Section -->
+      <section id="messages" class="section" style="display:none">
+        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Messages</div>
+        <div id="messagesFull"></div>
+      </section>
+
+      <!-- Resources Section -->
+      <section id="resources" class="section" style="display:none">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:800;font-size:1.1rem;">Learning Resources</div>
+            <div class="small muted">All Subjects</div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+            <input type="text" id="resourceSearch" placeholder="Search resources..." style="flex:1;padding:10px;border-radius:10px;border:1px solid #e5e7eb;">
+            <button class="btn">Upload</button>
+          </div>
+
+          <div class="resources-grid" id="resourcesGrid"></div>
+        </div>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="settings" class="section" style="display:none">
+        <div class="card">
+          <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Settings</div>
+          <div id="settingsContent">Settings page placeholder</div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Resource Modal -->
+  <div class="resource-modal" id="resourceModal">
+    <div class="resource-modal-content">
+      <div class="resource-modal-header">
+        <div id="modalTitle" style="font-weight:800;">Resource</div>
+        <button class="modal-close" onclick="document.getElementById('resourceModal').classList.remove('active')">✕</button>
+      </div>
+      <div class="resource-modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // Global Config & State
+    // ============================================
+    const API_BASE_URL = "https://goldlincschools.onrender.com";
+    let currentStudent = {};
+    let currentSection = 'home';
+
+    // ============================================
+    // DOM References
+    // ============================================
+    const app = document.getElementById('app');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const hamburger = document.getElementById('hamburger');
+    const main = document.getElementById('main');
+    const nav = document.getElementById('nav');
+    const pageTitle = document.getElementById('pageTitle');
+    const studentName = document.getElementById('studentName');
+    const studentClass = document.getElementById('studentClass');
+    const studentAvatar = document.getElementById('studentAvatar');
+    const topbarAvatar = document.getElementById('topbarAvatar');
+
+    // ============================================
+    // Mobile Menu Toggle
+    // ============================================
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      sidebar.classList.toggle('hidden');
+      overlay.classList.toggle('visible');
+      document.body.classList.toggle('no-scroll');
     });
-  });
 
-  // Fill dashboard from API as before
-  async function fetchStudentDashboard() {
-    const token =
-  localStorage.getItem('student_token') ||
-  localStorage.getItem('studentToken') ||
-  localStorage.getItem('token');
-    const defaultData = {
-      name: "Janet Okafor",
-      photo_url: "",
-      timetable: [
-        { day: 'tuesday', subjects: [
-          { time: "09:00", name: "Mathematics" },
-          { time: "11:00", name: "English" }
-        ] }
-      ],
-      courses: [
-        { name: "Class XB", subject: "Physics", students: 70, selected: true, participants: [
-          { name: "Janet", avatar: "" }, { name: "Ali", avatar: "" }, { name: "Blessing", avatar: "" }
-        ] },
-        { name: "Class XC", subject: "History", students: 90, selected: false, participants: [] },
-        { name: "Class XD", subject: "Biology", students: 95, selected: false, participants: [] }
-      ],
-      news: [
-        { title: "Midterm Exams", date: "2025-06-05", summary: "Midterm exams start next week. Study hard!" },
-        { title: "New Library Books", date: "2025-06-04", summary: "Check out the new science fiction collection." }
-      ],
-      unread_notifications: 2
-    };
+    overlay.addEventListener('click', () => {
+      sidebar.classList.add('hidden');
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+      document.body.classList.remove('no-scroll');
+    });
 
-    let data = defaultData;
-    if (token) {
+    // ============================================
+    // Navigation
+    // ============================================
+    function navClick(e) {
+      e.preventDefault();
+      const section = e.target.closest('a').dataset.section;
+      navTo(section);
+    }
+
+    function navTo(section) {
+      currentSection = section;
+      // Close sidebar on mobile
+      if (window.innerWidth <= 720) {
+        sidebar.classList.add('hidden');
+        overlay.classList.remove('visible');
+        document.body.classList.remove('no-scroll');
+      }
+
+      // Hide all sections
+      document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+      document.getElementById(section).style.display = 'block';
+
+      // Update nav active
+      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+      document.querySelector(`[data-section="${section}"]`).classList.add('active');
+
+      // Update page title
+      pageTitle.textContent = `Welcome back, ${currentStudent.name || 'Student'}`;
+    }
+
+    // ============================================
+    // Fetch Student Dashboard
+    // ============================================
+    async function fetchStudentDashboard() {
+      const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
+
       try {
         const res = await fetch(API_BASE_URL + '/api/students/me', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
-        if (res.ok) data = await res.json();
-      } catch {}
-    }
-
-    // Profile
-    document.getElementById('profileName').textContent = data.name || 'Student Name';
-    if (data.photo_url) {
-      document.getElementById('profileAvatar').src = data.photo_url;
-    } else if (data.name) {
-      document.getElementById('profileAvatar').src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=2647a6&color=fff';
-    }
-
-    // Notification dot
-    if (data.unread_notifications && data.unread_notifications > 0) {
-      document.getElementById('notifDot').style.display = 'inline-block';
-    } else {
-      document.getElementById('notifDot').style.display = 'none';
-    }
-
-
-    // Courses/groups
-    const coursesList = document.getElementById('coursesList');
-    coursesList.innerHTML = '';
-    if (data.courses && Array.isArray(data.courses)) {
-      data.courses.forEach((course, idx) => {
-        const div = document.createElement('div');
-        div.className = 'course-card' + (course.selected ? ' selected' : '');
-        div.innerHTML = `<div class="course-title">${course.name}</div>
-          <div class="course-meta">${course.subject || ''}</div>
-          <div class="course-meta">${course.students || 0} Students</div>
-          <div class="course-users"><i class="fa fa-user"></i>${course.students || 0}</div>`;
-        div.onclick = () => selectCourse(idx, data.courses);
-        coursesList.appendChild(div);
-      });
-    }
-
-    // News
-    const newsContent = document.getElementById('newsContent');
-    if (data.news && data.news.length > 0) {
-      newsContent.innerHTML = data.news.map(news =>
-        `<div class="news-item"><strong>${news.title}</strong><br><span style="color:#888;font-size:0.97em;">${news.date || ''}</span><br>${news.summary || ''}</div>`
-      ).join('');
-    } else {
-      newsContent.textContent = 'No items found';
-    }
-
-    // Participant panel (desktop)
-    if (data.courses && data.courses.length > 0) {
-      const selected = data.courses.find(c => c.selected) || data.courses[0];
-      document.getElementById('mainCourseAvatar').textContent = selected.name ? selected.name[0] : 'C';
-      document.getElementById('mainCourseName').textContent = selected.name || '';
-      document.getElementById('mainCourseDetail').textContent = selected.subject || '';
-      document.getElementById('mainCourseTags').innerHTML =
-        `<div class="participant-tag">Ongoing</div><div class="participant-tag">${selected.students || 0} Students</div>`;
-      const partList = document.getElementById('participantList');
-      partList.innerHTML = '';
-      if (selected.participants && selected.participants.length > 0) {
-        selected.participants.forEach(p =>
-          partList.innerHTML += `<img class="participant-avatar" src="${p.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(p.name) + '&background=2647a6&color=fff'}" title="${p.name}">`
-        );
+        if (!res.ok) throw new Error('Failed to fetch');
+        const data = await res.json();
+        populateDashboard(data);
+      } catch (err) {
+        console.error('Error fetching dashboard:', err);
+        populateDashboard(null);
       }
     }
-      if (data.class && data.class._id) {
-  fetchAndRenderTimetable(data.class._id);
-} else {
-  timetableList.innerHTML = `<div class="course-card">No class info!</div>`;
-}
-  }
-  fetchStudentDashboard();
-    // Timetable (today)
-    async function fetchAndRenderTimetable(studentClassId) {
-  const timetableList = document.getElementById('timetableList');
-  timetableList.innerHTML = '<div class="course-card">Loading...</div>';
-  try {
-    // Fetch scheduled mocks for today
-    const res = await fetch(API_BASE_URL + '/api/academics/cbt/mocks/today/' + studentClassId, {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    const cbts = await res.json();
-    if (cbts && cbts.length > 0) {
-      timetableList.innerHTML = cbts.map(cbt =>
-        `<div class="course-card">
-          <div class="course-title">${cbt.title} (${cbt.mode})</div>
-          <div class="course-meta">${new Date(cbt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-        </div>`
-      ).join('');
-    } else {
-      timetableList.innerHTML = `<div class="course-card">No CBT/Mock scheduled today!</div>`;
+
+    function populateDashboard(data) {
+      if (!data) {
+        studentName.textContent = '';
+        studentClass.textContent = '';
+        studentAvatar.src = '';
+        topbarAvatar.src = '';
+        document.getElementById('newsContent').innerHTML = '';
+        document.getElementById('gradesTable').innerHTML = '';
+        document.getElementById('todayTimetable').innerHTML = '';
+        return;
+      }
+
+      currentStudent = data;
+
+      // Update Profile
+      const fullName = data.name || '';
+      studentName.textContent = fullName;
+      pageTitle.textContent = `Welcome back, ${fullName}`;
+      studentClass.textContent = data.class?.name || '';
+
+      if (data.photo_url) {
+        studentAvatar.src = data.photo_url;
+        topbarAvatar.src = data.photo_url;
+      } else if (fullName) {
+        const avatarUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(fullName) + '&background=2647a6&color=fff';
+        studentAvatar.src = avatarUrl;
+        topbarAvatar.src = avatarUrl;
+      }
+
+      // Populate News
+      const newsContent = document.getElementById('newsContent');
+      if (data.news && data.news.length > 0) {
+        newsContent.innerHTML = data.news.map(news =>
+          `<div style="padding:8px 0;border-bottom:1px solid #eef3ff;"><strong>${news.title}</strong><br><span style="color:#888;font-size:0.9em;">${news.date || ''}</span><br>${news.summary || ''}</div>`
+        ).join('');
+      } else {
+        newsContent.innerHTML = '';
+      }
+
+      // Populate Grades Table
+      const gradesTable = document.getElementById('gradesTable');
+      if (data.grades && data.grades.length > 0) {
+        gradesTable.innerHTML = data.grades.map(g =>
+          `<tr><td style="padding:8px;border-bottom:1px solid #eef3ff;">${g.subject}</td><td style="padding:8px;border-bottom:1px solid #eef3ff;">${g.latest}</td><td style="padding:8px;border-bottom:1px solid #eef3ff;">${g.termAvg}</td></tr>`
+        ).join('');
+      } else {
+        gradesTable.innerHTML = '';
+      }
+
+      // Populate Today's Timetable
+      const todayTimetable = document.getElementById('todayTimetable');
+      if (data.timetable && data.timetable.length > 0) {
+        const today = data.timetable[0];
+        todayTimetable.innerHTML = (today.subjects || []).map(s =>
+          `<div style="padding:8px;background:#f3f6fb;border-radius:8px;margin-bottom:8px;"><strong>${s.time}</strong> - ${s.name}</div>`
+        ).join('');
+      } else {
+        todayTimetable.innerHTML = '';
+      }
+
+      // Populate Courses Section
+      const coursesGrid = document.getElementById('coursesGrid');
+      if (data.courses && Array.isArray(data.courses)) {
+        coursesGrid.innerHTML = data.courses.map((course, idx) =>
+          `<a class="link-card" onclick="selectCourse(${idx})">
+            <div class="icon" style="background:linear-gradient(90deg,#3b82f6,#6366f1);">${course.name ? course.name[0] : 'C'}</div>
+            <div class="title">${course.name || ''}</div>
+            <div class="subtitle">${course.subject || ''}</div>
+          </a>`
+        ).join('');
+      }
     }
-  } catch (err) {
-    timetableList.innerHTML = `<div class="course-card">Error loading today's mocks</div>`;
-  }
-}
 
+    // ============================================
+    // Course Selection
+    // ============================================
+    function selectCourse(idx) {
+      if (currentStudent.courses) {
+        currentStudent.courses.forEach((c, i) => c.selected = (i === idx));
+        if (currentStudent.class && currentStudent.class._id) {
+          fetchAndRenderTimetable(currentStudent.class._id);
+        }
+      }
+    }
 
-  // Course select logic (visual feedback)
-  function selectCourse(idx, courses) {
-    courses.forEach((c, i) => c.selected = (i === idx));
-    fetchStudentDashboard();
-    fetchAndRenderTimetable(data.class._id);
-  }
-</script>
+    // ============================================
+    // Fetch & Render Timetable
+    // ============================================
+    async function fetchAndRenderTimetable(classId) {
+      const timetableGrid = document.getElementById('timetableGrid');
+      const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/academics/cbt/mocks/today/${classId}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('Failed to fetch');
+        const cbts = await res.json();
+
+        if (cbts && cbts.length > 0) {
+          let html = '<div style="font-weight:700;background:#f8faff;text-align:center;">Time</div>';
+          const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+          days.forEach(day => {
+            html += `<div style="font-weight:700;background:#f8faff;text-align:center;">${day}</div>`;
+          });
+
+          cbts.forEach((cbt, i) => {
+            html += `<div class="time-slot">${new Date(cbt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>`;
+            html += `<div class="subject" style="grid-column: span 5;">${cbt.title}</div>`;
+          });
+
+          timetableGrid.innerHTML = html;
+        } else {
+          timetableGrid.innerHTML = '<div style="grid-column: 1/-1;padding:20px;text-align:center;color:#888;">No schedule available</div>';
+        }
+      } catch (err) {
+        console.error('Error fetching timetable:', err);
+        timetableGrid.innerHTML = '';
+      }
+    }
+
+    // ============================================
+    // Init
+    // ============================================
+    window.addEventListener('load', () => {
+      fetchStudentDashboard();
+    });
+
+    // Responsive sidebar
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 720) {
+        sidebar.classList.remove('hidden', 'open');
+        overlay.classList.remove('visible');
+      }
+    });
+  </script>
 </body>
 </html>
