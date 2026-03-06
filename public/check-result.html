@@ -719,8 +719,8 @@
       <div class="profile" role="region" aria-label="Student profile">
         <img src="" alt="Student avatar" id="studentAvatar">
         <div>
-          <div class="name" id="studentName"></div>
-          <div class="muted" id="studentClass"></div>
+          <div class="name" id="studentName">Student</div>
+          <div class="muted" id="studentClass">N/A</div>
         </div>
       </div>
     </aside>
@@ -795,7 +795,7 @@
               <option>THIRD TERM</option>
             </select>
           </div>
-          <button class="result-search-btn" type="submit"><i class="fa fa-search"></i> View Result</button>
+          <button class="result-search-btn" type="submit" id="submitBtn"><i class="fa fa-search"></i> View Result</button>
         </form>
         <div class="result-search-error" id="searchError" style="display:none;"></div>
       </section>
@@ -842,10 +842,31 @@
 
   <script>
     const API_BASE_URL = "https://goldlincschools.onrender.com";
+    const API_TIMEOUT = 15000; // 15 seconds timeout
 
     let lastStudentProfile = null;
     let lastSkillsReport = null;
     let lastClassSize = null;
+    let isLoadingResults = false;
+
+    // ============================================
+    // Helper: Fetch with timeout
+    // ============================================
+    async function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    }
 
     // ============================================
     // Sidebar & Navigation Functions
@@ -896,30 +917,32 @@
 
     function hideLoader() {
       const loader = document.getElementById('loaderOverlay');
-      setTimeout(() => {
-        loader.classList.add('hidden');
-      }, 300);
+      loader.classList.add('hidden');
     }
 
-    // Affixed values (could be fetched from server, here using global vars for demo)
+    // Affixed values
     let affixedClass = null, affixedSession = null, affixedTerm = null;
 
-    // Autofill and lock registration number and affix class/session/term for logged-in student
+    // Autofill and lock registration number
     async function autofillRegNoAndAffix() {
       const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
       const regNoInput = document.getElementById('regNoInput');
+      const submitBtn = document.getElementById('submitBtn');
+      
       if (!token) {
         regNoInput.value = '';
         regNoInput.placeholder = 'Login required';
         regNoInput.disabled = true;
         regNoInput.readOnly = true;
-        document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
+        submitBtn.disabled = true;
         return;
       }
+
       try {
-        const res = await fetch(API_BASE_URL + '/api/students/me', {
+        const res = await fetchWithTimeout(API_BASE_URL + '/api/students/me', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
+
         if (res.ok) {
           const student = await res.json();
           lastStudentProfile = student;
@@ -927,7 +950,7 @@
           regNoInput.value = regNo;
           regNoInput.disabled = true;
           regNoInput.readOnly = true;
-          document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = false;
+          submitBtn.disabled = false;
           
           affixedClass = student.class_name || student.class || null;
           affixedSession = student.session || null;
@@ -952,21 +975,24 @@
           // Update sidebar profile
           document.getElementById('studentName').textContent = student.full_name || student.name || 'Student';
           document.getElementById('studentClass').textContent = affixedClass || 'N/A';
-          document.getElementById('studentAvatar').src = student.avatar || student.profile_pic || '';
-          document.getElementById('topbarAvatar').src = student.avatar || student.profile_pic || '';
+          if (student.avatar || student.profile_pic) {
+            document.getElementById('studentAvatar').src = student.avatar || student.profile_pic;
+            document.getElementById('topbarAvatar').src = student.avatar || student.profile_pic;
+          }
         } else {
           regNoInput.value = '';
           regNoInput.placeholder = 'Login required';
           regNoInput.disabled = true;
           regNoInput.readOnly = true;
-          document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
+          submitBtn.disabled = true;
         }
-      } catch {
+      } catch (error) {
+        console.error('Error autofilling student data:', error);
         regNoInput.value = '';
         regNoInput.placeholder = 'Login required';
         regNoInput.disabled = true;
         regNoInput.readOnly = true;
-        document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
+        submitBtn.disabled = true;
       }
     }
 
@@ -1010,71 +1036,55 @@
       if (arr[idx]) displayResult(arr[idx]);
     }
 
-    function calcAge(dobStr) {
-      if (!dobStr) return "";
-      let date;
-      if (typeof dobStr === "string") {
-        const parts = dobStr.split(/[-\/]/);
-        if (parts.length === 3) {
-          let year, month, day;
-          if (parts[0].length === 4) {
-            year = +parts[0];
-            month = +parts[1];
-            day = +parts[2];
-          } else {
-            day = +parts[0];
-            month = +parts[1];
-            year = +parts[2];
-          }
-          date = new Date(year, month - 1, day);
-        } else {
-          date = new Date(dobStr);
-        }
-      } else {
-        date = new Date(dobStr);
-      }
-      if (!date || isNaN(date.getTime())) return "";
-      const now = new Date();
-      let age = now.getFullYear() - date.getFullYear();
-      if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) {
-        age--;
-      }
-      return age;
-    }
-
     // Main: Handle result search
     async function handleResultSearch(e) {
       e.preventDefault();
+
+      // Prevent double submission
+      if (isLoadingResults) {
+        return false;
+      }
+
       showLoader();
+      isLoadingResults = true;
+
       const regNo = document.getElementById("regNoInput").value.trim();
       const klass = document.getElementById("classInput").value;
       const session = document.getElementById("sessionInput").value;
       const term = document.getElementById("termInput").value;
       const errorBox = document.getElementById("searchError");
+      const submitBtn = document.getElementById('submitBtn');
+      
       errorBox.style.display = "none";
-
-      if (
-        (affixedClass && klass !== affixedClass) ||
-        (affixedSession && session !== affixedSession) ||
-        (affixedTerm && term !== affixedTerm)
-      ) {
-        errorBox.textContent = "You can only check results for your assigned class, session and term.";
-        errorBox.style.display = "block";
-        hideLoader();
-        return false;
-      }
-
-      if (!regNo || !klass || !session || !term) {
-        errorBox.textContent = "All fields are required!";
-        errorBox.style.display = "block";
-        hideLoader();
-        return false;
-      }
+      submitBtn.disabled = true;
 
       try {
+        if (
+          (affixedClass && klass !== affixedClass) ||
+          (affixedSession && session !== affixedSession) ||
+          (affixedTerm && term !== affixedTerm)
+        ) {
+          errorBox.textContent = "You can only check results for your assigned class, session and term.";
+          errorBox.style.display = "block";
+          hideLoader();
+          submitBtn.disabled = false;
+          isLoadingResults = false;
+          return false;
+        }
+
+        if (!regNo || !klass || !session || !term) {
+          errorBox.textContent = "All fields are required!";
+          errorBox.style.display = "block";
+          hideLoader();
+          submitBtn.disabled = false;
+          isLoadingResults = false;
+          return false;
+        }
+
         lastSkillsReport = null;
         lastClassSize = null;
 
+        // Fetch results with timeout
         const params = new URLSearchParams({
           student_id: regNo,
           class: klass,
@@ -1082,7 +1092,13 @@
           term: term,
           status: "Published"
         });
-        const response = await fetch(`${API_BASE_URL}/api/results?${params.toString()}`);
+
+        const response = await fetchWithTimeout(`${API_BASE_URL}/api/results?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
         const results = await response.json();
 
         const filteredResults = Array.isArray(results)
@@ -1098,13 +1114,16 @@
           errorBox.style.display = "block";
           document.getElementById("resultsDisplaySection").style.display = "none";
           hideLoader();
+          submitBtn.disabled = false;
+          isLoadingResults = false;
           return false;
         }
 
+        // Fetch additional details for each result
         for (const r of filteredResults) {
           if (r.subject_position) continue;
           try {
-            const detailRes = await fetch(`${API_BASE_URL}/api/results/${r._id}`);
+            const detailRes = await fetchWithTimeout(`${API_BASE_URL}/api/results/${r._id}`);
             if (detailRes.ok) {
               const data = await detailRes.json();
               if (data.subject_position)
@@ -1113,71 +1132,28 @@
           } catch {}
         }
 
-        let studentProfile = lastStudentProfile;
-        if (!studentProfile) {
-          try {
-            const studentResp = await fetch(`${API_BASE_URL}/api/students?regNo=${encodeURIComponent(regNo)}`);
-            const studentJson = await studentResp.json();
-            studentProfile = Array.isArray(studentJson.students) ? studentJson.students[0] : null;
-            lastStudentProfile = studentProfile;
-          } catch (err) {}
-        }
-
-        let skillsReport = null;
-        try {
-          const normalize = str =>
-            String(str || '')
-              .replace(/–/g, '-')
-              .trim()
-              .toLowerCase();
-
-          const normalizedSession = normalize(session);
-          const normalizedTerm = normalize(term);
-
-          const skillsRes = await fetch(`${API_BASE_URL}/api/students/${encodeURIComponent(regNo)}/skills-report`);
-          if (skillsRes.ok) {
-            const skillsData = await skillsRes.json();
-            if (Array.isArray(skillsData.skillsReports)) {
-              skillsReport = skillsData.skillsReports.find(
-                r => normalize(r.session) === normalizedSession &&
-                     normalize(r.term) === normalizedTerm
-              ) || null;
-            }
-          }
-        } catch (e) {}
-
-        let classSize = null;
-        try {
-          const classParams = new URLSearchParams({
-            class: klass,
-            session: session,
-            term: term,
-            status: "Published"
-          });
-          const classRes = await fetch(`${API_BASE_URL}/api/results?${classParams.toString()}`);
-          if (classRes.ok) {
-            const classData = await classRes.json();
-            classSize = Array.isArray(classData) ? classData.length : null;
-            lastClassSize = classSize;
-          }
-        } catch (e) {}
-
+        // Display results
         displayResult({
           regNo: regNo,
           class: klass,
           session: session,
           term: term,
           results: filteredResults,
-          studentProfile: studentProfile,
-          skillsReport: skillsReport,
-          classSize: classSize
+          studentProfile: lastStudentProfile
         });
 
         hideLoader();
+        submitBtn.disabled = false;
+        isLoadingResults = false;
       } catch (err) {
-        errorBox.textContent = "Error fetching results. Please try again later.";
+        console.error('Error fetching results:', err);
+        errorBox.textContent = err.name === 'AbortError' 
+          ? "Request timed out. Please check your connection and try again."
+          : "Error fetching results. Please try again later.";
         errorBox.style.display = "block";
         hideLoader();
+        submitBtn.disabled = false;
+        isLoadingResults = false;
       }
 
       return false;
