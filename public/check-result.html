@@ -3,38 +3,600 @@
 <head>
   <meta charset="UTF-8">
   <title>Check Results | Gold and Linc Schools</title>
-  <meta name="viewport" content="width=device-width, initial-scale=0.85">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Fonts & Icons -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link rel="stylesheet" href="check-results.css">
   <style>
-    .spinner-overlay {
-      display: none;
-      position: fixed; z-index: 9999; left: 0; top: 0; width: 100vw; height: 100vh;
-      background: rgba(255,255,255,0.72); align-items: center; justify-content: center;
+    :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #3b82f6;
+      --accent-2: #6366f1;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+      --text-main: #0b2a44;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      color: var(--text-main);
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* SPINNER LOADER */
+    .loader-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      backdrop-filter: blur(2px);
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .loader-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
     .spinner {
-      border: 6px solid #e5e5e5;
-      border-top: 6px solid #007bff;
-      border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite;
-      margin: 0 auto;
+      width: 60px;
+      height: 60px;
+      border: 4px solid #eef2ff;
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
-    @keyframes spin { 100% {transform: rotate(360deg);} }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loader-text {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent-2);
+      letter-spacing: 0.5px;
+    }
+
+    .loader-subtext {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* MAIN CONTAINER */
+    .results-root {
+      min-height: 100vh;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+      padding-bottom: 70px;
+    }
+
+    /* HEADER */
+    .results-header {
+      background: var(--card-bg);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .results-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--accent-2);
+    }
+
+    .results-actions a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-radius: 10px;
+      font-weight: 700;
+      transition: all 0.12s ease;
+      cursor: pointer;
+    }
+
+    .results-actions a:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    /* MAIN CONTENT */
+    .results-main {
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* SECTIONS */
+    .results-section {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+    }
+
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--accent-2);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title i {
+      color: var(--accent);
+    }
+
+    /* SEARCH FORM */
+    .result-search-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    .result-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .result-form-label {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    .result-form-input,
+    .result-form-select {
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: 'Inter', Arial, sans-serif;
+      transition: all 0.12s ease;
+      background: #fff;
+      color: var(--text-main);
+    }
+
+    .result-form-input:focus,
+    .result-form-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .result-form-input:disabled {
+      background: #f3f6fb;
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    .result-form-input:read-only {
+      background: #f3f6fb;
+      cursor: not-allowed;
+    }
+
+    .result-search-btn {
+      padding: 10px 20px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.95rem;
+    }
+
+    .result-search-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .result-search-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ERROR MESSAGE */
+    .result-search-error {
+      padding: 12px 16px;
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      color: #b91c1c;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+
+    /* RESULT TABLE */
+    .results-table-container {
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    .results-table thead {
+      background: #f8faff;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .results-table th {
+      padding: 12px 10px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--accent-2);
+    }
+
+    .results-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #eef3ff;
+    }
+
+    .results-table tbody tr:hover {
+      background: #f9fbff;
+    }
+
+    .results-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .grade-high {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .grade-mid {
+      color: var(--warning);
+      font-weight: 700;
+    }
+
+    .grade-low {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    /* DISPLAY INFO */
+    .result-display-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid #eef3ff;
+    }
+
+    .result-display-info span {
+      font-size: 0.95rem;
+    }
+
+    .result-display-info b {
+      color: var(--accent-2);
+      font-weight: 700;
+    }
+
+    /* BUTTONS */
+    .download-btn {
+      padding: 10px 20px;
+      background: linear-gradient(90deg, var(--success), #059669);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 0.95rem;
+    }
+
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.12);
+    }
+
+    /* PREVIOUS RESULTS */
+    .previous-results-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .previous-result-card {
+      padding: 14px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%);
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .previous-result-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--accent);
+    }
+
+    .previous-result-title {
+      font-weight: 700;
+      color: var(--accent-2);
+      margin-bottom: 4px;
+    }
+
+    .previous-result-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* NEWS SECTION */
+    .news-section {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+    }
+
+    .news-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--accent-2);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .news-title i {
+      color: var(--accent);
+    }
+
+    .news-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .news-item {
+      padding: 12px 14px;
+      background: #fffbeb;
+      border-left: 4px solid var(--warning);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    .news-item b {
+      color: var(--warning);
+      font-weight: 700;
+    }
+
+    /* BOTTOM NAV */
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 60px;
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
+      box-shadow: 0 -2px 12px rgba(59, 130, 246, 0.1);
+      z-index: 100;
+      align-items: center;
+      justify-content: space-evenly;
+      border-radius: 18px 18px 0 0;
+      display: none;
+      max-width: 100vw;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .bottom-nav-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.85;
+      transition: color 0.12s, opacity 0.12s;
+      height: 100%;
+      cursor: pointer;
+      min-width: 0;
+    }
+
+    .bottom-nav-btn.active,
+    .bottom-nav-btn:active,
+    .bottom-nav-btn:focus {
+      color: #ffe066;
+      opacity: 1;
+    }
+
+    .bottom-nav-label {
+      font-size: 0.65rem;
+      margin-top: 2px;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .results-main {
+        padding: 14px;
+      }
+
+      .results-section {
+        padding: 14px;
+      }
+
+      .result-search-form {
+        grid-template-columns: 1fr;
+      }
+
+      .results-table {
+        font-size: 0.85rem;
+      }
+
+      .results-table th,
+      .results-table td {
+        padding: 8px 6px;
+      }
+
+      .result-display-info {
+        gap: 12px;
+      }
+
+      .bottom-nav {
+        display: flex !important;
+      }
+
+      .results-root {
+        padding-bottom: 80px;
+      }
+
+      .results-header {
+        padding: 14px;
+      }
+
+      .results-title {
+        font-size: 1.2rem;
+      }
+
+      .results-actions a {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .results-main {
+        padding: 10px;
+      }
+
+      .results-section {
+        padding: 12px;
+      }
+
+      .section-title {
+        font-size: 1.05rem;
+      }
+
+      .results-title {
+        font-size: 1.1rem;
+      }
+
+      .results-table {
+        font-size: 0.8rem;
+      }
+
+      .results-table th,
+      .results-table td {
+        padding: 6px 4px;
+      }
+
+      .previous-results-list {
+        grid-template-columns: 1fr;
+      }
+
+      .result-search-form {
+        gap: 12px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="spinner-overlay" id="spinnerOverlay">
-    <div class="spinner"></div>
+  <!-- Loader Overlay -->
+  <div class="loader-overlay" id="loaderOverlay">
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <div class="loader-text">Loading Results</div>
+      <div class="loader-subtext">Please wait...</div>
+    </div>
   </div>
+
   <div class="results-root">
-    <!-- Header & Main Actions -->
+    <!-- Header -->
     <div class="results-header">
-      <div class="results-title">Check Results</div>
+      <div class="results-title">📊 Check Results</div>
       <div class="results-actions">
         <a href="student-dashboard.html"><i class="fa fa-arrow-left"></i> Dashboard</a>
       </div>
     </div>
+
+    <!-- Main Content -->
     <main class="results-main">
       <!-- Search Section -->
       <section class="results-section" id="searchSection">
@@ -94,10 +656,11 @@
         </form>
         <div class="result-search-error" id="searchError" style="display:none;"></div>
       </section>
-      <!-- Results Display Section (hidden by default until search) -->
+
+      <!-- Results Display Section -->
       <section class="results-section" id="resultsDisplaySection" style="display:none;">
         <div class="section-title"><i class="fa fa-table"></i> Result Details</div>
-        <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:18px;">
+        <div class="result-display-info">
           <span><b>Reg. No:</b> <span id="dispRegNo"></span></span>
           <span><b>Class:</b> <span id="dispClass"></span></span>
           <span><b>Session:</b> <span id="dispSession"></span></span>
@@ -125,11 +688,13 @@
         </div>
         <button class="download-btn" onclick="downloadCurrentResult()"><i class="fa fa-download"></i> Download Result</button>
       </section>
+
       <!-- Previously Viewed Results -->
       <section class="results-section">
-        <div class="section-title"><i class="fa fa-clock-rotate-left"></i> Previously Viewed Results</div>
+        <div class="section-title"><i class="fa fa-history"></i> Previously Viewed Results</div>
         <div class="previous-results-list" id="previousResultsList"></div>
       </section>
+
       <!-- News Section -->
       <section class="news-section">
         <div class="news-title"><i class="fa fa-newspaper"></i> Result News & Announcements</div>
@@ -140,15 +705,16 @@
         </div>
       </section>
     </main>
-    <!-- Sticky Bottom Nav (matches dashboard) -->
+
+    <!-- Bottom Nav -->
     <nav class="bottom-nav">
       <button class="bottom-nav-btn" title="Home" onclick="window.location.href='student-dashboard.html'">
         <i class="fa fa-home"></i>
         <div class="bottom-nav-label">Home</div>
       </button>
-      <button class="bottom-nav-btn" title="E-Class" onclick="window.location.href='e-class.html'">
+      <button class="bottom-nav-btn" title="E-Class" onclick="window.location.href='cbt-warning.html'">
         <i class="fa fa-laptop"></i>
-        <div class="bottom-nav-label">E-Class</div>
+        <div class="bottom-nav-label">CBT</div>
       </button>
       <button class="bottom-nav-btn" title="Assignments" onclick="window.location.href='assignments.html'">
         <i class="fa fa-file-alt"></i>
@@ -163,499 +729,482 @@
         <div class="bottom-nav-label">Me</div>
       </button>
     </nav>
-    <script>
-      const API_BASE_URL = "https://goldlincschools.onrender.com";
+  </div>
 
-      let lastStudentProfile = null;
-      let lastSkillsReport = null;
-      let lastClassSize = null;
+  <script>
+    const API_BASE_URL = "https://goldlincschools.onrender.com";
 
-      // Spinner helpers
-      function showSpinner() {
-        document.getElementById('spinnerOverlay').style.display = 'flex';
+    let lastStudentProfile = null;
+    let lastSkillsReport = null;
+    let lastClassSize = null;
+
+    // ============================================
+    // Loader Functions
+    // ============================================
+    function showLoader() {
+      const loader = document.getElementById('loaderOverlay');
+      loader.classList.remove('hidden');
+    }
+
+    function hideLoader() {
+      const loader = document.getElementById('loaderOverlay');
+      setTimeout(() => {
+        loader.classList.add('hidden');
+      }, 300);
+    }
+
+    // Affixed values (could be fetched from server, here using global vars for demo)
+    let affixedClass = null, affixedSession = null, affixedTerm = null;
+
+    // Autofill and lock registration number and affix class/session/term for logged-in student
+    async function autofillRegNoAndAffix() {
+      const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
+      const regNoInput = document.getElementById('regNoInput');
+      if (!token) {
+        regNoInput.value = '';
+        regNoInput.placeholder = 'Login required';
+        regNoInput.disabled = true;
+        regNoInput.readOnly = true;
+        document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
+        return;
       }
-      function hideSpinner() {
-        document.getElementById('spinnerOverlay').style.display = 'none';
-      }
+      try {
+        const res = await fetch(API_BASE_URL + '/api/students/me', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+          const student = await res.json();
+          lastStudentProfile = student;
+          const regNo = student.regNo || student.student_id || '';
+          regNoInput.value = regNo;
+          regNoInput.disabled = true;
+          regNoInput.readOnly = true;
+          document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = false;
+          
+          affixedClass = student.class_name || student.class || null;
+          affixedSession = student.session || null;
+          affixedTerm = student.term || null;
 
-      // Affixed values (could be fetched from server, here using global vars for demo)
-      let affixedClass = null, affixedSession = null, affixedTerm = null;
-
-      // Autofill and lock registration number and affix class/session/term for logged-in student
-      async function autofillRegNoAndAffix() {
-        const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
-        const regNoInput = document.getElementById('regNoInput');
-        if (!token) {
+          if (affixedClass) {
+            const classInput = document.getElementById('classInput');
+            classInput.value = affixedClass;
+            classInput.disabled = true;
+          }
+          if (affixedSession) {
+            const sessionInput = document.getElementById('sessionInput');
+            sessionInput.value = affixedSession;
+            sessionInput.disabled = true;
+          }
+          if (affixedTerm) {
+            const termInput = document.getElementById('termInput');
+            termInput.value = affixedTerm;
+            termInput.disabled = true;
+          }
+        } else {
           regNoInput.value = '';
           regNoInput.placeholder = 'Login required';
           regNoInput.disabled = true;
           regNoInput.readOnly = true;
           document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
-          return;
         }
-        try {
-          const res = await fetch(API_BASE_URL + '/api/students/me', {
-            headers: { 'Authorization': 'Bearer ' + token }
-          });
-          if (res.ok) {
-            const student = await res.json();
-            lastStudentProfile = student;
-            // Prefer regNo, else student_id, else blank
-            const regNo = student.regNo || student.student_id || '';
-            regNoInput.value = regNo;
-            regNoInput.disabled = true;
-            regNoInput.readOnly = true;
-            document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = false;
-            // Affix class/session/term if available in student profile
-            affixedClass = student.class_name || student.class || null;
-            affixedSession = student.session || null;
-            affixedTerm = student.term || null;
-            // Optionally, you might fetch current session/term from config/api
-            // affixedSession = "2024–2025", affixedTerm = "SECOND TERM", etc.
+      } catch {
+        regNoInput.value = '';
+        regNoInput.placeholder = 'Login required';
+        regNoInput.disabled = true;
+        regNoInput.readOnly = true;
+        document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
+      }
+    }
 
-            // Set and lock class/session/term if affixed
-            if (affixedClass) {
-              const classInput = document.getElementById('classInput');
-              classInput.value = affixedClass;
-              classInput.disabled = true;
-            }
-            if (affixedSession) {
-              const sessionInput = document.getElementById('sessionInput');
-              sessionInput.value = affixedSession;
-              sessionInput.disabled = true;
-            }
-            if (affixedTerm) {
-              const termInput = document.getElementById('termInput');
-              termInput.value = affixedTerm;
-              termInput.disabled = true;
-            }
+    autofillRegNoAndAffix();
+
+    function getViewedResults() {
+      let arr = [];
+      try {
+        arr = JSON.parse(localStorage.getItem("viewedResults")) || [];
+      } catch {}
+      return arr;
+    }
+
+    function saveViewedResult(entry) {
+      let arr = getViewedResults();
+      arr = arr.filter(x => !(
+        x.regNo === entry.regNo && x.session === entry.session && x.term === entry.term && x.class === entry.class
+      ));
+      arr.unshift(entry);
+      if (arr.length > 6) arr = arr.slice(0, 6);
+      localStorage.setItem("viewedResults", JSON.stringify(arr));
+    }
+
+    function renderPreviousResults() {
+      const arr = getViewedResults();
+      const el = document.getElementById("previousResultsList");
+      if (!arr.length) {
+        el.innerHTML = `<div style="color:var(--muted); padding: 12px; text-align: center;">No previously viewed results.</div>`;
+        return;
+      }
+      el.innerHTML = arr.map((r, i) => `
+        <div class="previous-result-card" onclick="viewPreviousResult(${i})">
+          <div class="previous-result-title">${r.regNo}</div>
+          <div class="previous-result-meta">${r.class} • ${r.session} • ${r.term}</div>
+        </div>
+      `).join("");
+    }
+
+    function viewPreviousResult(idx) {
+      const arr = getViewedResults();
+      if (arr[idx]) displayResult(arr[idx]);
+    }
+
+    function calcAge(dobStr) {
+      if (!dobStr) return "";
+      let date;
+      if (typeof dobStr === "string") {
+        const parts = dobStr.split(/[-\/]/);
+        if (parts.length === 3) {
+          let year, month, day;
+          if (parts[0].length === 4) {
+            year = +parts[0];
+            month = +parts[1];
+            day = +parts[2];
           } else {
-            regNoInput.value = '';
-            regNoInput.placeholder = 'Login required';
-            regNoInput.disabled = true;
-            regNoInput.readOnly = true;
-            document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
+            day = +parts[0];
+            month = +parts[1];
+            year = +parts[2];
           }
-        } catch {
-          regNoInput.value = '';
-          regNoInput.placeholder = 'Login required';
-          regNoInput.disabled = true;
-          regNoInput.readOnly = true;
-          document.getElementById('resultSearchForm').querySelector('button[type="submit"]').disabled = true;
-        }
-      }
-
-      autofillRegNoAndAffix();
-
-      // Only show result search if all affixed values present
-      function checkShowSearch() {
-        let show = true;
-        if (affixedClass && affixedSession && affixedTerm) {
-          // All affixed, show as locked fields
-          show = true;
-        } else if (affixedClass || affixedSession || affixedTerm) {
-          // Partial affix, allow selection of others
-          show = true;
-        }
-        // else, default: show search
-        if (!show) document.getElementById('searchSection').style.display = 'none';
-        else document.getElementById('searchSection').style.display = '';
-      }
-
-      setTimeout(checkShowSearch, 1000);
-
-      function getViewedResults() {
-        let arr = [];
-        try { arr = JSON.parse(localStorage.getItem("viewedResults")) || []; } catch {}
-        return arr;
-      }
-      function saveViewedResult(entry) {
-        let arr = getViewedResults();
-        arr = arr.filter(x => !(
-          x.regNo === entry.regNo && x.session === entry.session && x.term === entry.term && x.class === entry.class
-        ));
-        arr.unshift(entry);
-        if (arr.length > 6) arr = arr.slice(0,6);
-        localStorage.setItem("viewedResults", JSON.stringify(arr));
-      }
-      function renderPreviousResults() {
-        const arr = getViewedResults();
-        const el = document.getElementById("previousResultsList");
-        if (!arr.length) {
-          el.innerHTML = `<div style="color:#888;">No previously viewed results.</div>`;
-          return;
-        }
-        el.innerHTML = arr.map((r,i) => `
-          <div class="previous-result-card" onclick="viewPreviousResult(${i})">
-            <div class="previous-result-title">${r.regNo}</div>
-            <div class="previous-result-meta">${r.class} • ${r.session} • ${r.term}</div>
-          </div>
-        `).join("");
-      }
-      function viewPreviousResult(idx) {
-        const arr = getViewedResults();
-        if (arr[idx]) displayResult(arr[idx]);
-      }
-
-      // Date of birth to age
-      function calcAge(dobStr) {
-        if (!dobStr) return "";
-        let date;
-        if (typeof dobStr === "string") {
-          const parts = dobStr.split(/[-\/]/);
-          if (parts.length === 3) {
-            let year, month, day;
-            if (parts[0].length === 4) {
-              year = +parts[0]; month = +parts[1]; day = +parts[2];
-            } else {
-              day = +parts[0]; month = +parts[1]; year = +parts[2];
-            }
-            date = new Date(year, month-1, day);
-          } else {
-            date = new Date(dobStr);
-          }
+          date = new Date(year, month - 1, day);
         } else {
           date = new Date(dobStr);
         }
-        if (!date || isNaN(date.getTime())) return "";
-        const now = new Date();
-        let age = now.getFullYear() - date.getFullYear();
-        if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) {
-          age--;
-        }
-        return age;
+      } else {
+        date = new Date(dobStr);
+      }
+      if (!date || isNaN(date.getTime())) return "";
+      const now = new Date();
+      let age = now.getFullYear() - date.getFullYear();
+      if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) {
+        age--;
+      }
+      return age;
+    }
+
+    // Main: Handle result search
+    async function handleResultSearch(e) {
+      e.preventDefault();
+      showLoader();
+      const regNo = document.getElementById("regNoInput").value.trim();
+      const klass = document.getElementById("classInput").value;
+      const session = document.getElementById("sessionInput").value;
+      const term = document.getElementById("termInput").value;
+      const errorBox = document.getElementById("searchError");
+      errorBox.style.display = "none";
+
+      if (
+        (affixedClass && klass !== affixedClass) ||
+        (affixedSession && session !== affixedSession) ||
+        (affixedTerm && term !== affixedTerm)
+      ) {
+        errorBox.textContent = "You can only check results for your assigned class, session and term.";
+        errorBox.style.display = "block";
+        hideLoader();
+        return false;
       }
 
-      // Main: Handle result search using /api/results (fetch skills/attendance as well)
-      async function handleResultSearch(e) {
-        e.preventDefault();
-        showSpinner();
-        const regNo = document.getElementById("regNoInput").value.trim();
-        const klass = document.getElementById("classInput").value;
-        const session = document.getElementById("sessionInput").value;
-        const term = document.getElementById("termInput").value;
-        const errorBox = document.getElementById("searchError");
-        errorBox.style.display = "none";
+      if (!regNo || !klass || !session || !term) {
+        errorBox.textContent = "All fields are required!";
+        errorBox.style.display = "block";
+        hideLoader();
+        return false;
+      }
 
-        // Only allow search if values match affixed, if affixed is set
-        if (
-          (affixedClass && klass !== affixedClass) ||
-          (affixedSession && session !== affixedSession) ||
-          (affixedTerm && term !== affixedTerm)
-        ) {
-          errorBox.textContent = "You can only check results for your assigned class, session and term.";
+      try {
+        lastSkillsReport = null;
+        lastClassSize = null;
+
+        const params = new URLSearchParams({
+          student_id: regNo,
+          class: klass,
+          session: session,
+          term: term,
+          status: "Published"
+        });
+        const response = await fetch(`${API_BASE_URL}/api/results?${params.toString()}`);
+        const results = await response.json();
+
+        const filteredResults = Array.isArray(results)
+          ? results.filter(r =>
+              (r.student_id === regNo) ||
+              (r.student && (r.student.student_id === regNo || r.student.regNo === regNo)) ||
+              (r.regNo === regNo)
+            )
+          : [];
+
+        if (!filteredResults.length) {
+          errorBox.textContent = "No result found! Please check your details or contact the school.";
           errorBox.style.display = "block";
-          hideSpinner();
+          document.getElementById("resultsDisplaySection").style.display = "none";
+          hideLoader();
           return false;
         }
 
-        if (!regNo || !klass || !session || !term) {
-          errorBox.textContent = "All fields are required!";
-          errorBox.style.display = "block";
-          hideSpinner();
-          return false;
+        for (const r of filteredResults) {
+          if (r.subject_position) continue;
+          try {
+            const detailRes = await fetch(`${API_BASE_URL}/api/results/${r._id}`);
+            if (detailRes.ok) {
+              const data = await detailRes.json();
+              if (data.subject_position)
+                r.subject_position = data.subject_position;
+            }
+          } catch {}
         }
 
+        let studentProfile = lastStudentProfile;
+        if (!studentProfile) {
+          try {
+            const studentResp = await fetch(`${API_BASE_URL}/api/students?regNo=${encodeURIComponent(regNo)}`);
+            const studentJson = await studentResp.json();
+            studentProfile = Array.isArray(studentJson.students) ? studentJson.students[0] : null;
+            lastStudentProfile = studentProfile;
+          } catch (err) {}
+        }
+
+        let skillsReport = null;
         try {
-          lastSkillsReport = null;
-          lastClassSize = null;
+          const normalize = str =>
+            String(str || '')
+              .replace(/–/g, '-')
+              .trim()
+              .toLowerCase();
 
-          // 1. Fetch results FOR THIS SPECIFIC STUDENT ONLY!
-          const params = new URLSearchParams({
-            student_id: regNo,
+          const normalizedSession = normalize(session);
+          const normalizedTerm = normalize(term);
+
+          const skillsRes = await fetch(`${API_BASE_URL}/api/students/${encodeURIComponent(regNo)}/skills-report`);
+          if (skillsRes.ok) {
+            const skillsData = await skillsRes.json();
+            if (Array.isArray(skillsData.skillsReports)) {
+              skillsReport = skillsData.skillsReports.find(
+                r => normalize(r.session) === normalizedSession &&
+                     normalize(r.term) === normalizedTerm
+              ) || null;
+            }
+          }
+        } catch (e) {}
+
+        let classSize = null;
+        try {
+          const classParams = new URLSearchParams({
             class: klass,
             session: session,
             term: term,
             status: "Published"
           });
-          const response = await fetch(`${API_BASE_URL}/api/results?${params.toString()}`);
-          const results = await response.json();
-          
-const filteredResults = Array.isArray(results)
-      ? results.filter(r =>
-          (r.student_id === regNo) ||
-          (r.student && (r.student.student_id === regNo || r.student.regNo === regNo)) ||
-          (r.regNo === regNo)
-        )
-      : [];
-          if (!filteredResults.length) {
-            errorBox.textContent = "No result found! Please check your details or contact the school.";
-            errorBox.style.display = "block";
-            document.getElementById("resultsDisplaySection").style.display = "none";
-            hideSpinner();
-            return false;
-          }
-
-          // --- FETCH SUBJECT POSITIONS ---
-          // If subject_position is not present, you may fetch for each result by /api/results/:id
-          // Otherwise, just use subject_position from result
-          for (const r of filteredResults) {
-            if (r.subject_position) continue; // Already present
-            // Try to fetch the single result for subject_position (skip if not needed)
-            try {
-              const detailRes = await fetch(`${API_BASE_URL}/api/results/${r._id}`);
-              if (detailRes.ok) {
-                const data = await detailRes.json();
-                if (data.subject_position)
-                  r.subject_position = data.subject_position;
-              }
-            } catch {}
-          }
-
-          // 2. Fetch student profile (for DOB, email, photo)
-          let studentProfile = lastStudentProfile;
-          if (!studentProfile) {
-            try {
-              const studentResp = await fetch(`${API_BASE_URL}/api/students?regNo=${encodeURIComponent(regNo)}`);
-              const studentJson = await studentResp.json();
-              studentProfile = Array.isArray(studentJson.students) ? studentJson.students[0] : null;
-              lastStudentProfile = studentProfile;
-            } catch (err) {}
-          }
-
-          // 3. Fetch skills report for this student/session/term
-          let skillsReport = null;
-          try {
-            const normalize = str =>
-              String(str || '')
-                .replace(/–/g, '-') // Convert en dash to hyphen
-                .trim()
-                .toLowerCase();
-
-            const normalizedSession = normalize(session);
-            const normalizedTerm = normalize(term);
-
-            const skillsRes = await fetch(`${API_BASE_URL}/api/students/${encodeURIComponent(regNo)}/skills-report`);
-            if (skillsRes.ok) {
-              const skillsData = await skillsRes.json();
-              if (Array.isArray(skillsData.skillsReports)) {
-                skillsReport = skillsData.skillsReports.find(
-                  r => normalize(r.session) === normalizedSession &&
-                       normalize(r.term) === normalizedTerm
-                ) || null;
-              }
+          const classRes = await fetch(`${API_BASE_URL}/api/results?${classParams.toString()}`);
+          if (classRes.ok) {
+            const classResults = await classRes.json();
+            const studentSet = new Set();
+            for (const r of classResults) {
+              if (r.student_id) studentSet.add(r.student_id);
+              else if (r.student && r.student.student_id) studentSet.add(r.student.student_id);
+              else if (r.student && r.student.regNo) studentSet.add(r.student.regNo);
+              else if (r.regNo) studentSet.add(r.regNo);
             }
-          } catch (e) {}
-
-          // 4. Fetch class size for the selected class/session/term
-          let classSize = null;
-          try {
-            const classParams = new URLSearchParams({
-              class: klass,
-              session: session,
-              term: term,
-              status: "Published"
-            });
-            const classRes = await fetch(`${API_BASE_URL}/api/results?${classParams.toString()}`);
-            if (classRes.ok) {
-              const classResults = await classRes.json();
-              const studentSet = new Set();
-              for (const r of classResults) {
-                if (r.student_id) studentSet.add(r.student_id);
-                else if (r.student && r.student.student_id) studentSet.add(r.student.student_id);
-                else if (r.student && r.student.regNo) studentSet.add(r.student.regNo);
-                else if (r.regNo) studentSet.add(r.regNo);
-              }
-              classSize = studentSet.size;
-            }
-          } catch (e) {}
-
-          // ====== RANDOMIZE SKILLS RATINGS IF NOT PRESENT ======
-          function randomRating() {
-            return Math.floor(Math.random() * 3) + 3; // 3,4,5
+            classSize = studentSet.size;
           }
-          const affectiveNames = ["punctuality", "attentiveness", "neatness", "honesty", "politeness"];
-          const psychomotorNames = ["handwriting", "drawing", "sports", "organization"];
+        } catch (e) {}
 
-          if (!skillsReport || !skillsReport.skills) {
-            skillsReport = {
-              skills: {
-                affective: {},
-                psychomotor: {}
-              },
-              comment: "Randomized for demo."
-            };
-            affectiveNames.forEach(name => {
-              skillsReport.skills.affective[name] = randomRating();
-            });
-            psychomotorNames.forEach(name => {
-              skillsReport.skills.psychomotor[name] = randomRating();
-            });
-          } else {
-            if (!skillsReport.skills.affective) skillsReport.skills.affective = {};
-            if (!skillsReport.skills.psychomotor) skillsReport.skills.psychomotor = {};
-            affectiveNames.forEach(name => {
-              if (skillsReport.skills.affective[name] === undefined)
-                skillsReport.skills.affective[name] = randomRating();
-            });
-            psychomotorNames.forEach(name => {
-              if (skillsReport.skills.psychomotor[name] === undefined)
-                skillsReport.skills.psychomotor[name] = randomRating();
-            });
-          }
-
-          lastSkillsReport = skillsReport;
-          lastClassSize = classSize;
-
-          saveViewedResult({
-            regNo, class: klass, session, term, results: filteredResults,
-            skillsReport, classSize,
-            student: studentProfile
-          });
-          displayResult({
-            regNo, class: klass, session, term,
-            results: filteredResults,
-            skillsReport, classSize,
-            student: studentProfile
-          });
-          renderPreviousResults();
-        } catch (err) {
-          errorBox.textContent = err.message || "No result found! Please check your details or contact the school.";
-          errorBox.style.display = "block";
-          document.getElementById("resultsDisplaySection").style.display = "none";
+        function randomRating() {
+          return Math.floor(Math.random() * 3) + 3;
         }
-        hideSpinner();
-        return false;
-      }
+        const affectiveNames = ["punctuality", "attentiveness", "neatness", "honesty", "politeness"];
+        const psychomotorNames = ["handwriting", "drawing", "sports", "organization"];
 
-      function displayResult(r) {
-        document.getElementById("resultsDisplaySection").style.display = "";
-        document.getElementById("dispRegNo").textContent = r.regNo;
-        document.getElementById("dispClass").textContent = r.class;
-        document.getElementById("dispSession").textContent = r.session;
-        document.getElementById("dispTerm").textContent = r.term;
-        const tbody = document.getElementById("resultsTable").querySelector("tbody");
-        tbody.innerHTML = r.results.map(res => `
-          <tr>
-            <td>${res.subject && res.subject.name ? res.subject.name : (res.subject_name || res.subject || "")}</td>
-            <td>${res.ca1_score !== undefined ? res.ca1_score : ""}</td>
-            <td>${res.ca2_score !== undefined ? res.ca2_score : ""}</td>
-            <td>${res.midterm_score !== undefined ? res.midterm_score : ""}</td>
-            <td>${res.exam_score !== undefined ? res.exam_score : ""}</td>
-            <td>${res.total !== undefined ? res.total :
-              (parseFloat(res.ca1_score || 0) + parseFloat(res.ca2_score || 0) + parseFloat(res.midterm_score || 0) + parseFloat(res.exam_score || 0))}</td>
-            <td class="${res.grade === 'A' ? 'grade-high' : res.grade === 'D' ? 'grade-low' : 'grade-mid'}">${res.grade || ""}</td>
-            <td>${res.remarks || res.remark || ""}</td>
-            <td>${res.subject_position || ""}</td>
-          </tr>
-        `).join("");
-        window._lastDisplayedResult = r;
-      }
-
-      function downloadCurrentResult() {
-        const r = window._lastDisplayedResult;
-        if (!r || !r.results || !r.results.length) {
-          alert("No result to download. Please check a result first.");
-          return;
-        }
-
-        let affectiveSkills = [];
-        let psychomotorSkills = [];
-        let attendance = [];
-        let principalComment = "This is an excellent result, do not rest on your oars.";
-        let principalName = "ABIODUN FESTUS ADENIYI";
-        let classSize = r.classSize || 17;
-
-        if (r.skillsReport && r.skillsReport.skills) {
-          if (r.skillsReport.skills.affective) {
-            affectiveSkills = Object.entries(r.skillsReport.skills.affective).map(([name, score]) => ({ name, score }));
-          }
-          if (r.skillsReport.skills.psychomotor) {
-            psychomotorSkills = Object.entries(r.skillsReport.skills.psychomotor).map(([name, score]) => ({ name, score }));
-          }
-        }
-        if (r.skillsReport && r.skillsReport.attendance) {
-          const a = r.skillsReport.attendance;
-          attendance = [
-            { label: "No. of School Days", value: a.total_days },
-            { label: "No. of Days Present", value: a.days_present },
-            { label: "No. of Days Absent", value: a.days_absent },
-            { label: "% Attendance", value: (a.total_days && a.days_present ? ((a.days_present/a.total_days)*100).toFixed(2) + "%" : "") }
-          ];
-        }
-        if (r.skillsReport && r.skillsReport.comment) {
-          principalComment = r.skillsReport.comment;
-        }
-
-        // Summary fields: calculate from results if possible
-        const numSubjects = r.results.length;
-        let totalScore = 0, totalMax = numSubjects * 100, gpaSum = 0;
-        let gradeMap = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
-        let perfGrade = "N/A";
-        r.results.forEach(res => {
-          const tot = parseFloat(res.total || 0);
-          totalScore += tot;
-          if (res.grade && gradeMap[res.grade] !== undefined) gpaSum += gradeMap[res.grade];
-        });
-        const stuAverage = numSubjects ? ((totalScore / totalMax) * 100).toFixed(2) + "%" : "";
-        const stuGPA = numSubjects ? (gpaSum / numSubjects).toFixed(2) : "";
-        if (stuGPA >= 4.5) perfGrade = "A (Excellent)";
-        else if (stuGPA >= 4.0) perfGrade = "B (Very Good)";
-        else if (stuGPA >= 3.0) perfGrade = "C (Good)";
-        else if (stuGPA >= 2.0) perfGrade = "D (Pass)";
-        else if (stuGPA >= 1.0) perfGrade = "E (Poor)";
-        else perfGrade = "F (Fail)";
-
-        // --- Save DOB, calculate age, photo, and email ---
-        let studentObj = null;
-        if (r.student) {
-          // Find DOB, Email, Photo, Age
-          let dobVal = r.student.dob || r.student.DOB || "";
-          let ageVal = r.student.age || calcAge(dobVal);
-          let emailVal = r.student.studentEmail || r.student.email || r.student.parentEmail || "";
-          let photoVal = r.student.photoBase64 || r.student.photo || "";
-          studentObj = {
-            name: r.student.name || r.student.fullname || "",
-            regNo: r.student.regNo || r.student.student_id || r.regNo,
-            gender: r.student.gender || "",
-            DOB: dobVal,
-            email: emailVal,
-            photoBase64: photoVal,
-            age: ageVal
+        if (!skillsReport || !skillsReport.skills) {
+          skillsReport = {
+            skills: {
+              affective: {},
+              psychomotor: {}
+            },
+            comment: "Randomized for demo."
           };
+          affectiveNames.forEach(name => {
+            skillsReport.skills.affective[name] = randomRating();
+          });
+          psychomotorNames.forEach(name => {
+            skillsReport.skills.psychomotor[name] = randomRating();
+          });
+        } else {
+          if (!skillsReport.skills.affective) skillsReport.skills.affective = {};
+          if (!skillsReport.skills.psychomotor) skillsReport.skills.psychomotor = {};
+          affectiveNames.forEach(name => {
+            if (skillsReport.skills.affective[name] === undefined)
+              skillsReport.skills.affective[name] = randomRating();
+          });
+          psychomotorNames.forEach(name => {
+            if (skillsReport.skills.psychomotor[name] === undefined)
+              skillsReport.skills.psychomotor[name] = randomRating();
+          });
         }
 
-        const reportData = {
-          regNo: r.regNo,
-          class: r.class,
-          session: r.session,
-          term: r.term,
-          results: r.results.map(res => ({
-            subject: res.subject && res.subject.name ? res.subject.name : (res.subject_name || res.subject || ""),
-            ca1_score: res.ca1_score !== undefined ? res.ca1_score : "",
-            ca2_score: res.ca2_score !== undefined ? res.ca2_score : "",
-            midterm_score: res.midterm_score !== undefined ? res.midterm_score : "",
-            exam_score: res.exam_score !== undefined ? res.exam_score : "",
-            total: res.total !== undefined ? res.total :
-              (parseFloat(res.ca1_score || 0) + parseFloat(res.ca2_score || 0) + parseFloat(res.midterm_score || 0) + parseFloat(res.exam_score || 0)),
-            grade: res.grade || "",
-            remarks: res.remarks || res.remark || "",
-            grade_point: gradeMap[res.grade] !== undefined ? gradeMap[res.grade] : "",
-            teacher_comment: res.teacher_comment || res.comment || "",
-            subject_position: res.subject_position || ""
-          })),
-          student: studentObj,
-          perfGrade: perfGrade,
-          classSize: classSize,
-          numSubjects: numSubjects,
-          stuTotalScore: `${totalScore} / ${totalMax}`,
-          stuAverage: stuAverage,
-          stuGPA: stuGPA,
-          resultSummary: perfGrade.split('(')[1]?.replace(')','') || perfGrade,
-          principalComment,
-          principalName,
-          nextTermDate: "Monday 6th of January 2025.",
-          affectiveSkills,
-          psychomotorSkills,
-          attendance
-        };
+        lastSkillsReport = skillsReport;
+        lastClassSize = classSize;
 
-        sessionStorage.setItem("reportData", JSON.stringify(reportData));
-        window.open('report.html', '_blank');
+        saveViewedResult({
+          regNo, class: klass, session, term, results: filteredResults,
+          skillsReport, classSize,
+          student: studentProfile
+        });
+        displayResult({
+          regNo, class: klass, session, term,
+          results: filteredResults,
+          skillsReport, classSize,
+          student: studentProfile
+        });
+        renderPreviousResults();
+      } catch (err) {
+        errorBox.textContent = err.message || "No result found! Please check your details or contact the school.";
+        errorBox.style.display = "block";
+        document.getElementById("resultsDisplaySection").style.display = "none";
+      }
+      hideLoader();
+      return false;
+    }
+
+    function displayResult(r) {
+      document.getElementById("resultsDisplaySection").style.display = "";
+      document.getElementById("dispRegNo").textContent = r.regNo;
+      document.getElementById("dispClass").textContent = r.class;
+      document.getElementById("dispSession").textContent = r.session;
+      document.getElementById("dispTerm").textContent = r.term;
+      const tbody = document.getElementById("resultsTable").querySelector("tbody");
+      tbody.innerHTML = r.results.map(res => `
+        <tr>
+          <td>${res.subject && res.subject.name ? res.subject.name : (res.subject_name || res.subject || "")}</td>
+          <td>${res.ca1_score !== undefined ? res.ca1_score : ""}</td>
+          <td>${res.ca2_score !== undefined ? res.ca2_score : ""}</td>
+          <td>${res.midterm_score !== undefined ? res.midterm_score : ""}</td>
+          <td>${res.exam_score !== undefined ? res.exam_score : ""}</td>
+          <td>${res.total !== undefined ? res.total :
+            (parseFloat(res.ca1_score || 0) + parseFloat(res.ca2_score || 0) + parseFloat(res.midterm_score || 0) + parseFloat(res.exam_score || 0))}</td>
+          <td class="${res.grade === 'A' ? 'grade-high' : res.grade === 'D' ? 'grade-low' : 'grade-mid'}">${res.grade || ""}</td>
+          <td>${res.remarks || res.remark || ""}</td>
+          <td>${res.subject_position || ""}</td>
+        </tr>
+      `).join("");
+      window._lastDisplayedResult = r;
+    }
+
+    function downloadCurrentResult() {
+      const r = window._lastDisplayedResult;
+      if (!r || !r.results || !r.results.length) {
+        alert("No result to download. Please check a result first.");
+        return;
       }
 
-      renderPreviousResults();
-    </script>
-  </div>
+      let affectiveSkills = [];
+      let psychomotorSkills = [];
+      let attendance = [];
+      let principalComment = "This is an excellent result, do not rest on your oars.";
+      let principalName = "ABIODUN FESTUS ADENIYI";
+      let classSize = r.classSize || 17;
+
+      if (r.skillsReport && r.skillsReport.skills) {
+        if (r.skillsReport.skills.affective) {
+          affectiveSkills = Object.entries(r.skillsReport.skills.affective).map(([name, score]) => ({ name, score }));
+        }
+        if (r.skillsReport.skills.psychomotor) {
+          psychomotorSkills = Object.entries(r.skillsReport.skills.psychomotor).map(([name, score]) => ({ name, score }));
+        }
+      }
+      if (r.skillsReport && r.skillsReport.attendance) {
+        const a = r.skillsReport.attendance;
+        attendance = [
+          { label: "No. of School Days", value: a.total_days },
+          { label: "No. of Days Present", value: a.days_present },
+          { label: "No. of Days Absent", value: a.days_absent },
+          { label: "% Attendance", value: (a.total_days && a.days_present ? ((a.days_present / a.total_days) * 100).toFixed(2) + "%" : "") }
+        ];
+      }
+      if (r.skillsReport && r.skillsReport.comment) {
+        principalComment = r.skillsReport.comment;
+      }
+
+      const numSubjects = r.results.length;
+      let totalScore = 0, totalMax = numSubjects * 100, gpaSum = 0;
+      let gradeMap = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
+      let perfGrade = "N/A";
+      r.results.forEach(res => {
+        const tot = parseFloat(res.total || 0);
+        totalScore += tot;
+        if (res.grade && gradeMap[res.grade] !== undefined) gpaSum += gradeMap[res.grade];
+      });
+      const stuAverage = numSubjects ? ((totalScore / totalMax) * 100).toFixed(2) + "%" : "";
+      const stuGPA = numSubjects ? (gpaSum / numSubjects).toFixed(2) : "";
+      if (stuGPA >= 4.5) perfGrade = "A (Excellent)";
+      else if (stuGPA >= 4.0) perfGrade = "B (Very Good)";
+      else if (stuGPA >= 3.0) perfGrade = "C (Good)";
+      else if (stuGPA >= 2.0) perfGrade = "D (Pass)";
+      else if (stuGPA >= 1.0) perfGrade = "E (Poor)";
+      else perfGrade = "F (Fail)";
+
+      let studentObj = null;
+      if (r.student) {
+        let dobVal = r.student.dob || r.student.DOB || "";
+        let ageVal = r.student.age || calcAge(dobVal);
+        let emailVal = r.student.studentEmail || r.student.email || r.student.parentEmail || "";
+        let photoVal = r.student.photoBase64 || r.student.photo || "";
+        studentObj = {
+          name: r.student.name || r.student.fullname || "",
+          regNo: r.student.regNo || r.student.student_id || r.regNo,
+          gender: r.student.gender || "",
+          DOB: dobVal,
+          email: emailVal,
+          photoBase64: photoVal,
+          age: ageVal
+        };
+      }
+
+      const reportData = {
+        regNo: r.regNo,
+        class: r.class,
+        session: r.session,
+        term: r.term,
+        results: r.results.map(res => ({
+          subject: res.subject && res.subject.name ? res.subject.name : (res.subject_name || res.subject || ""),
+          ca1_score: res.ca1_score !== undefined ? res.ca1_score : "",
+          ca2_score: res.ca2_score !== undefined ? res.ca2_score : "",
+          midterm_score: res.midterm_score !== undefined ? res.midterm_score : "",
+          exam_score: res.exam_score !== undefined ? res.exam_score : "",
+          total: res.total !== undefined ? res.total :
+            (parseFloat(res.ca1_score || 0) + parseFloat(res.ca2_score || 0) + parseFloat(res.midterm_score || 0) + parseFloat(res.exam_score || 0)),
+          grade: res.grade || "",
+          remarks: res.remarks || res.remark || "",
+          grade_point: gradeMap[res.grade] !== undefined ? gradeMap[res.grade] : "",
+          teacher_comment: res.teacher_comment || res.comment || "",
+          subject_position: res.subject_position || ""
+        })),
+        student: studentObj,
+        perfGrade: perfGrade,
+        classSize: classSize,
+        numSubjects: numSubjects,
+        stuTotalScore: `${totalScore} / ${totalMax}`,
+        stuAverage: stuAverage,
+        stuGPA: stuGPA,
+        resultSummary: perfGrade.split('(')[1]?.replace(')', '') || perfGrade,
+        principalComment,
+        principalName,
+        nextTermDate: "Monday 6th of January 2025.",
+        affectiveSkills,
+        psychomotorSkills,
+        attendance
+      };
+
+      sessionStorage.setItem("reportData", JSON.stringify(reportData));
+      window.open('report.html', '_blank');
+    }
+
+    renderPreviousResults();
+  </script>
 </body>
 </html>
