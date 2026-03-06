@@ -2,138 +2,789 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Manual Upload Results - Admin Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=0.8">
-    <link rel="stylesheet" href="manual.css" />
+    <title>Upload Results - Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        :root {
+            --bg-0: #f6f8ff;
+            --bg-1: #eef2ff;
+            --accent: #0f172a;
+            --accent-2: #1e40af;
+            --accent-3: #2647a6;
+            --muted: #6b7280;
+            --card-bg: #ffffff;
+            --sidebar-w: 300px;
+            --radius: 12px;
+            --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+            --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+            -webkit-font-smoothing: antialiased;
+            color: #07102a;
+            width: 100vw;
+            overflow-x: hidden;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .app {
+            display: flex;
+            min-height: 100vh;
+            align-items: stretch;
+            width: 100vw;
+            overflow-x: hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
+            color: #fff;
+            padding: 20px 16px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 100;
+            box-shadow: 4px 0 28px rgba(2, 11, 24, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow-y: auto;
+            transition: transform 0.28s ease;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-110%);
+        }
+
+        .sidebar.open {
+            transform: translateX(0);
+        }
+
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.45);
+            z-index: 50;
+            display: none;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        .brand {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .brand img {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 3px solid rgba(255, 224, 102, 0.12);
+            background: #fff;
+        }
+
+        .brand .title {
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: #ffe066;
+        }
+
+        .brand .subtitle {
+            font-size: 0.85rem;
+            color: #b0c4ff;
+        }
+
+        .search {
+            margin: 6px 0;
+        }
+
+        .search input {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .search input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.98rem;
+            color: #e6eefc;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .nav a.active,
+        .nav a:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: #ffe066;
+        }
+
+        /* TOPBAR */
+        .topbar {
+            position: fixed;
+            left: var(--sidebar-w);
+            top: 0;
+            width: calc(100% - var(--sidebar-w));
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid #eef3ff;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            backdrop-filter: blur(6px);
+        }
+
+        .sidebar-toggle {
+            display: none;
+            background: var(--accent-2);
+            color: #fff;
+            border: none;
+            padding: 9px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 1.05rem;
+            margin-right: 12px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-title {
+            font-weight: 800;
+            font-size: 1.18rem;
+            color: var(--accent-2);
+        }
+
+        .admin-badge {
+            display: inline-block;
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        .topbar-icons {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            margin-left: var(--sidebar-w);
+            padding: 20px;
+            flex: 1;
+            min-height: 100vh;
+            padding-top: 80px;
+            overflow-y: auto;
+            width: calc(100% - var(--sidebar-w));
+            box-sizing: border-box;
+        }
+
+        /* SECTION */
+        .section {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 20px;
+            border: 1px solid #eef3ff;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--accent);
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-subtitle {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+
+        /* FORM CONTROLS */
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: var(--accent);
+        }
+
+        .form-group select,
+        .form-group input {
+            padding: 10px 12px;
+            border: 1.5px solid #eef3ff;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-2);
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.secondary {
+            background: transparent;
+            border: 1.5px solid #eef3ff;
+            color: var(--accent-2);
+        }
+
+        .btn.secondary:hover {
+            background: rgba(30, 64, 175, 0.04);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* TABLE */
+        .table-container {
+            overflow-x: auto;
+            border-radius: var(--radius);
+            margin-top: 16px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+
+        .results-table thead {
+            background: #f8faff;
+            border-bottom: 2px solid #eef3ff;
+        }
+
+        .results-table th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 0.95rem;
+        }
+
+        .results-table tbody tr {
+            border-bottom: 1px solid #eef3ff;
+            transition: background 0.12s ease;
+        }
+
+        .results-table tbody tr:hover {
+            background: #f9fbff;
+        }
+
+        .results-table td {
+            padding: 14px 16px;
+            font-size: 0.95rem;
+            color: #07102a;
+        }
+
+        .results-table input {
+            padding: 8px 10px;
+            border: 1px solid #e3e8ee;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            width: 100%;
+        }
+
+        .results-table input:focus {
+            outline: none;
+            border-color: var(--accent-2);
+            box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.1);
+        }
+
+        .results-table input[readonly] {
+            background: #f8faff;
+            color: #6b7280;
+        }
+
+        /* STATUS MESSAGES */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-message.show {
+            display: flex;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+
+        .empty-state-title {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        /* SPINNER */
+        #pageSpinnerOverlay {
+            position: fixed;
+            z-index: 99999;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s;
+        }
+
+        #pageSpinnerOverlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            border: 6px solid #ddeaff;
+            border-top: 6px solid #2647a6;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spinner-spin 1s linear infinite;
+        }
+
+        @keyframes spinner-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1024px) {
+            .filter-group {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar-toggle {
+                display: inline-flex;
+            }
+
+            .sidebar {
+                transform: translateX(-110%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+                box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+            }
+
+            .topbar {
+                left: 0;
+                width: 100%;
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 14px;
+                padding-top: 80px;
+            }
+
+            .filter-group {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .results-table {
+                font-size: 0.85rem;
+            }
+
+            .results-table th,
+            .results-table td {
+                padding: 10px 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .page-title {
+                font-size: 1rem;
+            }
+
+            .admin-badge {
+                display: block;
+                margin-left: 0;
+                margin-top: 8px;
+            }
+
+            .section {
+                padding: 16px;
+            }
+        }
+    </style>
 </head>
 <body>
+    <!-- Spinner Overlay -->
     <div id="pageSpinnerOverlay">
         <div class="spinner"></div>
     </div>
-    <aside class="sidebar" id="sidebar">
-        <div class="profile">
-            <img src="https://ui-avatars.com/api/?name=Richard+Timothy&background=007bff&color=fff" alt="User Avatar" class="avatar">
-            <div>
-                <div class="name">SCHOOL ICT</div>
-                <div class="role">System Administrator</div>
+
+    <div class="app" id="app">
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
+            <div class="brand">
+                <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
+                <div>
+                    <div class="title">GOLD & LINC</div>
+                    <div class="subtitle">Admin Portal</div>
+                </div>
+            </div>
+
+            <div class="search">
+                <input type="text" placeholder="Quick search..." aria-label="Quick search">
+            </div>
+
+            <nav class="nav" aria-label="Primary">
+                <a href="admin.html" class="nav-link">
+                    <span>🏠</span> Dashboard
+                </a>
+                <a href="admission.html" class="nav-link">
+                    <span>🎓</span> Admission
+                </a>
+                <a href="more.html" class="nav-link">
+                    <span>🌐</span> Multi-location
+                </a>
+                <a href="people.html" class="nav-link">
+                    <span>👥</span> People
+                </a>
+                <a href="academics.html" class="nav-link">
+                    <span>📚</span> Academics
+                </a>
+                <a href="results.html" class="nav-link">
+                    <span>📄</span> Results
+                </a>
+                <a href="upload-results.html" class="nav-link active">
+                    <span>⬆️</span> Upload Results
+                </a>
+                <a href="finance.html" class="nav-link">
+                    <span>💰</span> Finance
+                </a>
+                <a href="attendance.html" class="nav-link">
+                    <span>🗓️</span> Attendance
+                </a>
+                <a href="#" class="nav-link">
+                    <span>⚙️</span> Settings
+                </a>
+            </nav>
+
+            <div style="margin-top: auto; color: #b0c4ff; font-size: 0.85rem;">
+                Signed in as <strong id="adminName">Admin</strong>
+            </div>
+        </aside>
+
+        <!-- TOPBAR -->
+        <div class="topbar" role="banner">
+            <div class="page-header">
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open Sidebar">☰</button>
+                <div>
+                    <h1 class="page-title">
+                        <i class="fa fa-cloud-upload-alt"></i>
+                        Upload Results
+                        <span class="admin-badge">Admin</span>
+                    </h1>
+                </div>
+            </div>
+
+            <div class="topbar-icons">
+                <button class="icon-btn" title="Notifications">🔔</button>
+                <button class="icon-btn" title="Help">❓</button>
+                <button class="icon-btn" title="Settings">⚙️</button>
             </div>
         </div>
-        <div class="search"><input type="text" placeholder="Quick search..." aria-label="Quick search"></div>
-        <nav>
-        <a class="active" href="#"><span>🏠</span> Dashboard</a>
-        <a href="admission.html"><span>🎓</span> Admission</a>
-        <a href="more.html"><span>🌐</span> Multi-location</a>
-        <a href="people.html"><span>👥</span> People</a>
-        <a href="academics.html"><span>📚</span> Academics</a>
-        <a href="e-class.html"><span>💻</span> E-Class</a>
-        <a href="results.html"><span>📄</span> Results</a>
-        <a href="finance.html"><span>💰</span> Finance</a>
-        <a href="attendance.html"><span>🗓️</span> Attendance</a>
-        <a href="admin.html"><span>⚙️</span> Admin</a>
-    </nav>
-    </aside>
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <main class="main-content">
-        <header>
-            <button id="sidebarToggle" class="sidebar-toggle" aria-label="Open Sidebar">☰</button>
-            <div class="school-title">
-                <img src="logo-1679575828 (1).jpeg" alt="Logo" class="logo">
-            </div>
-            <div class="header-actions">
-                <span class="icon" title="Notifications">🔔</span>
-                <span class="icon" title="Help">❓</span>
-                <span class="icon" title="Settings">⚙️</span>
-            </div>
-        </header>
-        <div class="page-title">
-            <h2>Manual Upload of Student Results <span class="admin-badge">Admin</span></h2>
-        </div>
-        <form id="manualUploadForm" autocomplete="off">
-            <div class="results-filters">
-                <label>
-                    Session:
-                    <select id="sessionSelect" name="session" required>
-                         <option>2027–2028</option>
-              <option>2026–2027</option>
-              <option>2025–2026</option>
-                        <option>2024–2025</option>
-                        <option>2023–2024</option>
-                    </select>
-                </label>
-                <label>
-                    Term:
-                    <select id="termSelect" name="term" required>
-                        <option>THIRD TERM</option>
-                        <option>SECOND TERM</option>
-                        <option>FIRST TERM</option>
-                    </select>
-                </label>
-                <label>
-                    Class:
-                    <select id="classSelect" name="class" required>
-                        <option>Beginner</option>
-                  <option>KG1</option>
-                  <option>KG2</option>
-                 <option>Creche</option>
-                        <option>Nursery 1</option>
-                        <option>Nursery 2</option>
-                        <option>Nursery 3</option>
-                        <option>Primary 1</option>
-                        <option>Primary 2</option>
-                        <option>Primary 3</option>
-                        <option>Primary 4</option>
-                        <option>Primary 5</option>
-                        <option>Primary 6</option>
-                        <option>JSS1</option>
-                        <option>JSS2</option>
-                        <option>JSS3</option>
-                        <option>SS1</option>
-                        <option>SS2</option>
-                        <option>SS3</option>
-                    </select>
-                </label>
-                <label>
-                    Subject:
-                    <select id="subjectSelect" name="subject" required>
-                        <!-- Subjects will be dynamically populated -->
-                    </select>
-                </label>
-                <!-- NEW: Result Type Drop-down -->
-                <label>
-                    Result Type:
-                    <select id="resultTypeSelect" name="resultType" required>
-                        <option value="exam">Examination</option>
-                        <option value="ca1">Continuous Assessment 1 (CA1)</option>
-                        <option value="ca2">Continuous Assessment 2 (CA2)</option>
-                        <option value="midterm">Mid Term Test</option>
-                    </select>
-                </label>
-                <button type="button" id="fetchStudentsBtn">Load Students</button>
-            </div>
-            <div class="manual-upload-table-container">
-                <table class="results-table" id="manualResultsTable">
-                    <thead>
-                        <tr>
-                            <th>Student ID</th>
-                            <th>Student Name</th>
-                            <th id="scoreHeader">Score</th>
-                            <th>Grade</th>
-                            <th>Remarks</th>
-                        </tr>
-                    </thead>
-                    <tbody id="manualResultsTbody">
-                        <!-- Student rows will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="results-actions-row">
-                <button type="submit" class="results-actions-btn">Submit Results</button>
-                <span id="uploadStatus"></span>
-            </div>
-        </form>
-    </main>
-    <button class="support-tab" aria-label="Open Support">Support</button>
-    <button class="eclass-fab" aria-label="Open e-Class">e-Class</button>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content" role="main">
+            <!-- FILTERS SECTION -->
+            <section class="section">
+                <h2 class="section-title">
+                    <i class="fa fa-filter"></i>
+                    Select Criteria
+                </h2>
+                <p class="section-subtitle">Choose the session, term, class, and subject to upload results</p>
+
+                <form id="manualUploadForm" autocomplete="off">
+                    <div class="filter-group">
+                        <div class="form-group">
+                            <label for="sessionSelect">Session</label>
+                            <select id="sessionSelect" name="session" required>
+                                <option>2027–2028</option>
+                                <option>2026–2027</option>
+                                <option>2025–2026</option>
+                                <option>2024–2025</option>
+                                <option>2023–2024</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="termSelect">Term</label>
+                            <select id="termSelect" name="term" required>
+                                <option>THIRD TERM</option>
+                                <option>SECOND TERM</option>
+                                <option>FIRST TERM</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="classSelect">Class</label>
+                            <select id="classSelect" name="class" required>
+                                <option>Beginner</option>
+                                <option>KG1</option>
+                                <option>KG2</option>
+                                <option>Creche</option>
+                                <option>Nursery 1</option>
+                                <option>Nursery 2</option>
+                                <option>Nursery 3</option>
+                                <option>Primary 1</option>
+                                <option>Primary 2</option>
+                                <option>Primary 3</option>
+                                <option>Primary 4</option>
+                                <option>Primary 5</option>
+                                <option>Primary 6</option>
+                                <option>JSS1</option>
+                                <option>JSS2</option>
+                                <option>JSS3</option>
+                                <option>SS1</option>
+                                <option>SS2</option>
+                                <option>SS3</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="subjectSelect">Subject</label>
+                            <select id="subjectSelect" name="subject" required>
+                                <option>Select a subject...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="resultTypeSelect">Result Type</label>
+                            <select id="resultTypeSelect" name="resultType" required>
+                                <option value="exam">Examination</option>
+                                <option value="ca1">Continuous Assessment 1 (CA1)</option>
+                                <option value="ca2">Continuous Assessment 2 (CA2)</option>
+                                <option value="midterm">Mid Term Test</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="button" id="fetchStudentsBtn" class="btn">
+                        <i class="fa fa-list"></i> Load Students
+                    </button>
+                </form>
+            </section>
+
+            <!-- RESULTS TABLE SECTION -->
+            <section class="section">
+                <h2 class="section-title">
+                    <i class="fa fa-table"></i>
+                    Student Results
+                </h2>
+                <p class="section-subtitle" id="tableSubtitle">Enter scores, grades, and remarks for each student</p>
+
+                <div class="table-container">
+                    <table class="results-table" id="manualResultsTable">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Student Name</th>
+                                <th id="scoreHeader">Score</th>
+                                <th>Grade</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manualResultsTbody">
+                            <tr>
+                                <td colspan="5">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">📊</div>
+                                        <div class="empty-state-title">No students loaded</div>
+                                        <p style="color: var(--muted); margin-top: 8px;">
+                                            Select criteria above and click "Load Students" to begin
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- STATUS MESSAGE -->
+                <div id="uploadStatus" class="status-message"></div>
+
+                <!-- SUBMIT BUTTONS -->
+                <div class="btn-group">
+                    <button type="submit" form="manualUploadForm" class="btn">
+                        <i class="fa fa-check-circle"></i> Submit Results
+                    </button>
+                    <button type="button" id="clearBtn" class="btn secondary">
+                        <i class="fa fa-redo"></i> Clear Form
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
     <script>
         // BACKEND URL
         const API_BASE_URL = "https://goldlincschools.onrender.com";
@@ -144,7 +795,7 @@
             if (spinner) spinner.style.display = 'flex';
             setTimeout(() => {
                 if (spinner) {
-                    spinner.style.opacity = '0';
+                    spinner.classList.add('hidden');
                     setTimeout(() => { spinner.style.display = 'none'; }, 400);
                 }
             }, 1200);
@@ -154,306 +805,122 @@
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
+
         function openSidebar() {
-            sidebar.classList.add('active');
+            sidebar.classList.add('open');
             sidebarOverlay.classList.add('active');
-            document.body.classList.add('sidebar-open');
+            document.body.style.overflow = 'hidden';
         }
+
         function closeSidebar() {
-            sidebar.classList.remove('active');
+            sidebar.classList.remove('open');
             sidebarOverlay.classList.remove('active');
-            document.body.classList.remove('sidebar-open');
+            document.body.style.overflow = 'auto';
         }
+
         if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
         if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') closeSidebar();
         });
 
-        // Class-based subjects mapping (JSS1–JSS3 subjects from image1)
-        const jssSubjects = [
-            "Mathematics",
-            "English Language",
-            "Christian Religious Studies",
-            "Business Studies",
-            "Music",
-            "Cultural and Creative Art",
-            "PRE-VOCATIONAL STUDIES",
-            "N.V.E",
-            "BASIC SCIENCE AND TECHNOLOGY",
-            "Basic Science",
-            "Computer Science",
-            "Physical And Health Education",
-            "Yoruba",
-            "DICTION"
-        ];
-
-        // Example: other class to subjects mapping (add more per school curriculum)
+        // Class-based subjects mapping
         const subjectOptionsByClass = {
-            "JSS1": jssSubjects,
-            "JSS2": jssSubjects,
-            "JSS3": jssSubjects,
-            // Extend for other classes as needed:
-            
-    "Beginner": [
-        "Hand Writing",
-        "Number Work",
-        "Poem",
-        "Drawing And Colouring",
-        "Christian Religious Studies",
-        "Letter Work",
-        "Social Norms",
-        "Science",
-        "Pattern Writting"
-    ],
-"Creche": [
-        "Letter Work",
-        "Number Work",
-        "Writing Method",
-        "Social Norm",
-        "Science",
-        "Rhymes",
-        "CHRISTIAN RELIGIOUS KNOWLEDGE",
-        "COLOURING AND DRAWING",
-        "PATTERN WRITTING"
-    ],
-    "KG1": [
-        "NUMBER WORK",
-        "LETTER WORK",
-        "SOCIAL NORMS",
-        "SCIENCE",
-        "DRAWING/COLOURING",
-        "RHYMES",
-        "CHRISTIAN RELIGIOUS KNOWLEDGE",
-        "HEALTH HABIT",
-        "Handwriting",
-        "Phonics",
-        "Diction"
-    ],
-    "KG2": [
-        "MATHEMATICS",
-        "ENGLISH LANGUAGE",
-        "SCIENCE",
-        "SOCIAL NORMS",
-        "CHRISTIAN RELIGIOUS STUDIES",
-        "DRAWING AND COLOURING",
-        "LITERATURE",
-        "HANDWRITING",
-        "POEM",
-        "HEALTH HABIT",
-        "PHONICS",
-        "Diction"
-    ],
-    "Nursery 1": [
-        "Mathematics",
-        "English Language",
-        "Computer Studies",
-        "Basic Science",
-        "Social Norms",
-        "Cultural and Creative Art",
-        "Hand Writing",
-        "Poem",
-        "Health Education",
-        "Christian Religious Studies",
-        "Literature",
-        "QUANTITATIVE REASONING",
-        "PHONICS",
-        "VERBAL REASONING",
-        "Diction"
-    ],
-            "Nursery 2": [    "Mathematics",
-    "English Language",
-    "Social Studies",
-    "Literature",
-    "Yoruba",
-    "History",
-    "Quantitative Reasoning",
-    "Verbal Reasoning",
-    "Writing",
-    "Civic Education",
-    "Basic Science and Technology",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Cultural and Creative Arts",
-    "Christian Religious Knowledge",
-    "Security Education/history",
-    "Diction"],
-            "Nursery 3": [    "Mathematics",
-    "English Language",
-    "Social Studies",
-    "Literature",
-    "Yoruba",
-    "History",
-    "Quantitative Reasoning",
-    "Verbal Reasoning",
-    "Writing",
-    "Civic Education",
-    "Basic Science and Technology",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Cultural and Creative Arts",
-    "Christian Religious Knowledge",
-    "Security Education/history",
-    "Diction"],
-            "Primary 1": [
-    "Mathematics",
-    "English Language",
-    "Social Studies",
-    "Literature",
-    "Yoruba",
-    "History",
-    "Quantitative Reasoning",
-    "Verbal Reasoning",
-    "Writing",
-    "Civic Education",
-    "Basic Science and Technology",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Cultural and Creative Arts",
-    "Christian Religious Knowledge",
-    "Security Education/history",
-    "Diction"
+            "Beginner": [
+                "Hand Writing", "Number Work", "Poem", "Drawing And Colouring",
+                "Christian Religious Studies", "Letter Work", "Social Norms", "Science", "Pattern Writting"
             ],
-            "Primary 2": ["Mathematics",
-    "English Language",
-    "Cultural and Creative Arts",
-    "Civic Education",
-    "Social Studies",
-    "Yoruba",
-    "Verbal Reasoning",
-    "Quantitative Reasoning",
-    "Security Education",
-    "Hand Writing",
-    "Literature",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Basic Science and Technology",
-    "Christian Religious Knowledge",
-    "Diction"],
-            "Primary 3": ["Mathematics",
-    "English Language",
-    "Cultural and Creative Arts",
-    "Civic Education",
-    "Social Studies",
-    "Yoruba",
-    "Verbal Reasoning",
-    "Quantitative Reasoning",
-    "Security Education",
-    "Hand Writing",
-    "Literature",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Basic Science and Technology",
-    "Christian Religious Knowledge",
-    "Diction"],
-            "Primary 4": ["Mathematics",
-    "English Language",
-    "Cultural and Creative Arts",
-    "Civic Education",
-    "Social Studies",
-    "Yoruba",
-    "Verbal Reasoning",
-    "Quantitative Reasoning",
-    "Security Education",
-    "Hand Writing",
-    "Literature",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Basic Science and Technology",
-    "Christian Religious Knowledge",
-    "Diction"],
-            "Primary 5": ["Mathematics",
-    "English Language",
-    "Cultural and Creative Arts",
-    "Civic Education",
-    "Social Studies",
-    "Yoruba",
-    "Verbal Reasoning",
-    "Quantitative Reasoning",
-    "Security Education",
-    "Hand Writing",
-    "Literature",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Basic Science and Technology",
-    "Christian Religious Knowledge",
-    "Diction"],
-            "Primary 6": ["Mathematics",
-    "English Language",
-    "Cultural and Creative Arts",
-    "Civic Education",
-    "Social Studies",
-    "Yoruba",
-    "Verbal Reasoning",
-    "Quantitative Reasoning",
-    "Security Education",
-    "Hand Writing",
-    "Literature",
-    "Phonics",
-    "Pre-Vocational Studies",
-    "Basic Science and Technology",
-    "Christian Religious Knowledge",
-    "Diction"],
+            "Creche": [
+                "Letter Work", "Number Work", "Writing Method", "Social Norm", "Science", "Rhymes",
+                "CHRISTIAN RELIGIOUS KNOWLEDGE", "COLOURING AND DRAWING", "PATTERN WRITTING"
+            ],
+            "KG1": [
+                "NUMBER WORK", "LETTER WORK", "SOCIAL NORMS", "SCIENCE", "DRAWING/COLOURING", "RHYMES",
+                "CHRISTIAN RELIGIOUS KNOWLEDGE", "HEALTH HABIT", "Handwriting", "Phonics", "Diction"
+            ],
+            "KG2": [
+                "MATHEMATICS", "ENGLISH LANGUAGE", "SCIENCE", "SOCIAL NORMS", "CHRISTIAN RELIGIOUS STUDIES",
+                "DRAWING AND COLOURING", "LITERATURE", "HANDWRITING", "POEM", "HEALTH HABIT", "PHONICS", "Diction"
+            ],
+            "Nursery 1": [
+                "Mathematics", "English Language", "Computer Studies", "Basic Science", "Social Norms",
+                "Cultural and Creative Art", "Hand Writing", "Poem", "Health Education", "Christian Religious Studies",
+                "Literature", "QUANTITATIVE REASONING", "PHONICS", "VERBAL REASONING", "Diction"
+            ],
+            "Nursery 2": [
+                "Mathematics", "English Language", "Social Studies", "Literature", "Yoruba", "History",
+                "Quantitative Reasoning", "Verbal Reasoning", "Writing", "Civic Education", "Basic Science and Technology",
+                "Phonics", "Pre-Vocational Studies", "Cultural and Creative Arts", "Christian Religious Knowledge",
+                "Security Education/history", "Diction"
+            ],
+            "Nursery 3": [
+                "Mathematics", "English Language", "Social Studies", "Literature", "Yoruba", "History",
+                "Quantitative Reasoning", "Verbal Reasoning", "Writing", "Civic Education", "Basic Science and Technology",
+                "Phonics", "Pre-Vocational Studies", "Cultural and Creative Arts", "Christian Religious Knowledge",
+                "Security Education/history", "Diction"
+            ],
+            "Primary 1": [
+                "Mathematics", "English Language", "Social Studies", "Literature", "Yoruba", "History",
+                "Quantitative Reasoning", "Verbal Reasoning", "Writing", "Civic Education", "Basic Science and Technology",
+                "Phonics", "Pre-Vocational Studies", "Cultural and Creative Arts", "Christian Religious Knowledge",
+                "Security Education/history", "Diction"
+            ],
+            "Primary 2": [
+                "Mathematics", "English Language", "Cultural and Creative Arts", "Civic Education", "Social Studies", "Yoruba",
+                "Verbal Reasoning", "Quantitative Reasoning", "Security Education", "Hand Writing", "Literature", "Phonics",
+                "Pre-Vocational Studies", "Basic Science and Technology", "Christian Religious Knowledge", "Diction"
+            ],
+            "Primary 3": [
+                "Mathematics", "English Language", "Cultural and Creative Arts", "Civic Education", "Social Studies", "Yoruba",
+                "Verbal Reasoning", "Quantitative Reasoning", "Security Education", "Hand Writing", "Literature", "Phonics",
+                "Pre-Vocational Studies", "Basic Science and Technology", "Christian Religious Knowledge", "Diction"
+            ],
+            "Primary 4": [
+                "Mathematics", "English Language", "Cultural and Creative Arts", "Civic Education", "Social Studies", "Yoruba",
+                "Verbal Reasoning", "Quantitative Reasoning", "Security Education", "Hand Writing", "Literature", "Phonics",
+                "Pre-Vocational Studies", "Basic Science and Technology", "Christian Religious Knowledge", "Diction"
+            ],
+            "Primary 5": [
+                "Mathematics", "English Language", "Cultural and Creative Arts", "Civic Education", "Social Studies", "Yoruba",
+                "Verbal Reasoning", "Quantitative Reasoning", "Security Education", "Hand Writing", "Literature", "Phonics",
+                "Pre-Vocational Studies", "Basic Science and Technology", "Christian Religious Knowledge", "Diction"
+            ],
+            "Primary 6": [
+                "Mathematics", "English Language", "Cultural and Creative Arts", "Civic Education", "Social Studies", "Yoruba",
+                "Verbal Reasoning", "Quantitative Reasoning", "Security Education", "Hand Writing", "Literature", "Phonics",
+                "Pre-Vocational Studies", "Basic Science and Technology", "Christian Religious Knowledge", "Diction"
+            ],
+            "JSS1": [
+                "Mathematics", "English Language", "Christian Religious Studies", "Business Studies", "Music",
+                "Cultural and Creative Art", "PRE-VOCATIONAL STUDIES", "N.V.E", "BASIC SCIENCE AND TECHNOLOGY",
+                "Basic Science", "Computer Science", "Physical And Health Education", "Yoruba", "DICTION"
+            ],
+            "JSS2": [
+                "Mathematics", "English Language", "Christian Religious Studies", "Business Studies", "Music",
+                "Cultural and Creative Art", "PRE-VOCATIONAL STUDIES", "N.V.E", "BASIC SCIENCE AND TECHNOLOGY",
+                "Basic Science", "Computer Science", "Physical And Health Education", "Yoruba", "DICTION"
+            ],
+            "JSS3": [
+                "Mathematics", "English Language", "Christian Religious Studies", "Business Studies", "Music",
+                "Cultural and Creative Art", "PRE-VOCATIONAL STUDIES", "N.V.E", "BASIC SCIENCE AND TECHNOLOGY",
+                "Basic Science", "Computer Science", "Physical And Health Education", "Yoruba", "DICTION"
+            ],
             "SS1": [
-    "English Language",
-    "Mathematics",
-    "Civic Education",
-    "Marketing",
-    "Economic",
-    "Chemistry",
-    "Biology",
-    "Geography",
-    "Agricultural Science",
-    "Further Mathematics",
-    "Yoruba",
-    "Government",
-    "Literature in English",
-    "Christian Religious Studies",
-    "Commerce",
-    "Financial Accounting",
-    "PHYSICS",
-    "Economics",
-    "DICTION"
-],
-"SS2": [
-    "English Language",
-    "Mathematics",
-    "Civic Education",
-    "Marketing",
-    "Economic",
-    "Chemistry",
-    "Biology",
-    "Geography",
-    "Agricultural Science",
-    "Further Mathematics",
-    "Yoruba",
-    "Government",
-    "Literature in English",
-    "Christian Religious Studies",
-    "Commerce",
-    "Financial Accounting",
-    "PHYSICS",
-    "Economics",
-    "DICTION"
-],
-"SS3": [
-    "English Language",
-    "Mathematics",
-    "Civic Education",
-    "Marketing",
-    "Economic",
-    "Chemistry",
-    "Biology",
-    "Geography",
-    "Agricultural Science",
-    "Further Mathematics",
-    "Yoruba",
-    "Government",
-    "Literature in English",
-    "Christian Religious Studies",
-    "PHYSICS",
-    "Economics"
-]
+                "English Language", "Mathematics", "Civic Education", "Marketing", "Economic", "Chemistry", "Biology",
+                "Geography", "Agricultural Science", "Further Mathematics", "Yoruba", "Government", "Literature in English",
+                "Christian Religious Studies", "Commerce", "Financial Accounting", "PHYSICS", "Economics", "DICTION"
+            ],
+            "SS2": [
+                "English Language", "Mathematics", "Civic Education", "Marketing", "Economic", "Chemistry", "Biology",
+                "Geography", "Agricultural Science", "Further Mathematics", "Yoruba", "Government", "Literature in English",
+                "Christian Religious Studies", "Commerce", "Financial Accounting", "PHYSICS", "Economics", "DICTION"
+            ],
+            "SS3": [
+                "English Language", "Mathematics", "Civic Education", "Marketing", "Economic", "Chemistry", "Biology",
+                "Geography", "Agricultural Science", "Further Mathematics", "Yoruba", "Government", "Literature in English",
+                "Christian Religious Studies", "PHYSICS", "Economics"
+            ]
         };
 
         // Dynamically update subject options when class changes
@@ -471,8 +938,8 @@
                 });
             }
         }
+
         document.getElementById('classSelect').addEventListener('change', updateSubjectOptions);
-        // Initialize on page load
         document.addEventListener('DOMContentLoaded', updateSubjectOptions);
 
         // Change the score column header based on Result Type
@@ -491,72 +958,81 @@
         document.getElementById('fetchStudentsBtn').addEventListener('click', async function() {
             const className = document.getElementById('classSelect').value;
             const tbody = document.getElementById('manualResultsTbody');
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading...</td></tr>';
+            
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px;">Loading students...</td></tr>';
+            
             try {
                 const res = await fetch(`${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`);
                 const data = await res.json();
-const students = Array.isArray(data) ? data : (data.students || []);
+                const students = Array.isArray(data) ? data : (data.students || []);
+                
                 if (!Array.isArray(students) || students.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No students found for this class.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-title">No students found</div><p style="color: var(--muted);">No students enrolled in this class</p></div></td></tr>';
                     return;
                 }
+                
                 tbody.innerHTML = '';
                 students.forEach(st => {
                     tbody.innerHTML += `
                     <tr>
                         <td><input type="text" name="student_id[]" value="${st.student_id || st._id || ''}" readonly></td>
                         <td><input type="text" name="student_name[]" value="${(st.firstname ? st.firstname : '') + ' ' + (st.surname ? st.surname : '')}" readonly></td>
-                        <td><input type="number" name="score[]" min="0" max="100"></td>
-                        <td><input type="text" name="grade[]"></td>
-                        <td><input type="text" name="remarks[]"></td>
+                        <td><input type="number" name="score[]" min="0" max="100" placeholder="0-100"></td>
+                        <td><input type="text" name="grade[]" placeholder="A, B, C..."></td>
+                        <td><input type="text" name="remarks[]" placeholder="Comments..."></td>
                     </tr>
                     `;
                 });
             } catch (err) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Failed to load students.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Failed to load students</div><p style="color: var(--muted);">Please try again</p></div></td></tr>';
+                console.error(err);
             }
         });
 
-        // Submit results (allow uploading for only students with scores entered)
+        // Submit results
         document.getElementById('manualUploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const form = e.target;
+            const statusEl = document.getElementById('uploadStatus');
+            const submitBtn = form.querySelector('button[type="submit"]');
+
             const session = form.session.value;
             const term = form.term.value;
             const className = form.class.value;
             const subject = form.subject.value;
             const resultType = form.resultType.value;
 
-            // Gather student results (only those with a score entered)
+            // Gather student results
             const studentIds = Array.from(form.querySelectorAll('input[name="student_id[]"]')).map(inp => inp.value);
             const studentNames = Array.from(form.querySelectorAll('input[name="student_name[]"]')).map(inp => inp.value);
-            const scores = Array.from(form.querySelectorAll('input[name="score[]"]')).map(inp => inp.value);
-            const grades = Array.from(form.querySelectorAll('input[name="grade[]"]')).map(inp => inp.value);
-            const remarks = Array.from(form.querySelectorAll('input[name="remarks[]"]')).map(inp => inp.value);
+            const scores = Array.from(form.querySelectorAll('input[name="score[]"]')).map(inp => inp.value.trim());
+            const grades = Array.from(form.querySelectorAll('input[name="grade[]"]')).map(inp => inp.value.trim());
+            const remarks = Array.from(form.querySelectorAll('input[name="remarks[]"]')).map(inp => inp.value.trim());
 
             const results = [];
             for (let i = 0; i < studentIds.length; i++) {
-                // Only include students where a score is entered (not empty/null/undefined)
-                if (scores[i] !== undefined && scores[i] !== null && scores[i] !== "") {
+                // Check if score has a value (not empty, null, or undefined)
+                const scoreValue = scores[i];
+                if (scoreValue && scoreValue !== '' && !isNaN(parseFloat(scoreValue))) {
                     results.push({
                         student_id: studentIds[i],
                         student_name: studentNames[i],
-                        score: scores[i],
-                        grade: grades[i],
-                        remarks: remarks[i]
+                        score: parseFloat(scoreValue),
+                        grade: grades[i] || '',
+                        remarks: remarks[i] || ''
                     });
                 }
             }
 
             if (results.length === 0) {
-                document.getElementById('uploadStatus').innerHTML = `<span style="color:var(--danger);">Please enter at least one score before submitting.</span>`;
+                statusEl.classList.add('show', 'error');
+                statusEl.innerHTML = '<i class="fa fa-exclamation-circle"></i> Please enter at least one score before submitting.';
                 return;
             }
 
-            // Disable submit button and show loading
-            const submitBtn = form.querySelector('.results-actions-btn');
             submitBtn.disabled = true;
-            document.getElementById('uploadStatus').innerHTML = 'Uploading...';
+            statusEl.classList.add('show', 'info');
+            statusEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
 
             try {
                 const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
@@ -567,20 +1043,102 @@ const students = Array.isArray(data) ? data : (data.students || []);
                         term,
                         class: className,
                         subject,
-                        resultType, // This tells backend what type is being uploaded
+                        resultType,
                         results
                     })
                 });
                 const data = await res.json();
+                
+                statusEl.classList.remove('info');
                 if (data.success) {
-                    document.getElementById('uploadStatus').innerHTML = `<span style="color:var(--accent);">Success! Uploaded results for ${data.inserted} students.</span>`;
+                    statusEl.classList.add('success');
+                    statusEl.innerHTML = `<i class="fa fa-check-circle"></i> Success! Uploaded results for ${data.inserted || results.length} students.`;
+                    // Reset form after successful submission
+                    setTimeout(() => {
+                        form.reset();
+                        document.getElementById('manualResultsTbody').innerHTML = `
+                            <tr>
+                                <td colspan="5">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">📊</div>
+                                        <div class="empty-state-title">No students loaded</div>
+                                        <p style="color: var(--muted); margin-top: 8px;">
+                                            Select criteria above and click "Load Students" to begin
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                        statusEl.classList.remove('show', 'success');
+                    }, 2000);
                 } else {
-                    document.getElementById('uploadStatus').innerHTML = `<span style="color:var(--danger);">Error: ${data.error || 'Unknown error.'}</span>`;
+                    statusEl.classList.add('error');
+                    statusEl.innerHTML = `<i class="fa fa-times-circle"></i> Error: ${data.error || 'Unknown error.'}`;
                 }
             } catch (err) {
-                document.getElementById('uploadStatus').innerHTML = `<span style="color:var(--danger);">Failed to upload results.</span>`;
+                statusEl.classList.remove('info');
+                statusEl.classList.add('error');
+                statusEl.innerHTML = `<i class="fa fa-times-circle"></i> Failed to upload results. Please try again.`;
+                console.error(err);
             }
             submitBtn.disabled = false;
+        });
+
+        // Handle Clear/Reset button
+        const clearBtn = document.getElementById('clearBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Clear the form inputs
+                const form = document.getElementById('manualUploadForm');
+                form.reset();
+                
+                // Clear all score, grade, and remarks inputs
+                document.querySelectorAll('input[name="score[]"], input[name="grade[]"], input[name="remarks[]"]').forEach(input => {
+                    input.value = '';
+                });
+                
+                // Reset table to empty state
+                document.getElementById('manualResultsTbody').innerHTML = `
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📊</div>
+                                <div class="empty-state-title">No students loaded</div>
+                                <p style="color: var(--muted); margin-top: 8px;">
+                                    Select criteria above and click "Load Students" to begin
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                
+                // Clear status message
+                const statusEl = document.getElementById('uploadStatus');
+                statusEl.classList.remove('show', 'success', 'error', 'info');
+                statusEl.innerHTML = '';
+                
+                // Reset dropdowns
+                document.getElementById('sessionSelect').selectedIndex = 0;
+                document.getElementById('termSelect').selectedIndex = 0;
+                document.getElementById('classSelect').selectedIndex = 0;
+                document.getElementById('subjectSelect').innerHTML = '<option>Select a subject...</option>';
+                document.getElementById('resultTypeSelect').selectedIndex = 0;
+                
+                // Re-update subjects based on reset class
+                updateSubjectOptions();
+            });
+        }
+
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (link.href === '#' || link.href.includes('upload-results.html')) {
+                    e.preventDefault();
+                }
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
         });
     </script>
 </body>
