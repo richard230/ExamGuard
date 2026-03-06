@@ -4,170 +4,949 @@
   <meta charset="UTF-8">
   <title>Student Fees | Gold and Linc Schools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Inter Font + Flowbite + Tailwind -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Inter Font + FontAwesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <style>
-    body {
-      font-family: 'Inter', Arial, sans-serif;
-      background: #f6f8fa;
-      color: #22305a;
+    :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #3b82f6;
+      --accent-2: #6366f1;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --sidebar-w: 300px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+      --text-main: #0b2a44;
+      --text-muted: #7a90b3;
+      --primary: #2647a6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      color: var(--text-main);
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* App layout */
+    .app {
+      display: flex;
       min-height: 100vh;
+      align-items: stretch;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
     }
-    .fees-bg {
-      background: linear-gradient(180deg, #ddeaff 0%, #f6f8fa 100%);
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
+      display: none;
     }
-    .avatar {
-      border: 2px solid #2647a6;
-      background: #ddeaff;
+
+    .overlay.visible {
+      display: block;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
+      color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-110%);
+      transition: transform 0.28s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+      transition: transform 0.28s ease;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 700;
+      font-size: 1.18rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.96rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    .nav a.active,
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+      transform: translateX(3px);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .profile img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ffe066;
+    }
+
+    .profile .name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: #ffe066;
+    }
+
+    .profile .muted {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 20px;
+      flex: 1;
+      transition: margin-left 0.28s;
+      min-height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-width: calc(100vw - var(--sidebar-w));
+      box-sizing: border-box;
+      overflow-x: hidden;
+      padding-top: 90px;
+    }
+
+    .main.full {
+      margin-left: 0;
+      max-width: 100vw;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100vw - var(--sidebar-w));
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
+      min-height: 64px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .topbar .hamburger {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+
+    .topbar .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Summary Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .summary-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      border-radius: 12px;
+      background: #f8faff;
+      border: 1.5px solid #eef3ff;
+      text-align: center;
+    }
+
+    .summary-amount {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .summary-label {
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .summary-paid { color: #10b981; }
+    .summary-due { color: #e74c3c; }
+    .summary-total { color: var(--accent); }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: all 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1.5px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .btn.ghost:hover {
+      background: rgba(59, 130, 246, 0.04);
+    }
+
+    .btn.success {
+      background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    .btn.success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(16, 185, 129, 0.2);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 16px 0;
+    }
+
+    /* Table Styles */
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+    }
+
+    thead {
+      background: #f8faff;
+      border-bottom: 2px solid #eef3ff;
+    }
+
+    th {
+      padding: 14px 16px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--text-main);
+      font-size: 0.95rem;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #eef3ff;
+      transition: background 0.12s ease;
+    }
+
+    tbody tr:hover {
+      background: #f9fbff;
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      border-radius: 9999px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .badge-paid {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-pending {
+      background: #e9f0fe;
+      color: #2647a6;
+    }
+
+    .badge-overdue {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .badge-waived {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1.5px solid #eef3ff;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-main);
+      transition: all 0.12s ease;
+    }
+
+    .filter-btn.active {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .filter-btn:hover {
+      border-color: var(--accent);
+    }
+
+    /* FAQ Accordion */
+    .accordion {
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .accordion-item {
+      border-bottom: 1px solid #eef3ff;
+    }
+
+    .accordion-item:last-child {
+      border-bottom: none;
+    }
+
+    .accordion-header {
+      padding: 16px;
+      background: #f8faff;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      color: var(--text-main);
+      transition: all 0.12s ease;
+      border: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .accordion-header:hover {
+      background: #f0f4ff;
+    }
+
+    .accordion-header.active {
+      background: linear-gradient(90deg, var(--bg-1), #f8faff);
+      color: var(--accent);
+    }
+
+    .accordion-icon {
+      width: 20px;
+      height: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .accordion-header.active .accordion-icon {
+      transform: rotate(180deg);
+    }
+
+    .accordion-body {
+      padding: 16px;
+      background: #fff;
+      color: var(--text-muted);
+      line-height: 1.6;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .accordion-body.active {
+      max-height: 500px;
+    }
+
+    /* Status Messages */
+    .status-message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .status-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .status-warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    /* Contact Section */
+    .contact-card {
+      text-align: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #f8faff, #f0f4ff);
+      border-radius: 12px;
+      border: 1px solid #eef3ff;
+    }
+
+    .contact-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-main);
+      margin-bottom: 12px;
+    }
+
+    .contact-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+      transition: color 0.12s ease;
+    }
+
+    .contact-link:hover {
+      color: var(--accent-2);
+      text-decoration: underline;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    .empty-state-title {
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    /* Accessibility */
+    .nav a:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.18);
+      outline-offset: 3px;
+      border-radius: 8px;
+    }
+
+    .btn:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.12);
+      outline-offset: 3px;
+    }
+
+    /* Helper Classes */
+    .text-muted {
+      color: var(--muted);
+    }
+
+    .text-success {
+      color: #10b981;
+    }
+
+    .text-danger {
+      color: #e74c3c;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .main {
+        padding: 20px 13px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .topbar .hamburger {
+        display: inline-flex;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      :root {
+        --sidebar-w: 86vw;
+      }
+
+      .sidebar {
+        transform: translateX(-110%);
+        position: fixed;
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+      }
+
+      .overlay {
+        display: none;
+      }
+
+      .overlay.visible {
+        display: block;
+      }
+
+      body.no-scroll {
+        overflow: hidden;
+        height: 100vh;
+        touch-action: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 20px 14px;
+        padding-top: 80px;
+        max-width: 100vw;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100vw;
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .btn-group {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 0.85rem;
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .main {
+        padding: 20px 2vw;
+        padding-top: 80px;
+      }
+
+      .topbar {
+        padding: 10px 2vw;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .card-header {
+        font-size: 1rem;
+      }
+
+      .summary-amount {
+        font-size: 1.5rem;
+      }
+
+      .summary-label {
+        font-size: 0.85rem;
+      }
+
+      .filters {
+        flex-direction: column;
+      }
+
+      .filter-btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
-<body class="fees-bg">
-  <!-- Top Navbar -->
-  <nav class="bg-white shadow-md rounded-b-2xl py-4 px-6 flex items-center justify-between sticky top-0 z-10">
-    <div class="flex items-center gap-3">
-      <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" class="h-9 w-9 rounded-lg shadow" alt="Logo">
-      <span class="text-xl font-bold text-[#2647a6]">Fees Portal</span>
-    </div>
-    <div class="flex items-center gap-4">
-      <button class="hidden md:inline-block px-4 py-2 rounded-lg bg-[#2647a6] text-white font-semibold hover:bg-[#18308b] transition" onclick="window.location.href='student-dashboard.html'">
-        <i class="fa fa-arrow-left mr-1"></i> Dashboard
-      </button>
-      <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.href='profile.html'">
-        <img id="profileAvatar" class="rounded-full h-8 w-8 avatar" src="https://ui-avatars.com/api/?name=Student&background=2647a6&color=fff" alt="Student">
-        <div class="text-sm font-bold text-[#2647a6]" id="profileName">Student Name</div>
-      </div>
-    </div>
-  </nav>
-  <!-- Main Content -->
-  <main class="max-w-3xl mx-auto mt-6 px-2">
-    <!-- Fee Summary Card -->
-    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-      <h1 class="text-xl font-bold text-[#2647a6] mb-2 flex items-center gap-2"><i class="fa fa-wallet"></i> My Fees Status</h1>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 text-center">
-        <div class="flex flex-col items-center">
-          <span class="text-3xl font-bold text-[#18ba89]" id="feesPaid">₦0</span>
-          <span class="text-[#22305a] font-medium mt-1">Paid</span>
-        </div>
-        <div class="flex flex-col items-center">
-          <span class="text-3xl font-bold text-[#e74c3c]" id="feesDue">₦0</span>
-          <span class="text-[#22305a] font-medium mt-1">Outstanding</span>
-        </div>
-        <div class="flex flex-col items-center">
-          <span class="text-3xl font-bold text-[#2647a6]" id="feesTotal">₦0</span>
-          <span class="text-[#22305a] font-medium mt-1">Total Fees</span>
+<body>
+  <div class="app" id="app">
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
+      <div class="brand" aria-hidden="false">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
+        <div>
+          <div class="title">ExamGuard</div>
+          <div class="subtitle" id="schoolSubtitle">Gold & Linc Schools</div>
         </div>
       </div>
-      <div class="mt-6 flex flex-col md:flex-row gap-3">
-        <button class="w-full md:w-auto px-6 py-2 rounded-lg bg-[#18ba89] text-white font-bold hover:bg-[#13a87a] transition" id="payNowBtn">
-          <i class="fa fa-credit-card mr-1"></i> Pay Now
-        </button>
-        <button class="w-full md:w-auto px-6 py-2 rounded-lg bg-[#ddeaff] text-[#2647a6] font-bold hover:bg-[#e9f0fe] transition" onclick="window.location.href='fees-history.html'">
-          <i class="fa fa-history mr-1"></i> Payment History
-        </button>
+
+      <nav class="nav" id="nav" aria-label="Primary">
+        <a href="student-dashboard.html" data-section="home">🏠 Home</a>
+        <a href="#" data-section="courses">📘 My Courses</a>
+        <a href="assignments.html" data-section="assignments">📝 Assignments</a>
+        <a href="#" data-section="grades">📊 Grades</a>
+        <a href="#" data-section="timetable">⏰ Timetable</a>
+        <a href="#" data-section="messages">✉️ Messages</a>
+        <a href="#" data-section="resources">📂 Resources</a>
+        <a href="#" data-section="settings">⚙️ Settings</a>
+      </nav>
+
+      <div class="spacer" aria-hidden="true"></div>
+
+      <div class="profile" role="region" aria-label="Student profile">
+        <img src="" alt="Student avatar" id="studentAvatar">
+        <div>
+          <div class="name" id="studentName"></div>
+          <div class="muted" id="studentClass">Student</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Fixed Topbar -->
+    <div class="topbar" id="fixedTopbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <div>
+          <div class="page-title" id="pageTitle">Fees Portal</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
       </div>
     </div>
-    <!-- Fee Breakdown Table -->
-    <div class="bg-white rounded-xl shadow-md p-5 mb-6">
-      <h2 class="text-lg font-bold text-[#2647a6] mb-4 flex items-center gap-2"><i class="fa fa-list"></i> Fee Breakdown</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead class="bg-[#e9f0fe]">
-            <tr>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Fee Type</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Amount</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Status</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Term</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Session</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Due Date</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Method</th>
-            </tr>
-          </thead>
-          <tbody id="feeTableBody" class="bg-white divide-y divide-[#e9f0fe]">
-            <tr><td class="py-2 px-4" colspan="7">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <!-- Fee By Class Table -->
-    <div class="bg-white rounded-xl shadow-md p-5 mb-6">
-      <h2 class="text-lg font-bold text-[#2647a6] mb-4 flex items-center gap-2"><i class="fa fa-users"></i> Class Fees</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead class="bg-[#e9f0fe]">
-            <tr>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Class</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Term</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Session</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Fee Type</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Amount</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Status</th>
-              <th class="py-3 px-4 text-left font-bold text-[#2647a6]">Due Date</th>
-            </tr>
-          </thead>
-          <tbody id="classFeeTableBody" class="bg-white divide-y divide-[#e9f0fe]">
-            <tr><td class="py-2 px-4" colspan="7">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <!-- FAQ Section -->
-    <div class="bg-white rounded-xl shadow-md p-5 mb-6">
-      <h3 class="text-lg font-bold text-[#2647a6] mb-3 flex items-center gap-2"><i class="fa fa-question-circle"></i> Fees FAQ</h3>
-      <div id="accordion-flush" data-accordion="collapse" data-active-classes="bg-[#e9f0fe] text-[#2647a6]" data-inactive-classes="text-[#22305a]">
-        <h2 id="faq-1">
-          <button type="button" class="flex items-center justify-between w-full py-3 font-medium text-left border-b border-[#ddeaff] focus:outline-none" data-accordion-target="#faq-body-1" aria-expanded="false" aria-controls="faq-body-1">
-            How do I pay my fees online?
-            <svg data-accordion-icon class="w-6 h-6 shrink-0" fill="none" stroke="#2647a6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+
+    <!-- Main Content -->
+    <main class="main" id="main" role="main">
+      <!-- Fee Summary Card -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-wallet"></i>
+          My Fees Status
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <div class="summary-amount summary-paid" id="feesPaid">₦0</div>
+            <div class="summary-label">Paid</div>
+          </div>
+          <div class="summary-box">
+            <div class="summary-amount summary-due" id="feesDue">₦0</div>
+            <div class="summary-label">Outstanding</div>
+          </div>
+          <div class="summary-box">
+            <div class="summary-amount summary-total" id="feesTotal">₦0</div>
+            <div class="summary-label">Total Fees</div>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn success" id="payNowBtn">
+            <i class="fa fa-credit-card"></i> Pay Now
           </button>
-        </h2>
-        <div id="faq-body-1" class="hidden" aria-labelledby="faq-1">
-          <div class="py-4 text-gray-700">Click the "Pay Now" button and follow instructions to complete your payment securely online.</div>
-        </div>
-        <h2 id="faq-2">
-          <button type="button" class="flex items-center justify-between w-full py-3 font-medium text-left border-b border-[#ddeaff] focus:outline-none" data-accordion-target="#faq-body-2" aria-expanded="false" aria-controls="faq-body-2">
-            What if I miss a payment?
-            <svg data-accordion-icon class="w-6 h-6 shrink-0" fill="none" stroke="#2647a6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-          </button>
-        </h2>
-        <div id="faq-body-2" class="hidden" aria-labelledby="faq-2">
-          <div class="py-4 text-gray-700">Contact the school finance office for guidance and to avoid penalties.</div>
-        </div>
-        <h2 id="faq-3">
-          <button type="button" class="flex items-center justify-between w-full py-3 font-medium text-left border-b border-[#ddeaff] focus:outline-none" data-accordion-target="#faq-body-3" aria-expanded="false" aria-controls="faq-body-3">
-            Can I view my past payments?
-            <svg data-accordion-icon class="w-6 h-6 shrink-0" fill="none" stroke="#2647a6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-          </button>
-        </h2>
-        <div id="faq-body-3" class="hidden" aria-labelledby="faq-3">
-          <div class="py-4 text-gray-700">Yes, use the "Payment History" button to see all your previous transactions.</div>
+          <a href="fees-history.html" class="btn ghost" style="text-decoration: none;">
+            <i class="fa fa-history"></i> Payment History
+          </a>
         </div>
       </div>
-    </div>
-    <!-- Contact Card -->
-    <div class="bg-white rounded-xl shadow-md p-5 mb-8 text-center">
-      <span class="text-[#2647a6] font-bold"><i class="fa fa-envelope"></i> Need Help?</span>
-      <div class="mt-2 text-gray-700">Email <a href="mailto:fees@goldlincschools.com" class="text-[#18ba89] font-bold">fees@goldlincschools.com</a> or call <a href="tel:+2348000000000" class="text-[#18ba89] font-bold">+234 800 000 0000</a></div>
-    </div>
-  </main>
+
+      <!-- Fee Breakdown Table -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-list"></i>
+          Fee Breakdown
+        </div>
+
+        <div class="filters">
+          <button class="filter-btn active" onclick="filterFees('all')">All</button>
+          <button class="filter-btn" onclick="filterFees('paid')">Paid</button>
+          <button class="filter-btn" onclick="filterFees('pending')">Pending</button>
+          <button class="filter-btn" onclick="filterFees('overdue')">Overdue</button>
+          <button class="filter-btn" onclick="filterFees('waived')">Waived</button>
+        </div>
+
+        <div class="table-wrapper">
+          <table id="feeTable">
+            <thead>
+              <tr>
+                <th>Fee Type</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Term</th>
+                <th>Session</th>
+                <th>Due Date</th>
+                <th>Method</th>
+              </tr>
+            </thead>
+            <tbody id="feeTableBody">
+              <tr>
+                <td colspan="7">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">📚</div>
+                    <div class="empty-state-title">Loading fees...</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Class Fees Table -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-users"></i>
+          Class Fees
+        </div>
+
+        <div class="table-wrapper">
+          <table id="classFeeTable">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Term</th>
+                <th>Session</th>
+                <th>Fee Type</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Due Date</th>
+              </tr>
+            </thead>
+            <tbody id="classFeeTableBody">
+              <tr>
+                <td colspan="7">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">🎓</div>
+                    <div class="empty-state-title">Loading class fees...</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+    </main>
+  </div>
+
   <script>
-    // Responsive profile fill (reuse logic)
-    function fillProfile(data) {
-      document.getElementById('profileName').textContent = data.name || 'Student Name';
-      document.getElementById('profileAvatar').src = data.photo_url
-        ? data.photo_url
-        : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name || 'Student') + '&background=2647a6&color=fff';
-    }
+    // Sidebar & Topbar Logic
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const hamburger = document.getElementById('hamburger');
+
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('visible');
+    });
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+    });
+
+    // Close sidebar on link click (mobile)
+    document.querySelectorAll('.nav a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth < 980) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('visible');
+        }
+      });
+    });
 
     // API base
     const API_BASE = "https://goldlincschools.onrender.com/api";
-    const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
+    const token = localStorage.getItem('studentToken') || localStorage.getItem('student_token') || localStorage.getItem('token');
+    let currentFilter = 'all';
+    let allFees = [];
 
-    // Fetch fees for current student (from backend)
+    // Fill profile
+    function fillProfile(data) {
+      document.getElementById('studentName').textContent = data.name || 'Student Name';
+      document.getElementById('studentClass').textContent = data.class || 'Student';
+      const avatarUrl = data.photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name || 'Student') + '&background=2647a6&color=fff';
+      document.getElementById('studentAvatar').src = avatarUrl;
+      document.getElementById('topbarAvatar').src = avatarUrl;
+    }
+
+    // Fetch fees
     async function fetchStudentFees() {
       try {
         const res = await fetch(API_BASE + "/fees/me", {
@@ -178,44 +957,98 @@
 
         fillProfile(data);
 
-        // Fill summary
-        document.getElementById('feesPaid').textContent = "₦" + (data.fees.paid || 0).toLocaleString();
-        document.getElementById('feesDue').textContent = "₦" + (data.fees.due || 0).toLocaleString();
-        document.getElementById('feesTotal').textContent = "₦" + (data.fees.total || 0).toLocaleString();
+        // Summary
+        document.getElementById('feesPaid').textContent = "₦" + (data.fees?.paid || 0).toLocaleString();
+        document.getElementById('feesDue').textContent = "₦" + (data.fees?.due || 0).toLocaleString();
+        document.getElementById('feesTotal').textContent = "₦" + (data.fees?.total || 0).toLocaleString();
 
-        // Fill breakdown table
-        const tbody = document.getElementById('feeTableBody');
-        const breakdown = data.fees.breakdown || [];
-        if (breakdown.length === 0) {
-          tbody.innerHTML = `<tr><td class="py-2 px-4" colspan="7">No fee data found.</td></tr>`;
-        } else {
-          tbody.innerHTML = breakdown.map(fee => `
-            <tr>
-              <td class="py-2 px-4 font-semibold">${fee.type}</td>
-              <td class="py-2 px-4">₦${(fee.amount || 0).toLocaleString()}</td>
-              <td class="py-2 px-4">
-                <span class="px-3 py-1 rounded-full text-xs font-bold ${
-                  fee.status === 'Paid' ? 'bg-[#18ba89] text-white' :
-                  fee.status === 'Waived' ? 'bg-yellow-400 text-white' :
-                  'bg-[#e74c3c] text-white'
-                }">${fee.status}</span>
-              </td>
-              <td class="py-2 px-4">${fee.term || ''}</td>
-              <td class="py-2 px-4">${fee.session || ''}</td>
-              <td class="py-2 px-4">${fee.due ? fee.due : ''}</td>
-              <td class="py-2 px-4">${fee.method || ''}</td>
-            </tr>
-          `).join('');
-        }
-      } catch {
-        document.getElementById('feeTableBody').innerHTML = `<tr><td class="py-2 px-4" colspan="7">Unable to load fee data.</td></tr>`;
+        // Breakdown
+        allFees = data.fees?.breakdown || [];
+        renderFeeTable();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('feeTableBody').innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-title">Unable to load fees</div>
+                <p class="text-muted">Please refresh the page</p>
+              </div>
+            </td>
+          </tr>
+        `;
       }
     }
 
-    // Fetch class fees for student's class
+    // Render fee table
+    function renderFeeTable() {
+      const tbody = document.getElementById('feeTableBody');
+      if (!allFees.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-title">No fee data found</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = allFees.map(fee => {
+        let badgeClass = 'badge-pending';
+        if (fee.status === 'Paid') badgeClass = 'badge-paid';
+        else if (fee.status === 'Overdue') badgeClass = 'badge-overdue';
+        else if (fee.status === 'Waived') badgeClass = 'badge-waived';
+
+        return `
+          <tr>
+            <td><strong>${fee.type}</strong></td>
+            <td>₦${(fee.amount || 0).toLocaleString()}</td>
+            <td><span class="badge ${badgeClass}">${fee.status}</span></td>
+            <td>${fee.term || '-'}</td>
+            <td>${fee.session || '-'}</td>
+            <td>${fee.due ? fee.due.slice(0, 10) : '-'}</td>
+            <td>${fee.method || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Filter fees
+    function filterFees(status) {
+      currentFilter = status;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const tbody = document.getElementById('feeTableBody');
+      const rows = tbody.querySelectorAll('tr');
+
+      rows.forEach(row => {
+        if (status === 'all') {
+          row.style.display = '';
+        } else {
+          const badge = row.querySelector('.badge');
+          if (!badge) return;
+          const badgeText = badge.textContent.toLowerCase();
+          let show = false;
+
+          if (status === 'paid' && badgeText.includes('paid')) show = true;
+          if (status === 'pending' && badgeText.includes('pending')) show = true;
+          if (status === 'overdue' && badgeText.includes('overdue')) show = true;
+          if (status === 'waived' && badgeText.includes('waived')) show = true;
+
+          row.style.display = show ? '' : 'none';
+        }
+      });
+    }
+
+    // Fetch class fees
     async function fetchClassFees() {
       try {
-        // Get student profile to find class id
         const resProfile = await fetch(API_BASE + "/students/me", {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -224,11 +1057,19 @@
         const classId = student.class?._id;
 
         if (!classId) {
-          document.getElementById('classFeeTableBody').innerHTML = `<tr><td class="py-2 px-4" colspan="7">Class info not found.</td></tr>`;
+          document.getElementById('classFeeTableBody').innerHTML = `
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">
+                  <div class="empty-state-icon">❌</div>
+                  <div class="empty-state-title">Class info not found</div>
+                </div>
+              </td>
+            </tr>
+          `;
           return;
         }
 
-        // Fetch all class fees assigned to student's class (with student)
         const resFees = await fetch(API_BASE + `/fees/class/${classId}/me`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -236,37 +1077,69 @@
         const fees = await resFees.json();
 
         const tbody = document.getElementById('classFeeTableBody');
-        if (fees.length === 0) {
-          tbody.innerHTML = `<tr><td class="py-2 px-4" colspan="7">No class fees found.</td></tr>`;
-        } else {
-          tbody.innerHTML = fees.map(fee => `
+        if (!fees.length) {
+          tbody.innerHTML = `
             <tr>
-              <td class="py-2 px-4">${fee.class?.name || ''}</td>
-              <td class="py-2 px-4">${fee.term || ''}</td>
-              <td class="py-2 px-4">${fee.session || ''}</td>
-              <td class="py-2 px-4 font-semibold">${fee.type}</td>
-              <td class="py-2 px-4">₦${(fee.amount || 0).toLocaleString()}</td>
-              <td class="py-2 px-4">
-                <span class="px-3 py-1 rounded-full text-xs font-bold ${
-                  fee.status === 'Paid' ? 'bg-[#18ba89] text-white' :
-                  fee.status === 'Waived' ? 'bg-yellow-400 text-white' :
-                  'bg-[#e74c3c] text-white'
-                }">${fee.status}</span>
+              <td colspan="7">
+                <div class="empty-state">
+                  <div class="empty-state-icon">📭</div>
+                  <div class="empty-state-title">No class fees found</div>
+                </div>
               </td>
-              <td class="py-2 px-4">${fee.dueDate ? fee.dueDate.slice(0,10) : ''}</td>
             </tr>
-          `).join('');
+          `;
+        } else {
+          tbody.innerHTML = fees.map(fee => {
+            let badgeClass = 'badge-pending';
+            if (fee.status === 'Paid') badgeClass = 'badge-paid';
+            else if (fee.status === 'Overdue') badgeClass = 'badge-overdue';
+            else if (fee.status === 'Waived') badgeClass = 'badge-waived';
+
+            return `
+              <tr>
+                <td><strong>${fee.class?.name || ''}</strong></td>
+                <td>${fee.term || '-'}</td>
+                <td>${fee.session || '-'}</td>
+                <td>${fee.type}</td>
+                <td>₦${(fee.amount || 0).toLocaleString()}</td>
+                <td><span class="badge ${badgeClass}">${fee.status}</span></td>
+                <td>${fee.dueDate ? fee.dueDate.slice(0, 10) : '-'}</td>
+              </tr>
+            `;
+          }).join('');
         }
-      } catch {
-        document.getElementById('classFeeTableBody').innerHTML = `<tr><td class="py-2 px-4" colspan="7">Unable to load class fee data.</td></tr>`;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('classFeeTableBody').innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-title">Unable to load class fees</div>
+              </div>
+            </td>
+          </tr>
+        `;
       }
     }
 
-    // Pay Now logic (demo)
-    document.getElementById('payNowBtn').onclick = function() {
+    // Accordion toggle
+    function toggleAccordion(button) {
+      const isActive = button.classList.contains('active');
+      document.querySelectorAll('.accordion-header').forEach(h => h.classList.remove('active'));
+      document.querySelectorAll('.accordion-body').forEach(b => b.classList.remove('active'));
+
+      if (!isActive) {
+        button.classList.add('active');
+        button.nextElementSibling.classList.add('active');
+      }
+    }
+
+    // Pay Now
+    document.getElementById('payNowBtn').addEventListener('click', () => {
       alert("Redirecting to payment portal...");
       window.location.href = "https://paystack.com/pay/goldlinc";
-    };
+    });
 
     // Initial load
     fetchStudentFees();
