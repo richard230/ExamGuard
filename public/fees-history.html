@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Payment History | Gold and Linc Schools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Inter Font + FontAwesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #3b82f6;
+      --accent-2: #6366f1;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --sidebar-w: 300px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+      --text-main: #0b2a44;
+      --text-muted: #7a90b3;
+      --primary: #2647a6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      color: var(--text-main);
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* App layout */
+    .app {
+      display: flex;
+      min-height: 100vh;
+      align-items: stretch;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
+      display: none;
+    }
+
+    .overlay.visible {
+      display: block;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
+      color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-110%);
+      transition: transform 0.28s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+      transition: transform 0.28s ease;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 700;
+      font-size: 1.18rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.96rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    .nav a.active,
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+      transform: translateX(3px);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .profile img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ffe066;
+    }
+
+    .profile .name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: #ffe066;
+    }
+
+    .profile .muted {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 20px;
+      flex: 1;
+      transition: margin-left 0.28s;
+      min-height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-width: calc(100vw - var(--sidebar-w));
+      box-sizing: border-box;
+      overflow-x: hidden;
+      padding-top: 90px;
+    }
+
+    .main.full {
+      margin-left: 0;
+      max-width: 100vw;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100vw - var(--sidebar-w));
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
+      min-height: 64px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .topbar .hamburger {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+
+    .topbar .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Summary Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .stat-box {
+      padding: 16px;
+      background: #f8faff;
+      border-radius: 12px;
+      border: 1.5px solid #eef3ff;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .stat-value.success {
+      color: #10b981;
+    }
+
+    .stat-value.danger {
+      color: #e74c3c;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: all 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1.5px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .btn.ghost:hover {
+      background: rgba(59, 130, 246, 0.04);
+    }
+
+    /* Filters & Search */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      border: 1.5px solid #eef3ff;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.12s ease;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+    }
+
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1.5px solid #eef3ff;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-main);
+      transition: all 0.12s ease;
+    }
+
+    .filter-btn.active {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .filter-btn:hover {
+      border-color: var(--accent);
+    }
+
+    /* Table Styles */
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+
+    thead {
+      background: #f8faff;
+      border-bottom: 2px solid #eef3ff;
+    }
+
+    th {
+      padding: 14px 16px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--text-main);
+      font-size: 0.95rem;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #eef3ff;
+      transition: background 0.12s ease;
+    }
+
+    tbody tr:hover {
+      background: #f9fbff;
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      border-radius: 9999px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .badge-success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-pending {
+      background: #e9f0fe;
+      color: #2647a6;
+    }
+
+    .badge-failed {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .badge-refunded {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+
+    /* Timeline */
+    .timeline-item {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      border-radius: 12px;
+      background: #f8faff;
+      border: 1px solid #eef3ff;
+      margin-bottom: 12px;
+      transition: all 0.12s ease;
+    }
+
+    .timeline-item:hover {
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .timeline-icon {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.2rem;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    }
+
+    .timeline-icon.success {
+      background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    .timeline-icon.failed {
+      background: linear-gradient(90deg, #e74c3c, #c0392b);
+    }
+
+    .timeline-content {
+      flex: 1;
+    }
+
+    .timeline-title {
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .timeline-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .timeline-amount {
+      text-align: right;
+    }
+
+    .timeline-amount-value {
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: var(--text-main);
+    }
+
+    .timeline-amount-date {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state-icon {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    .empty-state-title {
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .empty-state-desc {
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    /* Export Button */
+    .export-section {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .pagination-btn {
+      padding: 8px 12px;
+      border: 1.5px solid #eef3ff;
+      background: #fff;
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: 600;
+      color: var(--text-main);
+      transition: all 0.12s ease;
+    }
+
+    .pagination-btn.active {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: #ffffff;
+      width: 500px;
+      max-width: 95vw;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+    }
+
+    .modal-header {
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #eef3ff;
+      background: #f8faff;
+    }
+
+    .modal-title {
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: var(--text-main);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #64748b;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      transition: all 0.12s ease;
+    }
+
+    .modal-close:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+
+    .receipt-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #eef3ff;
+    }
+
+    .receipt-item:last-child {
+      border-bottom: none;
+    }
+
+    .receipt-label {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .receipt-value {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .receipt-total {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-top: 2px solid var(--accent);
+      margin-top: 12px;
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #eef3ff;
+      background: #f8faff;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Accessibility */
+    .nav a:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.18);
+      outline-offset: 3px;
+      border-radius: 8px;
+    }
+
+    .btn:focus {
+      outline: 3px solid rgba(99, 102, 241, 0.12);
+      outline-offset: 3px;
+    }
+
+    /* Helper Classes */
+    .text-muted {
+      color: var(--muted);
+    }
+
+    .text-success {
+      color: #10b981;
+    }
+
+    .text-danger {
+      color: #e74c3c;
+    }
+
+    .mb-20 {
+      margin-bottom: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .main {
+        padding: 20px 13px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .topbar .hamburger {
+        display: inline-flex;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .search-box {
+        min-width: auto;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      :root {
+        --sidebar-w: 86vw;
+      }
+
+      .sidebar {
+        transform: translateX(-110%);
+        position: fixed;
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+      }
+
+      .overlay {
+        display: none;
+      }
+
+      .overlay.visible {
+        display: block;
+      }
+
+      body.no-scroll {
+        overflow: hidden;
+        height: 100vh;
+        touch-action: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 20px 14px;
+        padding-top: 80px;
+        max-width: 100vw;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100vw;
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .timeline-item {
+        flex-direction: column;
+      }
+
+      .timeline-amount {
+        text-align: left;
+      }
+
+      table {
+        font-size: 0.85rem;
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
+
+      .modal-content {
+        width: 95vw;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .main {
+        padding: 20px 2vw;
+        padding-top: 80px;
+      }
+
+      .topbar {
+        padding: 10px 2vw;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .card-header {
+        font-size: 1rem;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .search-box {
+        width: 100%;
+      }
+
+      .filter-btn {
+        flex: 1;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
+      <div class="brand" aria-hidden="false">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
+        <div>
+          <div class="title">ExamGuard</div>
+          <div class="subtitle" id="schoolSubtitle">Gold & Linc Schools</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav" aria-label="Primary">
+        <a href="student-dashboard.html" data-section="home">🏠 Home</a>
+        <a href="#" data-section="courses">📘 My Courses</a>
+        <a href="assignments.html" data-section="assignments">📝 Assignments</a>
+        <a href="#" data-section="grades">📊 Grades</a>
+        <a href="#" data-section="timetable">⏰ Timetable</a>
+        <a href="#" data-section="messages">✉️ Messages</a>
+        <a href="#" data-section="resources">📂 Resources</a>
+        <a href="#" data-section="settings">⚙️ Settings</a>
+      </nav>
+
+      <div class="spacer" aria-hidden="true"></div>
+
+      <div class="profile" role="region" aria-label="Student profile">
+        <img src="" alt="Student avatar" id="studentAvatar">
+        <div>
+          <div class="name" id="studentName"></div>
+          <div class="muted" id="studentClass">Student</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Fixed Topbar -->
+    <div class="topbar" id="fixedTopbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <div>
+          <div class="page-title" id="pageTitle">Payment History</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main" id="main" role="main">
+      <!-- Stats Summary -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-chart-line"></i>
+          Payment Summary
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Total Paid</div>
+            <div class="stat-value success" id="totalPaid">₦0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Transactions</div>
+            <div class="stat-value" id="totalTransactions">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Successful</div>
+            <div class="stat-value success" id="successCount">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Failed</div>
+            <div class="stat-value danger" id="failedCount">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="card">
+        <div class="controls mb-20">
+          <div class="search-box">
+            <i class="fa fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search by reference, amount, or date...">
+          </div>
+          <button class="filter-btn active" onclick="filterTransactions('all')">All</button>
+          <button class="filter-btn" onclick="filterTransactions('successful')">✓ Successful</button>
+          <button class="filter-btn" onclick="filterTransactions('failed')">✗ Failed</button>
+          <button class="filter-btn" onclick="filterTransactions('pending')">⏳ Pending</button>
+        </div>
+
+        <div class="export-section">
+          <button class="btn ghost" onclick="downloadPDF()">
+            <i class="fa fa-download"></i> Download PDF
+          </button>
+          <button class="btn ghost" onclick="printHistory()">
+            <i class="fa fa-print"></i> Print
+          </button>
+          <a href="fees.html" class="btn ghost" style="text-decoration: none;">
+            <i class="fa fa-arrow-left"></i> Back to Fees
+          </a>
+        </div>
+      </div>
+
+      <!-- Transactions List -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-history"></i>
+          Transaction History
+        </div>
+
+        <div id="transactionsContainer">
+          <div class="empty-state">
+            <div class="empty-state-icon">📜</div>
+            <div class="empty-state-title">Loading payment history...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alternative Table View (for larger screens) -->
+      <div class="card" id="tableCard" style="display: none;">
+        <div class="table-wrapper">
+          <table id="transactionsTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Method</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="transactionsTableBody">
+              <tr>
+                <td colspan="7">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <div class="empty-state-title">No transactions found</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination" id="paginationContainer" style="display: none;"></div>
+    </main>
+  </div>
+
+  <!-- Receipt Modal -->
+  <div id="receiptModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Payment Receipt</h2>
+        <button type="button" class="modal-close" onclick="closeReceiptModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="receipt-item">
+          <span class="receipt-label">Transaction ID</span>
+          <span class="receipt-value" id="receiptRef">-</span>
+        </div>
+        <div class="receipt-item">
+          <span class="receipt-label">Date</span>
+          <span class="receipt-value" id="receiptDate">-</span>
+        </div>
+        <div class="receipt-item">
+          <span class="receipt-label">Fee Type</span>
+          <span class="receipt-value" id="receiptType">-</span>
+        </div>
+        <div class="receipt-item">
+          <span class="receipt-label">Payment Method</span>
+          <span class="receipt-value" id="receiptMethod">-</span>
+        </div>
+        <div class="receipt-item">
+          <span class="receipt-label">Status</span>
+          <span class="receipt-value" id="receiptStatus">-</span>
+        </div>
+        <div class="receipt-total">
+          <span>Total Amount</span>
+          <span id="receiptAmount">₦0</span>
+        </div>
+        <div class="receipt-item" style="margin-top: 16px; border: none;">
+          <span class="receipt-label">Description</span>
+        </div>
+        <div style="color: var(--text-muted); line-height: 1.6; margin-top: 8px;" id="receiptDescription"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn ghost" onclick="closeReceiptModal()">Close</button>
+        <button class="btn" onclick="downloadReceipt()">
+          <i class="fa fa-download"></i> Download
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sidebar & Topbar Logic
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const hamburger = document.getElementById('hamburger');
+
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('visible');
+    });
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+    });
+
+    document.querySelectorAll('.nav a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth < 980) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('visible');
+        }
+      });
+    });
+
+    // API Configuration
+    const API_BASE = "https://goldlincschools.onrender.com/api";
+    const token = localStorage.getItem('studentToken') || localStorage.getItem('student_token') || localStorage.getItem('token');
+    
+    let allTransactions = [];
+    let currentFilter = 'all';
+    let currentPage = 1;
+    const itemsPerPage = 10;
+
+    // Fill Profile
+    function fillProfile(data) {
+      document.getElementById('studentName').textContent = data.name || 'Student Name';
+      document.getElementById('studentClass').textContent = data.class || 'Student';
+      const avatarUrl = data.photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name || 'Student') + '&background=2647a6&color=fff';
+      document.getElementById('studentAvatar').src = avatarUrl;
+      document.getElementById('topbarAvatar').src = avatarUrl;
+    }
+
+    // Fetch Payment History
+    async function fetchPaymentHistory() {
+      try {
+        // Fetch profile
+        const resProfile = await fetch(API_BASE + "/student/me", {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const student = await resProfile.json();
+        fillProfile(student);
+
+        // Fetch payment history
+        const res = await fetch(API_BASE + "/payments/history", {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch payment history");
+        const data = await res.json();
+        allTransactions = data.payments || [];
+
+        updateStats();
+        renderTransactions();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('transactionsContainer').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <div class="empty-state-title">Unable to load payment history</div>
+            <p class="empty-state-desc">Please refresh the page or contact support</p>
+          </div>
+        `;
+      }
+    }
+
+    // Update Statistics
+    function updateStats() {
+      const successful = allTransactions.filter(t => t.status === 'Successful' || t.status === 'Completed' || t.status === 'successful').length;
+      const failed = allTransactions.filter(t => t.status === 'Failed' || t.status === 'failed').length;
+      const totalPaid = allTransactions
+        .filter(t => t.status === 'Successful' || t.status === 'Completed' || t.status === 'successful')
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+      document.getElementById('totalPaid').textContent = '₦' + totalPaid.toLocaleString();
+      document.getElementById('totalTransactions').textContent = allTransactions.length.toString();
+      document.getElementById('successCount').textContent = successful.toString();
+      document.getElementById('failedCount').textContent = failed.toString();
+    }
+
+    // Render Transactions
+    function renderTransactions() {
+      const container = document.getElementById('transactionsContainer');
+      const filtered = getFilteredTransactions();
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-title">No transactions found</div>
+            <p class="empty-state-desc">Try adjusting your filters or search criteria</p>
+          </div>
+        `;
+        return;
+      }
+
+      const startIdx = (currentPage - 1) * itemsPerPage;
+      const paginated = filtered.slice(startIdx, startIdx + itemsPerPage);
+
+      container.innerHTML = paginated.map(transaction => {
+        let statusBadge = 'badge-pending';
+        const status = (transaction.status || '').toLowerCase();
+        if (status.includes('successful') || status.includes('completed')) {
+          statusBadge = 'badge-success';
+        } else if (status.includes('failed')) {
+          statusBadge = 'badge-failed';
+        }
+
+        const iconClass = statusBadge === 'badge-success' ? 'success' : statusBadge === 'badge-failed' ? 'failed' : '';
+
+        return `
+          <div class="timeline-item">
+            <div class="timeline-icon ${iconClass}">
+              <i class="fa fa-${statusBadge === 'badge-success' ? 'check' : statusBadge === 'badge-failed' ? 'times' : 'clock'}"></i>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-title">${transaction.description || 'Payment'}</div>
+              <div class="timeline-meta">
+                <strong>Ref:</strong> ${transaction.reference || 'N/A'} | 
+                <strong>Method:</strong> ${transaction.method || 'N/A'}
+              </div>
+              <div style="margin-top: 6px;">
+                <span class="badge ${statusBadge}">${transaction.status || 'Unknown'}</span>
+              </div>
+            </div>
+            <div class="timeline-amount">
+              <div class="timeline-amount-value">₦${(transaction.amount || 0).toLocaleString()}</div>
+              <div class="timeline-amount-date">${new Date(transaction.date || transaction.createdAt).toLocaleDateString()}</div>
+              <button class="btn ghost" style="margin-top: 8px; padding: 6px 12px; font-size: 0.85rem;" onclick="viewReceipt('${transaction._id || transaction.id}')">
+                <i class="fa fa-receipt"></i> View
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Update pagination
+      renderPagination(filtered.length);
+    }
+
+    // Get Filtered Transactions
+    function getFilteredTransactions() {
+      let filtered = allTransactions;
+
+      // Apply status filter
+      if (currentFilter !== 'all') {
+        filtered = filtered.filter(t => {
+          const status = (t.status || '').toLowerCase();
+          if (currentFilter === 'successful') return status.includes('successful') || status.includes('completed');
+          if (currentFilter === 'failed') return status.includes('failed');
+          if (currentFilter === 'pending') return status.includes('pending');
+          return true;
+        });
+      }
+
+      // Apply search filter
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      if (searchTerm) {
+        filtered = filtered.filter(t => {
+          return (t.reference || '').toLowerCase().includes(searchTerm) ||
+                 (t.description || '').toLowerCase().includes(searchTerm) ||
+                 t.amount.toString().includes(searchTerm) ||
+                 new Date(t.date || t.createdAt).toLocaleDateString().includes(searchTerm);
+        });
+      }
+
+      return filtered;
+    }
+
+    // Filter Transactions
+    function filterTransactions(status) {
+      currentFilter = status;
+      currentPage = 1;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      renderTransactions();
+    }
+
+    // Render Pagination
+    function renderPagination(total) {
+      const totalPages = Math.ceil(total / itemsPerPage);
+      const container = document.getElementById('paginationContainer');
+
+      if (totalPages <= 1) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'flex';
+      let html = '';
+
+      const prevBtn = currentPage > 1 ? `<button class="pagination-btn" onclick="goToPage(${currentPage - 1})">← Previous</button>` : `<button class="pagination-btn" disabled>← Previous</button>`;
+      html += prevBtn;
+
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === currentPage) {
+          html += `<button class="pagination-btn active">${i}</button>`;
+        } else if (i <= 3 || i > totalPages - 3 || Math.abs(i - currentPage) <= 1) {
+          html += `<button class="pagination-btn" onclick="goToPage(${i})">${i}</button>`;
+        } else if (i === 4 || i === totalPages - 3) {
+          html += `<button class="pagination-btn" disabled>...</button>`;
+        }
+      }
+
+      const nextBtn = currentPage < totalPages ? `<button class="pagination-btn" onclick="goToPage(${currentPage + 1})">Next →</button>` : `<button class="pagination-btn" disabled>Next →</button>`;
+      html += nextBtn;
+
+      container.innerHTML = html;
+    }
+
+    // Go To Page
+    function goToPage(page) {
+      currentPage = page;
+      renderTransactions();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // View Receipt
+    function viewReceipt(transactionId) {
+      const transaction = allTransactions.find(t => (t._id || t.id) === transactionId);
+      if (!transaction) return;
+
+      document.getElementById('receiptRef').textContent = transaction.reference || 'N/A';
+      document.getElementById('receiptDate').textContent = new Date(transaction.date || transaction.createdAt).toLocaleString();
+      document.getElementById('receiptType').textContent = transaction.description || 'Payment';
+      document.getElementById('receiptMethod').textContent = transaction.method || 'N/A';
+      document.getElementById('receiptStatus').textContent = transaction.status || 'Unknown';
+      document.getElementById('receiptAmount').textContent = '₦' + (transaction.amount || 0).toLocaleString();
+      document.getElementById('receiptDescription').textContent = transaction.notes || 'Payment for school fees';
+
+      document.getElementById('receiptModal').classList.add('active');
+    }
+
+    // Close Receipt Modal
+    function closeReceiptModal() {
+      document.getElementById('receiptModal').classList.remove('active');
+    }
+
+    // Download Receipt
+    function downloadReceipt() {
+      alert('Receipt download feature coming soon!');
+    }
+
+    // Download PDF
+    function downloadPDF() {
+      alert('PDF export feature coming soon!');
+    }
+
+    // Print History
+    function printHistory() {
+      window.print();
+    }
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('keyup', () => {
+      currentPage = 1;
+      renderTransactions();
+    });
+
+    // Close modal on backdrop click
+    window.onclick = function(e) {
+      const modal = document.getElementById('receiptModal');
+      if (modal.classList.contains('active') && e.target === modal) {
+        closeReceiptModal();
+      }
+    }
+
+    // Initial load
+    fetchPaymentHistory();
+  </script>
+</body>
+</html>
