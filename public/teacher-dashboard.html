@@ -2446,28 +2446,34 @@ window.submitGradebookResults = async function() {
 
     console.log('Submitting results:', results);
 
-    // Send to backend
-    const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+    // Get the class name
+    const className = document.querySelector('#gradebook-class option:checked')?.textContent || classId;
+
+    // Format results for backend
+    const formattedResults = results.map(r => ({
+      student_id: r.student_id,
+      student_name: r.student_name,
+      score: r.score,
+      grade: calculateGrade(r.score),
+      remarks: ''
+    }));
+
+    // Send to backend using the correct endpoint path
+    const res = await fetch(`${API_BASE_URL}/api/results`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
-        session,
+        session: session,
         term: term.toUpperCase(),
-        class: document.querySelector('#gradebook-class option:checked')?.textContent || classId,
-        subject: 'Multiple',
-        resultType,
-        results: results.map(r => ({
-          student_id: r.student_id,
-          student_name: r.student_name,
-          score: r.score,
-          subject: r.subject,
-          grade: calculateGrade(r.score),
-          remarks: ''
-        }))
+        class: className,
+        subject: 'Multiple Subjects',
+        resultType: resultType,
+        results: formattedResults
       })
     });
 
     const data = await res.json();
+    console.log('Response:', data);
 
     if (res.ok || data.success) {
       alert(`✅ ${results.length} result(s) uploaded successfully!`);
