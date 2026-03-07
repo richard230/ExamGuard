@@ -2463,7 +2463,16 @@ window.submitGradebookResults = async function() {
     }
 
     const subjects = subjectsByClass[classId] || [];
-    const results = [];
+    
+    // Organize results by subject for better structure
+    const resultsBySubject = {};
+    
+    // Initialize subject results
+    subjects.forEach(subj => {
+      const subjectName = subj.name || subj;
+      resultsBySubject[subjectName] = [];
+    });
+
     const rows = tbody.querySelectorAll('tr');
     
     rows.forEach((row, rowIdx) => {
@@ -2492,7 +2501,8 @@ window.submitGradebookResults = async function() {
           // Only add if score is entered
           if (score !== '' && score !== null && score !== undefined) {
             const subjectName = subjects[inputIdx].name || subjects[inputIdx];
-            results.push({
+            
+            resultsBySubject[subjectName].push({
               student_id: fullStudent.student_id || fullStudent._id,
               student_name: studentName,
               score: parseInt(score) || 0,
@@ -2504,44 +2514,62 @@ window.submitGradebookResults = async function() {
       });
     });
 
-    if (results.length === 0) {
-      throw new Error('No grades entered. Please enter at least one score.');
+    console.log('Results by subject:', resultsBySubject);
+
+    // Step 3: Send results for each subject separately
+    showLoader('Uploading gradebook results...', 'Submitting scores');
+
+    let totalUploaded = 0;
+    const failedSubjects = [];
+
+    for (const [subjectName, subjectResults] of Object.entries(resultsBySubject)) {
+      if (subjectResults.length === 0) continue;
+
+      const payload = {
+        session: session,
+        term: term.toUpperCase(),
+        class: className,
+        subject: subjectName, // Send actual subject name here
+        resultType: resultType,
+        results: subjectResults
+      };
+
+      console.log(`Sending results for ${subjectName}:`, payload);
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        console.log(`Response for ${subjectName}:`, data);
+
+        if (data.success) {
+          totalUploaded += data.inserted || subjectResults.length;
+        } else {
+          failedSubjects.push(`${subjectName}: ${data.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        failedSubjects.push(`${subjectName}: ${error.message}`);
+      }
     }
 
-    console.log('Collected results:', results);
-
-    // Step 3: Send to backend using the same endpoint as upload-results.html
-    showLoader('Uploading gradebook results...', `Submitting ${results.length} result(s)`);
-
-    const payload = {
-      session: session,
-      term: term.toUpperCase(),
-      class: className,
-      subject: 'Multiple Subjects',
-      resultType: resultType,
-      results: results
-    };
-
-    console.log('Sending payload:', payload);
-
-    const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    console.log('Upload response:', data);
-
-    if (data.success) {
-      alert(`✅ Success! Uploaded results for ${data.inserted} students.`);
+    // Step 4: Show results
+    if (totalUploaded > 0) {
+      let message = `✅ Success! Uploaded ${totalUploaded} result(s).`;
+      if (failedSubjects.length > 0) {
+        message += `\n⚠️ Failed subjects:\n${failedSubjects.slice(0, 3).join('\n')}`;
+      }
+      alert(message);
       window.closeGradebookUploadModal();
-      // Clear the gradebook form
       document.getElementById('gradebook-class').value = '';
       document.getElementById('gradebook-table').innerHTML = '';
     } else {
-      throw new Error(data.error || data.message || 'Upload failed');
+      throw new Error(`All uploads failed:\n${failedSubjects.join('\n')}`);
     }
+
   } catch (error) {
     console.error('Error uploading results:', error);
     alert('❌ Error: ' + error.message);
@@ -2549,17 +2577,6 @@ window.submitGradebookResults = async function() {
     hideLoader();
   }
 };
-
-// Helper function to calculate grade from score
-function calculateGrade(score) {
-  const numScore = parseInt(score) || 0;
-  if (numScore >= 90) return 'A';
-  if (numScore >= 80) return 'B';
-  if (numScore >= 70) return 'C';
-  if (numScore >= 60) return 'D';
-  if (numScore >= 50) return 'E';
-  return 'F';
-}
 
 // Helper function to calculate grade from score
 function calculateGrade(score) {
