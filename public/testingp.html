@@ -683,8 +683,8 @@
           }
 
           assignments = await fetchAssignments() || [];
-          draftResults = await fetchDraftResults() || [];
-
+          draftResults = await fetchDraftResultsWithDebug() || []; // Use debug version
+          
           renderOverview();
           renderAssignments();
           renderDraftResults();
@@ -801,33 +801,86 @@
         }
       }
 
-            function renderDraftResults() {
+      function renderDraftResults() {
         const tbody = document.querySelector('#draft-results-table tbody');
         if (!draftResults.length) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#999;">No draft results found.</td></tr>';
           return;
         }
+
         tbody.innerHTML = draftResults.map(r => {
-          const studentName = r.student?.name || r.student?.firstName || r.student?.username || 'Unknown Student';
-          const className = r.class?.name || r.class?.className || 'Unknown Class';
-          const term = r.term || r.termName || '-';
+          // Extract student name - try multiple possible field names
+          let studentName = 'Unknown Student';
+          if (r.student) {
+            if (typeof r.student === 'string') {
+              studentName = r.student;
+            } else if (r.student.name) {
+              studentName = r.student.name;
+            } else if (r.student.firstName && r.student.lastName) {
+              studentName = `${r.student.firstName} ${r.student.lastName}`;
+            } else if (r.student.firstName) {
+              studentName = r.student.firstName;
+            } else if (r.student.username) {
+              studentName = r.student.username;
+            }
+          } else if (r.studentName) {
+            studentName = r.studentName;
+          }
+
+          // Extract class name - try multiple possible field names
+          let className = 'Unknown Class';
+          if (r.class) {
+            if (typeof r.class === 'string') {
+              className = r.class;
+            } else if (r.class.name) {
+              className = r.class.name;
+            } else if (r.class.className) {
+              className = r.class.className;
+            }
+          } else if (r.className) {
+            className = r.className;
+          }
+
+          // Extract term - try multiple possible field names
+          let term = 'First Term';
+          if (r.term) {
+            if (typeof r.term === 'string') {
+              // If it's an ID, try to match it with known terms
+              const termMap = {
+                '1': 'First Term',
+                '2': 'Second Term',
+                '3': 'Third Term'
+              };
+              term = termMap[r.term] || r.term;
+            }
+          } else if (r.termName) {
+            term = r.termName;
+          }
+
+          // Get status
           const status = r.status || 'Draft';
-          const lastUpdated = r.updatedAt ? new Date(r.updatedAt).toLocaleString() : new Date(r.createdAt).toLocaleString();
+          
+          // Format last updated date
+          const lastUpdated = r.updatedAt 
+            ? new Date(r.updatedAt).toLocaleString() 
+            : (r.createdAt ? new Date(r.createdAt).toLocaleString() : '-');
+
+          // Get IDs for modal
           const studentId = r.student?._id || r.student?.id || r.studentId;
           const classId = r.class?._id || r.class?.id || r.classId;
-          
+
           return `
             <tr>
               <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${studentName}</strong></td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;">${className}</td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;">${term}</td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${className}</strong></td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;"><span style="background:#f3f4f6;padding:2px 6px;border-radius:3px;font-size:0.85rem;">${term}</span></td>
               <td style="padding:12px;border-bottom:1px solid #eef3ff;">
-                <span style="background:${status === 'Published' ? '#10b981' : '#f59e0b'};color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem;font-weight:600;">${status}</span>
+                <span style="background:${status === 'Published' ? '#10b981' : '#f59e0b'};color:#fff;padding:6px 10px;border-radius:4px;font-size:0.85rem;font-weight:600;">${status}</span>
               </td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;font-size:0.9rem;color:#666;">${lastUpdated}</td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;text-align:right;">
-                <button class="btn" onclick="window.openResultModal('${studentId}','${classId}')" style="padding:6px 12px;font-size:0.85rem;margin-right:6px;">Edit</button>
-                <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 12px;font-size:0.85rem;">Publish</button>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;font-size:0.9rem;color:#666;white-space:nowrap;">${lastUpdated}</td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;text-align:right;white-space:nowrap;">
+                <button class="btn" onclick="window.openResultModal('${studentId}','${classId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Edit</button>
+                <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 10px;font-size:0.85rem;">Publish</button>
               </td>
             </tr>
           `;
@@ -1020,21 +1073,30 @@
       function renderCBTQuestions() {
         const listDiv = document.getElementById('cbt-questions-list');
         listDiv.innerHTML = '';
+        
+        // Show message if no questions
+        if (cbtQuestions.length === 0) {
+          const emptyDiv = document.createElement('div');
+          emptyDiv.style.cssText = 'padding:20px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:8px;text-align:center;color:#999;margin-bottom:12px;';
+          emptyDiv.innerHTML = '<i class="fa fa-inbox" style="font-size:2em;margin-bottom:8px;"></i><p>No questions yet. Click "Add Question" to get started.</p>';
+          listDiv.appendChild(emptyDiv);
+        }
+        
         cbtQuestions.forEach((q, idx) => {
           let qDiv = document.createElement('div');
           qDiv.className = 'cbt-question-block';
           qDiv.innerHTML = `
             <div class="cbt-question-header">
               <span>Question ${idx+1}</span>
-              <button type="button" class="cbt-remove-q-btn" title="Remove" onclick="window.removeCBTQuestion(${idx})"><i class="fa fa-trash"></i></button>
+              <button type="button" class="cbt-remove-q-btn" title="Remove" data-qidx="${idx}"><i class="fa fa-trash"></i></button>
             </div>
             <div class="cbt-question-label">Question Text</div>
             <div id="cbt-qtext-quill-${idx}" class="quill-editor"></div>
             <div class="cbt-question-label">Score</div>
-            <input type="number" min="1" class="cbt-input cbt-qscore" value="${q.score||1}" placeholder="Score" style="max-width:110px;margin-bottom:0.7em;">
+            <input type="number" min="1" class="cbt-input cbt-qscore" data-qidx="${idx}" value="${q.score||1}" placeholder="Score" style="max-width:110px;margin-bottom:0.7em;">
             <div class="cbt-question-label">Options</div>
             <div class="cbt-options-list" id="cbt-options-list-${idx}"></div>
-            <button type="button" class="cbt-add-opt-btn" onclick="window.addCBTOption(${idx})"><i class="fa fa-plus"></i> Add Option</button>
+            <button type="button" class="cbt-add-opt-btn" data-qidx="${idx}"><i class="fa fa-plus"></i> Add Option</button>
           `;
           listDiv.appendChild(qDiv);
 
@@ -1047,28 +1109,34 @@
           });
           qtextDiv.__quill = qQuill;
 
-          qDiv.querySelector('.cbt-qscore').oninput = (e) => {
+          const scoreInput = qDiv.querySelector('.cbt-qscore');
+          scoreInput.oninput = (e) => {
             cbtQuestions[idx].score = Number(e.target.value)||1;
             saveCBTDraftToLocalStorage();
           };
 
           renderCBTOptions(idx);
         });
+
+        // Attach event listeners with delegation
+        attachCBTQuestionListeners();
         saveCBTDraftToLocalStorage();
       }
 
       function renderCBTOptions(qidx) {
         const optionsDiv = document.getElementById(`cbt-options-list-${qidx}`);
         optionsDiv.innerHTML = '';
+        
         (cbtQuestions[qidx].options||[]).forEach((opt, oi) => {
           let optDiv = document.createElement('div');
           optDiv.className = 'cbt-option-row';
           optDiv.innerHTML = `
-            <input type="radio" class="cbt-option-radio" name="cbt-correct-${qidx}" ${cbtQuestions[qidx].answer===oi?'checked':''} onclick="window.setCBTCorrect(${qidx},${oi})" title="Mark as correct">
+            <input type="radio" class="cbt-option-radio" name="cbt-correct-${qidx}" data-qidx="${qidx}" data-oidx="${oi}" ${cbtQuestions[qidx].answer===oi?'checked':''} title="Mark as correct">
             <div id="cbt-q${qidx}-opt-quill-${oi}" class="quill-editor" style="width:100%;max-width:420px;"></div>
-            <button type="button" class="cbt-remove-opt-btn" onclick="window.removeCBTOption(${qidx},${oi})" title="Remove"><i class="fa fa-trash"></i></button>
+            <button type="button" class="cbt-remove-opt-btn" data-qidx="${qidx}" data-oidx="${oi}" title="Remove"><i class="fa fa-trash"></i></button>
           `;
           optionsDiv.appendChild(optDiv);
+          
           let optQuillDiv = optDiv.querySelector(`#cbt-q${qidx}-opt-quill-${oi}`);
           let optQuill = new Quill(optQuillDiv, getQuillConfig());
           if(opt.value) optQuill.root.innerHTML = opt.value;
@@ -1081,8 +1149,51 @@
         saveCBTDraftToLocalStorage();
       }
 
+      // ============ EVENT DELEGATION FOR CBT QUESTIONS ============
+      function attachCBTQuestionListeners() {
+        const listDiv = document.getElementById('cbt-questions-list');
+        if (!listDiv) return;
+
+        // Remove question button
+        listDiv.querySelectorAll('.cbt-remove-q-btn').forEach(btn => {
+          btn.onclick = (e) => {
+            e.preventDefault();
+            const idx = parseInt(btn.getAttribute('data-qidx'));
+            window.removeCBTQuestion(idx);
+          };
+        });
+
+        // Add option button
+        listDiv.querySelectorAll('.cbt-add-opt-btn').forEach(btn => {
+          btn.onclick = (e) => {
+            e.preventDefault();
+            const qidx = parseInt(btn.getAttribute('data-qidx'));
+            window.addCBTOption(qidx);
+          };
+        });
+
+        // Remove option button
+        listDiv.querySelectorAll('.cbt-remove-opt-btn').forEach(btn => {
+          btn.onclick = (e) => {
+            e.preventDefault();
+            const qidx = parseInt(btn.getAttribute('data-qidx'));
+            const oidx = parseInt(btn.getAttribute('data-oidx'));
+            window.removeCBTOption(qidx, oidx);
+          };
+        });
+
+        // Set correct option radio button
+        listDiv.querySelectorAll('.cbt-option-radio').forEach(radio => {
+          radio.onchange = (e) => {
+            const qidx = parseInt(radio.getAttribute('data-qidx'));
+            const oidx = parseInt(radio.getAttribute('data-oidx'));
+            window.setCBTCorrect(qidx, oidx);
+          };
+        });
+      }
+
       window.removeCBTQuestion = function(idx) {
-        cbtQuestions.splice(idx,1);
+        cbtQuestions.splice(idx, 1);
         renderCBTQuestions();
         saveCBTDraftToLocalStorage();
       };
@@ -1095,7 +1206,7 @@
       };
 
       window.removeCBTOption = function(qidx, oidx) {
-        cbtQuestions[qidx].options.splice(oidx,1);
+        cbtQuestions[qidx].options.splice(oidx, 1);
         if (cbtQuestions[qidx].answer === oidx) cbtQuestions[qidx].answer = 0;
         renderCBTQuestions();
         saveCBTDraftToLocalStorage();
@@ -1106,7 +1217,7 @@
         saveCBTDraftToLocalStorage();
       };
 
-           function renderCBTQuestionSection() {
+      function renderCBTQuestionSection() {
         const classSel = document.getElementById('cbt-class-select');
         const subjSel = document.getElementById('cbt-subject-select');
         classSel.innerHTML = '';
@@ -1134,6 +1245,7 @@
                 document.getElementById('cbt-title').value = draft.title || '';
                 document.getElementById('cbt-duration').value = draft.duration || '';
                 renderCBTQuestions();
+                attachCBTQuestionListeners();
               });
             } else {
               clearCBTDraftFromLocalStorage();
@@ -1161,6 +1273,19 @@
           renderCBTQuestions();
         }
       }
+
+      // ============ ADD QUESTION BUTTON HANDLER ============
+      document.addEventListener('DOMContentLoaded', function() {
+        const addQuestionBtn = document.getElementById('cbt-add-question-btn');
+        if (addQuestionBtn) {
+          addQuestionBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            cbtQuestions.push({ text: '', options: [], answer: 0, score: 1 });
+            renderCBTQuestions();
+            saveCBTDraftToLocalStorage();
+          });
+        }
+      });
 
       // ============ MY CBT QUESTIONS RENDERING ============
       function renderMyCBTQuestions() {
