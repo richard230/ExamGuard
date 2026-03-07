@@ -2436,7 +2436,8 @@ window.submitGradebookResults = async function() {
               student_name: studentName,
               score: parseInt(score) || 0,
               grade: calculateGrade(parseInt(score) || 0),
-              remarks: ''
+              remarks: '',
+              subject: subjectName
             });
           }
         }
@@ -2452,32 +2453,70 @@ window.submitGradebookResults = async function() {
     // Get the class name
     const className = document.querySelector('#gradebook-class option:checked')?.textContent || classId;
 
-    // Send to backend using the exact same endpoint and format as upload-results.html
+    // Format data - send each result individually or in bulk
+    const payload = {
+      session: session,
+      term: term.toUpperCase(),
+      class: className,
+      subject: 'Multiple Subjects',
+      resultType: resultType,
+      results: results
+    };
+
+    console.log('Sending payload:', payload);
+
+    // Send to backend
     const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session: session,
-        term: term.toUpperCase(),
-        class: className,
-        subject: 'Multiple Subjects',
-        resultType: resultType,
-        results: results
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await res.json();
     console.log('Response:', data);
 
-    if (data.success) {
-      alert(`✅ Success! Uploaded results for ${data.inserted} students.`);
+    if (res.ok || data.success) {
+      alert(`✅ Success! Uploaded results for ${data.inserted || results.length} students.`);
       window.closeGradebookUploadModal();
       // Clear the gradebook form
       document.getElementById('gradebook-class').value = '';
       document.getElementById('gradebook-table').innerHTML = '';
-      renderGradebook(); // Refresh if needed
     } else {
-      throw new Error(data.error || data.message || 'Upload failed');
+      // If bulk upload fails, try sending results one by one
+      console.log('Bulk upload failed, attempting individual uploads...');
+      let uploadedCount = 0;
+      
+      for (const result of results) {
+        try {
+          const singleRes = await fetch(`${API_BASE_URL}/api/results/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session: session,
+              term: term.toUpperCase(),
+              class: className,
+              subject: result.subject,
+              resultType: resultType,
+              results: [result]
+            })
+          });
+
+          if (singleRes.ok) {
+            uploadedCount++;
+          }
+        } catch (err) {
+          console.error('Failed to upload result for:', result.student_name, err);
+        }
+      }
+
+      if (uploadedCount > 0) {
+        alert(`✅ Uploaded results for ${uploadedCount} students.`);
+        window.closeGradebookUploadModal();
+        document.getElementById('gradebook-class').value = '';
+        document.getElementById('gradebook-table').innerHTML = '';
+      } else {
+        throw new Error(data.error || data.message || 'Upload failed');
+      }
     }
   } catch (error) {
     console.error('Error uploading results:', error);
