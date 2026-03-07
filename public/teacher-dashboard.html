@@ -1322,24 +1322,66 @@ function renderDraftResults() {
         div.innerHTML = html;
       }
 
-      function renderGradebook() {
-        const classId = document.getElementById('gradebook-class').value;
-        const students = studentsByClass[classId] || [];
-        const subjects = subjectsByClass[classId] || [];
-        let html = `<table>
-            <thead><tr><th>Student</th>`;
-        subjects.forEach(subj => html += `<th>${subj.name}</th>`);
-        html += `</tr></thead><tbody>`;
-        students.forEach(stu => {
-          html += `<tr><td>${stu.name}</td>`;
-          subjects.forEach(subj => {
-            html += `<td><input type="number" min="0" max="100" style="width:100%;"></td>`;
-          });
-          html += `</tr>`;
-        });
-        html += `</tbody></table>`;
-        document.getElementById('gradebook-table').innerHTML = html;
-      }
+// Update renderGradebook to properly initialize the table
+function renderGradebook() {
+  const classSelect = document.getElementById('gradebook-class');
+  const classId = classSelect.value;
+  
+  if (!classId) {
+    document.getElementById('gradebook-table').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Select a class to view gradebook</div>';
+    return;
+  }
+
+  const students = studentsByClass[classId] || [];
+  const subjects = subjectsByClass[classId] || [];
+  
+  if (students.length === 0) {
+    document.getElementById('gradebook-table').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">No students found for this class</div>';
+    return;
+  }
+
+  if (subjects.length === 0) {
+    document.getElementById('gradebook-table').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">No subjects found for this class</div>';
+    return;
+  }
+
+  let html = `<table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f0f4ff;">
+          <th style="padding:12px;text-align:left;border-bottom:2px solid #e6e9ef;font-weight:600;">Student</th>`;
+  
+  subjects.forEach(subj => {
+    const subjectName = subj.name || subj;
+    html += `<th style="padding:12px;text-align:center;border-bottom:2px solid #e6e9ef;font-weight:600;">${subjectName}</th>`;
+  });
+  
+  html += `</tr></thead><tbody>`;
+  
+  students.forEach((stu, idx) => {
+    html += `<tr style="border-bottom:1px solid #eef3ff;">
+      <td style="padding:12px;text-align:left;font-weight:500;">${stu.name}</td>`;
+    subjects.forEach(subj => {
+      html += `<td style="padding:12px;text-align:center;">
+        <input type="number" min="0" max="100" placeholder="0-100" 
+               style="width:70px;padding:8px;border:1px solid #e6e9ef;border-radius:4px;text-align:center;font-size:0.9rem;">
+      </td>`;
+    });
+    html += `</tr>`;
+  });
+  
+  html += `</tbody></table>`;
+  document.getElementById('gradebook-table').innerHTML = html;
+}
+
+// Ensure gradebook renders when class is selected
+document.addEventListener('DOMContentLoaded', function() {
+  const gradebookClassSelect = document.getElementById('gradebook-class');
+  if (gradebookClassSelect) {
+    gradebookClassSelect.addEventListener('change', function() {
+      renderGradebook();
+    });
+  }
+});
 
       function renderAttendance() {
         const attendanceClassSel = document.getElementById('attendance-class');
@@ -2387,6 +2429,7 @@ window.closeGradebookUploadModal = function() {
 
 window.submitGradebookResults = async function() {
   const classId = document.getElementById('gradebook-class').value;
+  const className = document.querySelector('#gradebook-class option:checked')?.textContent || classId;
   const session = document.getElementById('gb-session-select')?.value;
   const term = document.getElementById('gb-term-select')?.value;
   const resultType = document.getElementById('gb-result-type-select')?.value;
@@ -2396,16 +2439,29 @@ window.submitGradebookResults = async function() {
     return;
   }
 
-  showLoader('Uploading gradebook results...', 'Please wait');
+  showLoader('Preparing gradebook results...', 'Fetching student data');
 
   try {
-    // Collect all grades from the gradebook table
+    // Step 1: Fetch full student data for the class
+    console.log('Fetching student data for class:', className);
+    const studentRes = await fetch(`${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`);
+    const studentData = await studentRes.json();
+    const fullStudents = Array.isArray(studentData) ? studentData : (studentData.students || []);
+
+    if (!fullStudents || fullStudents.length === 0) {
+      throw new Error('No student data found for this class');
+    }
+
+    console.log('Fetched students:', fullStudents);
+
+    // Step 2: Collect grades from gradebook table
+    showLoader('Processing gradebook results...', 'Collecting scores');
+    
     const tbody = document.querySelector('#gradebook-table tbody');
     if (!tbody) {
       throw new Error('No gradebook table found');
     }
 
-    const students = Object.values(studentsByClass[classId] || []);
     const subjects = subjectsByClass[classId] || [];
     const results = [];
     const rows = tbody.querySelectorAll('tr');
@@ -2415,10 +2471,15 @@ window.submitGradebookResults = async function() {
       if (!studentNameCell) return;
 
       const studentName = studentNameCell.textContent.trim();
-      const student = students.find(s => s.name === studentName);
+      
+      // Find the full student object from fetched data
+      const fullStudent = fullStudents.find(s => {
+        const fullName = `${s.firstname || ''} ${s.surname || ''}`.trim();
+        return fullName === studentName || s.name === studentName;
+      });
 
-      if (!student) {
-        console.warn('Student not found:', studentName);
+      if (!fullStudent) {
+        console.warn('Full student data not found for:', studentName);
         return;
       }
 
@@ -2432,12 +2493,11 @@ window.submitGradebookResults = async function() {
           if (score !== '' && score !== null && score !== undefined) {
             const subjectName = subjects[inputIdx].name || subjects[inputIdx];
             results.push({
-              student_id: student.id || student._id,
+              student_id: fullStudent.student_id || fullStudent._id,
               student_name: studentName,
               score: parseInt(score) || 0,
               grade: calculateGrade(parseInt(score) || 0),
-              remarks: '',
-              subject: subjectName
+              remarks: ''
             });
           }
         }
@@ -2448,12 +2508,11 @@ window.submitGradebookResults = async function() {
       throw new Error('No grades entered. Please enter at least one score.');
     }
 
-    console.log('Submitting results:', results);
+    console.log('Collected results:', results);
 
-    // Get the class name
-    const className = document.querySelector('#gradebook-class option:checked')?.textContent || classId;
+    // Step 3: Send to backend using the same endpoint as upload-results.html
+    showLoader('Uploading gradebook results...', `Submitting ${results.length} result(s)`);
 
-    // Format data - send each result individually or in bulk
     const payload = {
       session: session,
       term: term.toUpperCase(),
@@ -2465,7 +2524,6 @@ window.submitGradebookResults = async function() {
 
     console.log('Sending payload:', payload);
 
-    // Send to backend
     const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2473,50 +2531,16 @@ window.submitGradebookResults = async function() {
     });
 
     const data = await res.json();
-    console.log('Response:', data);
+    console.log('Upload response:', data);
 
-    if (res.ok || data.success) {
-      alert(`✅ Success! Uploaded results for ${data.inserted || results.length} students.`);
+    if (data.success) {
+      alert(`✅ Success! Uploaded results for ${data.inserted} students.`);
       window.closeGradebookUploadModal();
       // Clear the gradebook form
       document.getElementById('gradebook-class').value = '';
       document.getElementById('gradebook-table').innerHTML = '';
     } else {
-      // If bulk upload fails, try sending results one by one
-      console.log('Bulk upload failed, attempting individual uploads...');
-      let uploadedCount = 0;
-      
-      for (const result of results) {
-        try {
-          const singleRes = await fetch(`${API_BASE_URL}/api/results/upload`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              session: session,
-              term: term.toUpperCase(),
-              class: className,
-              subject: result.subject,
-              resultType: resultType,
-              results: [result]
-            })
-          });
-
-          if (singleRes.ok) {
-            uploadedCount++;
-          }
-        } catch (err) {
-          console.error('Failed to upload result for:', result.student_name, err);
-        }
-      }
-
-      if (uploadedCount > 0) {
-        alert(`✅ Uploaded results for ${uploadedCount} students.`);
-        window.closeGradebookUploadModal();
-        document.getElementById('gradebook-class').value = '';
-        document.getElementById('gradebook-table').innerHTML = '';
-      } else {
-        throw new Error(data.error || data.message || 'Upload failed');
-      }
+      throw new Error(data.error || data.message || 'Upload failed');
     }
   } catch (error) {
     console.error('Error uploading results:', error);
@@ -2525,6 +2549,17 @@ window.submitGradebookResults = async function() {
     hideLoader();
   }
 };
+
+// Helper function to calculate grade from score
+function calculateGrade(score) {
+  const numScore = parseInt(score) || 0;
+  if (numScore >= 90) return 'A';
+  if (numScore >= 80) return 'B';
+  if (numScore >= 70) return 'C';
+  if (numScore >= 60) return 'D';
+  if (numScore >= 50) return 'E';
+  return 'F';
+}
 
 // Helper function to calculate grade from score
 function calculateGrade(score) {
