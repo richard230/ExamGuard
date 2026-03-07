@@ -857,8 +857,11 @@ async function fetchDraftResultsWithDebug() {
   }
 }
 
+// Store current result being edited
+let currentEditingResult = null;
+
 // Delete draft result function
-async function deleteDraftResult(resultId) {
+window.deleteDraftResult = async function(resultId) {
   if (!confirm('Are you sure you want to delete this draft result?')) {
     return;
   }
@@ -877,7 +880,7 @@ async function deleteDraftResult(resultId) {
     }
 
     // Remove from local array
-    draftResults = draftResults.filter(r => r._id !== resultId && r.id !== resultId);
+    draftResults = draftResults.filter(r => (r._id || r.id) !== resultId);
     
     // Re-render the table
     renderDraftResults();
@@ -889,9 +892,221 @@ async function deleteDraftResult(resultId) {
   } finally {
     hideLoader();
   }
-}
+};
 
-// Then update the renderDraftResults function with better fallbacks and delete button
+// Open result modal with data populated
+window.openResultModal = function(resultId) {
+  console.log('Opening result modal for ID:', resultId);
+  
+  // Find the result in the draftResults array
+  const result = draftResults.find(r => (r._id || r.id) === resultId);
+  
+  if (!result) {
+    console.error('Result not found:', resultId);
+    alert('Error: Result not found');
+    return;
+  }
+  
+  console.log('Found result:', result);
+  currentEditingResult = result;
+  
+  // Extract student name
+  let studentName = 'Unknown Student';
+  if (result.student) {
+    if (typeof result.student === 'string') {
+      const allStudents = Object.values(studentsByClass).flat();
+      const found = allStudents.find(s => s.id === result.student || s._id === result.student);
+      studentName = found ? found.name : result.student;
+    } else if (typeof result.student === 'object') {
+      studentName = result.student.name 
+        || (result.student.firstName && result.student.lastName ? `${result.student.firstName} ${result.student.lastName}` : null)
+        || result.student.firstName 
+        || result.student.lastName
+        || result.student.username
+        || result.student.regNo
+        || result.student.email
+        || 'Unknown';
+    }
+  } else if (result.studentName) {
+    studentName = result.studentName;
+  }
+
+  // Extract class name
+  let className = 'Unknown Class';
+  if (result.class) {
+    if (typeof result.class === 'string') {
+      const found = (teacher.classes || []).find(c => c.id === result.class || c._id === result.class);
+      className = found ? found.name : result.class;
+    } else if (typeof result.class === 'object') {
+      className = result.class.name || result.class.className || 'Unknown';
+    }
+  } else if (result.className) {
+    className = result.className;
+  }
+
+  // Extract term
+  let term = 'First Term';
+  if (result.term) {
+    if (typeof result.term === 'string') {
+      const termMap = { '1': 'First Term', '2': 'Second Term', '3': 'Third Term' };
+      term = termMap[result.term] || (result.term.length > 10 ? 'First Term' : result.term);
+    } else if (typeof result.term === 'object' && result.term.name) {
+      term = result.term.name;
+    }
+  } else if (result.termName) {
+    term = result.termName;
+  }
+
+  // Build form fields dynamically based on result data
+  let formFields = `
+    <div style="margin-bottom:12px;">
+      <label style="display:block;margin-bottom:6px;font-weight:600;">Student Name</label>
+      <input type="text" value="${studentName}" disabled style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;background:#f5f5f5;">
+    </div>
+    
+    <div style="margin-bottom:12px;">
+      <label style="display:block;margin-bottom:6px;font-weight:600;">Class</label>
+      <input type="text" value="${className}" disabled style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;background:#f5f5f5;">
+    </div>
+    
+    <div style="margin-bottom:12px;">
+      <label style="display:block;margin-bottom:6px;font-weight:600;">Term</label>
+      <input type="text" value="${term}" disabled style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;background:#f5f5f5;">
+    </div>
+  `;
+
+  // Add result fields if they exist
+  if (result.results && typeof result.results === 'object') {
+    for (const [key, value] of Object.entries(result.results)) {
+      const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      formFields += `
+        <div style="margin-bottom:12px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;">${displayKey}</label>
+          <input type="text" id="result_${key}" value="${value || ''}" style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;">
+        </div>
+      `;
+    }
+  }
+
+  // Add individual score fields if they exist
+  if (result.scores && typeof result.scores === 'object') {
+    for (const [key, value] of Object.entries(result.scores)) {
+      const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      formFields += `
+        <div style="margin-bottom:12px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;">${displayKey}</label>
+          <input type="number" id="score_${key}" value="${value || ''}" min="0" max="100" style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;">
+        </div>
+      `;
+    }
+  }
+
+  // Add some common result fields if they exist at root level
+  const commonFields = ['totalScore', 'remarks', 'grade', 'comments', 'notes'];
+  commonFields.forEach(field => {
+    if (result[field]) {
+      const displayField = field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      formFields += `
+        <div style="margin-bottom:12px;">
+          <label style="display:block;margin-bottom:6px;font-weight:600;">${displayField}</label>
+          <input type="text" id="field_${field}" value="${result[field] || ''}" style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;">
+        </div>
+      `;
+    }
+  });
+
+  // If no fields were added, show a message
+  if (formFields.split('id=').length <= 5) {
+    formFields += `
+      <div style="margin-bottom:12px;padding:12px;background:#f0f4ff;border-radius:8px;text-align:center;color:#666;">
+        <p>No editable fields available for this result.</p>
+        <small>Full result data:</small>
+        <pre style="text-align:left;font-size:0.8rem;overflow:auto;background:#fff;padding:8px;border-radius:4px;max-height:200px;">${JSON.stringify(result, null, 2)}</pre>
+      </div>
+    `;
+  }
+
+  document.getElementById('resultFormFields').innerHTML = formFields;
+  document.getElementById('resultModalBg').classList.add('active');
+  console.log('Modal opened with data');
+};
+
+// Close result modal
+window.closeResultModal = function() {
+  document.getElementById('resultModalBg').classList.remove('active');
+  currentEditingResult = null;
+};
+
+// Save result
+window.saveResult = async function() {
+  if (!currentEditingResult) {
+    alert('No result loaded');
+    return;
+  }
+
+  showLoader('Saving result...', 'Please wait');
+
+  try {
+    // Collect updated values
+    const updatedData = {
+      results: {},
+      scores: {}
+    };
+
+    // Collect result fields
+    document.querySelectorAll('input[id^="result_"]').forEach(input => {
+      const key = input.id.replace('result_', '');
+      updatedData.results[key] = input.value;
+    });
+
+    // Collect score fields
+    document.querySelectorAll('input[id^="score_"]').forEach(input => {
+      const key = input.id.replace('score_', '');
+      updatedData.scores[key] = input.value;
+    });
+
+    // Collect common fields
+    const commonFields = ['totalScore', 'remarks', 'grade', 'comments', 'notes'];
+    commonFields.forEach(field => {
+      const input = document.getElementById(`field_${field}`);
+      if (input) {
+        updatedData[field] = input.value;
+      }
+    });
+
+    const resultId = currentEditingResult._id || currentEditingResult.id;
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results/${encodeURIComponent(resultId)}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(updatedData)
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to save result. Status: ${res.status}`);
+    }
+
+    const savedResult = await res.json();
+    console.log('Result saved:', savedResult);
+
+    // Update local array
+    const index = draftResults.findIndex(r => (r._id || r.id) === resultId);
+    if (index !== -1) {
+      draftResults[index] = { ...draftResults[index], ...updatedData };
+    }
+
+    renderDraftResults();
+    window.closeResultModal();
+    alert('Result saved successfully!');
+  } catch (error) {
+    console.error('Error saving result:', error);
+    alert('Error: ' + error.message);
+  } finally {
+    hideLoader();
+  }
+};
+
+// Update the renderDraftResults function with better fallbacks and delete button
 function renderDraftResults() {
   const tbody = document.querySelector('#draft-results-table tbody');
   if (!draftResults.length) {
@@ -970,8 +1185,6 @@ function renderDraftResults() {
       : (r.createdAt ? new Date(r.createdAt).toLocaleString() : '-');
 
     const resultId = r._id || r.id;
-    const studentId = r.student?._id || r.student?.id || r.studentId;
-    const classId = r.class?._id || r.class?.id || r.classId;
 
     return `
       <tr>
@@ -983,9 +1196,9 @@ function renderDraftResults() {
         </td>
         <td style="padding:12px;border-bottom:1px solid #eef3ff;font-size:0.9rem;color:#666;white-space:nowrap;">${lastUpdated}</td>
         <td style="padding:12px;border-bottom:1px solid #eef3ff;text-align:right;white-space:nowrap;">
-          <button class="btn" onclick="window.openResultModal('${studentId}','${classId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Edit</button>
-          <button class="btn danger" onclick="window.deleteDraftResult('${resultId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Delete</button>
-          <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 10px;font-size:0.85rem;">Publish</button>
+          <button type="button" class="btn" onclick="window.openResultModal('${resultId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Edit</button>
+          <button type="button" class="btn danger" onclick="window.deleteDraftResult('${resultId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Delete</button>
+          <button type="button" class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 10px;font-size:0.85rem;">Publish</button>
         </td>
       </tr>
     `;
