@@ -2391,8 +2391,8 @@ window.submitGradebookResults = async function() {
   const term = document.getElementById('gb-term-select')?.value;
   const resultType = document.getElementById('gb-result-type-select')?.value;
 
-  if (!session || !term || !resultType) {
-    alert('Please fill in all fields (Session, Term, Result Type)');
+  if (!classId || !session || !term || !resultType) {
+    alert('Please fill in all fields (Class, Session, Term, Result Type)');
     return;
   }
 
@@ -2405,35 +2405,38 @@ window.submitGradebookResults = async function() {
       throw new Error('No gradebook table found');
     }
 
+    const students = Object.values(studentsByClass[classId] || []);
+    const subjects = subjectsByClass[classId] || [];
     const results = [];
     const rows = tbody.querySelectorAll('tr');
     
-    rows.forEach((row, idx) => {
+    rows.forEach((row, rowIdx) => {
       const studentNameCell = row.querySelector('td:first-child');
       if (!studentNameCell) return;
 
       const studentName = studentNameCell.textContent.trim();
-      const students = Object.values(studentsByClass[classId] || []);
       const student = students.find(s => s.name === studentName);
 
-      if (!student) return;
+      if (!student) {
+        console.warn('Student not found:', studentName);
+        return;
+      }
 
-      const inputs = row.querySelectorAll('input');
-      const subjects = subjectsByClass[classId] || [];
-
-      inputs.forEach((input, subIdx) => {
-        if (subIdx < subjects.length) {
+      // Get all input fields in this row (scores for each subject)
+      const inputs = row.querySelectorAll('input[type="number"]');
+      
+      inputs.forEach((input, inputIdx) => {
+        if (inputIdx < subjects.length) {
           const score = input.value.trim();
-          if (score) {
+          // Only add if score is entered
+          if (score !== '' && score !== null && score !== undefined) {
+            const subjectName = subjects[inputIdx].name || subjects[inputIdx];
             results.push({
               student_id: student.id || student._id,
               student_name: studentName,
-              subject: subjects[subIdx].name || subjects[subIdx],
               score: parseInt(score) || 0,
-              session: session,
-              term: term,
-              resultType: resultType,
-              class: classId
+              grade: calculateGrade(parseInt(score) || 0),
+              remarks: ''
             });
           }
         }
@@ -2441,7 +2444,7 @@ window.submitGradebookResults = async function() {
     });
 
     if (results.length === 0) {
-      throw new Error('No grades entered');
+      throw new Error('No grades entered. Please enter at least one score.');
     }
 
     console.log('Submitting results:', results);
@@ -2449,46 +2452,101 @@ window.submitGradebookResults = async function() {
     // Get the class name
     const className = document.querySelector('#gradebook-class option:checked')?.textContent || classId;
 
-    // Format results for backend
-    const formattedResults = results.map(r => ({
-      student_id: r.student_id,
-      student_name: r.student_name,
-      score: r.score,
-      grade: calculateGrade(r.score),
-      remarks: ''
-    }));
-
-    // Send to backend using the correct endpoint path
-    const res = await fetch(`${API_BASE_URL}/api/results`, {
+    // Send to backend using the exact same endpoint and format as upload-results.html
+    const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         session: session,
         term: term.toUpperCase(),
         class: className,
         subject: 'Multiple Subjects',
         resultType: resultType,
-        results: formattedResults
+        results: results
       })
     });
 
     const data = await res.json();
     console.log('Response:', data);
 
-    if (res.ok || data.success) {
-      alert(`✅ ${results.length} result(s) uploaded successfully!`);
+    if (data.success) {
+      alert(`✅ Success! Uploaded results for ${data.inserted} students.`);
       window.closeGradebookUploadModal();
-      renderGradebook(); // Refresh the gradebook
+      // Clear the gradebook form
+      document.getElementById('gradebook-class').value = '';
+      document.getElementById('gradebook-table').innerHTML = '';
+      renderGradebook(); // Refresh if needed
     } else {
-      throw new Error(data.message || data.error || 'Upload failed');
+      throw new Error(data.error || data.message || 'Upload failed');
     }
   } catch (error) {
     console.error('Error uploading results:', error);
-    alert('Error: ' + error.message);
+    alert('❌ Error: ' + error.message);
   } finally {
     hideLoader();
   }
 };
+
+// Helper function to calculate grade from score
+function calculateGrade(score) {
+  const numScore = parseInt(score) || 0;
+  if (numScore >= 90) return 'A';
+  if (numScore >= 80) return 'B';
+  if (numScore >= 70) return 'C';
+  if (numScore >= 60) return 'D';
+  if (numScore >= 50) return 'E';
+  return 'F';
+}
+
+// Update renderGradebook to properly initialize the table
+function renderGradebook() {
+  const classId = document.getElementById('gradebook-class').value;
+  
+  if (!classId) {
+    document.getElementById('gradebook-table').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Select a class to view gradebook</div>';
+    return;
+  }
+
+  const students = studentsByClass[classId] || [];
+  const subjects = subjectsByClass[classId] || [];
+  
+  if (students.length === 0) {
+    document.getElementById('gradebook-table').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">No students found for this class</div>';
+    return;
+  }
+
+  if (subjects.length === 0) {
+    document.getElementById('gradebook-table').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">No subjects found for this class</div>';
+    return;
+  }
+
+  let html = `<table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f0f4ff;">
+          <th style="padding:12px;text-align:left;border-bottom:2px solid #e6e9ef;">Student</th>`;
+  
+  subjects.forEach(subj => {
+    const subjectName = subj.name || subj;
+    html += `<th style="padding:12px;text-align:center;border-bottom:2px solid #e6e9ef;">${subjectName}</th>`;
+  });
+  
+  html += `</tr></thead><tbody>`;
+  
+  students.forEach(stu => {
+    html += `<tr style="border-bottom:1px solid #eef3ff;">
+      <td style="padding:12px;text-align:left;">${stu.name}</td>`;
+    subjects.forEach(subj => {
+      html += `<td style="padding:12px;text-align:center;">
+        <input type="number" min="0" max="100" placeholder="0-100" 
+               style="width:70px;padding:6px;border:1px solid #e6e9ef;border-radius:4px;text-align:center;">
+      </td>`;
+    });
+    html += `</tr>`;
+  });
+  
+  html += `</tbody></table>`;
+  document.getElementById('gradebook-table').innerHTML = html;
+}
 
 // Helper function to calculate grade from score
 function calculateGrade(score) {
