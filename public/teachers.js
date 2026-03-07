@@ -1375,9 +1375,7 @@ async function fetchCBTResults() {
   try {
     console.log('📥 Fetching CBT results...');
     
-    const res = await fetch(`${API_BASE_URL}/exam/${teacherData._id}/results`, {
-      headers: authHeaders()
-    });
+   const res = await fetch(`${API_BASE_URL}/teachers/${encodeURIComponent(teacher.id)}/cbt-results?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
     
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     
