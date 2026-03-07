@@ -621,7 +621,23 @@
           return Array.isArray(data) ? data : (data.results || []);
         } catch { return []; }
       }
-
+      async function fetchDraftResultsWithDebug() {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results?status=Draft`, { headers: authHeaders() });
+          if (!res.ok) {
+            console.warn('Draft Results API returned non-OK status:', res.status);
+            return [];
+          }
+          const data = await res.json();
+          console.log('Raw Draft Results API Response:', data);
+          const results = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+          console.log('Processed Draft Results:', results);
+          return results;
+        } catch (e) {
+          console.error('Error fetching draft results:', e);
+          return [];
+        }
+      }
       // ============ CBT DRAFT MANAGEMENT ============
       function saveCBTDraftToLocalStorage() {
         const classId = document.getElementById('cbt-class-select')?.value || '';
