@@ -958,119 +958,223 @@
       if (arr[idx]) displayResult(arr[idx]);
     }
 
-    // Main: Handle result search
-    async function handleResultSearch(e) {
-      e.preventDefault();
+// Replace the handleResultSearch function with this updated version
 
-      // Prevent double submission
-      if (isLoadingResults) {
-        return false;
-      }
+async function handleResultSearch(e) {
+  e.preventDefault();
 
-      isLoadingResults = true;
+  // Prevent double submission
+  if (isLoadingResults) {
+    return false;
+  }
 
-      const regNo = document.getElementById("regNoInput").value.trim();
-      const klass = document.getElementById("classInput").value;
-      const session = document.getElementById("sessionInput").value;
-      const term = document.getElementById("termInput").value;
-      const errorBox = document.getElementById("searchError");
-      const submitBtn = document.getElementById('submitBtn');
-      
-      errorBox.style.display = "none";
-      submitBtn.disabled = true;
+  isLoadingResults = true;
 
-      try {
-        if (
-          (affixedClass && klass !== affixedClass) ||
-          (affixedSession && session !== affixedSession) ||
-          (affixedTerm && term !== affixedTerm)
-        ) {
-          errorBox.textContent = "You can only check results for your assigned class, session and term.";
-          errorBox.style.display = "block";
-          submitBtn.disabled = false;
-          isLoadingResults = false;
-          return false;
-        }
+  const regNo = document.getElementById("regNoInput").value.trim();
+  const klass = document.getElementById("classInput").value;
+  const session = document.getElementById("sessionInput").value;
+  const term = document.getElementById("termInput").value;
+  const errorBox = document.getElementById("searchError");
+  const submitBtn = document.getElementById('submitBtn');
+  
+  errorBox.style.display = "none";
+  submitBtn.disabled = true;
 
-        if (!regNo || !klass || !session || !term) {
-          errorBox.textContent = "All fields are required!";
-          errorBox.style.display = "block";
-          submitBtn.disabled = false;
-          isLoadingResults = false;
-          return false;
-        }
+  try {
+    if (
+      (affixedClass && klass !== affixedClass) ||
+      (affixedSession && session !== affixedSession) ||
+      (affixedTerm && term !== affixedTerm)
+    ) {
+      errorBox.textContent = "You can only check results for your assigned class, session and term.";
+      errorBox.style.display = "block";
+      submitBtn.disabled = false;
+      isLoadingResults = false;
+      return false;
+    }
 
-        // Fetch results with timeout
-        const params = new URLSearchParams({
-          student_id: regNo,
-          class: klass,
-          session: session,
-          term: term,
-          status: "Published"
-        });
+    if (!regNo || !klass || !session || !term) {
+      errorBox.textContent = "All fields are required!";
+      errorBox.style.display = "block";
+      submitBtn.disabled = false;
+      isLoadingResults = false;
+      return false;
+    }
 
-        const response = await fetchWithTimeout(`${API_BASE_URL}/api/results?${params.toString()}`);
-        
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
-
-        const results = await response.json();
-
-        const filteredResults = Array.isArray(results)
-          ? results.filter(r =>
-              (r.student_id === regNo) ||
-              (r.student && (r.student.student_id === regNo || r.student.regNo === regNo)) ||
-              (r.regNo === regNo)
-            )
-          : [];
-
-        if (!filteredResults.length) {
-          errorBox.textContent = "No result found! Please check your details or contact the school.";
-          errorBox.style.display = "block";
-          document.getElementById("resultsDisplaySection").style.display = "none";
-          submitBtn.disabled = false;
-          isLoadingResults = false;
-          return false;
-        }
-
-        // Fetch additional details for each result
-        for (const r of filteredResults) {
-          if (r.subject_position) continue;
-          try {
-            const detailRes = await fetchWithTimeout(`${API_BASE_URL}/api/results/${r._id}`);
-            if (detailRes.ok) {
-              const data = await detailRes.json();
-              if (data.subject_position)
-                r.subject_position = data.subject_position;
-            }
-          } catch {}
-        }
-
-        // Display results
-        displayResult({
-          regNo: regNo,
-          class: klass,
-          session: session,
-          term: term,
-          results: filteredResults,
-          studentProfile: lastStudentProfile
-        });
-
-        submitBtn.disabled = false;
-        isLoadingResults = false;
-      } catch (err) {
-        console.error('Error fetching results:', err);
-        errorBox.textContent = err.name === 'AbortError' 
-          ? "Request timed out. Please check your connection and try again."
-          : "Error fetching results. Please try again later.";
+    // Get scratch card from student profile or prompt user
+    let scratchCard = null;
+    if (lastStudentProfile && lastStudentProfile.scratchCard) {
+      scratchCard = lastStudentProfile.scratchCard;
+    } else {
+      scratchCard = prompt("Enter your scratch card number:");
+      if (!scratchCard) {
+        errorBox.textContent = "Scratch card is required to verify your identity.";
         errorBox.style.display = "block";
         submitBtn.disabled = false;
         isLoadingResults = false;
+        return false;
       }
-
-      return false;
     }
+
+    // Call the correct endpoint: /api/results/check
+    const checkUrl = new URL(API_BASE_URL + '/api/results/check');
+    checkUrl.searchParams.append('regNo', regNo);
+    checkUrl.searchParams.append('scratchCard', scratchCard);
+    checkUrl.searchParams.append('class', klass);
+    checkUrl.searchParams.append('session', session);
+    checkUrl.searchParams.append('term', term);
+
+    console.log('Fetching from:', checkUrl.toString());
+
+    const res = await fetchWithTimeout(checkUrl.toString());
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    console.log('Results data:', data);
+
+    // Display the results
+    displayResult({
+      regNo: regNo,
+      class: klass,
+      session: session,
+      term: term,
+      resultsData: data
+    });
+
+    // Save to viewed history
+    saveViewedResult({
+      regNo: regNo,
+      class: klass,
+      session: session,
+      term: term
+    });
+
+    renderPreviousResults();
+
+  } catch (err) {
+    console.error('Error fetching results:', err);
+    errorBox.textContent = err.message || 'Failed to fetch results. Please try again.';
+    errorBox.style.display = "block";
+  } finally {
+    submitBtn.disabled = false;
+    isLoadingResults = false;
+  }
+
+  return false;
+}
+
+// Update the displayResult function to handle the new data structure
+function displayResult(resultEntry) {
+  const data = resultEntry.resultsData;
+  
+  if (!data || !data.results) {
+    alert('No result data available');
+    return;
+  }
+
+  // Update display info
+  document.getElementById('dispRegNo').textContent = resultEntry.regNo;
+  document.getElementById('dispClass').textContent = resultEntry.class;
+  document.getElementById('dispSession').textContent = resultEntry.session;
+  document.getElementById('dispTerm').textContent = resultEntry.term;
+
+  // Populate results table
+  const tbody = document.querySelector('#resultsTable tbody');
+  tbody.innerHTML = '';
+
+  const results = data.results || [];
+  if (results.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--muted);">No results found.</td></tr>';
+    document.getElementById('resultsDisplaySection').style.display = 'block';
+    return;
+  }
+
+  results.forEach((r, idx) => {
+    const ca1 = r.ca1_score || '—';
+    const ca2 = r.ca2_score || '—';
+    const midterm = r.midterm_score || '—';
+    const exam = r.exam_score || '—';
+    const total = r.total || 0;
+    const grade = r.grade || '—';
+    const remark = r.remarks || '—';
+    const position = r.subject_position || '—';
+
+    // Determine grade color
+    let gradeClass = 'grade-low';
+    if (grade === 'A' || grade === 'B') gradeClass = 'grade-high';
+    else if (grade === 'C' || grade === 'D') gradeClass = 'grade-mid';
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><strong>${r.subject || 'Unknown'}</strong></td>
+      <td>${ca1}</td>
+      <td>${ca2}</td>
+      <td>${midterm}</td>
+      <td>${exam}</td>
+      <td><strong>${total}</strong></td>
+      <td><span class="${gradeClass}">${grade}</span></td>
+      <td>${remark}</td>
+      <td>${position}</td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  // Show results section
+  document.getElementById('resultsDisplaySection').style.display = 'block';
+
+  // Scroll to results
+  document.getElementById('resultsDisplaySection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Download function - update to use current result data
+function downloadCurrentResult() {
+  const regNo = document.getElementById('dispRegNo').textContent;
+  const klass = document.getElementById('dispClass').textContent;
+  const session = document.getElementById('dispSession').textContent;
+  const term = document.getElementById('dispTerm').textContent;
+
+  // Create a simple text file or HTML for download
+  const table = document.querySelector('#resultsTable');
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Result - ${regNo}</title>
+      <style>
+        body { font-family: Arial; margin: 20px; }
+        .header { margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f2f2f2; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Student Result</h1>
+        <p><strong>Reg. No:</strong> ${regNo}</p>
+        <p><strong>Class:</strong> ${klass}</p>
+        <p><strong>Session:</strong> ${session}</p>
+        <p><strong>Term:</strong> ${term}</p>
+      </div>
+      ${table.outerHTML}
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Result_${regNo}_${session}_${term}.html`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
 
     function getGradeRemark(score) {
       if (score >= 70) return { grade: 'A', remark: 'Excellent' };
@@ -1133,40 +1237,6 @@
       renderPreviousResults();
     }
 
-    function downloadCurrentResult() {
-      const regNo = document.getElementById("dispRegNo").textContent;
-      const klass = document.getElementById("dispClass").textContent;
-      const session = document.getElementById("dispSession").textContent;
-      const term = document.getElementById("dispTerm").textContent;
-
-      let content = `RESULT SLIP\n`;
-      content += `Registration Number: ${regNo}\n`;
-      content += `Class: ${klass}\n`;
-      content += `Session: ${session}\n`;
-      content += `Term: ${term}\n\n`;
-      content += `SUBJECTS AND SCORES\n`;
-      content += `-------------------\n`;
-
-      const rows = document.querySelectorAll('.results-table tbody tr');
-      rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        const subject = cells[0].textContent;
-        const total = cells[5].textContent;
-        const grade = cells[6].textContent;
-        const remark = cells[7].textContent;
-        content += `${subject}: ${total} (${grade}) - ${remark}\n`;
-      });
-
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `result_${regNo}_${session}_${term}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    renderPreviousResults();
   </script>
 </body>
 </html>
