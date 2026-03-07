@@ -1,271 +1,655 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Teacher Dashboard - Gold and Linc Schools</title>
-  <meta name="viewport" content="width=device-width,initial-scale=0.90">
-  <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap" rel="stylesheet">
-  <!-- Link to external CSS -->
-  <link rel="stylesheet" href="teachers.css">
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-</head>
-<body>
-<div class="dashboard-container">
-  <aside class="sidebar">
-    <div class="school-logo">GLS</div>
-    <button class="hamburger" aria-label="Open navigation" onclick="toggleSidebarMenu()" style="display:none;">&#9776;</button>
-    <nav>
-      <button class="active" data-section="dashboard">Dashboard</button>
-      <button data-section="classes">My Classes</button>
-      <button data-section="attendance">Attendance</button>
-      <button data-section="gradebook">Gradebook</button>
-      <button data-section="assignments">Assignments</button>
-      <button data-section="draftResults">Draft Results</button>
-      <!-- Find your sidebar <nav> and add after "Draft Results" or where you prefer -->
-<button data-section="cbtResults">CBT Results</button>
-      
-      <button data-section="notifications">Notifications</button>
-      <button data-section="profile">Profile/Settings</button>
-      <!-- Add in the sidebar menu where other buttons are -->
-<button data-section="cbtQuestions">CBT Questions</button>
-      <button data-section="myCBTQuestions">My Uploaded CBTs</button>
-    </nav>
-    <div class="profile-section">
-      <div style="font-size:1.1em;"><strong>Mr. John Doe</strong></div>
-      <small>Mathematics Teacher</small>
-    </div>
-  </aside>
-  <main class="main-content">
-    <header>
-      <h1>Welcome, Mr. John Doe</h1>
-      <div class="avatar">JD</div>
-    </header>
-
-    <!-- Dashboard Section -->
-    <section id="section-dashboard">
-      <div class="card classes-list">
-        <h2>My Classes</h2>
-        <ul id="class-list"></ul>
-      </div>
-      <div id="students-block"></div>
-      <div id="subjects-block"></div>
-      <!-- Add Subject to Class -->
-      <div id="add-subject-block" style="display:none;">
-        <form id="add-subject-form" style="margin-top:10px;display:flex;gap:6px;align-items:center;">
-          <input type="text" id="subject-name-input" placeholder="New Subject Name" required />
-          <button type="submit" class="btn">+ Add Subject</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- Attendance Section -->
-    <section id="section-attendance" style="display:none;">
-      <div class="card students-table">
-        <h2>Attendance</h2>
-        <form id="attendance-form">
-          <label>Select Class:</label>
-          <select id="attendance-class"></select>
-          <div id="attendance-students"></div>
-          <button type="submit" class="btn" style="margin-top:12px;">Save Attendance</button>
-        </form>
-      </div>
-    </section>
-<!-- Add sidebar button -->
-
-<!-- Add section block after other <section> blocks -->
-<section id="section-cbtResults" style="display:none;">
-  <div class="card cbt-results-card">
-    <h2 style="margin-bottom:1.5em;">CBT Results</h2>
-    <div id="cbtResultsContainer"></div>
-  </div>
-</section>
-    <!-- Gradebook Section -->
-    <section id="section-gradebook" style="display:none;">
-      <div class="card students-table">
-        <h2>Gradebook</h2>
-        <label>Select Class:</label>
-        <select id="gradebook-class"></select>
-        <div id="gradebook-table"></div>
-      </div>
-    </section>
-<section id="section-myCBTQuestions" style="display:none;">
-  <div class="card cbt-card">
-    <h2 class="cbt-title mb-3">My Uploaded CBTs</h2>
-    <div style="margin-bottom: 1em;">
-      <button class="btn cbt-upload-btn" id="pushToUniversalBtn" disabled>Push Selected to Question Bank</button>
-    </div>
-    <div id="myCBTQuestionsList"></div>
-  </div>
-</section>
-    <!-- Assignments Section -->
-    <section id="section-assignments" style="display:none;">
-      <div class="card students-table">
-        <h2 style="display:flex;align-items:center;justify-content:space-between;">
-          <span>Assignments</span>
-          <button class="btn" onclick="openAssignmentModal()">+ Create Assignment</button>
-        </h2>
-        <div id="assignment-list"></div>
-      </div>
-    </section>
-
-    <!-- Draft Results Section -->
-    <section id="section-draftResults" style="display:none;">
-      <div class="card draft-results-table">
-        <h2>Draft Results</h2>
-        <table id="draft-results-table">
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Class</th>
-              <th>Term</th>
-              <th>Status</th>
-              <th>Last Updated</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Draft results will be loaded here -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Notifications Section -->
-    <section id="section-notifications" style="display:none;">
-      <div class="card notification-list" id="notification-list">
-        <h2>Notifications</h2>
-      </div>
-    </section>
-
-<!-- Add this after other <section> blocks -->
-<!-- ...other code above... -->
-<section id="section-cbtQuestions" style="display:none;">
-  <div class="card cbt-card">
-    <h2 class="cbt-title" style="margin-bottom: 1.2em;">CBT Questions Uploader</h2>
-    <form id="cbt-question-form" autocomplete="off">
-      <div class="cbt-form-row">
-        <div>
-          <label>Class</label>
-          <select id="cbt-class-select" required class="cbt-input"></select>
-        </div>
-        <div>
-          <label>Subject</label>
-          <select id="cbt-subject-select" required class="cbt-input"></select>
-        </div>
-        <div>
-          <label>Title</label>
-          <input type="text" id="cbt-title" required class="cbt-input">
-        </div>
-        <div>
-          <label>Duration (minutes)</label>
-          <input type="number" id="cbt-duration" min="1" required class="cbt-input" style="max-width:110px;">
-        </div>
-      </div>
-      <label class="block" style="margin-top:1.5em;margin-bottom:0.8em;">Questions</label>
-      <div id="cbt-questions-list"></div>
-      <button type="button" class="btn cbt-add-q-btn" id="cbt-add-question-btn">
-        <i class="fa fa-plus"></i> Add Question
-      </button>
-      <button type="submit" class="btn cbt-upload-btn" id="cbt-upload-btn" style="margin-top:14px;">Upload CBT</button>
-    </form>
-    <div id="cbt-upload-msg" style="margin-top:12px;color:green;"></div>
-  </div>
-</section>
-<!-- ...rest of file unchanged... -->
-    <!-- Profile/Settings Section -->
-    <section id="section-profile" style="display:none;">
-      <div class="card profile-settings">
-        <h2>Profile / Settings</h2>
-        <form id="profile-form">
-          <label>Name</label>
-          <input type="text" id="profile-name" value="Mr. John Doe">
-          <label>Email</label>
-          <input type="email" id="profile-email" value="john.doe@goldlincschools.com">
-          <label>Password</label>
-          <input type="password" id="profile-password" placeholder="Change password">
-          <button type="submit">Update Profile</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- Assignment Modal -->
-    <div id="assignmentModalBg" class="form-modal-bg" style="display:none;">
-      <div class="form-modal">
-        <button class="close-btn" onclick="closeAssignmentModal()">&times;</button>
-        <h3>Create/Update Assignment</h3>
-        <form id="assignmentForm">
-          <label>Class</label>
-          <select id="assignment-class"></select>
-          <label>Title</label>
-          <input type="text" id="assignment-title" name="title" required>
-          <label>Subject</label>
-          <select name="subject" id="assignment-subject"></select>
-          <!-- Add this in the assignment modal form, after the "Due Date" input, for example -->
-<label>CBT (optional)</label>
-<select id="assignment-cbt">
-  <option value="">None (regular assignment)</option>
-  <!-- CBTs will be loaded here -->
-</select>
-          <label>Description/Instruction</label>
-          <input type="text" id="assignment-desc" name="desc" required>
-          <label>Due Date</label>
-          <input type="date" id="assignment-due" name="due" required>
-          <div class="modal-actions">
-            <button type="submit" class="btn">Save Assignment</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Modal for Result Entry -->
-    <div id="resultModalBg" class="form-modal-bg" style="display:none;">
-      <div class="form-modal">
-        <button class="close-btn" onclick="closeResultModal()">&times;</button>
-        <h3>Enter/Update Result</h3>
-        <form id="resultForm">
-          <div id="resultFormFields"></div>
-          <div class="modal-actions">
-            <button type="submit" class="btn">Save Draft</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Student Edit Modal (for update action in student section) -->
-    <div id="editStudentModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:2000;background:rgba(32,40,71,0.23);align-items:center;justify-content:center;">
-      <form id="editStudentForm" style="background:#fff;padding:30px;border-radius:10px;max-width:320px;margin:auto;">
-        <h3>Edit Student</h3>
-        <label>Name</label><input type="text" id="editStudentName"><br>
-        <label>Reg. No.</label><input type="text" id="editStudentRegNo"><br>
-        <label>Email</label><input type="email" id="editStudentEmail"><br>
-        <div style="margin-top:12px;">
-          <button type="submit" class="btn warning">Update</button>
-          <button type="button" class="btn" onclick="closeEditStudentModal()">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </main>
-</div>
-
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Spinner overlay styles */
+    :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #0f172a;
+      --accent-2: #1e40af;
+      --accent-3: #2647a6;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --sidebar-w: 300px;
+      --radius: 12px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      -webkit-font-smoothing: antialiased;
+      color: #07102a;
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+      align-items: stretch;
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
+      color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(2, 11, 24, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      transition: transform 0.28s ease;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-110%);
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
+      display: none;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .brand img {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.85rem;
+      color: #b0c4ff;
+    }
+
+    .search {
+      margin: 6px 0;
+    }
+
+    .search input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 0.95rem;
+    }
+
+    .search input::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.98rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.2s, color 0.2s;
+      cursor: pointer;
+    }
+
+    .nav button.active,
+    .nav button:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+    }
+
+    .profile-section {
+      margin-top: auto;
+      color: #b0c4ff;
+      font-size: 0.85rem;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100% - var(--sidebar-w));
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 1px solid #eef3ff;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(6px);
+    }
+
+    .sidebar-toggle {
+      display: none;
+      background: var(--accent-2);
+      color: #fff;
+      border: none;
+      padding: 9px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.05rem;
+      margin-right: 12px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
+    }
+
+    .teacher-badge {
+      display: inline-block;
+      background: linear-gradient(90deg, #f59e0b, #d97706);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-left: 8px;
+    }
+
+    .topbar-icons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    /* MAIN CONTENT */
+    .main-content {
+      margin-left: var(--sidebar-w);
+      padding: 20px;
+      flex: 1;
+      min-height: 100vh;
+      padding-top: 80px;
+      overflow-y: auto;
+      width: calc(100% - var(--sidebar-w));
+      box-sizing: border-box;
+    }
+
+    /* SECTION */
+    .section {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid #eef3ff;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent);
+      margin: 0 0 16px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    /* GRID LAYOUT */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .grid.cols-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    /* STAT CARD */
+    .stat-card {
+      padding: 20px;
+      background: #f8faff;
+      border: 1.5px solid #eef3ff;
+      border-radius: 12px;
+      text-align: center;
+      transition: all 0.12s ease;
+      cursor: pointer;
+    }
+
+    .stat-card:hover {
+      background: #fff;
+      box-shadow: var(--shadow);
+      border-color: var(--accent-2);
+      transform: translateY(-2px);
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(90deg, var(--accent-2), #3b82f6);
+      color: #fff;
+      font-size: 1.5rem;
+      margin: 0 auto 12px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    /* CARD */
+    .card {
+      padding: 16px;
+      background: #f8faff;
+      border: 1px solid #eef3ff;
+      border-radius: 10px;
+      transition: all 0.12s ease;
+    }
+
+    .card:hover {
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .card-text {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* FORM CONTROLS */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      color: var(--accent);
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      padding: 10px 12px;
+      border: 1.5px solid #eef3ff;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+    }
+
+    /* BUTTONS */
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(90deg, var(--accent-2), #3b82f6);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn.secondary {
+      background: transparent;
+      border: 1.5px solid #eef3ff;
+      color: var(--accent-2);
+    }
+
+    .btn.secondary:hover {
+      background: rgba(30, 64, 175, 0.04);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    /* TABLE */
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+
+    thead {
+      background: #f8faff;
+      border-bottom: 2px solid #eef3ff;
+    }
+
+    th {
+      padding: 14px 16px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #eef3ff;
+      transition: background 0.12s ease;
+    }
+
+    tbody tr:hover {
+      background: #f9fbff;
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 0.95rem;
+      color: #07102a;
+    }
+
+    /* LIST ITEM */
+    .list-item {
+      padding: 12px;
+      background: #f8faff;
+      border: 1px solid #eef3ff;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .list-item:hover {
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    /* BADGE */
+    .badge {
+      display: inline-block;
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .badge-draft {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .badge-active {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge-pending {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+
+    /* MODAL */
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+
+    .modal-bg.active {
+      display: flex;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: #ffffff;
+      width: 600px;
+      max-width: 95vw;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #eef3ff;
+      background: #f8faff;
+    }
+
+    .modal-title {
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: var(--accent);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #64748b;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      transition: all 0.12s ease;
+    }
+
+    .modal-close:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .modal-body {
+      padding: 20px;
+      flex: 1;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #eef3ff;
+      background: #f8faff;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    .empty-state-title {
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    /* SPINNER */
     #dashboardSpinnerOverlay {
       position: fixed;
       z-index: 99999;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255,255,255,0.92);
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.95);
       display: flex;
       align-items: center;
       justify-content: center;
       transition: opacity 0.4s;
     }
+
     #dashboardSpinnerOverlay.hidden {
       opacity: 0;
       pointer-events: none;
     }
+
     .dashboard-spinner {
       border: 6px solid #ddeaff;
       border-top: 6px solid #2647a6;
@@ -274,16 +658,641 @@
       height: 60px;
       animation: dashboard-spin 1s linear infinite;
     }
+
     @keyframes dashboard-spin {
-      0% { transform: rotate(0deg);}
-      100% { transform: rotate(360deg);}
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar {
+      width: 8px;
+      background: #f4f8fc;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #e2e7ee;
+      border-radius: 4px;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 1024px) {
+      .grid.cols-4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .grid.cols-3 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar-toggle {
+        display: inline-flex;
+      }
+
+      .sidebar {
+        transform: translateX(-110%);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+      }
+
+      .topbar {
+        left: 0;
+        width: 100%;
+      }
+
+      .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding: 14px;
+        padding-top: 80px;
+      }
+
+      .section {
+        padding: 16px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .grid.cols-2, .grid.cols-3, .grid.cols-4 {
+        grid-template-columns: 1fr;
+      }
+
+      .btn-group {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      table {
+        font-size: 0.85rem;
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
+
+      .modal-content {
+        width: 95vw;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .page-title {
+        font-size: 1rem;
+      }
+
+      .teacher-badge {
+        display: block;
+        margin-left: 0;
+        margin-top: 8px;
+      }
+
+      .section {
+        padding: 12px;
+      }
+
+      .stat-card {
+        padding: 16px;
+      }
+
+      .modal-content {
+        max-height: 95vh;
+      }
     }
   </style>
-  <!-- Spinner overlay -->
+</head>
+<body>
+  <!-- Spinner Overlay -->
   <div id="dashboardSpinnerOverlay">
     <div class="dashboard-spinner"></div>
   </div>
-  
-<script src="teachers.js"></script>
+
+  <div class="app" id="app">
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Teacher navigation">
+      <div class="brand">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="Logo">
+        <div>
+          <div class="title">GOLD & LINC</div>
+          <div class="subtitle">Teacher Portal</div>
+        </div>
+      </div>
+
+      <div class="search">
+        <input type="text" placeholder="Quick search..." aria-label="Quick search">
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="active" data-section="dashboard">
+          <span>🏠</span> Dashboard
+        </button>
+        <button data-section="classes">
+          <span>📚</span> My Classes
+        </button>
+        <button data-section="attendance">
+          <span>✓</span> Attendance
+        </button>
+        <button data-section="gradebook">
+          <span>📊</span> Gradebook
+        </button>
+        <button data-section="assignments">
+          <span>📝</span> Assignments
+        </button>
+        <button data-section="draftResults">
+          <span>📋</span> Draft Results
+        </button>
+        <button data-section="cbtResults">
+          <span>💻</span> CBT Results
+        </button>
+        <button data-section="cbtQuestions">
+          <span>❓</span> Upload CBT
+        </button>
+        <button data-section="myCBTQuestions">
+          <span>📂</span> My CBTs
+        </button>
+        <button data-section="notifications">
+          <span>🔔</span> Notifications
+        </button>
+        <button data-section="profile">
+          <span>⚙️</span> Profile/Settings
+        </button>
+      </nav>
+
+      <div class="profile-section">
+        <div style="font-size: 1rem; font-weight: 700;" id="teacherName">Mr. John Doe</div>
+        <div style="font-size: 0.85rem; opacity: 0.9;" id="teacherSubject">Mathematics Teacher</div>
+      </div>
+    </aside>
+
+    <!-- TOPBAR -->
+    <div class="topbar" role="banner">
+      <div class="page-header">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open Sidebar">☰</button>
+        <div>
+          <h1 class="page-title">
+            <i class="fa fa-chalkboard-user"></i>
+            Teacher Dashboard
+            <span class="teacher-badge">Teacher</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="topbar-icons">
+        <button class="icon-btn" title="Notifications">🔔</button>
+        <button class="icon-btn" title="Help">❓</button>
+        <button class="icon-btn" title="Settings">⚙️</button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" role="main">
+      <!-- ===== DASHBOARD SECTION ===== -->
+      <section id="section-dashboard" class="section">
+        <h2 class="section-title">
+          <i class="fa fa-chart-bar"></i>
+          My Classes Overview
+        </h2>
+
+        <div class="grid cols-4" id="classesStats"></div>
+      </section>
+
+      <!-- Classes Quick Stats -->
+      <section id="dashboard-stats" class="section">
+        <h2 class="section-title">
+          <i class="fa fa-signal"></i>
+          Quick Statistics
+        </h2>
+
+        <div class="grid cols-4">
+          <div class="card">
+            <div class="card-title">Total Classes</div>
+            <div style="font-size: 2rem; font-weight: 800; color: var(--accent-2); margin: 10px 0;" id="totalClasses">0</div>
+            <div class="card-text">Assigned to you</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Total Students</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #10b981; margin: 10px 0;" id="totalStudents">0</div>
+            <div class="card-text">Across all classes</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Active Assignments</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #f59e0b; margin: 10px 0;" id="activeAssignments">0</div>
+            <div class="card-text">Awaiting submissions</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">CBTs Uploaded</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #8b5cf6; margin: 10px 0;" id="totalCBTs">0</div>
+            <div class="card-text">Question banks</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MY CLASSES SECTION ===== -->
+      <section id="section-classes" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-book"></i>
+          My Classes
+        </h2>
+
+        <div id="class-list"></div>
+      </section>
+
+      <!-- ===== ATTENDANCE SECTION ===== -->
+      <section id="section-attendance" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-clipboard-check"></i>
+          Mark Attendance
+        </h2>
+
+        <form id="attendance-form">
+          <div class="form-group">
+            <label for="attendance-class">Select Class</label>
+            <select id="attendance-class" required></select>
+          </div>
+
+          <div id="attendance-students" style="margin-top: 16px;"></div>
+
+          <button type="submit" class="btn" style="margin-top: 16px;">
+            <i class="fa fa-save"></i> Save Attendance
+          </button>
+        </form>
+      </section>
+
+      <!-- ===== GRADEBOOK SECTION ===== -->
+      <section id="section-gradebook" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-table"></i>
+          Gradebook
+        </h2>
+
+        <div class="form-group">
+          <label for="gradebook-class">Select Class</label>
+          <select id="gradebook-class" required></select>
+        </div>
+
+        <div class="table-wrapper" style="margin-top: 16px;">
+          <div id="gradebook-table"></div>
+        </div>
+      </section>
+
+      <!-- ===== ASSIGNMENTS SECTION ===== -->
+      <section id="section-assignments" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-tasks"></i>
+          <span>Assignments</span>
+          <button class="btn" onclick="openAssignmentModal()">
+            <i class="fa fa-plus"></i> Create Assignment
+          </button>
+        </h2>
+
+        <div id="assignment-list" style="margin-top: 16px;"></div>
+      </section>
+
+      <!-- ===== DRAFT RESULTS SECTION ===== -->
+      <section id="section-draftResults" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-file-lines"></i>
+          Draft Results
+        </h2>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Class</th>
+                <th>Term</th>
+                <th>Status</th>
+                <th>Last Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="draft-results-tbody">
+              <tr>
+                <td colspan="6">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <div class="empty-state-title">No draft results</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== CBT RESULTS SECTION ===== -->
+      <section id="section-cbtResults" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-laptop"></i>
+          CBT Results
+        </h2>
+
+        <div style="margin-bottom: 16px;">
+          <label for="cbt-results-class" style="font-weight: 600;">Select Class</label>
+          <select id="cbt-results-class" style="padding: 10px; border: 1.5px solid #eef3ff; border-radius: 8px; width: 100%; max-width: 300px; margin-top: 8px;" onchange="window.renderCBTResultsForClass()"></select>
+        </div>
+
+        <div id="cbtResultsContainer"></div>
+      </section>
+
+      <!-- ===== CBT QUESTIONS UPLOADER SECTION ===== -->
+      <section id="section-cbtQuestions" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-cloud-upload-alt"></i>
+          Upload CBT Questions
+        </h2>
+
+        <form id="cbt-question-form" autocomplete="off">
+          <div class="grid cols-4">
+            <div class="form-group">
+              <label for="cbt-class-select">Class</label>
+              <select id="cbt-class-select" required></select>
+            </div>
+
+            <div class="form-group">
+              <label for="cbt-subject-select">Subject</label>
+              <select id="cbt-subject-select" required></select>
+            </div>
+
+            <div class="form-group">
+              <label for="cbt-title">Title</label>
+              <input type="text" id="cbt-title" required placeholder="CBT Title">
+            </div>
+
+            <div class="form-group">
+              <label for="cbt-duration">Duration (minutes)</label>
+              <input type="number" id="cbt-duration" min="1" required>
+            </div>
+          </div>
+
+          <label style="font-weight: 600; font-size: 0.9rem; color: var(--accent); display: block; margin: 16px 0 12px;">Questions</label>
+          <div id="cbt-questions-list"></div>
+
+          <button type="button" class="btn secondary" id="cbt-add-question-btn" style="margin-bottom: 16px;">
+            <i class="fa fa-plus"></i> Add Question
+          </button>
+
+          <button type="submit" class="btn" style="width: 100%;">
+            <i class="fa fa-upload"></i> Upload CBT
+          </button>
+
+          <div id="cbt-upload-msg" style="margin-top: 12px; padding: 12px; border-radius: 8px; display: none;"></div>
+        </form>
+      </section>
+
+      <!-- ===== MY CBTs SECTION ===== -->
+      <section id="section-myCBTQuestions" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-folder"></i>
+          My Uploaded CBTs
+        </h2>
+
+        <div class="btn-group" style="margin-bottom: 16px;">
+          <button class="btn" id="pushToUniversalBtn" disabled>
+            <i class="fa fa-arrow-up"></i> Push Selected to Question Bank
+          </button>
+        </div>
+
+        <div id="myCBTQuestionsList"></div>
+      </section>
+
+      <!-- ===== NOTIFICATIONS SECTION ===== -->
+      <section id="section-notifications" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-bell"></i>
+          Notifications
+        </h2>
+
+        <div id="notification-list"></div>
+      </section>
+
+      <!-- ===== PROFILE/SETTINGS SECTION ===== -->
+      <section id="section-profile" class="section" style="display: none;">
+        <h2 class="section-title">
+          <i class="fa fa-user"></i>
+          Profile / Settings
+        </h2>
+
+        <div class="grid cols-2">
+          <div>
+            <h3 style="font-weight: 700; margin-bottom: 16px; color: var(--accent);">Account Information</h3>
+            <form id="profile-form">
+              <div class="form-group">
+                <label for="profile-name">Full Name</label>
+                <input type="text" id="profile-name" required>
+              </div>
+
+              <div class="form-group">
+                <label for="profile-email">Email Address</label>
+                <input type="email" id="profile-email" required>
+              </div>
+
+              <div class="form-group">
+                <label for="profile-subject">Subject/Specialization</label>
+                <input type="text" id="profile-subject" required>
+              </div>
+
+              <div class="form-group">
+                <label for="profile-password">New Password (leave blank to keep current)</label>
+                <input type="password" id="profile-password" placeholder="Enter new password">
+              </div>
+
+              <button type="submit" class="btn">
+                <i class="fa fa-save"></i> Update Profile
+              </button>
+            </form>
+          </div>
+
+          <div>
+            <h3 style="font-weight: 700; margin-bottom: 16px; color: var(--accent);">System Preferences</h3>
+            <div class="card" style="margin-bottom: 12px;">
+              <div class="card-title">Theme</div>
+              <select style="padding: 10px; border: 1px solid #eef3ff; border-radius: 6px; width: 100%; margin-top: 8px;">
+                <option>Light (Default)</option>
+                <option>Dark</option>
+                <option>System</option>
+              </select>
+            </div>
+
+            <div class="card" style="margin-bottom: 12px;">
+              <div class="card-title">Notifications</div>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                <input type="checkbox" checked>
+                <span>Email notifications</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                <input type="checkbox" checked>
+                <span>SMS alerts</span>
+              </label>
+            </div>
+
+            <div class="card">
+              <div class="card-title" style="color: #dc3545;">Danger Zone</div>
+              <button class="btn secondary" style="background: #ffe5e5; border: 1px solid #dc3545; color: #dc3545; margin-top: 8px; width: 100%;">
+                <i class="fa fa-sign-out"></i> Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Assignment Modal -->
+  <div id="assignmentModalBg" class="modal-bg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Create Assignment</h2>
+        <button type="button" class="modal-close" onclick="closeAssignmentModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="assignmentForm">
+          <div class="form-group">
+            <label for="assignment-class">Class</label>
+            <select id="assignment-class" required></select>
+          </div>
+
+          <div class="form-group">
+            <label for="assignment-subject">Subject</label>
+            <select id="assignment-subject" required></select>
+          </div>
+
+          <div class="form-group">
+            <label for="assignment-title">Title</label>
+            <input type="text" id="assignment-title" required placeholder="Assignment title">
+          </div>
+
+          <div class="form-group">
+            <label for="assignment-desc">Description</label>
+            <textarea id="assignment-desc" rows="4" required placeholder="Assignment details..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="assignment-due">Due Date</label>
+            <input type="date" id="assignment-due" required>
+          </div>
+
+          <div class="form-group">
+            <label for="assignment-cbt">Link CBT (Optional)</label>
+            <select id="assignment-cbt">
+              <option value="">None - Regular Assignment</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn secondary" onclick="closeAssignmentModal()">Cancel</button>
+        <button type="submit" class="btn" form="assignmentForm">
+          <i class="fa fa-save"></i> Save Assignment
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Entry Modal -->
+  <div id="resultModalBg" class="modal-bg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Enter/Update Results</h2>
+        <button type="button" class="modal-close" onclick="closeResultModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="resultForm">
+          <div id="resultFormFields"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn secondary" onclick="closeResultModal()">Cancel</button>
+        <button type="submit" class="btn" form="resultForm">
+          <i class="fa fa-save"></i> Save Draft
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    // Sidebar toggle functionality
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    function openSidebar() {
+      sidebar.classList.add('open');
+      sidebarOverlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeSidebar() {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('active');
+      document.body.style.overflow = 'auto';
+    }
+
+    if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeSidebar();
+    });
+
+    // Section navigation
+    document.querySelectorAll('.nav button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const section = btn.dataset.section;
+        document.querySelectorAll('section').forEach(s => s.style.display = 'none');
+        document.getElementById(`section-${section}`).style.display = 'block';
+
+        document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        if (window.innerWidth < 768) closeSidebar();
+      });
+    });
+
+    // Modal functions
+    function openAssignmentModal() {
+      document.getElementById('assignmentModalBg').classList.add('active');
+    }
+
+    function closeAssignmentModal() {
+      document.getElementById('assignmentModalBg').classList.remove('active');
+    }
+
+    function closeResultModal() {
+      document.getElementById('resultModalBg').classList.remove('active');
+    }
+
+    window.onclick = function(e) {
+      const assignmentModal = document.getElementById('assignmentModalBg');
+      const resultModal = document.getElementById('resultModalBg');
+      if (e.target === assignmentModal) closeAssignmentModal();
+      if (e.target === resultModal) closeResultModal();
+    };
+
+    // Populate CBT results class selector
+    window.renderCBTResultsForClass = async function() {
+      // Will be called when class is selected
+      console.log('Render CBT results for selected class');
+    };
+  </script>
+  <script src="teachers.js"></script>
 </body>
 </html>
