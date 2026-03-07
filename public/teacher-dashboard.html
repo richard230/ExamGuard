@@ -857,7 +857,41 @@ async function fetchDraftResultsWithDebug() {
   }
 }
 
-// Then update the renderDraftResults function with better fallbacks
+// Delete draft result function
+async function deleteDraftResult(resultId) {
+  if (!confirm('Are you sure you want to delete this draft result?')) {
+    return;
+  }
+
+  showLoader('Deleting draft result...', 'Please wait');
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results/${encodeURIComponent(resultId)}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to delete result. Status: ${res.status}`);
+    }
+
+    // Remove from local array
+    draftResults = draftResults.filter(r => r._id !== resultId && r.id !== resultId);
+    
+    // Re-render the table
+    renderDraftResults();
+    
+    alert('Draft result deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting draft result:', error);
+    alert('Error: ' + error.message);
+  } finally {
+    hideLoader();
+  }
+}
+
+// Then update the renderDraftResults function with better fallbacks and delete button
 function renderDraftResults() {
   const tbody = document.querySelector('#draft-results-table tbody');
   if (!draftResults.length) {
@@ -935,6 +969,7 @@ function renderDraftResults() {
       ? new Date(r.updatedAt).toLocaleString() 
       : (r.createdAt ? new Date(r.createdAt).toLocaleString() : '-');
 
+    const resultId = r._id || r.id;
     const studentId = r.student?._id || r.student?.id || r.studentId;
     const classId = r.class?._id || r.class?.id || r.classId;
 
@@ -949,6 +984,7 @@ function renderDraftResults() {
         <td style="padding:12px;border-bottom:1px solid #eef3ff;font-size:0.9rem;color:#666;white-space:nowrap;">${lastUpdated}</td>
         <td style="padding:12px;border-bottom:1px solid #eef3ff;text-align:right;white-space:nowrap;">
           <button class="btn" onclick="window.openResultModal('${studentId}','${classId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Edit</button>
+          <button class="btn danger" onclick="window.deleteDraftResult('${resultId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Delete</button>
           <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 10px;font-size:0.85rem;">Publish</button>
         </td>
       </tr>
