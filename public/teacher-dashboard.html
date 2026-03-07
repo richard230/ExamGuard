@@ -2427,6 +2427,7 @@ window.closeGradebookUploadModal = function() {
   }
 };
 
+// Alternative: Check before uploading
 window.submitGradebookResults = async function() {
   const classId = document.getElementById('gradebook-class').value;
   const className = document.querySelector('#gradebook-class option:checked')?.textContent || classId;
@@ -2439,11 +2440,17 @@ window.submitGradebookResults = async function() {
     return;
   }
 
-  showLoader('Preparing gradebook results...', 'Fetching student data');
+  showLoader('Preparing gradebook results...', 'Fetching existing data');
 
   try {
-    // Step 1: Fetch full student data for the class
-    console.log('Fetching student data for class:', className);
+    // Fetch existing results to check for duplicates
+    const existingRes = await fetch(`${API_BASE_URL}/api/results?session=${session}&term=${term}&class=${className}`);
+    const existingData = await existingRes.json();
+    const existingResults = Array.isArray(existingData) ? existingData : (existingData.results || []);
+
+    console.log('Existing results:', existingResults);
+
+    // Fetch full student data
     const studentRes = await fetch(`${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`);
     const studentData = await studentRes.json();
     const fullStudents = Array.isArray(studentData) ? studentData : (studentData.students || []);
@@ -2452,9 +2459,7 @@ window.submitGradebookResults = async function() {
       throw new Error('No student data found for this class');
     }
 
-    console.log('Fetched students:', fullStudents);
-
-    // Step 2: Collect grades from gradebook table
+    // Collect grades from gradebook table
     showLoader('Processing gradebook results...', 'Collecting scores');
     
     const tbody = document.querySelector('#gradebook-table tbody');
@@ -2463,11 +2468,8 @@ window.submitGradebookResults = async function() {
     }
 
     const subjects = subjectsByClass[classId] || [];
-    
-    // Organize results by subject for better structure
     const resultsBySubject = {};
     
-    // Initialize subject results
     subjects.forEach(subj => {
       const subjectName = subj.name || subj;
       resultsBySubject[subjectName] = [];
@@ -2475,30 +2477,23 @@ window.submitGradebookResults = async function() {
 
     const rows = tbody.querySelectorAll('tr');
     
-    rows.forEach((row, rowIdx) => {
+    rows.forEach((row) => {
       const studentNameCell = row.querySelector('td:first-child');
       if (!studentNameCell) return;
 
       const studentName = studentNameCell.textContent.trim();
-      
-      // Find the full student object from fetched data
       const fullStudent = fullStudents.find(s => {
         const fullName = `${s.firstname || ''} ${s.surname || ''}`.trim();
         return fullName === studentName || s.name === studentName;
       });
 
-      if (!fullStudent) {
-        console.warn('Full student data not found for:', studentName);
-        return;
-      }
+      if (!fullStudent) return;
 
-      // Get all input fields in this row (scores for each subject)
       const inputs = row.querySelectorAll('input[type="number"]');
       
       inputs.forEach((input, inputIdx) => {
         if (inputIdx < subjects.length) {
           const score = input.value.trim();
-          // Only add if score is entered
           if (score !== '' && score !== null && score !== undefined) {
             const subjectName = subjects[inputIdx].name || subjects[inputIdx];
             
@@ -2514,12 +2509,11 @@ window.submitGradebookResults = async function() {
       });
     });
 
-    console.log('Results by subject:', resultsBySubject);
-
-    // Step 3: Send results for each subject separately
+    // Upload with upsert flag
     showLoader('Uploading gradebook results...', 'Submitting scores');
 
     let totalUploaded = 0;
+    let totalUpdated = 0;
     const failedSubjects = [];
 
     for (const [subjectName, subjectResults] of Object.entries(resultsBySubject)) {
@@ -2529,12 +2523,11 @@ window.submitGradebookResults = async function() {
         session: session,
         term: term.toUpperCase(),
         class: className,
-        subject: subjectName, // Send actual subject name here
+        subject: subjectName,
         resultType: resultType,
-        results: subjectResults
+        results: subjectResults,
+        upsert: true
       };
-
-      console.log(`Sending results for ${subjectName}:`, payload);
 
       try {
         const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
@@ -2544,10 +2537,10 @@ window.submitGradebookResults = async function() {
         });
 
         const data = await res.json();
-        console.log(`Response for ${subjectName}:`, data);
 
         if (data.success) {
           totalUploaded += data.inserted || subjectResults.length;
+          totalUpdated += data.updated || 0;
         } else {
           failedSubjects.push(`${subjectName}: ${data.error || 'Unknown error'}`);
         }
@@ -2556,18 +2549,16 @@ window.submitGradebookResults = async function() {
       }
     }
 
-    // Step 4: Show results
-    if (totalUploaded > 0) {
-      let message = `✅ Success! Uploaded ${totalUploaded} result(s).`;
-      if (failedSubjects.length > 0) {
-        message += `\n⚠️ Failed subjects:\n${failedSubjects.slice(0, 3).join('\n')}`;
-      }
+    if (totalUploaded > 0 || totalUpdated > 0) {
+      let message = `✅ Success!`;
+      if (totalUploaded > 0) message += ` Created ${totalUploaded} new result(s).`;
+      if (totalUpdated > 0) message += ` Updated ${totalUpdated} existing result(s).`;
       alert(message);
       window.closeGradebookUploadModal();
       document.getElementById('gradebook-class').value = '';
       document.getElementById('gradebook-table').innerHTML = '';
     } else {
-      throw new Error(`All uploads failed:\n${failedSubjects.join('\n')}`);
+      throw new Error(`All uploads failed`);
     }
 
   } catch (error) {
