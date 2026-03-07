@@ -1,988 +1,1504 @@
-// ===== CONFIGURATION =====
-const API_BASE_URL = "https://goldlincschools.onrender.com/api";
-const token = localStorage.getItem('token') || localStorage.getItem('teacherToken') || localStorage.getItem('teacher_token') || '';
-const cbtDraftKey = 'teacher_cbt_draft';
 
-let currentTeacher = null;
-let teacherClasses = [];
-let teacherAssignments = [];
-let teacherResults = [];
-let cbtQuestions = [];
-let myCBTs = [];
-let selectedCBTIndex = -1;
-let currentResultStudentId = null;
-let currentResultClassId = null;
 
-// ===== SPINNER FUNCTIONS =====
+const API_BASE_URL = "https://goldlincschools.onrender.com";
+const token = localStorage.getItem('teacherToken') || localStorage.getItem('token') || "";
+// --- Spinner overlay control ---
 function showDashboardSpinner() {
   const spinner = document.getElementById('dashboardSpinnerOverlay');
   if (spinner) {
-    spinner.style.display = 'flex';
     spinner.classList.remove('hidden');
+    spinner.style.display = 'flex';
+    spinner.style.opacity = '1';
   }
 }
-
 function hideDashboardSpinner() {
   const spinner = document.getElementById('dashboardSpinnerOverlay');
   if (spinner) {
     spinner.classList.add('hidden');
-    setTimeout(() => { spinner.style.display = 'none'; }, 400);
+    setTimeout(() => { spinner.style.display = 'none'; }, 400); // Wait for fade
   }
 }
 
-// ===== CBT DRAFT STORAGE =====
+// --- DATA HOLDERS ---
+let teacher = null;
+let studentsByClass = {};
+let subjectsByClass = {};
+let notifications = [];
+let draftResults = [];
+let attendanceRecords = [];
+let gradebookData = {};
+let assignments = [];
+let cbts = [];
+let myUploadedCBTs = [];
+let selectedCBTIds = [];
+
+// ADD AT THE TOP (after cbtQuestions = [];)
+let cbtDraftKey = 'cbtDraft_current';
+let cbtDraftRestoreWarned = false;
+
+// --- UTILS FOR CBT DRAFT ---
 function saveCBTDraftToLocalStorage() {
+  const classId = document.getElementById('cbt-class-select')?.value || '';
+  const subjectId = document.getElementById('cbt-subject-select')?.value || '';
+  const title = document.getElementById('cbt-title')?.value || '';
+  const duration = document.getElementById('cbt-duration')?.value || '';
+  // Save cbtQuestions array as well
   const draft = {
-    classId: document.getElementById('cbt-class-select')?.value || '',
-    subjectId: document.getElementById('cbt-subject-select')?.value || '',
-    title: document.getElementById('cbt-title')?.value || '',
-    duration: document.getElementById('cbt-duration')?.value || '',
-    questions: cbtQuestions
+    classId, subjectId, title, duration,
+    questions: JSON.parse(JSON.stringify(cbtQuestions))
   };
   localStorage.setItem(cbtDraftKey, JSON.stringify(draft));
 }
 
 function loadCBTDraftFromLocalStorage() {
-  const draft = localStorage.getItem(cbtDraftKey);
-  if (draft) {
-    try {
-      const data = JSON.parse(draft);
-      cbtQuestions = data.questions || [];
-      
-      // Populate form if elements exist
-      if (document.getElementById('cbt-class-select')) {
-        document.getElementById('cbt-class-select').value = data.classId || '';
-      }
-      if (document.getElementById('cbt-subject-select')) {
-        document.getElementById('cbt-subject-select').value = data.subjectId || '';
-      }
-      if (document.getElementById('cbt-title')) {
-        document.getElementById('cbt-title').value = data.title || '';
-      }
-      if (document.getElementById('cbt-duration')) {
-        document.getElementById('cbt-duration').value = data.duration || '';
-      }
-      
-      return true;
-    } catch (e) {
-      console.error('Error loading CBT draft:', e);
-      return false;
-    }
-  }
-  return false;
+  const raw = localStorage.getItem(cbtDraftKey);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
 }
 
 function clearCBTDraftFromLocalStorage() {
   localStorage.removeItem(cbtDraftKey);
 }
 
-// ===== AUTH HEADERS =====
-function authHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
+// HOOK INTO CBT QUESTION FORM: (edit renderCBTQuestionSection)
+
+function renderCBTQuestionSection() {
+  const classSel = document.getElementById('cbt-class-select');
+  const subjSel = document.getElementById('cbt-subject-select');
+  classSel.innerHTML = '';
+  subjSel.innerHTML = '';
+
+  if (!teacher.classes) return;
+  teacher.classes.forEach(cls => {
+    let opt = document.createElement('option');
+    opt.value = cls.id;
+    opt.innerText = cls.name;
+    classSel.appendChild(opt);
+  });
+
+  // --- Draft Restore ---
+
+  if (!cbtDraftRestoreWarned) {
+    cbtDraftRestoreWarned = true;
+    const draft = loadCBTDraftFromLocalStorage();
+    if (draft && (draft.title || (draft.questions && draft.questions.length > 0))) {
+      if (confirm("It looks like you have an unfinished CBT draft. Restore it?")) {
+        // Restore all fields
+        setTimeout(() => {
+          classSel.value = draft.classId || '';
+          classSel.dispatchEvent(new Event('change')); // To populate subjects
+          // Wait a moment for subject dropdown to update
+          setTimeout(() => {
+            subjSel.value = draft.subjectId || '';
+            document.getElementById('cbt-title').value = draft.title || '';
+            document.getElementById('cbt-duration').value = draft.duration || '';
+            cbtQuestions = Array.isArray(draft.questions) ? draft.questions : [];
+            renderCBTQuestions();
+          }, 200);
+        }, 100);
+      } else {
+        clearCBTDraftFromLocalStorage();
+      }
+    }
+  }
+
+  classSel.onchange = function() {
+    const subjects = subjectsByClass[classSel.value] || [];
+    subjSel.innerHTML = '';
+    subjects.forEach(subj => {
+      let opt = document.createElement('option');
+      opt.value = subj.id;
+      opt.innerText = subj.name;
+      subjSel.appendChild(opt);
+    });
+    saveCBTDraftToLocalStorage();
   };
-}
+  classSel.onchange();
 
-// ===== API CALLS =====
-async function fetchTeacherProfile() {
-  try {
-    showDashboardSpinner();
-    const res = await fetch(`${API_BASE_URL}/teacher/me`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch teacher profile');
-    
-    const data = await res.json();
-    currentTeacher = data;
-    
-    document.getElementById('teacherName').textContent = data.name || 'Teacher';
-    document.getElementById('teacherSubject').textContent = data.subject || 'Teacher';
-    
-    return data;
-  } catch (err) {
-    console.error('Error fetching teacher profile:', err);
-    return null;
-  }
-}
+  // Hook into value changes to auto-save
+  ['cbt-class-select', 'cbt-subject-select', 'cbt-title', 'cbt-duration'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.oninput = saveCBTDraftToLocalStorage;
+  });
 
-async function fetchTeacherClasses() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teacher/classes`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch classes');
-    
-    teacherClasses = await res.json();
-    return teacherClasses;
-  } catch (err) {
-    console.error('Error fetching teacher classes:', err);
-    return [];
-  }
+  cbtQuestions = cbtQuestions || [];
+  renderCBTQuestions();
 }
-
-async function fetchStudentsByClass(classId) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/class/${classId}/students`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch students');
-    
-    return await res.json();
-  } catch (err) {
-    console.error('Error fetching students:', err);
-    return [];
-  }
-}
-
-async function fetchSubjectsByClass(classId) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/class/${classId}/subjects`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch subjects');
-    
-    return await res.json();
-  } catch (err) {
-    console.error('Error fetching subjects:', err);
-    return [];
-  }
-}
-
-async function fetchAssignments() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teacher/assignments`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch assignments');
-    
-    teacherAssignments = await res.json();
-    return teacherAssignments;
-  } catch (err) {
-    console.error('Error fetching assignments:', err);
-    return [];
-  }
-}
-
+// --- INITIAL FETCH & SETUP ---
+window.addEventListener('DOMContentLoaded', () => {
+  showDashboardSpinner();
+  fetchAndSetup();
+});
 async function fetchDraftResults() {
   try {
-    const res = await fetch(`${API_BASE_URL}/teacher/results/draft`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch draft results');
-    
-    return await res.json();
-  } catch (err) {
-    console.error('Error fetching draft results:', err);
+    // You may need to adjust the endpoint if your API differs!
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results?status=Draft`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    // Defensive: some APIs use {results: [...]}, others just return an array
+    return Array.isArray(data.results) ? data.results : [];
+  } catch {
     return [];
   }
 }
-
-async function fetchTeacherNotifications() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teacher/notifications`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch notifications');
-    
-    return await res.json();
-  } catch (err) {
-    console.error('Error fetching notifications:', err);
-    return [];
-  }
-}
-
-async function fetchTeacherCBTs() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teacher/cbts`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch CBTs');
-    
-    myCBTs = await res.json();
-    return myCBTs;
-  } catch (err) {
-    console.error('Error fetching CBTs:', err);
-    return [];
-  }
-}
-
-async function fetchCBTResultsForClass(classId) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teacher/cbt-results?class=${classId}`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch CBT results');
-    
-    return await res.json();
-  } catch (err) {
-    console.error('Error fetching CBT results:', err);
-    return [];
-  }
-}
-
-async function fetchTeacherAllResults() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teacher/results`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch results');
-    
-    teacherResults = await res.json();
-    return teacherResults;
-  } catch (err) {
-    console.error('Error fetching results:', err);
-    return [];
-  }
-}
-
-// ===== RENDER FUNCTIONS =====
-async function renderDashboard() {
-  try {
-    const classes = await fetchTeacherClasses();
-    const classesStats = document.getElementById('classesStats');
-    
-    if (!classesStats) return;
-    
-    if (classes.length === 0) {
-      classesStats.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1;">
-          <div class="empty-state-icon">📚</div>
-          <div class="empty-state-title">No Classes Assigned</div>
-          <p style="color: var(--muted);">You haven't been assigned any classes yet.</p>
-        </div>
-      `;
-      return;
-    }
-    
-    classesStats.innerHTML = classes.map(cls => `
-      <div class="stat-card" onclick="navigateToClass('${cls._id}')">
-        <div class="stat-icon" style="background: linear-gradient(90deg, var(--accent-2), #3b82f6);">
-          <i class="fa fa-book"></i>
-        </div>
-        <div class="stat-value">${cls.name || ''}</div>
-        <div class="stat-label">${cls.studentsCount || 0} Students</div>
-      </div>
-    `).join('');
-  } catch (err) {
-    console.error('Error rendering dashboard:', err);
-  }
-}
-
-function renderClassesList() {
-  const classList = document.getElementById('class-list');
-  if (!classList) return;
-  
-  if (teacherClasses.length === 0) {
-    classList.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <div class="empty-state-title">No Classes</div>
-      </div>
-    `;
+function renderDraftResults() {
+  const tbody = document.querySelector('#draft-results-table tbody');
+  if (!draftResults.length) {
+    tbody.innerHTML = '<tr><td colspan="6">No draft results found.</td></tr>';
     return;
   }
-  
-  classList.innerHTML = teacherClasses.map(cls => `
-    <div class="list-item">
-      <div>
-        <strong>${cls.name}</strong><br>
-        <small style="color: var(--muted);">${cls.studentsCount || 0} Students</small>
-      </div>
-      <button class="btn" onclick="navigateToClass('${cls._id}')">
-        <i class="fa fa-arrow-right"></i>
-      </button>
-    </div>
-  `).join('');
-}
-
-async function renderAttendance() {
-  const classSelect = document.getElementById('attendance-class');
-  if (!classSelect) return;
-  
-  classSelect.innerHTML = '<option value="">Select a class...</option>' + 
-    teacherClasses.map(cls => `<option value="${cls._id}">${cls.name}</option>`).join('');
-  
-  classSelect.onchange = async function() {
-    await renderAttendanceStudents();
-  };
-}
-
-async function renderAttendanceStudents() {
-  const classId = document.getElementById('attendance-class').value;
-  const container = document.getElementById('attendance-students');
-  
-  if (!classId) {
-    container.innerHTML = '';
-    return;
-  }
-  
-  const students = await fetchStudentsByClass(classId);
-  
-  if (students.length === 0) {
-    container.innerHTML = '<p style="color: var(--muted);">No students in this class.</p>';
-    return;
-  }
-  
-  container.innerHTML = `
-    <div style="margin-top: 16px;">
-      <h3 style="font-weight: 700; margin-bottom: 12px;">Mark Attendance</h3>
-      ${students.map((student, idx) => `
-        <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: #f8faff; border-radius: 8px; margin-bottom: 8px;">
-          <div style="flex: 1;">
-            <strong>${student.firstname} ${student.surname}</strong><br>
-            <small style="color: var(--muted);">${student.student_id}</small>
-          </div>
-          <select name="attendance_${idx}" style="padding: 8px; border: 1px solid #eef3ff; border-radius: 6px;">
-            <option value="Present">Present</option>
-            <option value="Absent">Absent</option>
-            <option value="Late">Late</option>
-            <option value="Excused">Excused</option>
-            <option value="Leave">Leave</option>
-          </select>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-async function renderGradebook() {
-  const classSelect = document.getElementById('gradebook-class');
-  if (!classSelect) return;
-  
-  classSelect.innerHTML = '<option value="">Select a class...</option>' + 
-    teacherClasses.map(cls => `<option value="${cls._id}">${cls.name}</option>`).join('');
-  
-  classSelect.onchange = async function() {
-    await renderGradebookTable();
-  };
-}
-
-async function renderGradebookTable() {
-  const classId = document.getElementById('gradebook-class').value;
-  const container = document.getElementById('gradebook-table');
-  
-  if (!classId) {
-    container.innerHTML = '';
-    return;
-  }
-  
-  const students = await fetchStudentsByClass(classId);
-  const subjects = await fetchSubjectsByClass(classId);
-  
-  if (students.length === 0) {
-    container.innerHTML = '<p style="color: var(--muted);">No students in this class.</p>';
-    return;
-  }
-  
-  let html = '<table style="width: 100%; border-collapse: collapse;"><thead><tr>';
-  html += '<th style="text-align: left; padding: 10px; background: #f8faff; border-bottom: 2px solid #eef3ff;">Student Name</th>';
-  
-  (subjects || []).forEach(subj => {
-    html += `<th style="text-align: center; padding: 10px; background: #f8faff; border-bottom: 2px solid #eef3ff;">${subj.name}</th>`;
-  });
-  
-  html += '</tr></thead><tbody>';
-  
-  students.forEach(student => {
-    html += `<tr style="border-bottom: 1px solid #eef3ff;"><td style="padding: 10px;"><strong>${student.firstname} ${student.surname}</strong></td>`;
-    
-    (subjects || []).forEach(subj => {
-      html += `<td style="padding: 10px; text-align: center;"><input type="number" min="0" max="100" placeholder="Score" style="width: 70px; padding: 6px; border: 1px solid #eef3ff; border-radius: 4px;"></td>`;
-    });
-    
-    html += '</tr>';
-  });
-  
-  html += '</tbody></table>';
-  container.innerHTML = html;
-}
-
-async function renderAssignments() {
-  const assignments = await fetchAssignments();
-  const container = document.getElementById('assignment-list');
-  
-  if (!container) return;
-  
-  if (assignments.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <div class="empty-state-title">No Assignments</div>
-      </div>
-    `;
-    return;
-  }
-  
-  container.innerHTML = assignments.map(assign => `
-    <div class="list-item">
-      <div style="flex: 1;">
-        <strong>${assign.title}</strong><br>
-        <small style="color: var(--muted);">${assign.class?.name} | Due: ${new Date(assign.due).toLocaleDateString()}</small><br>
-        <span class="badge badge-draft" style="margin-top: 6px; display: inline-block;">${assign.status || 'Active'}</span>
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn secondary" onclick="editAssignment('${assign._id}')">
-          <i class="fa fa-edit"></i>
-        </button>
-        <button class="btn secondary" onclick="deleteAssignment('${assign._id}')">
-          <i class="fa fa-trash"></i>
-        </button>
-      </div>
-    </div>
-  `).join('');
-  
-  await populateAssignmentSubjects();
-}
-
-async function populateAssignmentSubjects() {
-  const classSelect = document.getElementById('assignment-class');
-  const subjectSelect = document.getElementById('assignment-subject');
-  const cbtSelect = document.getElementById('assignment-cbt');
-  
-  if (classSelect) {
-    classSelect.innerHTML = teacherClasses.map(cls => `<option value="${cls._id}">${cls.name}</option>`).join('');
-    
-    classSelect.onchange = async function() {
-      const subjects = await fetchSubjectsByClass(this.value);
-      subjectSelect.innerHTML = subjects.map(subj => `<option value="${subj._id}">${subj.name}</option>`).join('');
-    };
-  }
-  
-  if (cbtSelect) {
-    await fetchTeacherCBTs();
-    cbtSelect.innerHTML = '<option value="">None - Regular Assignment</option>' + 
-      myCBTs.map(cbt => `<option value="${cbt._id}">${cbt.title}</option>`).join('');
-  }
-}
-
-async function renderDraftResults() {
-  const draftResults = await fetchDraftResults();
-  const tbody = document.getElementById('draft-results-tbody');
-  
-  if (!tbody) return;
-  
-  if (draftResults.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6">
-          <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <div class="empty-state-title">No Draft Results</div>
-          </div>
-        </td>
-      </tr>
-    `;
-    return;
-  }
-  
-  tbody.innerHTML = draftResults.map(result => `
+  tbody.innerHTML = draftResults.map(r => `
     <tr>
-      <td><strong>${result.studentName}</strong></td>
-      <td>${result.className}</td>
-      <td>${result.term}</td>
-      <td><span class="badge badge-draft">${result.status}</span></td>
-      <td>${new Date(result.updatedAt).toLocaleDateString()}</td>
+      <td>${r.student?.name || '-'}</td>
+      <td>${r.class?.name || '-'}</td>
+      <td>${r.term || '-'}</td>
+      <td>${r.status || '-'}</td>
+      <td>${r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-'}</td>
       <td>
-        <button class="btn secondary" onclick="editResult('${result._id}')">
-          <i class="fa fa-edit"></i> Edit
-        </button>
+        <button onclick="openResultModal('${r.student?._id}','${r.class?._id}')">Edit</button>
+        <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.')">Publish</button>
       </td>
     </tr>
   `).join('');
 }
+async function fetchTeacherCBTs() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    // Defensive: data may be array or {cbts:[...]}
+    return Array.isArray(data) ? data : data.cbts || [];
+  } catch { return []; }
+}
+async function fetchAndSetup() {
+  try {
+    teacher = await fetchTeacherProfile();
+    if (!teacher) throw new Error("Failed to load teacher profile.");
+
+    document.querySelector('.profile-section strong').textContent = teacher.name;
+    document.querySelector('.profile-section small').textContent = teacher.designation || '';
+    document.querySelector('header h1').textContent = `Welcome, ${teacher.name}`;
+    document.querySelector('.avatar').textContent = (teacher.name || '').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+
+    teacher.classes = await fetchTeacherClasses();
+    notifications = await fetchTeacherNotifications();
+
+    studentsByClass = {};
+    subjectsByClass = {};
+    for (const cls of teacher.classes) {
+      studentsByClass[cls.id] = await fetchStudentsByClass(cls.id);
+      subjectsByClass[cls.id] = await fetchSubjectsByClass(cls.id);
+    }
+
+    assignments = await fetchAssignments() || [];
+    draftResults = await fetchDraftResults() || [];
+
+    renderClassesList();
+    renderStudentsBlock();
+    renderSubjectsBlock();
+    showAddSubjectBlock();
+  } catch (err) {
+    alert(err.message || "Dashboard failed to load.");
+  } finally {
+    hideDashboardSpinner(); // <-- ALWAYS hide spinner
+  }
+}
+function populateAssignmentCBTs() {
+  const cbtSel = document.getElementById('assignment-cbt');
+  cbtSel.innerHTML = '<option value="">None (regular assignment)</option>';
+  cbts.forEach(cbt => {
+    let opt = document.createElement('option');
+    opt.value = cbt._id;
+    opt.innerText = `${cbt.title} (${cbt.className || ''} - ${cbt.subjectName || ''})`;
+    cbtSel.appendChild(opt);
+  });
+}
+// --- BACKEND API CALLS ---
+function authHeaders() {
+  return token ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } : { 'Content-Type': 'application/json' };
+}
+
+async function fetchTeacherProfile() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/me`, { headers: authHeaders() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function fetchTeacherClasses() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/classes`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+async function fetchTeacherNotifications() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/notifications`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.notifications) ? data.notifications : [];
+  } catch { return []; }
+}
+
+async function fetchStudentsByClass(classId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/students?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+async function fetchSubjectsByClass(classId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/subjects?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+async function fetchAssignments() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/assignments`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.assignments) ? data.assignments : [];
+  } catch { return []; }
+}
+
+async function fetchTeacherResults(status = "") {
+  try {
+    let url = `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results`;
+    if (status) url += `?status=${encodeURIComponent(status)}`;
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.results) ? data.results : [];
+  } catch { return []; }
+}
+// --- UI LOGIC ---
+const sidebarBtns = document.querySelectorAll('.sidebar nav button');
+const sections = {
+  dashboard: document.getElementById('section-dashboard'),
+  classes: document.getElementById('section-dashboard'),
+  attendance: document.getElementById('section-attendance'),
+  gradebook: document.getElementById('section-gradebook'),
+  assignments: document.getElementById('section-assignments'),
+  draftResults: document.getElementById('section-draftResults'),
+  notifications: document.getElementById('section-notifications'),
+  profile: document.getElementById('section-profile'),
+  cbtQuestions: document.getElementById('section-cbtQuestions'),
+  myCBTQuestions: document.getElementById('section-myCBTQuestions'),
+  cbtResults: document.getElementById('section-cbtResults') // <-- Add this line
+};
+
+// --- Add to sidebar navigation logic ---
+sidebarBtns.forEach(btn => {
+  btn.onclick = function () {
+    sidebarBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    Object.values(sections).forEach(s => s.style.display = 'none');
+    const sec = btn.getAttribute('data-section');
+    sections[sec].style.display = '';
+    if (sec === 'draftResults') renderDraftResults();
+    if (sec === 'notifications') renderNotifications();
+    if (sec === 'attendance') renderAttendance();
+    if (sec === 'gradebook') renderGradebook();
+    if (sec === 'assignments') renderAssignments();
+    if (sec === 'myCBTQuestions') showMyCBTQuestionsSection();
+    if (sec === 'cbtQuestions') renderCBTQuestionSection();
+    if (sec === 'cbtResults') renderCBTResultsSection(); // <-- Add this line
+    if (sec === 'dashboard' || sec === 'classes') {
+      renderClassesList();
+      renderStudentsBlock();
+      renderSubjectsBlock();
+      showAddSubjectBlock();
+    }
+  }
+});
+
+// Hamburger menu for sidebar (mobile)
+function toggleSidebarMenu() {
+  document.querySelector('.sidebar').classList.toggle('open');
+}
+function updateHamburger() {
+  const hamburger = document.querySelector('.sidebar .hamburger');
+  if (!hamburger) return;
+  if (window.innerWidth <= 600) {
+    hamburger.style.display = 'block';
+  } else {
+    hamburger.style.display = 'none';
+    document.querySelector('.sidebar').classList.remove('open');
+  }
+}
+window.addEventListener('resize', updateHamburger);
+window.addEventListener('DOMContentLoaded', updateHamburger);
+
+// --- Classes List ---
+let selectedClassId = null;
+function renderClassesList() {
+  const classList = document.getElementById('class-list');
+  classList.innerHTML = '';
+  if (!teacher.classes || teacher.classes.length === 0) return;
+
+  // Auto-select first class if none is selected
+  if (!selectedClassId) {
+    selectedClassId = teacher.classes[0].id;
+  }
+
+  teacher.classes.forEach(cls => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.className = 'class-btn';
+    btn.innerText = cls.name;
+    if (selectedClassId === cls.id) btn.classList.add('active');
+    btn.onclick = () => {
+      selectedClassId = cls.id;
+      renderClassesList();
+      renderStudentsBlock();
+      renderSubjectsBlock();
+      showAddSubjectBlock();
+    };
+    li.appendChild(btn);
+    classList.appendChild(li);
+  });
+
+  renderStudentsBlock();
+  renderSubjectsBlock();
+  showAddSubjectBlock();
+}
+
+function renderStudentsBlock() {
+  const block = document.getElementById('students-block');
+  block.innerHTML = '';
+  if (!selectedClassId) return;
+  const students = studentsByClass[selectedClassId] || [];
+  if (students.length === 0) {
+    block.innerHTML = '<div class="card students-table"><em>No students found in this class.</em></div>';
+    return;
+  }
+  let html = `<div class="card students-table"><h2>Students in ${teacher.classes.find(c => c.id === selectedClassId).name}</h2>
+    <table>
+      <thead><tr>
+        <th>Name</th><th>Reg. No.</th><th>Email</th><th>Actions</th>
+      </tr></thead>
+      <tbody>`;
+  students.forEach(stu => {
+    html += `<tr>
+      <td data-label="Name">${stu.name}</td>
+      <td data-label="Reg. No.">${stu.regNo}</td>
+      <td data-label="Email">${stu.email}</td>
+      <td class="actions" data-label="Actions">
+        <button class="btn" onclick="openResultModal('${stu.id}','${selectedClassId}')">Enter/Update Result</button>
+        <button class="btn" onclick="alert('Profile for ${stu.name}')">View Profile</button>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  block.innerHTML = html;
+}
+
+function renderSubjectsBlock() {
+  const block = document.getElementById('subjects-block');
+  block.innerHTML = '';
+  if (!selectedClassId) return;
+  const subjects = subjectsByClass[selectedClassId] || [];
+  if (subjects.length === 0) {
+    block.innerHTML = '<div class="card"><em>No subjects found for this class.</em></div>';
+    return;
+  }
+  let html = `<div class="card"><h2>Subjects for ${teacher.classes.find(c => c.id === selectedClassId).name}</h2><ul>`;
+  subjects.forEach(subj => {
+    // Handles both object and string
+    html += `<li>${subj.name || subj}</li>`;
+  });
+  html += '</ul></div>';
+  block.innerHTML = html;
+}
+
+// --- Add Subject to Class ---
+function showAddSubjectBlock() {
+  const block = document.getElementById('add-subject-block');
+  if (!block) return;
+  if (selectedClassId) {
+    block.style.display = '';
+  } else {
+    block.style.display = 'none';
+  }
+}
+
+// Attach event listener for adding a subject
+const addSubjectForm = document.getElementById('add-subject-form');
+if (addSubjectForm) {
+  addSubjectForm.onsubmit = async function(e) {
+    e.preventDefault();
+    const subjectInput = document.getElementById('subject-name-input');
+    const subjectName = subjectInput.value.trim();
+    if (!subjectName || !selectedClassId) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/classes/${selectedClassId}/subjects`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ subjectName })
+      });
+      if (!res.ok) throw new Error();
+      // Always refetch to update UI with latest format
+      subjectsByClass[selectedClassId] = await fetchSubjectsByClass(selectedClassId);
+      renderSubjectsBlock();
+      alert('Subject added!');
+    } catch {
+      alert('Failed to add subject.');
+    }
+  };
+}
+// --- Add to sections map ---
+
+
+
+
+// --- CBT Results Section Logic ---
+async function fetchCBTResultsForClass(classId) {
+  try {
+    // Adjust endpoint if needed!
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt-results?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    // Defensive: array or {results: [...]}
+    return Array.isArray(data) ? data : (data.results || []);
+  } catch {
+    return [];
+  }
+}
 
 async function renderCBTResultsSection() {
-  const classSelect = document.getElementById('gradebook-class');
   const container = document.getElementById('cbtResultsContainer');
-  
-  if (!classSelect || !container) return;
-  
-  const classId = classSelect.value;
-  if (!classId) {
-    container.innerHTML = '<p style="color: var(--muted);">Select a class first.</p>';
+  container.innerHTML = '<div style="padding:2em;text-align:center;color:#888;"><i class="fa fa-spinner fa-spin"></i> Loading CBT results...</div>';
+  if (!teacher || !teacher.classes || teacher.classes.length === 0) {
+    container.innerHTML = '<div style="padding:2em;text-align:center;color:#888;">No classes assigned.</div>';
     return;
   }
-  
-  const results = await fetchCBTResultsForClass(classId);
-  
-  if (results.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <div class="empty-state-title">No CBT Results</div>
+  let html = '';
+  // Loop through each class
+  for (const cls of teacher.classes) {
+    const results = await fetchCBTResultsForClass(cls.id);
+    html += `
+      <div class="card" style="margin-bottom:2.5em;box-shadow:0 2px 12px #ddeaff44;">
+        <h3 style="color:#2647a6;font-size:1.2em;margin-bottom:0.5em;">Class: <span style="color:#1e88e5;">${cls.name}</span></h3>
+        ${results.length === 0
+          ? `<div style="color:#888;padding:1em 0;">No CBT results for this class.</div>`
+          : `<table style="width:100%;border-collapse:collapse;">
+              <thead style="background:#f6f8fa;">
+                <tr>
+                  <th style="padding:8px;">Exam Title</th>
+                  <th style="padding:8px;">Student</th>
+                  <th style="padding:8px;">Score</th>
+                  <th style="padding:8px;">Started</th>
+                  <th style="padding:8px;">Finished</th>
+                  <th style="padding:8px;">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${results.map(r => `
+                  <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:8px;">${r.examTitle || '-'}</td>
+                    <td style="padding:8px;">${r.studentName || '-'}</td>
+                    <td style="padding:8px;font-weight:bold;color:#159d5e;">${r.score} / ${r.total}</td>
+                    <td style="padding:8px;">${r.startedAt ? new Date(r.startedAt).toLocaleString() : '-'}</td>
+                    <td style="padding:8px;">${r.finishedAt ? new Date(r.finishedAt).toLocaleString() : '-'}</td>
+                    <td style="padding:8px;"><button class="btn" onclick="viewCBTResult('${r._id}')"><i class="fa fa-eye"></i></button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>`
+        }
       </div>
     `;
-    return;
   }
-  
-  container.innerHTML = results.map(result => `
-    <div class="list-item" onclick="viewCBTResult('${result._id}')">
-      <div style="flex: 1;">
-        <strong>${result.studentName}</strong><br>
-        <small style="color: var(--muted);">${result.examTitle} | Score: ${result.score}/${result.totalScore}</small>
-      </div>
-      <div style="text-align: right;">
-        <strong style="color: var(--accent-2);">${Math.round((result.score / result.totalScore) * 100)}%</strong>
-      </div>
-    </div>
-  `).join('');
+  container.innerHTML = html;
 }
 
-function renderCBTQuestionSection() {
-  const classSelect = document.getElementById('cbt-class-select');
-  const subjectSelect = document.getElementById('cbt-subject-select');
-  
-  if (!classSelect || !subjectSelect) return;
-  
-  // Populate classes
-  classSelect.innerHTML = teacherClasses.map(cls => `<option value="${cls._id}">${cls.name}</option>`).join('');
-  
-  // Update subjects when class changes
-  classSelect.onchange = async function() {
-    const subjects = await fetchSubjectsByClass(this.value);
-    subjectSelect.innerHTML = subjects.map(subj => `<option value="${subj._id}">${subj.name}</option>`).join('');
-  };
-  
-  // Trigger initial subject load
-  if (classSelect.value) {
-    classSelect.dispatchEvent(new Event('change'));
+// --- CBT Result Detail Modal ---
+window.viewCBTResult = async function(resultId) {
+  // GET /api/teachers/{teacherId}/cbt-results/{resultId}
+  const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt-results/${resultId}`, { headers: authHeaders() });
+  const r = await res.json();
+  // Modal style (reuse modal or create new)
+  let modal = document.getElementById('cbtResultModalBg');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cbtResultModalBg';
+    modal.className = 'form-modal-bg';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+      <div class="form-modal">
+        <button class="close-btn" onclick="document.getElementById('cbtResultModalBg').style.display='none';">&times;</button>
+        <h3>CBT Result Detail</h3>
+        <div id="cbtResultDetail"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display = 'flex';
   }
-  
-  renderCBTQuestions();
-  loadCBTDraftFromLocalStorage();
+  document.getElementById('cbtResultDetail').innerHTML = `
+    <div><b>Student:</b> ${r.studentName}</div>
+    <div><b>Class:</b> ${r.className}</div>
+    <div><b>Exam Title:</b> ${r.examTitle}</div>
+    <div><b>Score:</b> ${r.score} / ${r.total}</div>
+    <div><b>Started:</b> ${r.startedAt ? new Date(r.startedAt).toLocaleString() : '-'}</div>
+    <div><b>Finished:</b> ${r.finishedAt ? new Date(r.finishedAt).toLocaleString() : '-'}</div>
+    <div><b>Answers:</b><pre style="background:#f8fafc;border-radius:7px;padding:1em;margin-top:0.6em;">${JSON.stringify(r.answers, null, 2)}</pre></div>
+  `;
+};
+
+// Optional: Hide modal when clicking outside
+document.body.addEventListener('click', function(e) {
+  const modal = document.getElementById('cbtResultModalBg');
+  if (modal && modal.style.display === 'flex' && e.target === modal) modal.style.display = 'none';
+});
+
+// Fetch all CBTs uploaded by this teacher
+async function fetchMyCBTQuestions() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.cbts || []); // <-- This ensures you always get an array!
+  } catch {
+    return [];
+  }
 }
 
-function renderCBTQuestions() {
-  const container = document.getElementById('cbt-questions-list');
-  if (!container) return;
-  
-  if (cbtQuestions.length === 0) {
-    container.innerHTML = '<p style="color: var(--muted);">No questions added yet.</p>';
+
+function renderMyCBTQuestions() {
+  const listDiv = document.getElementById('myCBTQuestionsList');
+  const pushBtn = document.getElementById('pushToUniversalBtn');
+  if (!myUploadedCBTs.length) {
+    listDiv.innerHTML = '<div style="color:#888; padding:2em 0;">No CBTs uploaded yet.</div>';
+    pushBtn.disabled = true;
     return;
   }
-  
-  container.innerHTML = cbtQuestions.map((q, idx) => `
-    <div style="padding: 16px; background: #f8faff; border: 1px solid #eef3ff; border-radius: 8px; margin-bottom: 12px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <strong>Q${idx + 1}: ${q.text}</strong>
-        <button type="button" class="btn secondary" style="padding: 6px 12px;" onclick="window.removeCBTQuestion(${idx})">
+  let html = '';
+  myUploadedCBTs.forEach((cbt, i) => {
+    const questionCount = cbt.questions ? cbt.questions.length : 0;
+    html += `
+      <div class="cbt-item" style="border:1px solid #eee; border-radius:7px; margin-bottom:12px; box-shadow:0 2px 8px #0001;">
+        <div class="cbt-header" style="cursor:pointer; padding:12px 8px; font-weight:bold; font-size:1.1em; display:flex;align-items:center;" onclick="toggleCBTQuestions(${i})">
+          <input type="checkbox" class="cbt-select-checkbox" data-cbtid="${cbt._id}" ${selectedCBTIds.includes(cbt._id) ? 'checked' : ''} style="margin-right:9px;" onclick="event.stopPropagation();">
+          <span>${cbt.title || '(Untitled CBT)'}</span>
+          <span style="margin-left:auto; color:#555; font-size:0.9em;">${cbt.duration||''} min · ${questionCount} question${questionCount!==1?'s':''}</span>
+          <span style="margin-left:10px;" id="cbt-q-arrow-${i}">&#9654;</span>
+          <button class="cbt-delete-btn" title="Delete" data-cbtid="${cbt._id}" style="margin-left:12px; color:#c00; background:none; border:none; cursor:pointer;"><i class="fa fa-trash"></i></button>
+        </div>
+        <div class="cbt-questions" id="cbt-questions-${i}" style="display:none; padding:10px 20px 15px 35px;">
+          ${cbt.questions && cbt.questions.length
+            ? cbt.questions.map((q, qidx) => `
+  <div class="cbt-question-view" style="margin-bottom:1.2em; border-bottom:1px solid #eee; padding-bottom:10px;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:600;">
+        Q${qidx+1}: 
+        <span style="font-weight:normal;" class="cbt-q-text">${q.text}</span>
+      </div>
+      <div>
+        <button class="cbt-edit-q-btn" title="Edit" data-cbtidx="${i}" data-qidx="${qidx}" style="background:none;border:none;color:#1e88e5;font-size:1.1em;margin-right:10px;cursor:pointer;">
+          <i class="fa fa-edit"></i>
+        </button>
+        <button class="cbt-delete-q-btn" title="Delete" data-cbtidx="${i}" data-qidx="${qidx}" style="background:none;border:none;color:#c00;font-size:1.1em;cursor:pointer;">
           <i class="fa fa-trash"></i>
         </button>
       </div>
-      
-      <div style="margin: 10px 0;">
-        <label style="font-weight: 600; font-size: 0.9rem; color: var(--accent); display: block; margin-bottom: 6px;">Score/Points</label>
-        <input type="number" value="${q.score || 1}" min="1" class="cbt-qscore" style="padding: 8px; border: 1px solid #eef3ff; border-radius: 6px; width: 80px;" data-idx="${idx}">
-      </div>
-      
-      <div style="margin: 10px 0;">
-        <strong style="font-size: 0.95rem;">Options:</strong>
-        ${(q.options || []).map((opt, oidx) => `
-          <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #fff; border-radius: 6px; margin-bottom: 6px;">
-            <input type="radio" name="answer_${idx}" ${q.answer === oidx ? 'checked' : ''} onclick="window.setCBTCorrect(${idx}, ${oidx})" style="cursor: pointer;">
-            <input type="text" value="${opt.value}" style="flex: 1; padding: 6px; border: 1px solid #eef3ff; border-radius: 4px;" readonly>
-            <button type="button" class="btn secondary" style="padding: 4px 8px; font-size: 0.85rem;" onclick="window.removeCBTOption(${idx}, ${oidx})">
-              <i class="fa fa-times"></i>
-            </button>
-          </div>
-        `).join('')}
-      </div>
-      
-      <button type="button" class="btn secondary" style="margin-top: 8px; font-size: 0.9rem;" onclick="window.addCBTOption(${idx})">
-        <i class="fa fa-plus"></i> Add Option
-      </button>
     </div>
-  `).join('');
-  
-  // Attach change listeners
-  document.querySelectorAll('.cbt-qscore').forEach(input => {
-    input.onchange = (e) => {
-      const idx = parseInt(e.target.dataset.idx);
-      cbtQuestions[idx].score = Number(e.target.value) || 1;
-      saveCBTDraftToLocalStorage();
+    <ol style="margin:4px 0 0 20px; padding:0;">
+      ${q.options.map((opt, oi) =>
+        `<li style="margin:0.2em 0;${q.answer===oi?'font-weight:bold;color:#159d5e;':''}">
+          <span class="cbt-q-opt">${opt.value}${q.answer===oi ? ' <span style="color:#159d5e;">&#10003;</span>' : ''}</span>
+        </li>`
+      ).join('')}
+    </ol>
+    <div style="font-size:0.96em;color:#555;">Score: ${q.score||1}</div>
+  </div>
+`).join('')
+            : '<div style="color:#999;">No questions in this CBT.</div>'
+          }
+        </div>
+      </div>
+    `;
+  });
+  listDiv.innerHTML = html;
+
+  // --- Style images in rendered HTML (questions/options) ---
+  setTimeout(() => {
+    document.querySelectorAll('.cbt-q-text img, .cbt-q-opt img').forEach(img => {
+      img.style.maxWidth = '96%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+      img.style.margin = '12px 0';
+      img.style.borderRadius = '7px';
+      img.style.boxShadow = '0 2px 10px #0001';
+    });
+  }, 0);
+
+  window.toggleCBTQuestions = function(idx) {
+    const qDiv = document.getElementById('cbt-questions-' + idx);
+    const arrow = document.getElementById('cbt-q-arrow-' + idx);
+    if (!qDiv) return;
+    const expanded = qDiv.style.display === '' || qDiv.style.display === 'block';
+    qDiv.style.display = expanded ? 'none' : 'block';
+    arrow.innerHTML = expanded ? '&#9654;' : '&#9660;';
+  };
+
+  // Select individual checkboxes
+  listDiv.querySelectorAll('.cbt-select-checkbox').forEach(cb => {
+    cb.onchange = function(e) {
+      const id = this.getAttribute('data-cbtid');
+      if (this.checked) {
+        if (!selectedCBTIds.includes(id)) selectedCBTIds.push(id);
+      } else {
+        selectedCBTIds = selectedCBTIds.filter(cid => cid !== id);
+      }
+      pushBtn.disabled = selectedCBTIds.length === 0;
+      e.stopPropagation && e.stopPropagation();
     };
+  });
+
+  // Delete CBT (entire)
+  listDiv.querySelectorAll('.cbt-delete-btn').forEach(btn => {
+    btn.onclick = async function(e) {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-cbtid');
+      // No alert, just delete and refresh!
+      const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt/${id}`, { method: "DELETE", headers: authHeaders() });
+      if (res.ok) {
+        myUploadedCBTs = await fetchMyCBTQuestions();
+        selectedCBTIds = selectedCBTIds.filter(cid => cid !== id);
+        renderMyCBTQuestions();
+      }
+    }
+  });
+
+  // Delete Question within a CBT
+  listDiv.querySelectorAll('.cbt-delete-q-btn').forEach(btn => {
+    btn.onclick = async function(e) {
+      e.stopPropagation();
+      const cbtIdx = parseInt(btn.getAttribute('data-cbtidx'));
+      const qIdx = parseInt(btn.getAttribute('data-qidx'));
+      const cbt = myUploadedCBTs[cbtIdx];
+      cbt.questions.splice(qIdx, 1);
+      await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt/${cbt._id}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ questions: cbt.questions })
+      });
+      myUploadedCBTs = await fetchMyCBTQuestions();
+      renderMyCBTQuestions();
+    }
+  });
+
+  // Edit Question (opens modal)
+  listDiv.querySelectorAll('.cbt-edit-q-btn').forEach(btn => {
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      const cbtIdx = parseInt(btn.getAttribute('data-cbtidx'));
+      const qIdx = parseInt(btn.getAttribute('data-qidx'));
+      openEditCBTQuestionModal(cbtIdx, qIdx);
+    }
+  });
+
+  pushBtn.disabled = selectedCBTIds.length === 0;
+}
+
+// --- Edit Modal Logic ---
+function ensureEditModal() {
+  if (!document.getElementById('cbt-edit-modal-bg')) {
+    const m = document.createElement('div');
+    m.id = 'cbt-edit-modal-bg';
+    m.innerHTML = `
+      <div id="cbt-edit-modal">
+        <div style="font-size:1.1em; font-weight:bold; margin-bottom:0.8em;">Edit Question</div>
+        <div id="cbt-edit-modal-fields"></div>
+        <div style="text-align:right;">
+          <button id="cbt-edit-modal-cancel" style="margin-right:10px;">Cancel</button>
+          <button id="cbt-edit-modal-save" style="background:#1e88e5;color:#fff;">Save</button>
+        </div>
+      </div>
+    `;
+    m.style.display = "none";
+    document.body.appendChild(m);
+  }
+}
+function openEditCBTQuestionModal(cbtIdx, qIdx) {
+  ensureEditModal();
+  const modalBg = document.getElementById('cbt-edit-modal-bg');
+  const fieldsDiv = document.getElementById('cbt-edit-modal-fields');
+  const cbt = myUploadedCBTs[cbtIdx];
+  const q = cbt.questions[qIdx];
+  // Simple HTML form (can be improved!)
+  fieldsDiv.innerHTML = `
+    <label>Question Text (supports HTML):</label>
+    <textarea id="cbt-edit-q-text" rows="3" style="width:99%;">${q.text.replace(/<\/?[^>]+(>|$)/g, "")}</textarea>
+    <label>Options (one per line):</label>
+    <textarea id="cbt-edit-q-opts" rows="4" style="width:99%;">${q.options.map(o=>o.value.replace(/<\/?[^>]+(>|$)/g, "")).join('\n')}</textarea>
+    <label>Correct Option (1-based):</label>
+    <input type="number" id="cbt-edit-q-answer" min="1" max="${q.options.length}" value="${(q.answer||0)+1}">
+    <label>Score:</label>
+    <input type="number" min="1" id="cbt-edit-q-score" value="${q.score||1}">
+  `;
+  modalBg.style.display = "flex";
+  document.getElementById('cbt-edit-modal-cancel').onclick = ()=>{ modalBg.style.display="none"; };
+  document.getElementById('cbt-edit-modal-save').onclick = async function() {
+    // Save changes
+    const newText = document.getElementById('cbt-edit-q-text').value;
+    const newOpts = document.getElementById('cbt-edit-q-opts').value.split('\n').filter(Boolean).map(val=>({value:val}));
+    let newAns = parseInt(document.getElementById('cbt-edit-q-answer').value) - 1;
+    if (newAns < 0) newAns = 0;
+    if (newAns >= newOpts.length) newAns = newOpts.length - 1;
+    const newScore = parseInt(document.getElementById('cbt-edit-q-score').value) || 1;
+    cbt.questions[qIdx] = {
+      text: newText,
+      options: newOpts,
+      answer: newAns,
+      score: newScore,
+    };
+    await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt/${cbt._id}`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ questions: cbt.questions })
+    });
+    modalBg.style.display = "none";
+    myUploadedCBTs = await fetchMyCBTQuestions();
+    renderMyCBTQuestions();
+  };
+}
+
+// Initial fetch and render for the section
+async function showMyCBTQuestionsSection() {
+  myUploadedCBTs = await fetchMyCBTQuestions();
+  selectedCBTIds = [];
+  renderMyCBTQuestions();
+}
+  
+document.getElementById('pushToUniversalBtn').onclick = async function() {
+  if (!selectedCBTIds.length) return;
+  // Gather selected CBTs
+  const selectedCBTs = myUploadedCBTs.filter(q => selectedCBTIds.includes(q._id));
+  if (!selectedCBTs.length) return;
+
+  // Confirm action
+  if (!confirm(`Push ${selectedCBTs.length} selected CBT(s) to universal document?`)) return;
+
+  this.disabled = true;
+  this.innerHTML = '<span class="cbt-loader-spinner"></span>Pushing...';
+
+  // Push one by one, or as batch if your API supports (here, do individually as in admin-cbt)
+  let successCount = 0;
+  for (const cbt of selectedCBTs) {
+    try {
+      // Use the same structure as admin-cbt (POST /api/exam)
+      const payload = {
+        title: cbt.title,
+        class: cbt.class, // use the proper class id, not name
+        subject: cbt.subject, // use the proper subject id, not name
+        duration: cbt.duration,
+        questions: (cbt.questions || []).map(q => ({
+          text: q.text,
+          options: q.options,
+          answer: q.answer,
+          score: q.score
+        }))
+      };
+      const res = await fetch('https://goldlincschools.onrender.com/api/exam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) successCount++;
+    } catch {}
+  }
+  this.disabled = false;
+  this.innerHTML = 'Push Selected to Universal Document';
+  alert(`${successCount} CBT(s) pushed to universal successfully.`);
+};
+// --- Attendance ---
+function renderAttendance() {
+  const attendanceClassSel = document.getElementById('attendance-class');
+  attendanceClassSel.innerHTML = '';
+  if (!teacher.classes) return;
+  teacher.classes.forEach(cls => {
+    let opt = document.createElement('option');
+    opt.value = cls.id;
+    opt.innerText = cls.name;
+    attendanceClassSel.appendChild(opt);
+  });
+  attendanceClassSel.onchange = renderAttendanceStudents;
+  renderAttendanceStudents();
+}
+function renderAttendanceStudents() {
+  const classId = document.getElementById('attendance-class').value;
+  const students = studentsByClass[classId] || [];
+  let html = `<table>
+      <thead><tr><th>Student</th><th>Present</th></tr></thead>
+      <tbody>`;
+  students.forEach(stu => {
+    const record = (attendanceRecords.find(a => a.classId === classId && a.studentId === stu.id) || { present: false });
+    html += `<tr>
+      <td data-label="Student">${stu.name}</td>
+      <td data-label="Present"><input type="checkbox" name="present_${stu.id}" ${record.present ? 'checked' : ''}></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById('attendance-students').innerHTML = html;
+}
+document.getElementById('attendance-form').onsubmit = async function (e) {
+  e.preventDefault();
+  const classId = document.getElementById('attendance-class').value;
+  const students = studentsByClass[classId] || [];
+  students.forEach(stu => {
+    const cb = document.querySelector(`[name="present_${stu.id}"]`);
+    let record = attendanceRecords.find(a => a.classId === classId && a.studentId === stu.id);
+    if (!record) {
+      record = { classId, studentId: stu.id, present: cb.checked };
+      attendanceRecords.push(record);
+    } else {
+      record.present = cb.checked;
+    }
+  });
+  alert('Attendance saved!');
+  // Optionally: POST attendance to backend here, e.g.:
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/attendance`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ classId, attendance: attendanceRecords.filter(a => a.classId === classId) })
+    });
+    if (!res.ok) throw new Error();
+    alert('Attendance posted to server!');
+  } catch {
+    alert('Failed to save attendance to server.');
+  }
+};
+
+// --- Gradebook ---
+function renderGradebook() {
+  const gradebookClassSel = document.getElementById('gradebook-class');
+  gradebookClassSel.innerHTML = '';
+  if (!teacher.classes) return;
+  teacher.classes.forEach(cls => {
+    let opt = document.createElement('option');
+    opt.value = cls.id;
+    opt.innerText = cls.name;
+    gradebookClassSel.appendChild(opt);
+  });
+  gradebookClassSel.onchange = renderGradebookTable;
+  renderGradebookTable();
+}
+function renderGradebookTable() {
+  const classId = document.getElementById('gradebook-class').value;
+  const students = studentsByClass[classId] || [];
+  const subjects = subjectsByClass[classId] || [];
+  let html = `<table>
+      <thead><tr><th>Student</th>`;
+  subjects.forEach(subj => html += `<th>${subj.name}</th>`);
+  html += `</tr></thead><tbody>`;
+  students.forEach(stu => {
+    html += `<tr><td data-label="Student">${stu.name}</td>`;
+    subjects.forEach(subj => {
+      const gb = (gradebookData[classId] && gradebookData[classId][stu.id] && gradebookData[classId][stu.id][subj.id]) || '-';
+      html += `<td data-label="${subj.name}">${gb}</td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById('gradebook-table').innerHTML = html;
+}
+
+
+
+function renderAssignments() {
+  const assignmentClassSel = document.getElementById('assignment-class');
+  assignmentClassSel.innerHTML = '';
+  if (!teacher.classes) return;
+  teacher.classes.forEach(cls => {
+    let opt = document.createElement('option');
+    opt.value = cls.id;
+    opt.innerText = cls.name;
+    assignmentClassSel.appendChild(opt);
+  });
+  renderAssignmentList();
+}
+
+function populateAssignmentSubjects() {
+  const classId = document.getElementById('assignment-class').value;
+  const subjectSelect = document.getElementById('assignment-subject');
+  subjectSelect.innerHTML = '';
+  const subjects = subjectsByClass[classId] || [];
+  subjects.forEach(subj => {
+    let opt = document.createElement('option');
+    opt.value = subj.id;
+    opt.innerText = subj.name;
+    subjectSelect.appendChild(opt);
   });
 }
 
-async function renderMyCBTQuestions() {
-  const cbtsList = await fetchTeacherCBTs();
-  const container = document.getElementById('myCBTQuestionsList');
-  
-  if (!container) return;
-  
-  if (cbtsList.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <div class="empty-state-title">No CBTs Uploaded</div>
-      </div>
-    `;
+async function openAssignmentModal() {
+  document.getElementById('assignmentModalBg').style.display = 'flex';
+  populateAssignmentSubjects();
+  document.getElementById('assignment-class').onchange = populateAssignmentSubjects;
+
+  // Fetch and populate CBTs
+  cbts = await fetchTeacherCBTs();
+  populateAssignmentCBTs();
+}
+
+function renderAssignmentList() {
+  const div = document.getElementById('assignment-list');
+  if (!assignments.length) {
+    div.innerHTML = '<em>No assignments yet.</em>';
     return;
   }
-  
-  container.innerHTML = cbtsList.map((cbt, idx) => `
-    <div class="list-item">
-      <div style="flex: 1;">
-        <input type="checkbox" class="cbt-select" value="${cbt._id}" style="margin-right: 12px; cursor: pointer;">
-        <strong>${cbt.title}</strong><br>
-        <small style="color: var(--muted);">${cbt.class?.name} | ${cbt.questions?.length || 0} Questions | ${cbt.duration} mins</small>
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn secondary" style="font-size: 0.85rem;" onclick="editCBT('${cbt._id}')">
-          <i class="fa fa-edit"></i>
-        </button>
-        <button class="btn secondary" style="font-size: 0.85rem;" onclick="deleteCBT('${cbt._id}')">
-          <i class="fa fa-trash"></i>
-        </button>
-      </div>
-    </div>
-  `).join('');
-  
-  // Setup push to universal button
-  const pushBtn = document.getElementById('pushToUniversalBtn');
-  if (pushBtn) {
-    pushBtn.disabled = true;
-    document.querySelectorAll('.cbt-select').forEach(cb => {
-      cb.onchange = function() {
-        const anyChecked = Array.from(document.querySelectorAll('.cbt-select')).some(c => c.checked);
-        pushBtn.disabled = !anyChecked;
-      };
+  let html = '<table><thead><tr><th>Title</th><th>Class</th><th>Due</th><th>CBT</th><th>Description</th></tr></thead><tbody>';
+  assignments.forEach(a => {
+    const classId = a.class && a.class._id ? a.class._id : a.class;
+    const cls = teacher.classes.find(c => c.id == classId);
+    let cbtTitle = '';
+    if (a.cbt) {
+      // Try to find CBT title if available
+      const found = cbts.find(cbt => cbt._id === a.cbt);
+      cbtTitle = found ? found.title : a.cbt;
+    }
+    html += `<tr>
+      <td data-label="Title">${a.title}</td>
+      <td data-label="Class">${(a.class && a.class.name) || (cls && cls.name) || classId || 'Unknown'}</td>
+      <td data-label="Due">${a.dueDate ? a.dueDate.slice(0,10) : (a.due || '')}</td>
+      <td data-label="CBT">${cbtTitle || '-'}</td>
+      <td data-label="Description">${a.description || a.desc}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  div.innerHTML = html;
+}
+
+function closeAssignmentModal() {
+  document.getElementById('assignmentModalBg').style.display = 'none';
+}
+// Submission handler for creating assignments
+document.getElementById('assignmentForm').onsubmit = async function (e) {
+  e.preventDefault();
+  const classId = document.getElementById('assignment-class').value;
+  const fd = new FormData(this);
+  const assignment = {
+    class: classId,
+    subject: document.getElementById('assignment-subject').value,
+    title: fd.get('title'),
+    description: fd.get('desc'),
+    dueDate: fd.get('due')
+  };
+  const cbtId = document.getElementById('assignment-cbt').value;
+  if (cbtId) assignment.cbt = cbtId; // <-- Add CBT id if selected
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/assignments`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(assignment)
     });
-    
-    pushBtn.onclick = async function() {
-      const selected = Array.from(document.querySelectorAll('.cbt-select:checked')).map(c => c.value);
-      if (selected.length === 0) return alert('Select at least one CBT');
-      
-      try {
-        const res = await fetch(`${API_BASE_URL}/teacher/cbts/push-universal`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({ cbtIds: selected })
-        });
-        
-        if (res.ok) {
-          alert('CBTs pushed to question bank successfully!');
-          await renderMyCBTQuestions();
-        } else {
-          alert('Failed to push CBTs');
-        }
-      } catch (err) {
-        console.error('Error pushing CBTs:', err);
-        alert('Error pushing CBTs');
-      }
-    };
+    if (!res.ok) throw new Error();
+    assignments = await fetchAssignments();
+    alert('Assignment created!');
+    closeAssignmentModal();
+    renderAssignmentList();
+  } catch {
+    alert('Failed to create assignment.');
   }
-}
+};
+window.openAssignmentModal = openAssignmentModal;
+window.closeAssignmentModal = closeAssignmentModal;
 
-async function renderNotifications() {
-  const notifications = await fetchTeacherNotifications();
-  const container = document.getElementById('notification-list');
-  
-  if (!container) return;
-  
-  if (notifications.length === 0) {
-    container.innerHTML += `
-      <div class="empty-state" style="padding: 40px 20px;">
-        <div class="empty-state-icon">🔔</div>
-        <div class="empty-state-title">No Notifications</div>
-      </div>
+// --- Result Modal ---
+let currentResultStudentId = null;
+let currentResultClassId = null;
+function openResultModal(studentId, classId) {
+  currentResultStudentId = studentId;
+  currentResultClassId = classId;
+  let result = draftResults.find(r => r.studentId === studentId && r.classId === classId) || {};
+  const subjects = subjectsByClass[classId] || [];
+  let html = '<h4 style="margin:10px 0 7px 0;">Subjects & Scores</h4>';
+  subjects.forEach(subj => {
+    const data = (result.data && result.data[subj.id]) || {};
+    html += `
+      <label>${subj.name} - CA</label>
+      <input type="number" min="0" max="20" name="ca_${subj.id}" value="${data.ca || ''}" required>
+      <label>${subj.name} - Mid Term</label>
+      <input type="number" min="0" max="20" name="mid_${subj.id}" value="${data.mid || ''}" required>
+      <label>${subj.name} - Exam</label>
+      <input type="number" min="0" max="60" name="exam_${subj.id}" value="${data.exam || ''}" required>
+      <label>${subj.name} - Teacher's Comment</label>
+      <input type="text" name="comment_${subj.id}" value="${data.comment || ''}">
     `;
-    return;
+  });
+  html += `<h4 style="margin-top:15px;">Affective Skills (1-5)</h4>`;
+  const affectiveSkills = ['Punctuality', 'Attentiveness', 'Neatness', 'Honesty', 'Politeness', 'Perseverance', 'Relationship with Others', 'Organization Ability'];
+  affectiveSkills.forEach(skill => {
+    html += `<label>${skill}</label>
+      <input type="number" min="1" max="5" name="affective_${skill.toLowerCase().replace(/ /g, '_')}" value="${(result.affectiveRatings && result.affectiveRatings[skill]) || ''}">`;
+  });
+  html += `<h4 style="margin-top:15px;">Psychomotor Skills (1-5)</h4>`;
+  const psychomotorSkills = ['Hand Writing', 'Drawing and Painting', 'Speech / Verbal Fluency', 'Quantitative Reasoning', 'Processing Speed', 'Retentiveness', 'Visual Memory', 'Public Speaking', 'Sports and Games'];
+  psychomotorSkills.forEach(skill => {
+    html += `<label>${skill}</label>
+      <input type="number" min="1" max="5" name="psychomotor_${skill.toLowerCase().replace(/ |\//g, '_')}" value="${(result.psychomotorRatings && result.psychomotorRatings[skill]) || ''}">`;
+  });
+  html += `<h4 style="margin-top:15px;">Attendance</h4>
+    <label>No. of School Days</label>
+    <input type="number" min="0" name="attendance_total" value="${result.attendanceTotal || ''}">
+    <label>No. of Days Present</label>
+    <input type="number" min="0" name="attendance_present" value="${result.attendancePresent || ''}">
+    <label>No. of Days Absent</label>
+    <input type="number" min="0" name="attendance_absent" value="${result.attendanceAbsent || ''}">
+    <label>% Attendance</label>
+    <input type="number" min="0" max="100" step="0.01" name="attendance_percent" value="${result.attendancePercent || ''}">
+  `;
+  document.getElementById('resultFormFields').innerHTML = html;
+  document.getElementById('resultModalBg').style.display = 'flex';
+}
+function closeResultModal() {
+  document.getElementById('resultModalBg').style.display = 'none';
+  currentResultStudentId = currentResultClassId = null;
+}
+document.getElementById('resultForm').onsubmit = async function (e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const subjects = subjectsByClass[currentResultClassId] || [];
+  // --- Build subjects array for backend ---
+  let subjectsPayload = [];
+  subjects.forEach(subj => {
+    subjectsPayload.push({
+      subject: subj.id,
+      ca: Number(fd.get(`ca_${subj.id}`)),
+      mid: Number(fd.get(`mid_${subj.id}`)),
+      exam: Number(fd.get(`exam_${subj.id}`)),
+      comment: fd.get(`comment_${subj.id}`) || ''
+    });
+  });
+
+  // --- Skills ---
+  let affectiveRatings = {};
+  ['Punctuality', 'Attentiveness', 'Neatness', 'Honesty', 'Politeness', 'Perseverance', 'Relationship with Others', 'Organization Ability']
+    .forEach(skill => affectiveRatings[skill] = Number(fd.get(`affective_${skill.toLowerCase().replace(/ /g, '_')}`)));
+  let psychomotorRatings = {};
+  ['Hand Writing', 'Drawing and Painting', 'Speech / Verbal Fluency', 'Quantitative Reasoning', 'Processing Speed', 'Retentiveness', 'Visual Memory', 'Public Speaking', 'Sports and Games']
+    .forEach(skill => psychomotorRatings[skill] = Number(fd.get(`psychomotor_${skill.toLowerCase().replace(/ |\//g, '_')}`)));
+
+  // --- Attendance ---
+  let attendanceTotal = Number(fd.get('attendance_total'));
+  let attendancePresent = Number(fd.get('attendance_present'));
+  let attendanceAbsent = Number(fd.get('attendance_absent'));
+  let attendancePercent = Number(fd.get('attendance_percent'));
+
+  // --- Term/session values: get from your UI (dropdown/select), or hardcode for now
+  const term = "FIRST TERM"; // Or get from a select/dropdown
+  const session = "2024–2025"; // Or get from a select/dropdown
+
+  // --- Compose payload for backend ---
+  const payload = {
+    student: currentResultStudentId,
+    class: currentResultClassId,
+    term,
+    session,
+    subjects: subjectsPayload,
+    affectiveRatings,
+    psychomotorRatings,
+    attendanceTotal,
+    attendancePresent,
+    attendanceAbsent,
+    attendancePercent,
+    status: "Draft" // Or "Published"
+  };
+
+  // --- POST to new backend endpoint ---
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to save results");
+    alert('Results saved!');
+    closeResultModal();
+    teacherResults = await fetchTeacherAllResults();
+    renderTeacherResults(); // You may want to fetch published results instead!
+  } catch (err) {
+    alert('Failed to save results: ' + err.message);
   }
-  
-  container.innerHTML += notifications.map(notif => `
-    <div class="list-item">
-      <div>
-        <strong>${notif.title}</strong><br>
-        <small style="color: var(--muted);">${notif.message}</small><br>
-        <small style="color: #999; margin-top: 4px; display: block;">${new Date(notif.createdAt).toLocaleString()}</small>
-      </div>
-    </div>
-  `).join('');
+};
+async function fetchTeacherAllResults() {
+  try {
+    // Fetch drafts and published in parallel
+    const [draftRes, publishedRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results?status=Draft`, { headers: authHeaders() }),
+      fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results?status=Published`, { headers: authHeaders() })
+    ]);
+    let draftResults = [];
+    let publishedResults = [];
+    if (draftRes.ok) {
+      const drData = await draftRes.json();
+      draftResults = Array.isArray(drData.results) ? drData.results : [];
+    }
+    if (publishedRes.ok) {
+      const prData = await publishedRes.json();
+      publishedResults = Array.isArray(prData.results) ? prData.results : [];
+    }
+    // Combine both arrays (optionally sort by updatedAt descending)
+    return [...draftResults, ...publishedResults].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  } catch {
+    return [];
+  }
+}
+function renderTeacherResults() {
+  const tbody = document.querySelector('#draft-results-table tbody');
+  tbody.innerHTML = '';
+  teacherResults.forEach(dr => {
+    const stu = dr.student || {};
+    const cls = dr.class || {};
+    let statusColor = dr.status === "Published" ? "var(--accent)" : "var(--warning)";
+    let tr = document.createElement('tr');
+    tr.innerHTML = `<td data-label="Student">${stu.name || stu.firstname || '[Unknown]'}</td>
+      <td data-label="Class">${cls.name || '[Unknown]'}</td>
+      <td data-label="Term">${dr.term || ''}</td>
+      <td data-label="Status" style="color:${statusColor};font-weight:bold">${dr.status || ''}</td>
+      <td data-label="Last Updated">${dr.updatedAt ? new Date(dr.updatedAt).toLocaleString() : ''}</td>
+      <td data-label="Actions">
+        <button class="btn" onclick="openResultModal('${stu._id}','${cls._id}')">Edit</button>
+        <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.')">Publish</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+            }
+// --- Notifications ---
+function renderNotifications() {
+  const list = document.getElementById('notification-list');
+  list.innerHTML = `<h2>Notifications</h2>`;
+  notifications.forEach(note => {
+    const div = document.createElement('div');
+    div.className = 'notification';
+    div.innerHTML = `<span class="date">${note.date}</span> <span>${note.message}</span>`;
+    list.appendChild(div);
+  });
 }
 
-// ===== WINDOW FUNCTIONS (for HTML event handlers) =====
-window.removeCBTQuestion = function(idx) {
-  cbtQuestions.splice(idx, 1);
-  saveCBTDraftToLocalStorage();
-  renderCBTQuestions();
+// --- Profile Update (Now connected to backend!) ---
+document.getElementById('profile-form').onsubmit = async function (e) {
+  e.preventDefault();
+  const nameParts = document.getElementById('profile-name').value.split(' ');
+  const payload = {
+    first_name: nameParts[0] || '',
+    last_name: nameParts.slice(1).join(' ') || '',
+    email: document.getElementById('profile-email').value,
+  };
+  const password = document.getElementById('profile-password').value;
+  if (password) payload.login_password = password;
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/me`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error();
+    alert('Profile updated!');
+  } catch {
+    alert('Failed to update profile.');
+  }
 };
 
-window.addCBTOption = function(qidx) {
+let cbtQuestions = [];
+
+function trySetSubjectDropdown(subjectSel, value, cb, tries = 0) {
+  if (!value) { if(cb) cb(); return; }
+  for (let i = 0; i < subjectSel.options.length; ++i) {
+    if (subjectSel.options[i].value === value) {
+      subjectSel.value = value;
+      if(cb) cb();
+      return;
+    }
+  }
+  if (tries < 20) {
+    setTimeout(() => trySetSubjectDropdown(subjectSel, value, cb, tries + 1), 80);
+  } else {
+    if(cb) cb();
+  }
+}
+
+function renderCBTQuestionSection() {
+  const classSel = document.getElementById('cbt-class-select');
+  const subjSel = document.getElementById('cbt-subject-select');
+  classSel.innerHTML = '';
+  subjSel.innerHTML = '';
+
+  if (!teacher.classes) return;
+  teacher.classes.forEach(cls => {
+    let opt = document.createElement('option');
+    opt.value = cls.id;
+    opt.innerText = cls.name;
+    classSel.appendChild(opt);
+  });
+
+  let justRestoredDraft = false;
+  if (!cbtDraftRestoreWarned) {
+    cbtDraftRestoreWarned = true;
+    const draft = loadCBTDraftFromLocalStorage();
+    if (draft && (draft.title || (draft.questions && draft.questions.length > 0))) {
+      if (confirm("It looks like you have an unfinished CBT draft. Restore it?")) {
+        justRestoredDraft = true;
+        cbtQuestions = Array.isArray(draft.questions) ? draft.questions : [];
+        // 1. Set class; 2. When changed, populate subjects; 3. TRY subject, then fill the rest and render
+        classSel.value = draft.classId || '';
+        classSel.dispatchEvent(new Event('change')); // populates subjSel
+
+        // Try setting subjectId after class/subject dropdown is updated.
+        trySetSubjectDropdown(subjSel, draft.subjectId || '', () => {
+          document.getElementById('cbt-title').value = draft.title || '';
+          document.getElementById('cbt-duration').value = draft.duration || '';
+          renderCBTQuestions();
+        });
+      } else {
+        clearCBTDraftFromLocalStorage();
+      }
+    }
+  }
+  if (!justRestoredDraft) {
+    cbtQuestions = [];
+    classSel.onchange = function() {
+      const subjects = subjectsByClass[classSel.value] || [];
+      subjSel.innerHTML = '';
+      subjects.forEach(subj => {
+        let opt = document.createElement('option');
+        opt.value = subj.id;
+        opt.innerText = subj.name;
+        subjSel.appendChild(opt);
+      });
+      saveCBTDraftToLocalStorage();
+    };
+    classSel.onchange();
+    ['cbt-class-select', 'cbt-subject-select', 'cbt-title', 'cbt-duration'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.oninput = saveCBTDraftToLocalStorage;
+    });
+    renderCBTQuestions();
+  }
+}
+
+function getQuillConfig() {
+  return {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered'}, { list: 'bullet' }],
+        ['image', 'code-block'],
+        ['clean']
+      ]
+    }
+  };
+}
+
+function renderCBTQuestions() {
+  const listDiv = document.getElementById('cbt-questions-list');
+  listDiv.innerHTML = '';
+  cbtQuestions.forEach((q, idx) => {
+    let qDiv = document.createElement('div');
+    qDiv.className = 'cbt-question-block';
+    qDiv.innerHTML = `
+      <div class="cbt-question-header">
+        <span>Question ${idx+1}</span>
+        <button type="button" class="cbt-remove-q-btn" title="Remove" onclick="removeCBTQuestion(${idx})"><i class="fa fa-trash"></i></button>
+      </div>
+      <div class="cbt-question-label">Question Text</div>
+      <div id="cbt-qtext-quill-${idx}" class="quill-editor"></div>
+      <div class="cbt-question-label">Score</div>
+      <input type="number" min="1" class="cbt-input cbt-qscore" value="${q.score||1}" placeholder="Score" style="max-width:110px;margin-bottom:0.7em;">
+      <div class="cbt-question-label">Options</div>
+      <div class="cbt-options-list" id="cbt-options-list-${idx}"></div>
+      <button type="button" class="cbt-add-opt-btn" onclick="addCBTOption(${idx})"><i class="fa fa-plus"></i> Add Option</button>
+    `;
+    listDiv.appendChild(qDiv);
+
+    // Initialize Quill for question
+    let qtextDiv = qDiv.querySelector(`#cbt-qtext-quill-${idx}`);
+    let qQuill = new Quill(qtextDiv, getQuillConfig());
+    if(q.text) qQuill.root.innerHTML = q.text;
+    qQuill.on('text-change', () => { 
+      cbtQuestions[idx].text = qQuill.root.innerHTML; 
+      saveCBTDraftToLocalStorage();
+    });
+    qtextDiv.__quill = qQuill;
+
+    qDiv.querySelector('.cbt-qscore').oninput = (e) => {
+      cbtQuestions[idx].score = Number(e.target.value)||1;
+      saveCBTDraftToLocalStorage();
+    };
+
+    renderCBTOptions(idx);
+  });
+  // Save on update
+  saveCBTDraftToLocalStorage();
+}
+
+function renderCBTOptions(qidx) {
+  const optionsDiv = document.getElementById(`cbt-options-list-${qidx}`);
+  optionsDiv.innerHTML = '';
+  (cbtQuestions[qidx].options||[]).forEach((opt, oi) => {
+    let optDiv = document.createElement('div');
+    optDiv.className = 'cbt-option-row';
+    optDiv.innerHTML = `
+      <input type="radio" class="cbt-option-radio" name="cbt-correct-${qidx}" ${cbtQuestions[qidx].answer===oi?'checked':''} onclick="setCBTCorrect(${qidx},${oi})" title="Mark as correct">
+      <div id="cbt-q${qidx}-opt-quill-${oi}" class="quill-editor" style="width:100%;max-width:420px;"></div>
+      <button type="button" class="cbt-remove-opt-btn" onclick="removeCBTOption(${qidx},${oi})" title="Remove"><i class="fa fa-trash"></i></button>
+    `;
+    optionsDiv.appendChild(optDiv);
+    // Quill for option
+    let optQuillDiv = optDiv.querySelector(`#cbt-q${qidx}-opt-quill-${oi}`);
+    let optQuill = new Quill(optQuillDiv, getQuillConfig());
+    if(opt.value) optQuill.root.innerHTML = opt.value;
+    optQuill.on('text-change', () => { 
+      cbtQuestions[qidx].options[oi].value = optQuill.root.innerHTML; 
+      saveCBTDraftToLocalStorage();
+    });
+    optQuillDiv.__quill = optQuill;
+  });
+  saveCBTDraftToLocalStorage();
+}
+
+// MODIFIED window.removeCBTQuestion etc
+window.removeCBTQuestion = function(idx) { 
+  cbtQuestions.splice(idx,1); 
+  renderCBTQuestions(); 
+  saveCBTDraftToLocalStorage();
+};
+window.addCBTOption = function(qidx) { 
   if (!cbtQuestions[qidx].options) cbtQuestions[qidx].options = [];
   cbtQuestions[qidx].options.push({ value: '' });
-  saveCBTDraftToLocalStorage();
   renderCBTQuestions();
+  saveCBTDraftToLocalStorage();
 };
-
 window.removeCBTOption = function(qidx, oidx) {
-  cbtQuestions[qidx].options.splice(oidx, 1);
-  saveCBTDraftToLocalStorage();
+  cbtQuestions[qidx].options.splice(oidx,1);
+  if (cbtQuestions[qidx].answer === oidx) cbtQuestions[qidx].answer = 0;
   renderCBTQuestions();
+  saveCBTDraftToLocalStorage();
 };
-
 window.setCBTCorrect = function(qidx, oidx) {
   cbtQuestions[qidx].answer = oidx;
   saveCBTDraftToLocalStorage();
 };
 
-window.navigateToClass = function(classId) {
-  // Will be implemented based on app structure
-  console.log('Navigate to class:', classId);
+document.getElementById('cbt-add-question-btn').onclick = function() {
+  cbtQuestions.push({ text: '', options: [], answer: 0, score: 1 });
+  renderCBTQuestions();
+  saveCBTDraftToLocalStorage();
 };
 
-window.viewCBTResult = async function(resultId) {
-  alert('View CBT Result: ' + resultId);
-};
+document.getElementById('cbt-question-form').onsubmit = async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('cbt-upload-btn');
+  const msgDiv = document.getElementById('cbt-upload-msg');
+  btn.disabled = true;
+  const originalBtnHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="cbt-loader-spinner"></span>Uploading...';
+  msgDiv.textContent = '';
+  msgDiv.style.color = '#15a55a';
 
-window.editAssignment = function(assignId) {
-  openAssignmentModal();
-};
+  // ... validation logic unchanged ...
+  const classId = document.getElementById('cbt-class-select').value;
+  const subjectId = document.getElementById('cbt-subject-select').value;
+  const title = document.getElementById('cbt-title').value.trim();
+  const duration = Number(document.getElementById('cbt-duration').value);
 
-window.deleteAssignment = async function(assignId) {
-  if (!confirm('Delete this assignment?')) return;
-  
-  try {
-    const res = await fetch(`${API_BASE_URL}/assignments/${assignId}`, {
-      method: 'DELETE',
-      headers: authHeaders()
-    });
-    
-    if (res.ok) {
-      await renderAssignments();
+  if (!classId || !subjectId || !title || !duration) {
+    msgDiv.style.color = 'red';
+    msgDiv.textContent = 'Please fill all fields.';
+    btn.disabled = false;
+    btn.innerHTML = originalBtnHTML;
+    return;
+  }
+  if (!cbtQuestions.length) {
+    msgDiv.style.color = 'red';
+    msgDiv.textContent = 'Add at least one question.';
+    btn.disabled = false;
+    btn.innerHTML = originalBtnHTML;
+    return;
+  }
+  for (let [i, q] of cbtQuestions.entries()) {
+    if (!q.text || !Array.isArray(q.options) || q.options.length < 2) {
+      msgDiv.style.color = 'red';
+      msgDiv.textContent = `Question ${i+1} must have text and at least 2 options.`;
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHTML;
+      return;
     }
-  } catch (err) {
-    console.error('Error deleting assignment:', err);
-  }
-};
-
-window.editCBT = function(cbtId) {
-  alert('Edit CBT: ' + cbtId);
-};
-
-window.deleteCBT = async function(cbtId) {
-  if (!confirm('Delete this CBT?')) return;
-  
-  try {
-    const res = await fetch(`${API_BASE_URL}/teacher/cbts/${cbtId}`, {
-      method: 'DELETE',
-      headers: authHeaders()
-    });
-    
-    if (res.ok) {
-      await renderMyCBTQuestions();
-    }
-  } catch (err) {
-    console.error('Error deleting CBT:', err);
-  }
-};
-
-window.editResult = function(resultId) {
-  alert('Edit Result: ' + resultId);
-};
-
-function openAssignmentModal() {
-  document.getElementById('assignmentModalBg').classList.add('active');
-  populateAssignmentSubjects();
-}
-
-function closeAssignmentModal() {
-  document.getElementById('assignmentModalBg').classList.remove('active');
-}
-
-// ===== EVENT LISTENERS =====
-document.addEventListener('DOMContentLoaded', async () => {
-  hideDashboardSpinner();
-  
-  // Fetch and render initial data
-  await fetchTeacherProfile();
-  await fetchTeacherClasses();
-  
-  // Setup event listeners
-  const assignmentForm = document.getElementById('assignmentForm');
-  if (assignmentForm) {
-    assignmentForm.onsubmit = async function(e) {
-      e.preventDefault();
-      
-      const formData = {
-        class: document.getElementById('assignment-class').value,
-        subject: document.getElementById('assignment-subject').value,
-        title: document.getElementById('assignment-title').value,
-        desc: document.getElementById('assignment-desc').value,
-        due: document.getElementById('assignment-due').value,
-        cbt: document.getElementById('assignment-cbt').value || null
-      };
-      
-      try {
-        const res = await fetch(`${API_BASE_URL}/assignments`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify(formData)
-        });
-        
-        if (res.ok) {
-          closeAssignmentModal();
-          await renderAssignments();
-          alert('Assignment created successfully!');
-        }
-      } catch (err) {
-        console.error('Error creating assignment:', err);
-        alert('Failed to create assignment');
-      }
-    };
-  }
-  
-  const attendanceForm = document.getElementById('attendance-form');
-  if (attendanceForm) {
-    attendanceForm.onsubmit = async function(e) {
-      e.preventDefault();
-      
-      const classId = document.getElementById('attendance-class').value;
-      const attendance = [];
-      
-      document.querySelectorAll('[name^="attendance_"]').forEach((select, idx) => {
-        attendance.push({
-          studentIndex: idx,
-          status: select.value
-        });
-      });
-      
-      try {
-        const res = await fetch(`${API_BASE_URL}/teacher/attendance`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({ classId, attendance })
-        });
-        
-        if (res.ok) {
-          alert('Attendance saved successfully!');
-        }
-      } catch (err) {
-        console.error('Error saving attendance:', err);
-        alert('Failed to save attendance');
-      }
-    };
-  }
-  
-  const cbtForm = document.getElementById('cbt-question-form');
-  if (cbtForm) {
-    renderCBTQuestionSection();
-    
-    const addQBtn = document.getElementById('cbt-add-question-btn');
-    if (addQBtn) {
-      addQBtn.onclick = function() {
-        cbtQuestions.push({
-          text: '',
-          options: [{ value: '' }, { value: '' }],
-          answer: 0,
-          score: 1
-        });
-        saveCBTDraftToLocalStorage();
-        renderCBTQuestions();
-      };
-    }
-    
-    cbtForm.onsubmit = async function(e) {
-      e.preventDefault();
-      
-      if (cbtQuestions.length === 0) {
-        alert('Add at least one question');
+    for (let o of q.options) {
+      if (!o.value) {
+        msgDiv.style.color = 'red';
+        msgDiv.textContent = `No empty options allowed.`;
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
         return;
       }
-      
-      const payload = {
-        class: document.getElementById('cbt-class-select').value,
-        subject: document.getElementById('cbt-subject-select').value,
-        title: document.getElementById('cbt-title').value,
-        duration: document.getElementById('cbt-duration').value,
-        questions: cbtQuestions
-      };
-      
-      try {
-        const res = await fetch(`${API_BASE_URL}/teacher/cbts`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify(payload)
-        });
-        
-        if (res.ok) {
-          clearCBTDraftFromLocalStorage();
-          cbtQuestions = [];
-          cbtForm.reset();
-          renderCBTQuestions();
-          alert('CBT uploaded successfully!');
-          await renderMyCBTQuestions();
-        }
-      } catch (err) {
-        console.error('Error uploading CBT:', err);
-        alert('Failed to upload CBT');
-      }
-    };
-  }
-  
-  const profileForm = document.getElementById('profile-form');
-  if (profileForm) {
-    if (currentTeacher) {
-      document.getElementById('profile-name').value = currentTeacher.name || '';
-      document.getElementById('profile-email').value = currentTeacher.email || '';
-      document.getElementById('profile-subject').value = currentTeacher.subject || '';
     }
-    
-    profileForm.onsubmit = async function(e) {
-      e.preventDefault();
-      
-      const updateData = {
-        name: document.getElementById('profile-name').value,
-        email: document.getElementById('profile-email').value,
-        subject: document.getElementById('profile-subject').value
-      };
-      
-      const password = document.getElementById('profile-password').value;
-      if (password) updateData.password = password;
-      
-      try {
-        const res = await fetch(`${API_BASE_URL}/teacher/me`, {
-          method: 'PUT',
-          headers: authHeaders(),
-          body: JSON.stringify(updateData)
-        });
-        
-        if (res.ok) {
-          alert('Profile updated successfully!');
-        }
-      } catch (err) {
-        console.error('Error updating profile:', err);
-        alert('Failed to update profile');
-      }
-    };
+    if (typeof q.answer !== 'number' || q.answer < 0 || q.answer >= q.options.length) {
+      msgDiv.style.color = 'red';
+      msgDiv.textContent = `Select a correct option for Question ${i+1}.`;
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHTML;
+      return;
+    }
   }
-  
-  // Render initial sections
-  await renderDashboard();
-  await renderAssignments();
-  await renderDraftResults();
-});
+  // Submit
+  const payload = {
+    title,
+    class: classId,
+    subject: subjectId,
+    duration,
+    questions: cbtQuestions.map(q => ({
+      text: q.text,
+      options: q.options.map(o => ({ value: o.value })), 
+      answer: q.answer,
+      score: q.score
+    }))
+  };
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    msgDiv.style.color = 'green';
+    msgDiv.textContent = 'CBT uploaded successfully!';
+    cbtQuestions = [];
+    renderCBTQuestions();
+    clearCBTDraftFromLocalStorage(); // <-- CLEAR DRAFT ON SUCCESS
+  } catch (err) {
+    msgDiv.style.color = 'red';
+    msgDiv.textContent = 'Upload failed: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalBtnHTML;
+  }
+};
 
-// ===== AUTO-RENDER WHEN SECTIONS CHANGE =====
-document.querySelectorAll('.nav button').forEach(btn => {
-  btn.addEventListener('click', async (e) => {
-    const section = btn.dataset.section;
-    
-    switch(section) {
-      case 'dashboard':
-        await renderDashboard();
-        break;
-      case 'classes':
-        renderClassesList();
-        break;
-      case 'attendance':
-        await renderAttendance();
-        break;
-      case 'gradebook':
-        await renderGradebook();
-        break;
-      case 'assignments':
-        await renderAssignments();
-        break;
-      case 'draftResults':
-        await renderDraftResults();
-        break;
-      case 'cbtResults':
-        await renderCBTResultsSection();
-        break;
-      case 'cbtQuestions':
-        renderCBTQuestionSection();
-        break;
-      case 'myCBTQuestions':
-        await renderMyCBTQuestions();
-        break;
-      case 'notifications':
-        await renderNotifications();
-        break;
-      case 'profile':
-        // Profile form already handled
-        break;
-    }
-  });
-});
+// --- Initial Render (called after data is fetched) ---
+window.renderClassesList = renderClassesList;
+window.renderStudentsBlock = renderStudentsBlock;
+window.renderSubjectsBlock = renderSubjectsBlock;
+window.openAssignmentModal = openAssignmentModal;
+window.closeAssignmentModal = closeAssignmentModal;
+window.openResultModal = openResultModal;
+window.closeResultModal = closeResultModal;
