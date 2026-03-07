@@ -38,90 +38,73 @@ function authHeaders() {
   };
 }
 
-// ===== FETCH TEACHER PROFILE (WITH FALLBACK ENDPOINTS) =====
+// ===== FETCH TEACHER PROFILE (USING WORKING ENDPOINT) =====
 async function fetchTeacherProfile() {
-  const endpoints = [
-    `${API_BASE_URL}/teacher/me`,
-    `${API_BASE_URL}/teacher/profile`,
-    `${API_BASE_URL}/auth/me`,
-    `${API_BASE_URL}/user/me`
-  ];
-
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`Attempting to fetch from: ${endpoint}`);
-      
-      const res = await fetch(endpoint, {
-        headers: authHeaders()
-      });
-      
-      if (!res.ok) {
-        console.warn(`Failed to fetch from ${endpoint}: ${res.status}`);
-        continue;
-      }
-      
-      teacherData = await res.json();
-      cbtDraftKey = 'cbt_draft_' + (teacherData._id || teacherData.id || 'teacher');
-      
-      // Update profile display
-      const teacherName = document.getElementById('teacherName');
-      const teacherSubject = document.getElementById('teacherSubject');
-      
-      if (teacherName) {
-        teacherName.textContent = teacherData.name || teacherData.firstName || teacherData.firstname || 'Teacher';
-      }
-      
-      if (teacherSubject) {
-        const subject = teacherData.subject || teacherData.Subject || 'Subject';
-        teacherSubject.textContent = subject + ' Teacher';
-      }
-      
-      // Fill profile form if it exists
-      const profileForm = document.getElementById('profile-form');
-      if (profileForm) {
-        const profileNameInput = document.getElementById('profile-name');
-        const profileEmailInput = document.getElementById('profile-email');
-        const profileSubjectInput = document.getElementById('profile-subject');
-        
-        if (profileNameInput) {
-          profileNameInput.value = teacherData.name || teacherData.firstName || teacherData.firstname || '';
-        }
-        if (profileEmailInput) {
-          profileEmailInput.value = teacherData.email || '';
-        }
-        if (profileSubjectInput) {
-          profileSubjectInput.value = teacherData.subject || teacherData.Subject || '';
-        }
-      }
-      
-      console.log('✓ Teacher profile loaded successfully from:', endpoint);
-      return teacherData;
-    } catch (err) {
-      console.warn(`Error fetching from ${endpoint}:`, err.message);
-      continue;
+  try {
+    console.log('📥 Fetching teacher profile from /api/auth/me...');
+    
+    const res = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: authHeaders()
+    });
+    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    teacherData = await res.json();
+    cbtDraftKey = 'cbt_draft_' + (teacherData._id || teacherData.id || 'teacher');
+    
+    // Update profile display
+    const teacherName = document.getElementById('teacherName');
+    const teacherSubject = document.getElementById('teacherSubject');
+    
+    if (teacherName) {
+      teacherName.textContent = teacherData.name || teacherData.firstName || teacherData.firstname || 'Teacher';
     }
+    
+    if (teacherSubject) {
+      const subject = teacherData.subject || teacherData.Subject || 'Subject';
+      teacherSubject.textContent = subject + ' Teacher';
+    }
+    
+    // Fill profile form if it exists
+    const profileForm = document.getElementById('profile-form');
+    if (profileForm) {
+      const profileNameInput = document.getElementById('profile-name');
+      const profileEmailInput = document.getElementById('profile-email');
+      const profileSubjectInput = document.getElementById('profile-subject');
+      
+      if (profileNameInput) {
+        profileNameInput.value = teacherData.name || teacherData.firstName || teacherData.firstname || '';
+      }
+      if (profileEmailInput) {
+        profileEmailInput.value = teacherData.email || '';
+      }
+      if (profileSubjectInput) {
+        profileSubjectInput.value = teacherData.subject || teacherData.Subject || '';
+      }
+    }
+    
+    console.log('✓ Teacher profile loaded:', teacherData.name);
+    return teacherData;
+  } catch (err) {
+    console.error('❌ Failed to fetch teacher profile:', err.message);
+    
+    // Create a mock teacher object to allow the dashboard to work
+    teacherData = {
+      name: 'Teacher',
+      email: localStorage.getItem('userEmail') || 'teacher@school.com',
+      subject: 'Subject',
+      _id: 'temp_' + Date.now()
+    };
+    
+    // Update UI with mock data
+    const teacherName = document.getElementById('teacherName');
+    const teacherSubject = document.getElementById('teacherSubject');
+    
+    if (teacherName) teacherName.textContent = teacherData.name;
+    if (teacherSubject) teacherSubject.textContent = teacherData.subject + ' Teacher';
+    
+    return teacherData;
   }
-  
-  // If all endpoints fail
-  console.error('❌ Failed to fetch teacher profile from all endpoints');
-  alert('Failed to load teacher profile. Please ensure you are logged in correctly.');
-  
-  // Create a mock teacher object to allow the dashboard to work
-  teacherData = {
-    name: 'Teacher',
-    email: localStorage.getItem('userEmail') || 'teacher@school.com',
-    subject: 'Subject',
-    _id: 'temp_' + Date.now()
-  };
-  
-  // Update UI with mock data
-  const teacherName = document.getElementById('teacherName');
-  const teacherSubject = document.getElementById('teacherSubject');
-  
-  if (teacherName) teacherName.textContent = teacherData.name;
-  if (teacherSubject) teacherSubject.textContent = teacherData.subject + ' Teacher';
-  
-  return teacherData;
 }
 
 // ===== SIDEBAR & NAVIGATION =====
@@ -131,7 +114,7 @@ function initializeSidebarNavigation() {
   const sidebarOverlay = document.getElementById('sidebarOverlay');
 
   if (!sidebar || !sidebarToggle) {
-    console.warn('Sidebar elements not found');
+    console.warn('⚠️ Sidebar elements not found');
     return;
   }
 
@@ -211,57 +194,48 @@ function initializeSidebarNavigation() {
 
 // ===== FETCH TEACHER CLASSES =====
 async function fetchTeacherClasses() {
-  const endpoints = [
-    `${API_BASE_URL}/teacher/classes`,
-    `${API_BASE_URL}/classes/my-classes`,
-    `${API_BASE_URL}/teacher/my-classes`
-  ];
-
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`Attempting to fetch classes from: ${endpoint}`);
-      
-      const res = await fetch(endpoint, {
-        headers: authHeaders()
-      });
-      
-      if (!res.ok) {
-        console.warn(`Failed to fetch classes from ${endpoint}: ${res.status}`);
-        continue;
-      }
-      
-      teacherClasses = await res.json();
-      
-      // Ensure it's an array
-      if (!Array.isArray(teacherClasses)) {
-        teacherClasses = teacherClasses.classes || teacherClasses.data || [];
-      }
-      
-      console.log('✓ Classes loaded:', teacherClasses.length);
-      
-      // Set first class as default
-      if (teacherClasses.length > 0) {
-        currentClassId = teacherClasses[0]._id;
-        await fetchStudentsByClass(currentClassId);
-        await fetchSubjectsByClass(currentClassId);
-      }
-      
-      renderDashboardStats();
-      renderClassesList();
-      populateClassSelects();
-      
-      return teacherClasses;
-    } catch (err) {
-      console.warn(`Error fetching classes from ${endpoint}:`, err.message);
-      continue;
+  try {
+    console.log('📥 Fetching teacher classes...');
+    
+    // Get all classes and filter by teacher
+    const res = await fetch(`${API_BASE_URL}/class`, {
+      headers: authHeaders()
+    });
+    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    let data = await res.json();
+    let allClasses = Array.isArray(data) ? data : (data.classes || data.data || []);
+    
+    // Filter classes where user is the teacher
+    teacherClasses = allClasses.filter(cls => {
+      return cls.classTeacher === teacherData._id || 
+             cls.teacher === teacherData._id ||
+             cls.classTeacher?.toString() === teacherData._id?.toString() ||
+             cls.teacher?.toString() === teacherData._id?.toString();
+    });
+    
+    console.log('✓ Found', teacherClasses.length, 'classes for teacher');
+    
+    // Set first class as default
+    if (teacherClasses.length > 0) {
+      currentClassId = teacherClasses[0]._id;
+      await fetchStudentsByClass(currentClassId);
+      await fetchSubjectsByClass(currentClassId);
     }
+    
+    renderDashboardStats();
+    renderClassesList();
+    populateClassSelects();
+    
+    return teacherClasses;
+  } catch (err) {
+    console.error('❌ Error fetching teacher classes:', err.message);
+    teacherClasses = [];
+    renderDashboardStats();
+    renderClassesList();
+    return [];
   }
-  
-  console.warn('⚠️ Failed to load classes from all endpoints');
-  teacherClasses = [];
-  renderDashboardStats();
-  renderClassesList();
-  return [];
 }
 
 // ===== RENDER DASHBOARD STATS =====
@@ -283,7 +257,7 @@ function renderDashboardStats() {
   let html = '';
   teacherClasses.forEach(cls => {
     const classId = cls._id || cls.id;
-    const className = cls.name || cls.className || 'Unknown';
+    const className = cls.name || cls.className || cls.class || 'Unknown';
     const studentCount = cls.students?.length || cls.studentCount || 0;
     
     html += `
@@ -318,7 +292,7 @@ function renderClassesList() {
   let html = '';
   teacherClasses.forEach(cls => {
     const classId = cls._id || cls.id;
-    const className = cls.name || cls.className || 'Unknown';
+    const className = cls.name || cls.className || cls.class || 'Unknown';
     const studentCount = cls.students?.length || cls.studentCount || 0;
     
     html += `
@@ -349,7 +323,7 @@ function populateClassSelects() {
         teacherClasses.forEach(cls => {
           const opt = document.createElement('option');
           opt.value = cls._id || cls.id;
-          opt.textContent = cls.name || cls.className || 'Unknown';
+          opt.textContent = cls.name || cls.className || cls.class || 'Unknown';
           select.appendChild(opt);
         });
       }
@@ -369,40 +343,28 @@ function populateClassSelects() {
 // ===== FETCH STUDENTS BY CLASS =====
 async function fetchStudentsByClass(classId) {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/teacher/classes/${classId}/students`,
-      `${API_BASE_URL}/classes/${classId}/students`,
-      `${API_BASE_URL}/student?class=${classId}`
-    ];
+    console.log('📥 Fetching students for class:', classId);
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        let data = await res.json();
-        allStudents = Array.isArray(data) ? data : (data.students || data.data || []);
-        
-        renderStudentsBlock();
-        renderAttendanceStudents();
-        renderGradebookTable();
-        
-        return allStudents;
-      } catch (err) {
-        continue;
-      }
-    }
+    const res = await fetch(`${API_BASE_URL}/student?class=${classId}`, {
+      headers: authHeaders()
+    });
     
-    console.warn('Failed to fetch students from all endpoints');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    let data = await res.json();
+    allStudents = Array.isArray(data) ? data : (data.students || data.data || []);
+    
+    console.log('✓ Found', allStudents.length, 'students');
+    
+    renderStudentsBlock();
+    renderAttendanceStudents();
+    renderGradebookTable();
+    
+    return allStudents;
+  } catch (err) {
+    console.error('❌ Error fetching students:', err);
     allStudents = [];
     renderStudentsBlock();
-    return [];
-  } catch (err) {
-    console.error('Error fetching students:', err);
-    allStudents = [];
     return [];
   }
 }
@@ -466,37 +428,31 @@ function renderStudentsBlock() {
 // ===== FETCH SUBJECTS BY CLASS =====
 async function fetchSubjectsByClass(classId) {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/teacher/classes/${classId}/subjects`,
-      `${API_BASE_URL}/classes/${classId}/subjects`,
-      `${API_BASE_URL}/subject?class=${classId}`
-    ];
+    console.log('📥 Fetching subjects for class:', classId);
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        let data = await res.json();
-        let subjects = Array.isArray(data) ? data : (data.subjects || data.data || []);
-        
-        renderSubjectsBlock(subjects);
-        populateAssignmentSubjects(subjects);
-        populateCBTSubjects(subjects);
-        
-        return subjects;
-      } catch (err) {
-        continue;
-      }
-    }
+    // Get class details which includes subjects
+    const res = await fetch(`${API_BASE_URL}/class/${classId}`, {
+      headers: authHeaders()
+    });
     
-    console.warn('Failed to fetch subjects from all endpoints');
-    return [];
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const classData = await res.json();
+    let subjects = classData.subjects || classData.subject || [];
+    
+    if (!Array.isArray(subjects)) subjects = [];
+    
+    console.log('✓ Found', subjects.length, 'subjects');
+    
+    renderSubjectsBlock(subjects);
+    populateAssignmentSubjects(subjects);
+    populateCBTSubjects(subjects);
+    
+    return subjects;
   } catch (err) {
-    console.error('Error fetching subjects:', err);
+    console.warn('⚠️ Error fetching subjects (using fallback):', err.message);
+    // Use fallback empty subjects
+    renderSubjectsBlock([]);
     return [];
   }
 }
@@ -544,39 +500,35 @@ function renderSubjectsBlock(subjects = []) {
 // ===== FETCH ASSIGNMENTS =====
 async function fetchAssignments() {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/teacher/assignments`,
-      `${API_BASE_URL}/assignments?teacher=me`,
-      `${API_BASE_URL}/assignment/my-assignments`
-    ];
+    console.log('📥 Fetching assignments...');
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        let data = await res.json();
-        allAssignments = Array.isArray(data) ? data : (data.assignments || data.data || []);
-        
-        renderAssignmentList();
-        populateAssignmentCBTs();
-        
-        return allAssignments;
-      } catch (err) {
-        continue;
-      }
-    }
+    // Get all assignments and filter by teacher
+    const res = await fetch(`${API_BASE_URL}/assignment`, {
+      headers: authHeaders()
+    });
     
-    console.warn('Failed to fetch assignments from all endpoints');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    let data = await res.json();
+    let allAssignmentsData = Array.isArray(data) ? data : (data.assignments || data.data || []);
+    
+    // Filter assignments created by this teacher
+    allAssignments = allAssignmentsData.filter(a => {
+      return a.teacher === teacherData._id || 
+             a.teacher?.toString() === teacherData._id?.toString() ||
+             a.createdBy === teacherData._id;
+    });
+    
+    console.log('✓ Found', allAssignments.length, 'assignments');
+    
+    renderAssignmentList();
+    populateAssignmentCBTs();
+    
+    return allAssignments;
+  } catch (err) {
+    console.error('❌ Error fetching assignments:', err.message);
     allAssignments = [];
     renderAssignmentList();
-    return [];
-  } catch (err) {
-    console.error('Error fetching assignments:', err);
-    allAssignments = [];
     return [];
   }
 }
@@ -628,6 +580,103 @@ function renderAssignmentList() {
   });
   
   document.getElementById('assignment-list').innerHTML = html;
+}
+
+// ===== OPEN ASSIGNMENT MODAL =====
+function openAssignmentModal(assignmentId = null) {
+  const modal = document.getElementById('assignmentModalBg');
+  const form = document.getElementById('assignmentForm');
+  
+  if (assignmentId) {
+    const assignment = allAssignments.find(a => (a._id || a.id) === assignmentId);
+    if (assignment) {
+      document.querySelector('.modal-title').textContent = 'Edit Assignment';
+      document.getElementById('assignment-class').value = assignment.class?._id || assignment.classId || '';
+      document.getElementById('assignment-subject').value = assignment.subject || '';
+      document.getElementById('assignment-title').value = assignment.title || '';
+      document.getElementById('assignment-desc').value = assignment.description || assignment.desc || '';
+      document.getElementById('assignment-due').value = (assignment.dueDate || assignment.due)?.split('T')[0] || '';
+      document.getElementById('assignment-cbt').value = assignment.cbt?._id || assignment.cbtId || '';
+      form.dataset.assignmentId = assignment._id || assignment.id;
+    }
+  } else {
+    document.querySelector('.modal-title').textContent = 'Create Assignment';
+    form.reset();
+    delete form.dataset.assignmentId;
+  }
+  
+  modal.classList.add('active');
+}
+
+function closeAssignmentModal() {
+  document.getElementById('assignmentModalBg').classList.remove('active');
+}
+
+// ===== SUBMIT ASSIGNMENT =====
+document.getElementById('assignmentForm')?.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const assignmentId = this.dataset.assignmentId;
+  const classId = document.getElementById('assignment-class').value;
+  
+  if (!classId) {
+    alert('Please select a class');
+    return;
+  }
+  
+  const data = {
+    class: classId,
+    subject: document.getElementById('assignment-subject').value,
+    title: document.getElementById('assignment-title').value,
+    description: document.getElementById('assignment-desc').value,
+    dueDate: document.getElementById('assignment-due').value,
+    cbt: document.getElementById('assignment-cbt').value || null,
+    teacher: teacherData._id
+  };
+  
+  try {
+    const url = assignmentId ? 
+      `${API_BASE_URL}/assignment/${assignmentId}` : 
+      `${API_BASE_URL}/assignment`;
+    
+    const res = await fetch(url, {
+      method: assignmentId ? 'PUT' : 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(data)
+    });
+    
+    if (!res.ok) throw new Error('Failed to save assignment');
+    
+    alert('✓ Assignment saved successfully!');
+    closeAssignmentModal();
+    await fetchAssignments();
+  } catch (err) {
+    console.error('Error saving assignment:', err);
+    alert('Failed to save assignment: ' + err.message);
+  }
+});
+
+async function editAssignment(assignmentId) {
+  openAssignmentModal(assignmentId);
+}
+
+async function deleteAssignment(assignmentId) {
+  if (!confirm('Are you sure you want to delete this assignment?')) return;
+  
+  try {
+    const res = await fetch(`${API_BASE_URL}/assignment/${assignmentId}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    
+    if (!res.ok) throw new Error('Failed to delete assignment');
+    
+    alert('✓ Assignment deleted successfully!');
+    await fetchAssignments();
+  } catch (err) {
+    console.error('Error deleting assignment:', err);
+    alert('Failed to delete assignment: ' + err.message);
+  }
 }
 
 // ===== ATTENDANCE FUNCTIONS =====
@@ -685,13 +734,13 @@ document.getElementById('attendance-form')?.addEventListener('submit', async fun
   });
   
   try {
-    const res = await fetch(`${API_BASE_URL}/attendance/mark`, {
+    const res = await fetch(`${API_BASE_URL}/attendance`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
         class: classId,
         date: new Date().toISOString().split('T')[0],
-        attendance: attendance
+        records: attendance
       })
     });
     
@@ -720,10 +769,10 @@ function renderGradebookTable() {
         <tr>
           <th>Student Name</th>
           <th>Reg. No.</th>
-          <th>Term 1</th>
-          <th>Term 2</th>
-          <th>Term 3</th>
-          <th>Average</th>
+          <th>CA1</th>
+          <th>CA2</th>
+          <th>Exam</th>
+          <th>Total</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -761,134 +810,26 @@ function renderGradebookTable() {
   container.innerHTML = html;
 }
 
-// ===== OPEN ASSIGNMENT MODAL =====
-function openAssignmentModal(assignmentId = null) {
-  const modal = document.getElementById('assignmentModalBg');
-  const form = document.getElementById('assignmentForm');
-  
-  if (assignmentId && allAssignments) {
-    const assignment = allAssignments.find(a => (a._id || a.id) === assignmentId);
-    if (assignment) {
-      document.querySelector('.modal-title').textContent = 'Edit Assignment';
-      document.getElementById('assignment-class').value = assignment.class?._id || assignment.classId || '';
-      document.getElementById('assignment-subject').value = assignment.subject || '';
-      document.getElementById('assignment-title').value = assignment.title || '';
-      document.getElementById('assignment-desc').value = assignment.description || assignment.desc || '';
-      document.getElementById('assignment-due').value = (assignment.dueDate || assignment.due)?.split('T')[0] || '';
-      document.getElementById('assignment-cbt').value = assignment.cbt?._id || assignment.cbtId || '';
-      form.dataset.assignmentId = assignment._id || assignment.id;
-    }
-  } else {
-    document.querySelector('.modal-title').textContent = 'Create Assignment';
-    form.reset();
-    delete form.dataset.assignmentId;
-  }
-  
-  modal.classList.add('active');
-}
-
-function closeAssignmentModal() {
-  document.getElementById('assignmentModalBg').classList.remove('active');
-}
-
-// ===== SUBMIT ASSIGNMENT =====
-document.getElementById('assignmentForm')?.addEventListener('submit', async function(e) {
-  e.preventDefault();
-  
-  const assignmentId = this.dataset.assignmentId;
-  const classId = document.getElementById('assignment-class').value;
-  
-  if (!classId) {
-    alert('Please select a class');
-    return;
-  }
-  
-  const data = {
-    class: classId,
-    subject: document.getElementById('assignment-subject').value,
-    title: document.getElementById('assignment-title').value,
-    description: document.getElementById('assignment-desc').value,
-    dueDate: document.getElementById('assignment-due').value,
-    cbt: document.getElementById('assignment-cbt').value || null
-  };
-  
-  try {
-    const url = assignmentId ? 
-      `${API_BASE_URL}/assignments/${assignmentId}` : 
-      `${API_BASE_URL}/assignments`;
-    
-    const res = await fetch(url, {
-      method: assignmentId ? 'PUT' : 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(data)
-    });
-    
-    if (!res.ok) throw new Error('Failed to save assignment');
-    
-    alert('✓ Assignment saved successfully!');
-    closeAssignmentModal();
-    await fetchAssignments();
-  } catch (err) {
-    console.error('Error saving assignment:', err);
-    alert('Failed to save assignment: ' + err.message);
-  }
-});
-
-async function editAssignment(assignmentId) {
-  openAssignmentModal(assignmentId);
-}
-
-async function deleteAssignment(assignmentId) {
-  if (!confirm('Are you sure you want to delete this assignment?')) return;
-  
-  try {
-    const res = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
-      method: 'DELETE',
-      headers: authHeaders()
-    });
-    
-    if (!res.ok) throw new Error('Failed to delete assignment');
-    
-    alert('✓ Assignment deleted successfully!');
-    await fetchAssignments();
-  } catch (err) {
-    console.error('Error deleting assignment:', err);
-    alert('Failed to delete assignment: ' + err.message);
-  }
-}
-
 // ===== DRAFT RESULTS FUNCTIONS =====
 async function fetchDraftResults() {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/teacher/draft-results`,
-      `${API_BASE_URL}/results/draft`,
-      `${API_BASE_URL}/teacher/results?status=draft`
-    ];
+    console.log('📥 Fetching draft results...');
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        let data = await res.json();
-        let results = Array.isArray(data) ? data : (data.results || data.data || []);
-        
-        renderDraftResults(results);
-        return results;
-      } catch (err) {
-        continue;
-      }
-    }
+    const res = await fetch(`${API_BASE_URL}/result?status=draft`, {
+      headers: authHeaders()
+    });
     
-    console.warn('Failed to fetch draft results from all endpoints');
-    renderDraftResults([]);
-    return [];
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    let data = await res.json();
+    let results = Array.isArray(data) ? data : (data.results || data.data || []);
+    
+    console.log('✓ Found', results.length, 'draft results');
+    
+    renderDraftResults(results);
+    return results;
   } catch (err) {
-    console.error('Error fetching draft results:', err);
+    console.warn('⚠️ Error fetching draft results:', err.message);
     renderDraftResults([]);
     return [];
   }
@@ -1010,7 +951,7 @@ document.getElementById('resultForm')?.addEventListener('submit', async function
   };
   
   try {
-    const res = await fetch(`${API_BASE_URL}/teacher/results`, {
+    const res = await fetch(`${API_BASE_URL}/result`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(data)
@@ -1027,7 +968,7 @@ document.getElementById('resultForm')?.addEventListener('submit', async function
   }
 });
 
-// ===== CBT QUESTIONS FUNCTIONS =====
+// ===== CBT FUNCTIONS =====
 function saveCBTDraftToLocalStorage() {
   const draft = {
     classId: document.getElementById('cbt-class-select')?.value || '',
@@ -1064,10 +1005,8 @@ function renderCBTQuestionSection() {
   
   if (!classSelect || !subjectSelect) return;
   
-  // Populate class select
   populateClassSelects();
   
-  // Update subjects when class changes
   classSelect.addEventListener('change', async (e) => {
     if (e.target.value) {
       await fetchSubjectsByClass(e.target.value);
@@ -1252,20 +1191,13 @@ document.getElementById('cbt-question-form')?.addEventListener('submit', async f
     return;
   }
   
-  // Validate questions
-  for (let q of cbtQuestions) {
-    if (!q.text || !q.options || q.options.length < 2) {
-      alert('Each question must have text and at least 2 options');
-      return;
-    }
-  }
-  
   const data = {
     class: classId,
     subject: subjectId,
     title: title,
     duration: duration,
-    questions: cbtQuestions
+    questions: cbtQuestions,
+    teacher: teacherData._id
   };
   
   const uploadBtn = document.getElementById('cbt-upload-btn');
@@ -1280,7 +1212,7 @@ document.getElementById('cbt-question-form')?.addEventListener('submit', async f
   msgDiv.style.borderRadius = '8px';
   
   try {
-    const res = await fetch(`${API_BASE_URL}/exam/upload`, {
+    const res = await fetch(`${API_BASE_URL}/exam`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(data)
@@ -1340,37 +1272,25 @@ function populateCBTSubjects(subjects = []) {
 // ===== FETCH TEACHER CBTs =====
 async function fetchTeacherCBTs() {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/teacher/cbts`,
-      `${API_BASE_URL}/exam/my-exams`,
-      `${API_BASE_URL}/cbt/my-cbts`
-    ];
+    console.log('📥 Fetching CBTs...');
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        let data = await res.json();
-        let cbts = Array.isArray(data) ? data : (data.cbts || data.exams || data.data || []);
-        
-        renderMyCBTQuestions(cbts);
-        populateAssignmentCBTs(cbts);
-        
-        return cbts;
-      } catch (err) {
-        continue;
-      }
-    }
+    const res = await fetch(`${API_BASE_URL}/exam?teacher=${teacherData._id}`, {
+      headers: authHeaders()
+    });
     
-    console.warn('Failed to fetch CBTs from all endpoints');
-    renderMyCBTQuestions([]);
-    return [];
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    let data = await res.json();
+    let cbts = Array.isArray(data) ? data : (data.exams || data.data || []);
+    
+    console.log('✓ Found', cbts.length, 'CBTs');
+    
+    renderMyCBTQuestions(cbts);
+    populateAssignmentCBTs(cbts);
+    
+    return cbts;
   } catch (err) {
-    console.error('Error fetching CBTs:', err);
+    console.warn('⚠️ Error fetching CBTs:', err.message);
     renderMyCBTQuestions([]);
     return [];
   }
@@ -1446,28 +1366,14 @@ function populateAssignmentCBTs(cbts = []) {
 // ===== VIEW CBT =====
 window.viewCBT = async function(cbtId) {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/exam/${cbtId}`,
-      `${API_BASE_URL}/cbt/${cbtId}`
-    ];
+    const res = await fetch(`${API_BASE_URL}/exam/${cbtId}`, {
+      headers: authHeaders()
+    });
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        const cbt = await res.json();
-        alert(`📝 CBT: ${cbt.title}\n\n❓ Questions: ${cbt.questions?.length || 0}\n⏱️ Duration: ${cbt.duration} minutes\n📚 Subject: ${cbt.subject || 'Unknown'}`);
-        return;
-      } catch (err) {
-        continue;
-      }
-    }
+    if (!res.ok) throw new Error('Failed to fetch CBT');
     
-    alert('Unable to load CBT details');
+    const cbt = await res.json();
+    alert(`📝 CBT: ${cbt.title}\n\n❓ Questions: ${cbt.questions?.length || 0}\n⏱️ Duration: ${cbt.duration} minutes\n📚 Subject: ${cbt.subject || 'Unknown'}`);
   } catch (err) {
     console.error('Error viewing CBT:', err);
     alert('Failed to load CBT details');
@@ -1477,35 +1383,21 @@ window.viewCBT = async function(cbtId) {
 // ===== FETCH CBT RESULTS =====
 async function fetchCBTResults() {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/teacher/cbt-results`,
-      `${API_BASE_URL}/exam/results`,
-      `${API_BASE_URL}/cbt/results`
-    ];
+    console.log('📥 Fetching CBT results...');
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        let data = await res.json();
-        let results = Array.isArray(data) ? data : (data.results || data.data || []);
-        
-        renderCBTResults(results);
-        return results;
-      } catch (err) {
-        continue;
-      }
-    }
+    const res = await fetch(`${API_BASE_URL}/exam/${teacherData._id}/results`, {
+      headers: authHeaders()
+    });
     
-    console.warn('Failed to fetch CBT results from all endpoints');
-    renderCBTResults([]);
-    return [];
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    let data = await res.json();
+    let results = Array.isArray(data) ? data : (data.results || data.data || []);
+    
+    renderCBTResults(results);
+    return results;
   } catch (err) {
-    console.error('Error fetching CBT results:', err);
+    console.warn('⚠️ Error fetching CBT results:', err.message);
     renderCBTResults([]);
     return [];
   }
@@ -1536,9 +1428,9 @@ function renderCBTResults(results = []) {
     const percentage = totalScore ? ((score / totalScore) * 100).toFixed(1) : 0;
     const submittedDate = new Date(result.submittedAt).toLocaleString();
     
-    let percentageColor = '#10b981'; // Green
-    if (percentage < 70 && percentage >= 50) percentageColor = '#f59e0b'; // Orange
-    if (percentage < 50) percentageColor = '#e74c3c'; // Red
+    let percentageColor = '#10b981';
+    if (percentage < 70 && percentage >= 50) percentageColor = '#f59e0b';
+    if (percentage < 50) percentageColor = '#e74c3c';
     
     html += `
       <div class="list-item">
@@ -1564,35 +1456,23 @@ function renderCBTResults(results = []) {
 // ===== FETCH TEACHER NOTIFICATIONS =====
 async function fetchTeacherNotifications() {
   try {
-    const endpoints = [
-      `${API_BASE_URL}/teacher/notifications`,
-      `${API_BASE_URL}/notification/my-notifications`,
-      `${API_BASE_URL}/notifications`
-    ];
+    console.log('📥 Fetching notifications...');
     
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: authHeaders()
-        });
-        
-        if (!res.ok) continue;
-        
-        let data = await res.json();
-        allNotifications = Array.isArray(data) ? data : (data.notifications || data.data || []);
-        
-        renderNotifications(allNotifications);
-        return allNotifications;
-      } catch (err) {
-        continue;
-      }
-    }
+    const res = await fetch(`${API_BASE_URL}/notification?recipient=${teacherData._id}`, {
+      headers: authHeaders()
+    });
     
-    console.warn('Failed to fetch notifications from all endpoints');
-    renderNotifications([]);
-    return [];
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    let data = await res.json();
+    allNotifications = Array.isArray(data) ? data : (data.notifications || data.data || []);
+    
+    console.log('✓ Found', allNotifications.length, 'notifications');
+    
+    renderNotifications(allNotifications);
+    return allNotifications;
   } catch (err) {
-    console.error('Error fetching notifications:', err);
+    console.warn('⚠️ Error fetching notifications:', err.message);
     renderNotifications([]);
     return [];
   }
@@ -1609,7 +1489,7 @@ function renderNotifications(notifications = []) {
         <div class="empty-state-icon">🔔</div>
         <div class="empty-state-title">No notifications</div>
         <p style="color: var(--muted);">You're all caught up!</p>
-        </div>
+      </div>
     `;
     return;
   }
@@ -1617,7 +1497,7 @@ function renderNotifications(notifications = []) {
   let html = '';
   notifications.forEach(notif => {
     const title = notif.title || notif.message || 'Notification';
-    const message = notif.message || notif.description || '';
+    const message = notif.message || notif.description || notif.content || '';
     const createdAt = new Date(notif.createdAt || notif.date).toLocaleString();
     
     html += `
@@ -1653,32 +1533,17 @@ document.getElementById('profile-form')?.addEventListener('submit', async functi
     data.password = profilePasswordInput.value;
   }
   
-  const endpoints = [
-    `${API_BASE_URL}/teacher/profile`,
-    `${API_BASE_URL}/teacher/update`,
-    `${API_BASE_URL}/user/profile`
-  ];
-  
   try {
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          method: 'PUT',
-          headers: authHeaders(),
-          body: JSON.stringify(data)
-        });
-        
-        if (!res.ok) continue;
-        
-        alert('✓ Profile updated successfully!');
-        await fetchTeacherProfile();
-        return;
-      } catch (err) {
-        continue;
-      }
-    }
+       const res = await fetch(`${API_BASE_URL}/user/${teacherData._id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(data)
+    });
     
-    alert('Failed to update profile from all endpoints');
+    if (!res.ok) throw new Error('Failed to update profile');
+    
+    alert('✓ Profile updated successfully!');
+    await fetchTeacherProfile();
   } catch (err) {
     console.error('Error updating profile:', err);
     alert('Failed to update profile: ' + err.message);
@@ -1706,23 +1571,23 @@ async function initializeDashboard() {
     await fetchAssignments();
     console.log('✓ Assignments loaded');
     
-    await fetchTeacherCBTs();
-    console.log('✓ CBTs loaded');
-    
-    await fetchTeacherNotifications();
-    console.log('✓ Notifications loaded');
-    
-    await fetchCBTResults();
-    console.log('✓ CBT results loaded');
-    
     // Load CBT drafts from local storage
     loadCBTDraftFromLocalStorage();
     console.log('✓ CBT drafts loaded');
     
+    // Load notifications (non-critical)
+    fetchTeacherNotifications().catch(err => console.warn('Notifications not loaded:', err));
+    
+    // Load CBTs (non-critical)
+    fetchTeacherCBTs().catch(err => console.warn('CBTs not loaded:', err));
+    
+    // Load CBT results (non-critical)
+    fetchCBTResults().catch(err => console.warn('CBT results not loaded:', err));
+    
     console.log('✅ Dashboard initialization complete!');
   } catch (err) {
     console.error('❌ Error initializing dashboard:', err);
-    alert('Error loading dashboard. Please refresh the page.');
+    // Don't block on error - let dashboard still load with empty data
   } finally {
     hideDashboardSpinner();
   }
