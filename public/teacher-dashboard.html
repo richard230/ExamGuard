@@ -136,6 +136,46 @@
     .cbt-select-checkbox { margin-right:9px; cursor:pointer; }
     .cbt-delete-btn { color:#c00; background:none; border:none; cursor:pointer; margin-left:12px; }
     .cbt-edit-q-btn { background:none; border:none; color:#1e88e5; font-size:1.1em; margin-right:10px; cursor:pointer; }
+    /* Add to your existing <style> block */
+.form-modal-bg { 
+  position:fixed; 
+  inset:0; 
+  background:rgba(2,6,23,0.45); 
+  display:none; 
+  align-items:center; 
+  justify-content:center; 
+  z-index:9999; 
+}
+.form-modal-bg.active { 
+  display:flex; 
+}
+.form-modal { 
+  background:#fff; 
+  border-radius:12px; 
+  padding:20px; 
+  max-width:600px; 
+  width:95%; 
+  max-height:80vh; 
+  overflow-y:auto; 
+  box-shadow:0 20px 60px rgba(2,6,23,0.25); 
+  position:relative; 
+}
+.close-btn { 
+  position:absolute; 
+  top:12px; 
+  right:12px; 
+  background:none; 
+  border:none; 
+  font-size:24px; 
+  cursor:pointer; 
+  color:var(--muted); 
+}
+.modal-actions { 
+  display:flex; 
+  gap:8px; 
+  justify-content:flex-end; 
+  margin-top:16px; 
+}
   </style>
 </head>
 <body>
@@ -308,17 +348,20 @@
         </section>
 
         <!-- Gradebook -->
-        <section id="gradebook" class="section tab-section" role="region" aria-labelledby="gradeTitle" style="display:none">
-          <h2 id="gradeTitle">Gradebook</h2>
-          <div class="muted-small">Enter grades and track performance</div>
+        <!-- Gradebook -->
+<section id="gradebook" class="section tab-section" role="region" aria-labelledby="gradeTitle" style="display:none">
+  <h2 id="gradeTitle">Gradebook</h2>
+  <div class="muted-small">Enter grades and track performance</div>
 
-          <div style="margin-top:12px" class="controls">
-            <select id="gradebook-class"></select>
-            <button class="btn" id="saveGradesBtn">Save Grades</button>
-          </div>
+  <div style="margin-top:12px" class="controls">
+    <select id="gradebook-class"></select>
+    <button class="btn" id="saveGradesBtn" onclick="window.openGradebookUploadModal()">
+      <i class="fa fa-upload"></i> Upload Grades
+    </button>
+  </div>
 
-          <div style="margin-top:12px" id="gradebook-table"></div>
-        </section>
+  <div style="margin-top:12px" id="gradebook-table"></div>
+</section>
 
         <!-- Draft Results -->
         <section id="draftResults" class="section tab-section" role="region" aria-labelledby="draftTitle" style="display:none">
@@ -480,7 +523,54 @@
         </form>
       </div>
     </div>
+<!-- Gradebook Upload Modal -->
+<div id="gradebookUploadModalBg" class="form-modal-bg">
+  <div class="form-modal">
+    <button class="close-btn" onclick="window.closeGradebookUploadModal()">&times;</button>
+    <h3>Upload Gradebook Results</h3>
+    <form id="gradebookUploadForm" onsubmit="event.preventDefault(); window.submitGradebookResults();">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <label style="display:block;margin-bottom:6px;font-weight:600;">Session</label>
+          <select id="gb-session-select" required style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;">
+            <option value="">Select Session</option>
+            <option value="2027-2028">2027–2028</option>
+            <option value="2026-2027">2026–2027</option>
+            <option value="2025-2026">2025–2026</option>
+            <option value="2024-2025">2024–2025</option>
+            <option value="2023-2024">2023–2024</option>
+          </select>
+        </div>
 
+        <div>
+          <label style="display:block;margin-bottom:6px;font-weight:600;">Term</label>
+          <select id="gb-term-select" required style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;">
+            <option value="">Select Term</option>
+            <option value="FIRST TERM">FIRST TERM</option>
+            <option value="SECOND TERM">SECOND TERM</option>
+            <option value="THIRD TERM">THIRD TERM</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block;margin-bottom:6px;font-weight:600;">Result Type</label>
+        <select id="gb-result-type-select" required style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;margin-bottom:16px;">
+          <option value="">Select Result Type</option>
+          <option value="exam">Examination</option>
+          <option value="ca1">Continuous Assessment 1 (CA1)</option>
+          <option value="ca2">Continuous Assessment 2 (CA2)</option>
+          <option value="midterm">Mid Term Test</option>
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" onclick="window.closeGradebookUploadModal()">Cancel</button>
+        <button type="submit" class="btn">Upload Results</button>
+      </div>
+    </form>
+  </div>
+</div>
   </div>
 
   <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
@@ -2269,7 +2359,163 @@ function renderDraftResults() {
           showRoster(classSelect.value);
         }
       }
+// Add this after your existing code in teacher-dashboard.html
 
+// ============ GRADEBOOK UPLOAD MODAL ============
+let currentGradebookData = null;
+
+window.openGradebookUploadModal = function() {
+  const classId = document.getElementById('gradebook-class').value;
+  if (!classId) {
+    alert('Please select a class first');
+    return;
+  }
+
+  // Show the modal
+  const modalBg = document.getElementById('gradebookUploadModalBg');
+  if (modalBg) {
+    modalBg.classList.add('active');
+  }
+};
+
+window.closeGradebookUploadModal = function() {
+  const modalBg = document.getElementById('gradebookUploadModalBg');
+  if (modalBg) {
+    modalBg.classList.remove('active');
+  }
+};
+
+window.submitGradebookResults = async function() {
+  const classId = document.getElementById('gradebook-class').value;
+  const session = document.getElementById('gb-session-select')?.value;
+  const term = document.getElementById('gb-term-select')?.value;
+  const resultType = document.getElementById('gb-result-type-select')?.value;
+
+  if (!session || !term || !resultType) {
+    alert('Please fill in all fields (Session, Term, Result Type)');
+    return;
+  }
+
+  showLoader('Uploading gradebook results...', 'Please wait');
+
+  try {
+    // Collect all grades from the gradebook table
+    const tbody = document.querySelector('#gradebook-table tbody');
+    if (!tbody) {
+      throw new Error('No gradebook table found');
+    }
+
+    const results = [];
+    const rows = tbody.querySelectorAll('tr');
+    
+    rows.forEach((row, idx) => {
+      const studentNameCell = row.querySelector('td:first-child');
+      if (!studentNameCell) return;
+
+      const studentName = studentNameCell.textContent.trim();
+      const students = Object.values(studentsByClass[classId] || []);
+      const student = students.find(s => s.name === studentName);
+
+      if (!student) return;
+
+      const inputs = row.querySelectorAll('input');
+      const subjects = subjectsByClass[classId] || [];
+
+      inputs.forEach((input, subIdx) => {
+        if (subIdx < subjects.length) {
+          const score = input.value.trim();
+          if (score) {
+            results.push({
+              student_id: student.id || student._id,
+              student_name: studentName,
+              subject: subjects[subIdx].name || subjects[subIdx],
+              score: parseInt(score) || 0,
+              session: session,
+              term: term,
+              resultType: resultType,
+              class: classId
+            });
+          }
+        }
+      });
+    });
+
+    if (results.length === 0) {
+      throw new Error('No grades entered');
+    }
+
+    console.log('Submitting results:', results);
+
+    // Send to backend
+    const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        session,
+        term: term.toUpperCase(),
+        class: document.querySelector('#gradebook-class option:checked')?.textContent || classId,
+        subject: 'Multiple',
+        resultType,
+        results: results.map(r => ({
+          student_id: r.student_id,
+          student_name: r.student_name,
+          score: r.score,
+          subject: r.subject,
+          grade: calculateGrade(r.score),
+          remarks: ''
+        }))
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok || data.success) {
+      alert(`✅ ${results.length} result(s) uploaded successfully!`);
+      window.closeGradebookUploadModal();
+      renderGradebook(); // Refresh the gradebook
+    } else {
+      throw new Error(data.message || data.error || 'Upload failed');
+    }
+  } catch (error) {
+    console.error('Error uploading results:', error);
+    alert('Error: ' + error.message);
+  } finally {
+    hideLoader();
+  }
+};
+
+// Helper function to calculate grade from score
+function calculateGrade(score) {
+  if (score >= 90) return 'A';
+  if (score >= 80) return 'B';
+  if (score >= 70) return 'C';
+  if (score >= 60) return 'D';
+  if (score >= 50) return 'E';
+  return 'F';
+}
+
+// Update renderGradebook function to add upload button
+function renderGradebook() {
+  const classId = document.getElementById('gradebook-class').value;
+  const students = studentsByClass[classId] || [];
+  const subjects = subjectsByClass[classId] || [];
+  
+  let html = `<table>
+      <thead><tr><th>Student</th>`;
+  subjects.forEach(subj => html += `<th>${subj.name || subj}</th>`);
+  html += `</tr></thead><tbody>`;
+  
+  students.forEach(stu => {
+    html += `<tr><td>${stu.name}</td>`;
+    subjects.forEach(subj => {
+      html += `<td><input type="number" min="0" max="100" style="width:100%;"></td>`;
+    });
+    html += `</tr>`;
+  });
+  
+  html += `</tbody></table>`;
+  document.getElementById('gradebook-table').innerHTML = html;
+}
       function showRoster(classId) {
         const rosterTableBody = document.querySelector('#rosterTable tbody');
         const rosterTitle = document.getElementById('rosterTitle');
