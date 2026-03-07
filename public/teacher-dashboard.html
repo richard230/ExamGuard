@@ -817,91 +817,100 @@
         }
       }
 
-      function renderDraftResults() {
-        const tbody = document.querySelector('#draft-results-table tbody');
-        if (!draftResults.length) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#999;">No draft results found.</td></tr>';
-          return;
-        }
+function renderDraftResults() {
+  const tbody = document.querySelector('#draft-results-table tbody');
+  if (!draftResults.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#999;">No draft results found.</td></tr>';
+    return;
+  }
 
-        tbody.innerHTML = draftResults.map(r => {
-          // Extract student name - try multiple possible field names
-          let studentName = 'Unknown Student';
-          if (r.student) {
-            if (typeof r.student === 'string') {
-              studentName = r.student;
-            } else if (r.student.name) {
-              studentName = r.student.name;
-            } else if (r.student.firstName && r.student.lastName) {
-              studentName = `${r.student.firstName} ${r.student.lastName}`;
-            } else if (r.student.firstName) {
-              studentName = r.student.firstName;
-            } else if (r.student.username) {
-              studentName = r.student.username;
-            }
-          } else if (r.studentName) {
-            studentName = r.studentName;
-          }
-
-          // Extract class name - try multiple possible field names
-          let className = 'Unknown Class';
-          if (r.class) {
-            if (typeof r.class === 'string') {
-              className = r.class;
-            } else if (r.class.name) {
-              className = r.class.name;
-            } else if (r.class.className) {
-              className = r.class.className;
-            }
-          } else if (r.className) {
-            className = r.className;
-          }
-
-          // Extract term - try multiple possible field names
-          let term = 'First Term';
-          if (r.term) {
-            if (typeof r.term === 'string') {
-              // If it's an ID, try to match it with known terms
-              const termMap = {
-                '1': 'First Term',
-                '2': 'Second Term',
-                '3': 'Third Term'
-              };
-              term = termMap[r.term] || r.term;
-            }
-          } else if (r.termName) {
-            term = r.termName;
-          }
-
-          // Get status
-          const status = r.status || 'Draft';
-          
-          // Format last updated date
-          const lastUpdated = r.updatedAt 
-            ? new Date(r.updatedAt).toLocaleString() 
-            : (r.createdAt ? new Date(r.createdAt).toLocaleString() : '-');
-
-          // Get IDs for modal
-          const studentId = r.student?._id || r.student?.id || r.studentId;
-          const classId = r.class?._id || r.class?.id || r.classId;
-
-          return `
-            <tr>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${studentName}</strong></td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${className}</strong></td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;"><span style="background:#f3f4f6;padding:2px 6px;border-radius:3px;font-size:0.85rem;">${term}</span></td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;">
-                <span style="background:${status === 'Published' ? '#10b981' : '#f59e0b'};color:#fff;padding:6px 10px;border-radius:4px;font-size:0.85rem;font-weight:600;">${status}</span>
-              </td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;font-size:0.9rem;color:#666;white-space:nowrap;">${lastUpdated}</td>
-              <td style="padding:12px;border-bottom:1px solid #eef3ff;text-align:right;white-space:nowrap;">
-                <button class="btn" onclick="window.openResultModal('${studentId}','${classId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Edit</button>
-                <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 10px;font-size:0.85rem;">Publish</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
+  tbody.innerHTML = draftResults.map(r => {
+    // Extract student name with better handling
+    let studentName = 'Unknown Student';
+    if (r.student) {
+      if (typeof r.student === 'string') {
+        // If it's just an ID string, look it up in all students
+        const allStudents = Object.values(studentsByClass).flat();
+        const found = allStudents.find(s => s.id === r.student || s._id === r.student);
+        studentName = found ? found.name : r.student;
+      } else if (r.student.name) {
+        studentName = r.student.name;
+      } else if (r.student.firstName && r.student.lastName) {
+        studentName = `${r.student.firstName} ${r.student.lastName}`;
+      } else if (r.student.firstName) {
+        studentName = r.student.firstName;
+      } else if (r.student.username) {
+        studentName = r.student.username;
       }
+    } else if (r.studentName) {
+      studentName = r.studentName;
+    }
+
+    // Extract class name
+    let className = 'Unknown Class';
+    if (r.class) {
+      if (typeof r.class === 'string') {
+        const found = (teacher.classes || []).find(c => c.id === r.class || c._id === r.class);
+        className = found ? found.name : r.class;
+      } else if (r.class.name) {
+        className = r.class.name;
+      } else if (r.class.className) {
+        className = r.class.className;
+      }
+    } else if (r.className) {
+      className = r.className;
+    }
+
+    // Extract term with better lookup
+    let term = 'First Term';
+    if (r.term) {
+      if (typeof r.term === 'string') {
+        const termMap = {
+          '1': 'First Term',
+          '2': 'Second Term',
+          '3': 'Third Term'
+        };
+        // Check if it looks like an ID (long hex string)
+        if (r.term.length > 10 && !termMap[r.term]) {
+          term = 'First Term'; // Default for IDs we can't map
+        } else {
+          term = termMap[r.term] || r.term;
+        }
+      } else if (typeof r.term === 'object' && r.term.name) {
+        term = r.term.name;
+      }
+    } else if (r.termName) {
+      term = r.termName;
+    } else if (r.termId) {
+      const termMap = { '1': 'First Term', '2': 'Second Term', '3': 'Third Term' };
+      term = termMap[r.termId] || 'First Term';
+    }
+
+    const status = r.status || 'Draft';
+    const lastUpdated = r.updatedAt 
+      ? new Date(r.updatedAt).toLocaleString() 
+      : (r.createdAt ? new Date(r.createdAt).toLocaleString() : '-');
+
+    const studentId = r.student?._id || r.student?.id || r.studentId;
+    const classId = r.class?._id || r.class?.id || r.classId;
+
+    return `
+      <tr>
+        <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${studentName}</strong></td>
+        <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${className}</strong></td>
+        <td style="padding:12px;border-bottom:1px solid #eef3ff;"><span style="background:#f3f4f6;padding:2px 6px;border-radius:3px;font-size:0.85rem;">${term}</span></td>
+        <td style="padding:12px;border-bottom:1px solid #eef3ff;">
+          <span style="background:${status === 'Published' ? '#10b981' : '#f59e0b'};color:#fff;padding:6px 10px;border-radius:4px;font-size:0.85rem;font-weight:600;">${status}</span>
+        </td>
+        <td style="padding:12px;border-bottom:1px solid #eef3ff;font-size:0.9rem;color:#666;white-space:nowrap;">${lastUpdated}</td>
+        <td style="padding:12px;border-bottom:1px solid #eef3ff;text-align:right;white-space:nowrap;">
+          <button class="btn" onclick="window.openResultModal('${studentId}','${classId}')" style="padding:6px 10px;font-size:0.85rem;margin-right:4px;">Edit</button>
+          <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 10px;font-size:0.85rem;">Publish</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
 
       function renderAssignments() {
         const div = document.getElementById('assignment-list');
