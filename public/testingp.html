@@ -801,25 +801,37 @@
         }
       }
 
-      function renderDraftResults() {
+            function renderDraftResults() {
         const tbody = document.querySelector('#draft-results-table tbody');
         if (!draftResults.length) {
-          tbody.innerHTML = '<tr><td colspan="6" class="empty">No draft results found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#999;">No draft results found.</td></tr>';
           return;
         }
-        tbody.innerHTML = draftResults.map(r => `
-          <tr>
-            <td>${r.student?.name || '-'}</td>
-            <td>${r.class?.name || '-'}</td>
-            <td>${r.term || '-'}</td>
-            <td>${r.status || '-'}</td>
-            <td>${r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-'}</td>
-            <td>
-              <button class="btn" onclick="window.openResultModal('${r.student?._id}','${r.class?._id}')" style="padding:6px 10px;font-size:0.9rem;">Edit</button>
-              <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 10px;font-size:0.9rem;">Publish</button>
-            </td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = draftResults.map(r => {
+          const studentName = r.student?.name || r.student?.firstName || r.student?.username || 'Unknown Student';
+          const className = r.class?.name || r.class?.className || 'Unknown Class';
+          const term = r.term || r.termName || '-';
+          const status = r.status || 'Draft';
+          const lastUpdated = r.updatedAt ? new Date(r.updatedAt).toLocaleString() : new Date(r.createdAt).toLocaleString();
+          const studentId = r.student?._id || r.student?.id || r.studentId;
+          const classId = r.class?._id || r.class?.id || r.classId;
+          
+          return `
+            <tr>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${studentName}</strong></td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;">${className}</td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;">${term}</td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;">
+                <span style="background:${status === 'Published' ? '#10b981' : '#f59e0b'};color:#fff;padding:4px 8px;border-radius:4px;font-size:0.85rem;font-weight:600;">${status}</span>
+              </td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;font-size:0.9rem;color:#666;">${lastUpdated}</td>
+              <td style="padding:12px;border-bottom:1px solid #eef3ff;text-align:right;">
+                <button class="btn" onclick="window.openResultModal('${studentId}','${classId}')" style="padding:6px 12px;font-size:0.85rem;margin-right:6px;">Edit</button>
+                <button class="btn danger" onclick="alert('You cannot publish. Contact Admin.');" style="padding:6px 12px;font-size:0.85rem;">Publish</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
       }
 
       function renderAssignments() {
@@ -1776,7 +1788,98 @@
         this.innerHTML = 'Push Selected to Universal Document';
         alert(`${successCount} CBT(s) pushed to universal successfully.`);
       };
+      // ============ HANDLE CLASSES SECTION ============
+      document.addEventListener('DOMContentLoaded', function() {
+        // When Classes tab is clicked, populate and render
+        const classesTab = document.querySelector('[data-tab="classes"]');
+        if (classesTab) {
+          classesTab.addEventListener('click', function() {
+            populateClassSelect();
+            setTimeout(() => {
+              const classSelect = document.getElementById('classSelect');
+              if (classSelect && classSelect.value) {
+                showRoster(classSelect.value);
+              }
+            }, 100);
+          });
+        }
+      });
 
+      function populateClassSelect() {
+        const classSelect = document.getElementById('classSelect');
+        classSelect.innerHTML = '';
+        
+        if (!teacher.classes || teacher.classes.length === 0) {
+          classSelect.innerHTML = '<option>No classes available</option>';
+          return;
+        }
+        
+        teacher.classes.forEach(cls => {
+          let opt = document.createElement('option');
+          opt.value = cls.id || cls._id;
+          opt.innerText = cls.name || cls.className;
+          classSelect.appendChild(opt);
+        });
+        
+        if (classSelect.options.length > 0) {
+          classSelect.value = classSelect.options[0].value;
+          showRoster(classSelect.value);
+        }
+      }
+
+      function showRoster(classId) {
+        const rosterTableBody = document.querySelector('#rosterTable tbody');
+        const rosterTitle = document.getElementById('rosterTitle');
+        const rosterMeta = document.getElementById('rosterMeta');
+        
+        rosterTableBody.innerHTML = '';
+        const cls = (teacher.classes || []).find(c => (c.id || c._id) == classId);
+        
+        if (!cls) {
+          rosterTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#999;">Class not found</td></tr>';
+          rosterTitle.textContent = '—';
+          rosterMeta.textContent = '0 students';
+          return;
+        }
+        
+        const students = studentsByClass[classId] || [];
+        
+        if (!students || students.length === 0) {
+          rosterTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#999;">No students found</td></tr>';
+          rosterTitle.textContent = cls.name || cls.className;
+          rosterMeta.textContent = '0 students';
+          return;
+        }
+        
+        students.forEach((s, idx) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="padding:12px;border-bottom:1px solid #eef3ff;">${idx+1}</td>
+            <td style="padding:12px;border-bottom:1px solid #eef3ff;"><strong>${s.name || s.firstName}</strong></td>
+            <td style="padding:12px;border-bottom:1px solid #eef3ff;">${s.regNo || s.registration || '—'}</td>
+            <td style="padding:12px;border-bottom:1px solid #eef3ff;">${s.email || s.contact || '—'}</td>
+            <td style="padding:12px;border-bottom:1px solid #eef3ff;">
+              <button class="btn" onclick="window.openResultModal('${s.id || s._id}','${classId}')" style="padding:6px 12px;font-size:0.85rem;">Profile</button>
+            </td>
+          `;
+          rosterTableBody.appendChild(tr);
+        });
+        
+        rosterTitle.textContent = cls.name || cls.className;
+        rosterMeta.textContent = `${students.length} students`;
+      }
+
+      // Add change event to classSelect
+      const classSelect = document.getElementById('classSelect');
+      if (classSelect) {
+        classSelect.addEventListener('change', (e) => {
+          showRoster(e.target.value);
+          // Also update the subjects and add subject block
+          selectedClassId = e.target.value;
+          renderSubjectsBlock();
+          showAddSubjectBlock();
+        });
+      }
       // ============ SIDEBAR AND TAB SYSTEM ============
       const sidebarTabs = Array.from(document.querySelectorAll('.sidebar-tab'));
       const tabSections = Array.from(document.querySelectorAll('.tab-section'));
@@ -1791,6 +1894,9 @@
         if (push) history.replaceState(null, '', '#' + name);
         
         // Handle section-specific rendering
+        if (name === 'classes') {
+          populateClassSelect();
+        }
         if (name === 'draftResults') renderDraftResults();
         if (name === 'notifications') renderNotifications();
         if (name === 'attendance') renderAttendance();
@@ -1800,8 +1906,8 @@
           if (teacher.classes) {
             teacher.classes.forEach(cls => {
               let opt = document.createElement('option');
-              opt.value = cls.id;
-              opt.innerText = cls.name;
+              opt.value = cls.id || cls._id;
+              opt.innerText = cls.name || cls.className;
               sel.appendChild(opt);
             });
             renderGradebook();
