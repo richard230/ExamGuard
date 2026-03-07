@@ -817,6 +817,47 @@
         }
       }
 
+// Add this enhanced debug function to see the actual data structure
+async function fetchDraftResultsWithDebug() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results?status=Draft`, { headers: authHeaders() });
+    if (!res.ok) {
+      console.warn('Draft Results API returned non-OK status:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    console.log('Raw Draft Results API Response:', data);
+    
+    const results = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+    
+    // LOG EACH RESULT TO SEE THE STRUCTURE
+    console.log('Number of draft results:', results.length);
+    results.forEach((r, idx) => {
+      console.log(`Result ${idx}:`, JSON.stringify(r, null, 2));
+      console.log(`Result ${idx} student object:`, r.student);
+      console.log(`Result ${idx} student type:`, typeof r.student);
+      if (r.student && typeof r.student === 'object') {
+        console.log(`Result ${idx} student keys:`, Object.keys(r.student));
+        console.log(`Result ${idx} student values:`, {
+          name: r.student.name,
+          firstName: r.student.firstName,
+          lastName: r.student.lastName,
+          username: r.student.username,
+          id: r.student.id,
+          _id: r.student._id,
+          regNo: r.student.regNo
+        });
+      }
+    });
+    
+    return results;
+  } catch (e) {
+    console.error('Error fetching draft results:', e);
+    return [];
+  }
+}
+
+// Then update the renderDraftResults function with better fallbacks
 function renderDraftResults() {
   const tbody = document.querySelector('#draft-results-table tbody');
   if (!draftResults.length) {
@@ -824,26 +865,33 @@ function renderDraftResults() {
     return;
   }
 
-  tbody.innerHTML = draftResults.map(r => {
-    // Extract student name with better handling
+  tbody.innerHTML = draftResults.map((r, idx) => {
+    console.log(`Rendering result ${idx}:`, r);
+    
+    // Extract student name - comprehensive fallback chain
     let studentName = 'Unknown Student';
+    
     if (r.student) {
       if (typeof r.student === 'string') {
-        // If it's just an ID string, look it up in all students
+        // It's a string ID - try to find in loaded students
         const allStudents = Object.values(studentsByClass).flat();
         const found = allStudents.find(s => s.id === r.student || s._id === r.student);
-        studentName = found ? found.name : r.student;
-      } else if (r.student.name) {
-        studentName = r.student.name;
-      } else if (r.student.firstName && r.student.lastName) {
-        studentName = `${r.student.firstName} ${r.student.lastName}`;
-      } else if (r.student.firstName) {
-        studentName = r.student.firstName;
-      } else if (r.student.username) {
-        studentName = r.student.username;
+        studentName = found ? found.name : r.student.substring(0, 8);
+      } else if (typeof r.student === 'object') {
+        // Try multiple field names
+        studentName = r.student.name 
+          || (r.student.firstName && r.student.lastName ? `${r.student.firstName} ${r.student.lastName}` : null)
+          || r.student.firstName 
+          || r.student.lastName
+          || r.student.username
+          || r.student.regNo
+          || r.student.email
+          || (r.student._id ? r.student._id.substring(0, 8) : 'Unknown');
       }
     } else if (r.studentName) {
       studentName = r.studentName;
+    } else if (r.student_name) {
+      studentName = r.student_name;
     }
 
     // Extract class name
@@ -852,16 +900,17 @@ function renderDraftResults() {
       if (typeof r.class === 'string') {
         const found = (teacher.classes || []).find(c => c.id === r.class || c._id === r.class);
         className = found ? found.name : r.class;
-      } else if (r.class.name) {
-        className = r.class.name;
-      } else if (r.class.className) {
-        className = r.class.className;
+      } else if (typeof r.class === 'object') {
+        className = r.class.name || r.class.className || r.class._id || 'Unknown';
       }
     } else if (r.className) {
       className = r.className;
+    } else if (r.classId) {
+      const found = (teacher.classes || []).find(c => c.id === r.classId || c._id === r.classId);
+      className = found ? found.name : r.classId;
     }
 
-    // Extract term with better lookup
+    // Extract term
     let term = 'First Term';
     if (r.term) {
       if (typeof r.term === 'string') {
@@ -870,12 +919,7 @@ function renderDraftResults() {
           '2': 'Second Term',
           '3': 'Third Term'
         };
-        // Check if it looks like an ID (long hex string)
-        if (r.term.length > 10 && !termMap[r.term]) {
-          term = 'First Term'; // Default for IDs we can't map
-        } else {
-          term = termMap[r.term] || r.term;
-        }
+        term = termMap[r.term] || (r.term.length > 10 ? 'First Term' : r.term);
       } else if (typeof r.term === 'object' && r.term.name) {
         term = r.term.name;
       }
