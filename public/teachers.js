@@ -43,9 +43,7 @@ async function fetchTeacherProfile() {
   try {
     console.log('📥 Fetching teacher profile from /api/auth/me...');
     
-    const res = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: authHeaders()
-    });
+     const res = await fetch(`${API_BASE_URL}/teachers/me`, { headers: authHeaders() });
     
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     
@@ -198,9 +196,7 @@ async function fetchTeacherClasses() {
     console.log('📥 Fetching teacher classes...');
     
     // Get all classes and filter by teacher
-    const res = await fetch(`${API_BASE_URL}/class`, {
-      headers: authHeaders()
-    });
+    const res = await fetch(`${API_BASE_URL}/teachers/classes`, { headers: authHeaders() });
     
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     
@@ -345,9 +341,7 @@ async function fetchStudentsByClass(classId) {
   try {
     console.log('📥 Fetching students for class:', classId);
     
-    const res = await fetch(`${API_BASE_URL}/student?class=${classId}`, {
-      headers: authHeaders()
-    });
+    const res = await fetch(`${API_BASE_URL}/teachers/students?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
     
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     
@@ -431,9 +425,7 @@ async function fetchSubjectsByClass(classId) {
     console.log('📥 Fetching subjects for class:', classId);
     
     // Get class details which includes subjects
-    const res = await fetch(`${API_BASE_URL}/class/${classId}`, {
-      headers: authHeaders()
-    });
+    const res = await fetch(`${API_BASE_URL}/teachers/subjects?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
     
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     
@@ -503,9 +495,7 @@ async function fetchAssignments() {
     console.log('📥 Fetching assignments...');
     
     // Get all assignments and filter by teacher
-    const res = await fetch(`${API_BASE_URL}/assignment`, {
-      headers: authHeaders()
-    });
+   const res = await fetch(`${API_BASE_URL}/teachers/${encodeURIComponent(teacher.id)}/assignments`, { headers: authHeaders() });
     
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     
