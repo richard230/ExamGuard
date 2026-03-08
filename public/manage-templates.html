@@ -334,6 +334,76 @@
       border-color: var(--accent-2);
     }
 
+    /* FORM FIELDS */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--accent);
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 10px 12px;
+      border: 1.5px solid #e3e8ee;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+    }
+
+    /* CLASS ASSIGNMENTS TABLE */
+    .assignments-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      border: 1px solid #e3e8ee;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .assignments-table th {
+      background: #f3f4f6;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--accent);
+      border-bottom: 1px solid #e3e8ee;
+      font-size: 0.9rem;
+    }
+
+    .assignments-table td {
+      padding: 12px;
+      border-bottom: 1px solid #eef3ff;
+      font-size: 0.9rem;
+    }
+
+    .assignments-table tbody tr:hover {
+      background: #f9fbff;
+    }
+
+    .assignments-table select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid #e3e8ee;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+
     /* DIVIDER */
     .divider {
       width: 100%;
@@ -503,6 +573,15 @@
       .pref-label {
         padding: 10px;
       }
+
+      .assignments-table {
+        font-size: 0.85rem;
+      }
+
+      .assignments-table th,
+      .assignments-table td {
+        padding: 8px;
+      }
     }
 
     @media (max-width: 480px) {
@@ -597,7 +676,7 @@
         <div>
           <h1 class="page-title">
             <i class="fa fa-palette"></i>
-            Report Card Preferences
+            Report Card Setup
             <span class="admin-badge">Admin</span>
           </h1>
         </div>
@@ -612,6 +691,7 @@
 
     <!-- MAIN CONTENT -->
     <main class="main-content" role="main">
+      <!-- SECTION 1: PREFERENCES -->
       <section class="section">
         <h2 class="section-title">
           <i class="fa fa-cog"></i>
@@ -739,7 +819,7 @@
           <hr class="divider">
 
           <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-            <button class="btn" type="submit" id="saveBtn">
+            <button class="btn" type="submit" id="savePrefsBtn">
               <i class="fa fa-save"></i> Save Preferences
             </button>
             <button class="btn" type="reset" style="background: transparent; border: 1.5px solid #eef3ff; color: var(--accent-2);">
@@ -747,7 +827,64 @@
             </button>
           </div>
 
-          <div id="statusMsg" class="status-message"></div>
+          <div id="prefsStatusMsg" class="status-message"></div>
+        </form>
+      </section>
+
+      <!-- SECTION 2: PRINCIPAL & FORM MASTERS -->
+      <section class="section">
+        <h2 class="section-title">
+          <i class="fa fa-users"></i>
+          Principal & Form Masters Assignment
+        </h2>
+
+        <form id="sessionForm" class="prefs-form">
+          <!-- Principal's Name -->
+          <div class="form-group">
+            <label for="principalName">Principal's Full Name</label>
+            <input 
+              type="text" 
+              id="principalName" 
+              name="principalName" 
+              placeholder="Enter principal's name"
+              required
+            >
+          </div>
+
+          <!-- Form Masters Assignment -->
+          <div style="margin-top: 24px;">
+            <h3 style="font-weight: 700; color: var(--accent); margin-bottom: 16px;">
+              Assign Form Masters to Classes
+            </h3>
+            <table class="assignments-table">
+              <thead>
+                <tr>
+                  <th>Class Name</th>
+                  <th>Assigned Form Master</th>
+                </tr>
+              </thead>
+              <tbody id="classesTableBody">
+                <tr>
+                  <td colspan="2" style="text-align: center; color: var(--muted);">
+                    Loading classes...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <hr class="divider">
+
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <button class="btn" type="submit" id="saveSessionBtn">
+              <i class="fa fa-save"></i> Save Session Settings
+            </button>
+            <button class="btn" type="reset" style="background: transparent; border: 1.5px solid #eef3ff; color: var(--accent-2);">
+              <i class="fa fa-undo"></i> Reset
+            </button>
+          </div>
+
+          <div id="sessionStatusMsg" class="status-message"></div>
         </form>
       </section>
     </main>
@@ -793,12 +930,12 @@
       if (e.key === 'Escape') closeSidebar();
     });
 
-    // Preferences logic
+    // ============ PREFERENCES LOGIC ============
     document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('prefsForm');
-      const statusMsg = document.getElementById('statusMsg');
-      const saveBtn = document.getElementById('saveBtn');
-      const API_URL = `${API_BASE_URL}/api/report/preferences`;
+      const prefsForm = document.getElementById('prefsForm');
+      const prefsStatusMsg = document.getElementById('prefsStatusMsg');
+      const savePrefsBtn = document.getElementById('savePrefsBtn');
+      const PREFS_API_URL = `${API_BASE_URL}/api/report/preferences`;
 
       function getAdminToken() {
         return localStorage.getItem('adminToken') ||
@@ -806,18 +943,18 @@
                localStorage.getItem('token') || '';
       }
 
-      function showStatus(message, type) {
-        statusMsg.textContent = message;
-        statusMsg.className = `status-message show ${type}`;
+      function showStatus(messageEl, message, type) {
+        messageEl.textContent = message;
+        messageEl.className = `status-message show ${type}`;
         if (type !== 'info') {
           setTimeout(() => {
-            statusMsg.classList.remove('show');
+            messageEl.classList.remove('show');
           }, 4000);
         }
       }
 
       // Load preferences
-      fetch(API_URL, {
+      fetch(PREFS_API_URL, {
         headers: {
           'Authorization': 'Bearer ' + getAdminToken()
         }
@@ -825,7 +962,7 @@
         .then(r => r.json())
         .then(pref => {
           Object.keys(pref).forEach(key => {
-            const element = form.elements[key];
+            const element = prefsForm.elements[key];
             if (element && element.type === 'checkbox') {
               element.checked = !!pref[key];
             }
@@ -833,24 +970,24 @@
         })
         .catch((err) => {
           console.error(err);
-          showStatus('Failed to load preferences. Please ensure you are logged in as admin.', 'error');
+          showStatus(prefsStatusMsg, 'Failed to load preferences. Please ensure you are logged in as admin.', 'error');
         });
 
       // Save preferences
-      form.onsubmit = async function(e) {
+      prefsForm.onsubmit = async function(e) {
         e.preventDefault();
-        saveBtn.disabled = true;
-        showStatus('Saving preferences...', 'info');
+        savePrefsBtn.disabled = true;
+        showStatus(prefsStatusMsg, 'Saving preferences...', 'info');
 
         const data = {};
-        Array.from(form.elements).forEach(el => {
+        Array.from(prefsForm.elements).forEach(el => {
           if (el.type === "checkbox" && el.name) {
             data[el.name] = el.checked;
           }
         });
 
         try {
-          const res = await fetch(API_URL, {
+          const res = await fetch(PREFS_API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -860,20 +997,177 @@
           });
 
           if (res.ok) {
-            showStatus('✓ Preferences saved successfully!', 'success');
+            showStatus(prefsStatusMsg, '✓ Preferences saved successfully!', 'success');
           } else if (res.status === 401) {
-            showStatus('Unauthorized. Please login as admin and try again.', 'error');
+            showStatus(prefsStatusMsg, 'Unauthorized. Please login as admin and try again.', 'error');
           } else {
             const error = await res.json();
-            showStatus(error.message || 'Failed to save preferences.', 'error');
+            showStatus(prefsStatusMsg, error.message || 'Failed to save preferences.', 'error');
           }
         } catch (err) {
           console.error(err);
-          showStatus('Network error. Please try again.', 'error');
+          showStatus(prefsStatusMsg, 'Network error. Please try again.', 'error');
         }
 
-        saveBtn.disabled = false;
+        savePrefsBtn.disabled = false;
       };
+    });
+
+    // ============ SESSION LOGIC (Principal & Form Masters) ============
+    document.addEventListener('DOMContentLoaded', async () => {
+      const sessionForm = document.getElementById('sessionForm');
+      const sessionStatusMsg = document.getElementById('sessionStatusMsg');
+      const saveSessionBtn = document.getElementById('saveSessionBtn');
+      const classesTableBody = document.getElementById('classesTableBody');
+      const principalNameInput = document.getElementById('principalName');
+
+      const SESSION_API_URL = `${API_BASE_URL}/api/report/session`;
+      const CLASSES_API_URL = `${API_BASE_URL}/api/classes`;
+      const TEACHERS_API_URL = `${API_BASE_URL}/api/teachers`;
+
+      function getAdminToken() {
+        return localStorage.getItem('adminToken') ||
+               localStorage.getItem('superadmin_token') ||
+               localStorage.getItem('token') || '';
+      }
+
+      function showStatus(messageEl, message, type) {
+        messageEl.textContent = message;
+        messageEl.className = `status-message show ${type}`;
+        if (type !== 'info') {
+          setTimeout(() => {
+            messageEl.classList.remove('show');
+          }, 4000);
+        }
+      }
+
+      // Load session data and classes
+      async function loadSessionData() {
+        try {
+          // Load existing session data
+          const sessionRes = await fetch(SESSION_API_URL, {
+            headers: {
+              'Authorization': 'Bearer ' + getAdminToken()
+            }
+          });
+
+          if (sessionRes.ok) {
+            const sessionData = await sessionRes.json();
+            principalNameInput.value = sessionData.principalName || '';
+            window.sessionClassAssignments = sessionData.classAssignments || {};
+          }
+
+          // Load classes
+          const classesRes = await fetch(CLASSES_API_URL, {
+            headers: {
+              'Authorization': 'Bearer ' + getAdminToken()
+            }
+          });
+
+          if (!classesRes.ok) throw new Error('Failed to load classes');
+          const classes = await classesRes.json();
+
+          // Load teachers
+          const teachersRes = await fetch(TEACHERS_API_URL, {
+            headers: {
+              'Authorization': 'Bearer ' + getAdminToken()
+            }
+          });
+
+          let teachers = [];
+          if (teachersRes.ok) {
+            const teachersData = await teachersRes.json();
+            teachers = Array.isArray(teachersData) ? teachersData : teachersData.data || [];
+          }
+
+          // Populate table
+          populateClassesTable(classes, teachers);
+        } catch (err) {
+          console.error(err);
+          showStatus(sessionStatusMsg, 'Failed to load classes and teachers.', 'error');
+        }
+      }
+
+      function populateClassesTable(classes, teachers) {
+        classesTableBody.innerHTML = '';
+
+        if (!Array.isArray(classes) || classes.length === 0) {
+          classesTableBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--muted);">No classes found.</td></tr>';
+          return;
+        }
+
+        classes.forEach(cls => {
+          const classId = cls._id || cls.id;
+          const className = cls.name || cls.className || 'Unknown';
+          const assignedTeacherId = window.sessionClassAssignments?.[classId] || '';
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${className}</td>
+            <td>
+              <select data-class-id="${classId}" class="form-master-select">
+                <option value="">-- Select Form Master --</option>
+                ${teachers.map(teacher => `
+                  <option value="${teacher._id || teacher.id}" ${assignedTeacherId === (teacher._id || teacher.id) ? 'selected' : ''}>
+                    ${teacher.name || teacher.firstName} ${teacher.lastName || ''}
+                  </option>
+                `).join('')}
+              </select>
+            </td>
+          `;
+          classesTableBody.appendChild(row);
+        });
+      }
+
+      // Save session data
+      sessionForm.onsubmit = async function(e) {
+        e.preventDefault();
+        saveSessionBtn.disabled = true;
+        showStatus(sessionStatusMsg, 'Saving session settings...', 'info');
+
+        // Collect class assignments
+        const classAssignments = {};
+        document.querySelectorAll('.form-master-select').forEach(select => {
+          const classId = select.dataset.classId;
+          const teacherId = select.value;
+          if (classId && teacherId) {
+            classAssignments[classId] = teacherId;
+          }
+        });
+
+        const data = {
+          principalName: principalNameInput.value,
+          classAssignments: classAssignments
+        };
+
+        try {
+          const res = await fetch(SESSION_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + getAdminToken()
+            },
+            body: JSON.stringify(data)
+          });
+
+          if (res.ok) {
+            showStatus(sessionStatusMsg, '✓ Session settings saved successfully!', 'success');
+          } else if (res.status === 401) {
+            showStatus(sessionStatusMsg, 'Unauthorized. Please login as admin and try again.', 'error');
+          } else {
+            const error = await res.json();
+            showStatus(sessionStatusMsg, error.message || 'Failed to save session settings.', 'error');
+          }
+        } catch (err) {
+          console.error(err);
+          showStatus(sessionStatusMsg, 'Network error. Please try again.', 'error');
+        }
+
+        saveSessionBtn.disabled = false;
+      };
+
+      // Load data on page load
+      await loadSessionData();
     });
 
     // Navigation
