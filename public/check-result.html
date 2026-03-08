@@ -597,38 +597,35 @@
       line-height: 1.5;
     }
 
-    /* TEACHER & PRINCIPAL INFO BOX */
-    .teacher-principal-box {
-      background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
+    /* TEACHER & PRINCIPAL INFO */
+    .teacher-principal-info {
+      background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%);
       border: 1px solid #c7d2fe;
       border-radius: 8px;
-      padding: 14px;
+      padding: 16px;
       margin-top: 16px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
     }
 
-    .teacher-card, .principal-card {
-      padding: 12px;
-      background: #fff;
-      border-radius: 6px;
-      border: 1px solid #dbeafe;
+    .teacher-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .teacher-card h5, .principal-card h5 {
-      margin: 0 0 8px 0;
-      color: var(--accent-2);
-      font-size: 0.9rem;
+    .teacher-info-label {
       font-weight: 700;
+      font-size: 0.85rem;
+      color: #4f46e5;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    .teacher-card p, .principal-card p {
-      margin: 0;
-      color: var(--text-main);
+    .teacher-info-value {
       font-size: 0.95rem;
+      color: var(--text-main);
       font-weight: 600;
     }
 
@@ -785,7 +782,7 @@
         grid-template-columns: 1fr;
       }
 
-      .teacher-principal-box {
+      .teacher-principal-info {
         grid-template-columns: 1fr;
       }
 
@@ -845,7 +842,7 @@
         height: 70px;
       }
 
-      .teacher-principal-box {
+      .teacher-principal-info {
         grid-template-columns: 1fr;
       }
     }
@@ -1032,6 +1029,18 @@
           </table>
         </div>
 
+        <!-- Teacher & Principal Info -->
+        <div class="teacher-principal-info">
+          <div class="teacher-info-item">
+            <div class="teacher-info-label">Class Teacher / Form Master</div>
+            <div class="teacher-info-value" id="classTeacherName">-</div>
+          </div>
+          <div class="teacher-info-item">
+            <div class="teacher-info-label">Principal</div>
+            <div class="teacher-info-value" id="principalNameDisplay">-</div>
+          </div>
+        </div>
+
         <!-- Skills & Attendance Section -->
         <div class="skills-attendance-container" id="skillsAttendanceContainer" style="display:none;">
           <div class="skill-box" id="affectiveSkillsBox"></div>
@@ -1042,24 +1051,12 @@
         <!-- Principal Comment -->
         <div class="principal-comment-box" id="principalCommentBox" style="display:none;">
           <h4>📝 Principal's Comment</h4>
-          <p id="principalCommentText">No comment available</p>
+          <p id="principalCommentText">-</p>
         </div>
 
-        <!-- Teacher & Principal Info -->
-        <div class="teacher-principal-box" id="teacherPrincipalBox" style="display:none;">
-          <div class="teacher-card">
-            <h5>👨‍🏫 Class Teacher (Form Master)</h5>
-            <p id="teacherName">Teacher Name</p>
-          </div>
-          <div class="principal-card">
-            <h5>👔 Principal</h5>
-            <p id="principalName">Principal Name</p>
-          </div>
-        </div>
-
-        <!-- Download Report Button -->
-        <button class="download-btn" id="downloadReportBtn" onclick="openReport()">
-          <i class="fa fa-file-pdf"></i> Download Full Report
+        <!-- Download Button -->
+        <button class="download-btn" onclick="openReportWindow()" id="downloadBtn">
+          <i class="fa fa-file-pdf"></i> View Full Report
         </button>
       </section>
     </main>
@@ -1068,48 +1065,70 @@
   <script>
     const API_BASE_URL = "https://goldlincschools.onrender.com";
 
-    // Get student info from localStorage or session
-    function loadStudentInfo() {
-      const student = JSON.parse(localStorage.getItem('student') || '{}');
-      if (student.regNo) {
-        document.getElementById('regNoInput').value = student.regNo;
-        document.getElementById('studentName').textContent = student.name || 'Student';
-        document.getElementById('studentClass').textContent = student.class || 'N/A';
-        document.getElementById('studentAvatar').src = student.photoBase64 
-          ? `data:image/jpeg;base64,${student.photoBase64}` 
-          : 'https://via.placeholder.com/48';
-        document.getElementById('topbarAvatar').src = document.getElementById('studentAvatar').src;
-      }
+    // Sidebar toggle
+    const hamburger = document.getElementById('hamburger');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('visible');
+      document.body.classList.toggle('no-scroll');
+    });
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+      document.body.classList.remove('no-scroll');
+    });
+
+    // Navigation
+    function navClick(e) {
+      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+      e.currentTarget.classList.add('active');
     }
 
-    // Handle Result Search
+    // Load student info from localStorage
+    window.addEventListener('load', () => {
+      const studentData = JSON.parse(localStorage.getItem('studentData') || '{}');
+      if (studentData.regNo) {
+        document.getElementById('regNoInput').value = studentData.regNo;
+        document.getElementById('studentName').textContent = studentData.name || 'Student';
+        document.getElementById('studentClass').textContent = studentData.class || 'N/A';
+        if (studentData.photoBase64) {
+          const avatar = 'data:image/jpeg;base64,' + studentData.photoBase64;
+          document.getElementById('studentAvatar').src = avatar;
+          document.getElementById('topbarAvatar').src = avatar;
+        }
+      }
+    });
+
+    // Handle result search
     async function handleResultSearch(e) {
       e.preventDefault();
-      const submitBtn = document.getElementById('submitBtn');
-      const searchError = document.getElementById('searchError');
-      const searchSuccess = document.getElementById('searchSuccess');
-      
-      // Clear messages
-      searchError.classList.remove('show');
-      searchSuccess.classList.remove('show');
       
       const regNo = document.getElementById('regNoInput').value;
       const scratchCard = document.getElementById('scratchCardInput').value;
       const className = document.getElementById('classInput').value;
       const session = document.getElementById('sessionInput').value;
       const term = document.getElementById('termInput').value;
+      const submitBtn = document.getElementById('submitBtn');
+      const searchError = document.getElementById('searchError');
+      const resultsSection = document.getElementById('resultsDisplaySection');
 
       if (!regNo || !scratchCard || !className || !session || !term) {
-        searchError.textContent = 'Please fill all fields';
+        searchError.textContent = 'Please fill in all fields';
         searchError.classList.add('show');
         return false;
       }
 
       submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-small"></span> Checking...';
+      searchError.classList.remove('show');
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/results/check?regNo=${regNo}&scratchCard=${scratchCard}&class=${className}&session=${session}&term=${term}`
+          `${API_BASE_URL}/api/results/check?regNo=${encodeURIComponent(regNo)}&scratchCard=${encodeURIComponent(scratchCard)}&class=${encodeURIComponent(className)}&session=${encodeURIComponent(session)}&term=${encodeURIComponent(term)}`
         );
 
         if (!response.ok) {
@@ -1119,77 +1138,61 @@
 
         const data = await response.json();
         
-        // Store report data for download
-        window.reportData = data;
-        
+        // Store in sessionStorage for report.html
+        sessionStorage.setItem('reportData', JSON.stringify(data));
+
+        // Display results
         displayResults(data);
-        searchSuccess.textContent = '✓ Results loaded successfully!';
-        searchSuccess.classList.add('show');
+        resultsSection.style.display = 'block';
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+
       } catch (err) {
-        console.error(err);
         searchError.textContent = err.message;
         searchError.classList.add('show');
       } finally {
         submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa fa-search"></i> View Result';
       }
 
       return false;
     }
 
-    // Display Results
+    // Display results
     function displayResults(data) {
-      const resultsDisplaySection = document.getElementById('resultsDisplaySection');
-      const tbody = document.querySelector('.results-table tbody');
-      
-      // Clear previous results
-      tbody.innerHTML = '';
-
-      // Student Info
+      const results = data.results || [];
       const student = data.student || {};
+      const skillsReport = data.skillsReport || {};
+      const attendance = data.attendance || {};
+
+      // Student info
       document.getElementById('resultStudentName').textContent = student.name || '-';
       document.getElementById('resultRegNo').textContent = student.regNo || '-';
       document.getElementById('resultGender').textContent = student.gender || '-';
-      document.getElementById('resultDOB').textContent = formatDate(student.DOB) || '-';
+      document.getElementById('resultDOB').textContent = student.DOB ? new Date(student.DOB).toLocaleDateString() : '-';
       document.getElementById('resultClass').textContent = student.class?.name || '-';
       document.getElementById('resultSession').textContent = data.session || '-';
       document.getElementById('resultTerm').textContent = data.term || '-';
       document.getElementById('resultClassSize').textContent = data.classSize || '-';
 
-      // Student Photo
+      // Student photo
       if (student.photoBase64) {
         const img = document.getElementById('resultStudentPhoto');
-        img.src = `data:image/jpeg;base64,${student.photoBase64}`;
+        img.src = 'data:image/jpeg;base64,' + student.photoBase64;
         img.style.display = 'block';
       }
 
-      // Calculate Statistics
-      const results = data.results || [];
-      let totalScore = 0, highestScore = 0, lowestScore = Infinity;
+      // Results table
+      const tbody = document.querySelector('.results-table tbody');
+      tbody.innerHTML = '';
+      let totalScore = 0, highest = 0, lowest = Infinity;
 
       results.forEach(r => {
-        const score = parseInt(r.total) || 0;
-        totalScore += score;
-        if (score > highestScore) highestScore = score;
-        if (score < lowestScore) lowestScore = score;
-      });
+        const total = parseFloat(r.total) || 0;
+        totalScore += total;
+        if (total > highest) highest = total;
+        if (total < lowest) lowest = total;
 
-      if (lowestScore === Infinity) lowestScore = 0;
-
-      document.getElementById('totalSubjects').textContent = results.length;
-      document.getElementById('averageScore').textContent = results.length > 0 
-        ? (totalScore / results.length).toFixed(2) 
-        : '0.00';
-      document.getElementById('highestScore').textContent = highestScore;
-      document.getElementById('lowestScore').textContent = lowestScore;
-
-      // Populate Results Table
-      results.forEach(r => {
-        const row = document.createElement('tr');
-        const total = parseInt(r.total) || 0;
-        let gradeClass = 'grade-low';
-        if (total >= 70) gradeClass = 'grade-high';
-        else if (total >= 50) gradeClass = 'grade-mid';
-
+        const row = tbody.insertRow();
         row.innerHTML = `
           <td>${r.subject || '-'}</td>
           <td>${r.ca1_score || '-'}</td>
@@ -1197,125 +1200,113 @@
           <td>${r.midterm_score || '-'}</td>
           <td>${r.exam_score || '-'}</td>
           <td><strong>${total}</strong></td>
-          <td class="${gradeClass}">${r.grade || '-'}</td>
+          <td class="${getGradeClass(r.grade)}"><strong>${r.grade || '-'}</strong></td>
           <td>${r.remarks || '-'}</td>
           <td>${r.subject_position || '-'}</td>
         `;
-        tbody.appendChild(row);
       });
 
-      // Display Teacher & Principal Info ✅ NEW
-      const teacherPrincipalBox = document.getElementById('teacherPrincipalBox');
-      if (data.principalName || data.teacherName) {
-        document.getElementById('teacherName').textContent = data.teacherName || 'Form Master';
-        document.getElementById('principalName').textContent = data.principalName || 'Principal';
-        teacherPrincipalBox.style.display = 'grid';
+      // Stats
+      document.getElementById('totalSubjects').textContent = results.length;
+      document.getElementById('averageScore').textContent = results.length > 0 ? (totalScore / results.length).toFixed(2) : '0.00';
+      document.getElementById('highestScore').textContent = highest === -Infinity ? '0' : highest;
+      document.getElementById('lowestScore').textContent = lowest === Infinity ? '0' : lowest;
+
+      // Teacher and Principal Info
+      document.getElementById('classTeacherName').textContent = data.teacherName || 'Form Master';
+      document.getElementById('principalNameDisplay').textContent = data.principalName || 'Principal';
+
+      // Skills & Attendance
+      if (Object.keys(skillsReport.skills?.affective || {}).length > 0) {
+        populateAffectiveSkills(skillsReport.skills.affective);
       }
 
-      // Display Skills & Attendance
-      const skillsReport = data.skillsReport || {};
-      const attendance = data.attendance || {};
-
-      if (Object.keys(skillsReport.skills || {}).length > 0 || Object.keys(attendance).length > 0) {
-        displaySkillsAndAttendance(skillsReport, attendance);
+      if (Object.keys(skillsReport.skills?.psychomotor || {}).length > 0) {
+        populatePsychomotorSkills(skillsReport.skills.psychomotor);
       }
 
-      // Display Principal Comment
+      if (Object.keys(attendance).length > 0) {
+        populateAttendance(attendance);
+      }
+
+      if (skillsReport.skills || attendance) {
+        document.getElementById('skillsAttendanceContainer').style.display = 'grid';
+      }
+
       if (data.principalComment) {
         document.getElementById('principalCommentText').textContent = data.principalComment;
         document.getElementById('principalCommentBox').style.display = 'block';
       }
-
-      // Show results section
-      resultsDisplaySection.style.display = 'block';
-      resultsDisplaySection.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // Display Skills & Attendance
-    function displaySkillsAndAttendance(skillsReport, attendance) {
-      const skillsAttendanceContainer = document.getElementById('skillsAttendanceContainer');
-      const affectiveSkillsBox = document.getElementById('affectiveSkillsBox');
-      const psychomotorSkillsBox = document.getElementById('psychomotorSkillsBox');
-      const attendanceBox = document.getElementById('attendanceBox');
+    function getGradeClass(grade) {
+      if (!grade) return '';
+      const gradeNum = grade.charCodeAt(0);
+      if (grade === 'A' || grade === 'B') return 'grade-high';
+      if (grade === 'C' || grade === 'D') return 'grade-mid';
+      return 'grade-low';
+    }
 
-      // Affective Skills
-      if (Object.keys(skillsReport.skills?.affective || {}).length > 0) {
-        let html = '<h4>😊 Affective Skills</h4>';
-        Object.entries(skillsReport.skills.affective).forEach(([key, value]) => {
-          html += `<div class="skill-item"><span>${key}:</span> <strong>${value}</strong></div>`;
-        });
-        affectiveSkillsBox.innerHTML = html;
-      }
+    function populateAffectiveSkills(skills) {
+      const affectiveMap = {
+        'attentiveness': 'Attentiveness',
+        'honesty': 'Honesty',
+        'neatness': 'Neatness',
+        'politeness': 'Politeness',
+        'punctuality': 'Punctuality / Assembly',
+        'selfControl': 'Self Control / Calmness'
+      };
 
-      // Psychomotor Skills
-      if (Object.keys(skillsReport.skills?.psychomotor || {}).length > 0) {
-        let html = '<h4>🎯 Psychomotor Skills</h4>';
-        Object.entries(skillsReport.skills.psychomotor).forEach(([key, value]) => {
-          html += `<div class="skill-item"><span>${key}:</span> <strong>${value}</strong></div>`;
-        });
-        psychomotorSkillsBox.innerHTML = html;
-      }
-
-      // Attendance
-      if (Object.keys(attendance).length > 0) {
-        let html = '<h4>📅 Attendance Summary</h4>';
-        Object.entries(attendance).forEach(([key, value]) => {
-          html += `<div class="attendance-item"><span>${key}:</span> <strong>${value}</strong></div>`;
-        });
-        attendanceBox.innerHTML = html;
-      }
-
-      if (Object.keys(skillsReport.skills?.affective || {}).length > 0 ||
-          Object.keys(skillsReport.skills?.psychomotor || {}).length > 0 ||
-          Object.keys(attendance).length > 0) {
-        skillsAttendanceContainer.style.display = 'grid';
+      const box = document.getElementById('affectiveSkillsBox');
+      box.innerHTML = '<h4>Affective Domain</h4>';
+      
+      for (const [key, label] of Object.entries(affectiveMap)) {
+        if (skills[key]) {
+          const rating = ['', 'Excellent', 'Good', 'Acceptable', 'Needs Improvement', 'Poor'][skills[key]] || '';
+          box.innerHTML += `<div class="skill-item"><span>${label}</span><strong>${rating}</strong></div>`;
+        }
       }
     }
 
-    // Format Date Helper
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
-      try {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      } catch (e) {
-        return dateStr;
+    function populatePsychomotorSkills(skills) {
+      const psychomotorMap = {
+        'handling': 'Handling Of Tools',
+        'drawing': 'Drawing / Painting',
+        'handwriting': 'Handwriting',
+        'speaking': 'Public Speaking',
+        'fluency': 'Speech Fluency'
+      };
+
+      const box = document.getElementById('psychomotorSkillsBox');
+      box.innerHTML = '<h4>Psychomotor Skills</h4>';
+      
+      for (const [key, label] of Object.entries(psychomotorMap)) {
+        if (skills[key]) {
+          const rating = ['', 'Excellent', 'Good', 'Acceptable', 'Needs Improvement', 'Poor'][skills[key]] || '';
+          box.innerHTML += `<div class="skill-item"><span>${label}</span><strong>${rating}</strong></div>`;
+        }
       }
     }
 
-    // Open Report in New Window
-    function openReport() {
-      if (window.reportData) {
-        sessionStorage.setItem('reportData', JSON.stringify(window.reportData));
-        window.open('/report.html', 'StudentReport', 'width=1000,height=800');
+    function populateAttendance(attendance) {
+      const box = document.getElementById('attendanceBox');
+      box.innerHTML = '<h4>Attendance Summary</h4>';
+      
+      if (attendance.schoolOpened) {
+        box.innerHTML += `<div class="attendance-item"><span>Days School Opened</span><strong>${attendance.schoolOpened}</strong></div>`;
+      }
+      if (attendance.timesPresent) {
+        box.innerHTML += `<div class="attendance-item"><span>Days Present</span><strong>${attendance.timesPresent}</strong></div>`;
+      }
+      if (attendance.timesAbsent) {
+        box.innerHTML += `<div class="attendance-item"><span>Days Absent</span><strong>${attendance.timesAbsent}</strong></div>`;
       }
     }
 
-    // Navigation
-    function navClick(e) {
-      if (e.target.href && !e.target.href.includes('#')) {
-        return;
-      }
-      e.preventDefault();
+    // Open full report
+    function openReportWindow() {
+      window.open('/report.html', 'StudentReport', 'width=1000,height=800');
     }
-
-    // Hamburger Menu
-    document.getElementById('hamburger')?.addEventListener('click', () => {
-      const sidebar = document.getElementById('sidebar');
-      const overlay = document.getElementById('overlay');
-      sidebar.classList.toggle('open');
-      overlay.classList.toggle('visible');
-      document.body.classList.toggle('no-scroll');
-    });
-
-    document.getElementById('overlay')?.addEventListener('click', () => {
-      document.getElementById('sidebar').classList.remove('open');
-      document.getElementById('overlay').classList.remove('visible');
-      document.body.classList.remove('no-scroll');
-    });
-
-    // Initialize
-    document.addEventListener('DOMContentLoaded', loadStudentInfo);
   </script>
 </body>
 </html>
