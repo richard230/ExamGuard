@@ -676,7 +676,7 @@
                 <form id="skillsForm" autocomplete="off">
                     <!-- Affective Skills -->
                     <div class="skills-section">
-                        <h4>Affective Skills (1-5)</h4>
+                        <h4>Affective Skills (1-5 scale)</h4>
                         <table class="skills-table">
                             <tr><td>Punctuality</td><td><input type="number" name="affective_punctuality" min="1" max="5" required></td></tr>
                             <tr><td>Attentiveness</td><td><input type="number" name="affective_attentiveness" min="1" max="5" required></td></tr>
@@ -685,18 +685,19 @@
                             <tr><td>Politeness</td><td><input type="number" name="affective_politeness" min="1" max="5" required></td></tr>
                             <tr><td>Perseverance</td><td><input type="number" name="affective_perseverance" min="1" max="5" required></td></tr>
                             <tr><td>Relationship With Others</td><td><input type="number" name="affective_relationship" min="1" max="5" required></td></tr>
-                            <tr><td>Organisation Ability</td><td><input type="number" name="affective_organisation" min="1" max="5" required></td></tr>
+                            <tr><td>Self Control / Calmness</td><td><input type="number" name="affective_selfcontrol" min="1" max="5" required></td></tr>
                         </table>
                     </div>
 
                     <!-- Psychomotor Skills -->
                     <div class="skills-section">
-                        <h4>Psychomotor Skills (1-5)</h4>
+                        <h4>Psychomotor Skills (1-5 scale)</h4>
                         <table class="skills-table">
-                            <tr><td>Hand Writing</td><td><input type="number" name="psycho_handwriting" min="1" max="5" required></td></tr>
+                            <tr><td>Handwriting</td><td><input type="number" name="psycho_handwriting" min="1" max="5" required></td></tr>
                             <tr><td>Drawing and Painting</td><td><input type="number" name="psycho_drawing" min="1" max="5" required></td></tr>
+                            <tr><td>Handling of Tools</td><td><input type="number" name="psycho_handling" min="1" max="5" required></td></tr>
+                            <tr><td>Public Speaking</td><td><input type="number" name="psycho_speaking" min="1" max="5" required></td></tr>
                             <tr><td>Sports and Games</td><td><input type="number" name="psycho_sports" min="1" max="5" required></td></tr>
-                            <tr><td>Organization Ability</td><td><input type="number" name="psycho_organization" min="1" max="5" required></td></tr>
                         </table>
                     </div>
 
@@ -705,12 +706,18 @@
                         <h4>Attendance Report</h4>
                         <div class="edit-form-row">
                             <div class="form-group">
-                                <label>Days Present</label>
-                                <input type="number" name="attendance_days_present" placeholder="0" required>
+                                <label>Times School Opened</label>
+                                <input type="number" name="attendance_school_opened" placeholder="Total days school was open" required>
                             </div>
                             <div class="form-group">
-                                <label>Days Absent</label>
-                                <input type="number" name="attendance_days_absent" placeholder="0" required>
+                                <label>No of Times Present</label>
+                                <input type="number" name="attendance_present" placeholder="Days student was present" required>
+                            </div>
+                        </div>
+                        <div class="edit-form-row">
+                            <div class="form-group">
+                                <label>No of Times Absent</label>
+                                <input type="number" name="attendance_absent" placeholder="Days student was absent" required>
                             </div>
                         </div>
                     </div>
@@ -719,7 +726,7 @@
                     <div class="skills-section">
                         <div class="form-group">
                             <label>Principal's Comment</label>
-                            <textarea name="principal_comment" maxlength="200" placeholder="Enter comment (max 200 characters)" required></textarea>
+                            <textarea name="principal_comment" maxlength="500" placeholder="Enter principal's comment (max 500 characters)" required></textarea>
                         </div>
                     </div>
 
@@ -846,29 +853,38 @@
                 document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ Student not loaded!</div>';
                 return;
             }
+
+            // Build correct data structure for API
             const affective = {
-                punctuality: form.affective_punctuality.value,
-                attentiveness: form.affective_attentiveness.value,
-                neatness: form.affective_neatness.value,
-                honesty: form.affective_honesty.value,
-                politeness: form.affective_politeness.value,
-                perseverance: form.affective_perseverance.value,
-                relationship: form.affective_relationship.value,
-                organisation: form.affective_organisation.value
+                punctuality: parseInt(form.affective_punctuality.value),
+                attentiveness: parseInt(form.affective_attentiveness.value),
+                neatness: parseInt(form.affective_neatness.value),
+                honesty: parseInt(form.affective_honesty.value),
+                politeness: parseInt(form.affective_politeness.value),
+                perseverance: parseInt(form.affective_perseverance.value),
+                relationship: parseInt(form.affective_relationship.value),
+                selfControl: parseInt(form.affective_selfcontrol.value)
             };
+
             const psychomotor = {
-                handwriting: form.psycho_handwriting.value,
-                drawing: form.psycho_drawing.value,
-                sports: form.psycho_sports.value,
-                organization: form.psycho_organization.value
+                handwriting: parseInt(form.psycho_handwriting.value),
+                drawing: parseInt(form.psycho_drawing.value),
+                handling: parseInt(form.psycho_handling.value),
+                speaking: parseInt(form.psycho_speaking.value),
+                sports: parseInt(form.psycho_sports.value)
             };
+
             const attendance = {
-                days_present: form.attendance_days_present.value,
-                days_absent: form.attendance_days_absent.value
+                schoolOpened: parseInt(form.attendance_school_opened.value),
+                timesPresent: parseInt(form.attendance_present.value),
+                timesAbsent: parseInt(form.attendance_absent.value)
             };
+
             const comment = form.principal_comment.value;
-            const session = "2024–2025";
-            const term = "FIRST TERM";
+
+            // Get session and term from student or default
+            const session = loadedStudent.academicSession || "2025-2026";
+            const term = "SECOND TERM"; // You might want to make this dynamic
 
             const payload = {
                 session,
@@ -881,7 +897,8 @@
             document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-success">Saving...</div>';
 
             try {
-                const res = await fetch(`${API_BASE_URL}/api/student/${encodeURIComponent(loadedStudent.regNo)}/skills-report`, {
+                const regNo = encodeURIComponent(loadedStudent.regNo);
+                const res = await fetch(`${API_BASE_URL}/api/student/${regNo}/skills-report`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
@@ -891,11 +908,13 @@
                 if (res.ok) {
                     document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-success">✔️ Skills and report saved successfully!</div>';
                     setTimeout(()=>{document.getElementById('skillsModal').classList.remove('active');},1500);
+                    form.reset();
                 } else {
-                    document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ ' + (data.error || "Failed to save.") + '</div>';
+                    document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ ' + (data.message || data.error || "Failed to save.") + '</div>';
                 }
             } catch (err) {
-                document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ Network error.</div>';
+                console.error('Error saving skills:', err);
+                document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ Network error: ' + err.message + '</div>';
             }
         };
 
@@ -948,7 +967,6 @@
                     val = (new Date(val)).toISOString().slice(0,10);
                 }
                 
-                // Fields that should span full width
                 const fullWidthFields = ['address', 'parentAddress'];
                 const isFullWidth = fullWidthFields.includes(field.name);
                 
@@ -1000,16 +1018,9 @@
                 }
             } catch (err) {
                 editModalSpinner.style.display = "none";
-                alert('Network error.');
+                alert('Error updating student: ' + err.message);
+                console.error(err);
             }
-        };
-
-        document.getElementById('editStudentModal').onclick = function(e) {
-            if (e.target === this) editModal.classList.remove('active');
-        };
-
-        document.getElementById('skillsModal').onclick = function(e) {
-            if (e.target === this) document.getElementById('skillsModal').classList.remove('active');
         };
     </script>
 </body>
