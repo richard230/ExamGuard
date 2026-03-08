@@ -382,6 +382,20 @@
       align-items: center;
     }
 
+    /* Badge */
+    .badge {
+      display: inline-block;
+      border-radius: 9999px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .badge-pending { background: #e9f0fe; color: #2647a6; }
+    .badge-completed { background: #18ba89; color: #fff; }
+    .badge-overdue { background: #e74c3c; color: #fff; }
+    .badge-reviewed { background: #ffd600; color: #22305a; }
+
     /* Messages */
     .messages {
       display: flex;
@@ -878,13 +892,13 @@
 
       <nav class="nav" id="nav" aria-label="Primary">
         <a href="#" data-section="home" class="active" onclick="navClick(event)">🏠 Home</a>
-        <a href="#" data-section="courses" onclick="navClick(event)">📘 My Courses</a>
-        <a href="#" data-section="assignments" onclick="navClick(event)">📝 Assignments</a>
-        <a href="#" data-section="grades" onclick="navClick(event)">📊 Grades</a>
+        <a href="assignments.html">📝 Assignments</a>
+        <a href="check-result.html">📊 Grades</a>
         <a href="#" data-section="timetable" onclick="navClick(event)">⏰ Timetable</a>
         <a href="#" data-section="messages" onclick="navClick(event)">✉️ Messages</a>
         <a href="#" data-section="resources" onclick="navClick(event)">📂 Resources</a>
         <a href="#" data-section="settings" onclick="navClick(event)">⚙️ Settings</a>
+        <a href="#" data-section="others" onclick="navClick(event)">📋 Others</a>
       </nav>
 
       <div class="spacer" aria-hidden="true"></div>
@@ -998,11 +1012,15 @@
         <div class="grid">
           <div class="card col-8">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="font-weight:800">Assignments</div>
+              <div style="font-weight:800">Recent Assignments</div>
               <div class="small muted">Track & submit</div>
             </div>
-            <div class="assignments" id="assignmentsList" style="margin-top:10px"></div>
-            <div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="btn" onclick="navTo('assignments')">View all</button></div>
+            <div style="margin-top:10px;">
+              <div id="dashboardAssignmentsTable" style="max-height: 400px; overflow-y: auto;"></div>
+            </div>
+            <div style="margin-top:10px;display:flex;justify-content:flex-end">
+              <a href="assignments.html" class="btn">View all assignments →</a>
+            </div>
           </div>
 
           <!-- Quick Actions -->
@@ -1011,7 +1029,7 @@
             <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
               <button class="btn ghost" onclick="navTo('timetable')">View Timetable</button>
               <button class="btn ghost" onclick="navTo('resources')">Resources</button>
-              <button class="btn" onclick="navTo('assignments')">Assignments</button>
+              <a href="assignments.html" class="btn" style="text-align:center; display:block;">Assignments</a>
             </div>
           </div>
         </div>
@@ -1043,24 +1061,6 @@
           <div id="newsContent" style="margin-top:10px"></div>
           <div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="btn" onclick="window.location.href='news.html'">News & Events →</button></div>
         </div>
-      </section>
-
-      <!-- Courses Section -->
-      <section id="courses" class="section" style="display:none">
-        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">My Courses</div>
-        <div class="link-grid" id="coursesGrid"></div>
-      </section>
-
-      <!-- Assignments Section -->
-      <section id="assignments" class="section" style="display:none">
-        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Assignments</div>
-        <div id="assignmentsFull"></div>
-      </section>
-
-      <!-- Grades Section -->
-      <section id="grades" class="section" style="display:none">
-        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Grades</div>
-        <div id="gradesFull"></div>
       </section>
 
       <!-- Timetable Section -->
@@ -1105,6 +1105,14 @@
         <div class="card">
           <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Settings</div>
           <div id="settingsContent">Settings page placeholder</div>
+        </div>
+      </section>
+
+      <!-- Others Section (placeholder for future use) -->
+      <section id="others" class="section" style="display:none">
+        <div class="card">
+          <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Others</div>
+          <div id="othersContent">Additional options coming soon</div>
         </div>
       </section>
 
@@ -1217,10 +1225,64 @@
 
       // Update nav active
       document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-      document.querySelector(`[data-section="${section}"]`).classList.add('active');
+      document.querySelector(`[data-section="${section}"]`)?.classList.add('active');
 
       // Update page title
-      pageTitle.textContent = `Welcome back, ${currentStudent.name || 'Student'}`;
+      const sectionTitles = {
+        home: 'Welcome back',
+        timetable: 'Weekly Timetable',
+        messages: 'Messages',
+        resources: 'Learning Resources',
+        settings: 'Settings',
+        others: 'Others'
+      };
+      pageTitle.textContent = sectionTitles[section] || 'Welcome back';
+    }
+
+    // ============================================
+    // Fetch Assignments for Dashboard
+    // ============================================
+    async function fetchDashboardAssignments() {
+      const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
+      const container = document.getElementById('dashboardAssignmentsTable');
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/academics/assignments`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch assignments');
+        const assignments = await res.json();
+
+        if (!assignments || assignments.length === 0) {
+          container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">No assignments yet</div>';
+          return;
+        }
+
+        // Display limited assignments (first 5)
+        const limitedAssignments = assignments.slice(0, 5);
+        const html = limitedAssignments.map(a => {
+          let badgeClass = 'badge-pending';
+          if (a.status === 'completed') badgeClass = 'badge-completed';
+          else if (a.status === 'overdue') badgeClass = 'badge-overdue';
+          else if (a.status === 'reviewed') badgeClass = 'badge-reviewed';
+
+          return `
+            <div class="assignments item" style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--text-main);">${a.title || 'Untitled'}</div>
+                <div class="small muted">${a.subject || ''} • Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</div>
+              </div>
+              <span class="badge ${badgeClass}">${a.status || 'pending'}</span>
+            </div>
+          `;
+        }).join('');
+
+        container.innerHTML = html;
+      } catch (err) {
+        console.error('Error fetching assignments:', err);
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#d32f2f;">Failed to load assignments</div>';
+      }
     }
 
     // ============================================
@@ -1242,6 +1304,8 @@
         populateDashboard(null);
       } finally {
         hideLoader();
+        // Fetch assignments after dashboard loads
+        fetchDashboardAssignments();
       }
     }
 
@@ -1304,30 +1368,6 @@
       } else {
         todayTimetable.innerHTML = '';
       }
-
-      // Populate Courses Section
-      const coursesGrid = document.getElementById('coursesGrid');
-      if (data.courses && Array.isArray(data.courses)) {
-        coursesGrid.innerHTML = data.courses.map((course, idx) =>
-          `<a class="link-card" onclick="selectCourse(${idx})">
-            <div class="icon" style="background:linear-gradient(90deg,#3b82f6,#6366f1);">${course.name ? course.name[0] : 'C'}</div>
-            <div class="title">${course.name || ''}</div>
-            <div class="subtitle">${course.subject || ''}</div>
-          </a>`
-        ).join('');
-      }
-    }
-
-    // ============================================
-    // Course Selection
-    // ============================================
-    function selectCourse(idx) {
-      if (currentStudent.courses) {
-        currentStudent.courses.forEach((c, i) => c.selected = (i === idx));
-        if (currentStudent.class && currentStudent.class._id) {
-          fetchAndRenderTimetable(currentStudent.class._id);
-        }
-      }
     }
 
     // ============================================
@@ -1381,5 +1421,6 @@
       }
     });
   </script>
+
 </body>
 </html>
