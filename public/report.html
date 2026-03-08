@@ -1,626 +1,1485 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Gold and Linc Schools - Report Card</title>
-  <link rel="stylesheet" href="report.css">
+  <meta charset="utf-8" />
+  <title>Student Performance Report — Performance Summary Inline</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    @media print {
-      html, body {
-        width: 210mm !important;
-        height: 297mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #fff !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-      }
-      @page {
-        size: A4 portrait;
-        margin: 0;
-      }
-      .report-container {
-        width: 210mm !important;
-        min-width: 210mm !important;
-        max-width: 210mm !important;
-        height: 297mm !important;
-        max-height: 297mm !important;
-        min-height: 297mm !important;
-        margin: 0 auto !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        background: #fff !important;
-        position: relative !important;
-        overflow: hidden !important;
-        page-break-inside: avoid !important;
-        display: block !important;
-      }
-      .results-table,
-      .student-info-table,
-      .grades-key-table,
-      .skills-table,
-      .attendance,
-      .skills-tables-section {
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-      .no-print-btn {
-        display: none !important;
-      }
-      section, .seal-container, .skills-tables-section {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-      }
-      /* Compact the padding for print */
-      .student-info-table td,
-      .results-table th, .results-table td,
-      .skills-table th, .skills-table td,
-      .grades-key-table th, .grades-key-table td {
-        padding: 2px 3px !important;
-        font-size: 0.95rem !important;
-      }
-      .school-logo, .coat-of-arms {
-        height: 60px !important;
-        width: 60px !important;
-      }
-      .seal-container img {
-        height: 50px !important;
-      }
-    }
-    .report-container {
-      width: 100vw;
-      max-width: 100vw;
-      margin: 0 auto;
+    /* A4 portrait with tight margins */
+    @page { size: A4 portrait; margin: 6mm; }
+    html,body {
+      height: 297mm;
+      width: 210mm;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      box-sizing: border-box;
+      font-family: "Arial", "Helvetica", sans-serif;
       background: #fff;
+      color: #000;
+      font-size: 9.2px;
+      line-height: 1.03;
     }
-    .background-blur {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 60%;
-      height: 60%;
-      transform: translate(-50%, -50%);
-      filter: blur(30px);
-      opacity: 0.08;
-      z-index: 0;
-      pointer-events: none;
+
+    .sheet {
+      width: calc(210mm - 12mm);
+      min-height: calc(297mm - 12mm);
+      margin: 6mm;
+      padding: 6px;
+      box-sizing: border-box;
     }
-    .seal-container {
-      position: relative;
+.sheet {
+  position: relative; /* Enable absolute positioning within */
+  overflow: hidden;   /* Hide any overflow from watermark */
+}
+
+.watermark-img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 65%;
+  max-width: 580px;
+  min-width: 240px;
+  opacity: 0.08;                /* See-through */
+  filter: blur(1.7px);          /* Make it blurry */
+  transform: translate(-50%, -50%) scale(1.1);  /* Center and large */
+  pointer-events: none;         /* Not clickable/selectable */
+  user-select: none;
+  z-index: 0;                   /* Behind report content */
+}
+    .header {
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      border-bottom:2px solid #000;
+      padding-bottom:6px;
+    }
+    .logo { width:66px; height:66px; flex:0 0 56px; border-radius:50%; border:2px solid #6f8f2e; background:#f7f7f3 center/cover no-repeat; }
+    .header-center { flex:1; text-align:center; padding-top:2px; }
+    .school-name { font-family:"Georgia","Times New Roman",serif; font-size:13px; font-weight:800; color:#092739; }
+    .motto { font-size:8.5px; font-weight:700; margin-top:2px; }
+    .school-contact { font-size:8px; margin-top:3px; }
+    .photo { width:72px; height:96px; flex:0 0 72px; border:1px solid #333; background:#eee center/cover no-repeat; }
+
+    .report-title { text-align:center; font-weight:700; font-size:11px; margin:6px 0; }
+
+    .id-row { display:flex; gap:6px; margin-bottom:3px; }
+    .id-row b { width:86px; display:inline-block; font-size:9px; }
+
+    /* Content area: main table and side column (affective + psychomotor) */
+    .content { display:flex; gap:6px; align-items:flex-start; }
+    .main {
+      flex:1 1 auto;
+      border:1.5px solid #000;
+      padding:4px;
+      box-sizing:border-box;
+      font-size:9px;
+    }
+    .side {
+      width:240px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      box-sizing:border-box;
+    }
+
+    /* Cognitive table */
+    .cog-table { width:100%; border-collapse:collapse; font-size:9px; }
+    .cog-table th, .cog-table td { border:1px solid #000; padding:3px 4px; vertical-align:middle; }
+    .cog-table thead th { background:#7b9e34; color:#fff; font-weight:700; font-size:9px; text-align:center; }
+    .cog-subject { background:#e9f0d6; font-weight:700; }
+
+    .tc { text-align:center; }
+    .tr { text-align:right; }
+
+    /* Vertical headers for numeric/performance columns (reduced height per request) */
+    .cog-table thead th.vertical {
+      padding: 6px 5px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg); /* keep numbers upright */
+      white-space: nowrap;
+      vertical-align: bottom;
+      height: 76px; /* reduced from original 110px */
+      font-size:9px;
+      line-height:1;
+    }
+    /* keep first column header normal */
+    .cog-table thead th:first-child { writing-mode: horizontal-tb; transform: none; text-align:left; padding-left:8px; }
+
+    /* Performance summary inline — placed immediately after the main results table with zero gap */
+    .perf-inline {
+      margin: 0; /* remove gap */
+      margin-top: 4px; /* tiny separation to visually separate but minimal */
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      width:100%;
+      box-sizing:border-box;
+    }
+    .perf-inline .summary {
+      flex:1;
+      border:1px solid #000;
+      padding:6px;
+      font-size:9px;
+      box-sizing:border-box;
+    }
+    .perf-inline .analysis {
+      width:200px;
+      border:1px solid #000;
+      padding:6px;
+      font-size:9px;
+      box-sizing:border-box;
+    }
+    /* make sure the inline block aligns closely under table */
+    .main .cog-table + .perf-inline { margin-top:4px; }
+
+    /* Side boxes */
+    .box { border:1px solid #222; padding:6px; background:#fafafa; box-sizing:border-box; font-size:9px; }
+    .box h4 { margin:0 0 6px 0; font-size:10px; background:#7e9f3a; color:#fff; padding:3px 6px; font-weight:700; }
+    .aff-table, .psych-table, .att-table, .grade-scale { width:100%; border-collapse:collapse; font-size:9px; }
+    .aff-table td, .aff-table th, .psych-table td, .psych-table th, .att-table td, .att-table th, .grade-scale td, .grade-scale th { border:1px solid #000; padding:3px; }
+
+    /* Bottom remarks and signatures (span full width) */
+    .bottom { margin-top:6px; display:flex; gap:6px; align-items:flex-start; }
+    .remarks { flex:1; border:1.5px solid #000; padding:6px; font-size:9px; box-sizing:border-box; }
+    .remarks .remark-row { display:flex; gap:6px; margin-bottom:6px; }
+    .sign-line { border-top:1px solid #000; width:55%; margin-top:8px; font-size:9px; padding-top:3px; }
+
+    .footer { margin-top:6px; font-size:8.5px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #bbb; padding-top:6px; }
+
+    /* Avoid page-break inside critical blocks */
+    .no-break { page-break-inside: avoid; }
+
+    /* Tight helpers */
+    table.small td, table.small th { padding:2px 3px; font-size:8.5px; }
+    .cog-table tbody tr td:first-child { white-space:normal; } /* allow subject name wrap */
+
+    .profile-card {
+      display: grid;
+      grid-template-columns: 1fr 110px 240px; /* left details | photo | right stats */
+      gap: 14px;
+      align-items: stretch; /* ensure equal height */
+      padding: 10px;
+      border: 1px solid #dde6ef;
+      background: linear-gradient(180deg,#ffffff,#fbfdff);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(13,38,63,0.04);
+      box-sizing: border-box;
+    }
+
+    /* left details column */
+    .pc-left-details {
       display: flex;
-      justify-content: center;
-      margin-top: 40px;
+      flex-direction: column;
+      justify-content: center; /* vertically center contents to match right column */
+      gap: 8px;
+      min-width: 0;
     }
-    .seal-container img {
-      height: 80px;
-      width: auto;
+
+    .pc-left-details .pc-name {
+      margin: 0;
+      font-family: "Georgia", serif;
+      font-size: 13px;
+      color: #062c48;
+      font-weight: 800;
+      letter-spacing: 0.2px;
     }
-    .student-info-table img#stuPhoto {
-      width: 100px;
-      height: 100px;
-      object-fit: cover;
-      border-radius: 10px;
-      border: 2px solid #ccc;
-      box-shadow: 0 2px 7px #eee;
-      background: #fafafa;
-      justify-content: center;
-      display: block;
+
+    .pc-left-details .pc-details {
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      column-gap: 10px;
+      row-gap: 6px;
     }
-    .student-info-table td {
-      vertical-align: middle;
+    .pc-left-details .pc-details dt {
+      margin: 0;
+      font-size: 8.8px;
+      font-weight: 700;
+      color: #3f5666;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
     }
-    .hidden { display: none !important; }
+    .pc-left-details .pc-details dd {
+      margin: 0;
+      font-size: 10px;
+      font-weight: 600;
+      color: #0b2a3a;
+    }
+
+    /* center: passport photo (centered between two columns) */
+    .pc-photo-wrap {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .pc-photo {
+      width:88px;
+      height:88px;
+      border-radius:6px;
+      background: #f0f2f6 center/cover no-repeat;
+      border:2px solid #e1e8f2;
+      box-shadow: 0 1px 2px rgba(11,42,60,0.04);
+    }
+
+    /* right: performance & contact - ensure it stretches to match left height */
+    .pc-right {
+      display:flex;
+      flex-direction:column;
+      justify-content: center; /* centers content vertically so left and right align */
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .pc-term {
+      background: linear-gradient(180deg,#3b82c4,#1e5790);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: 0.6px;
+      box-shadow: 0 2px 5px rgba(30,78,140,0.12);
+      width: 100%;
+      text-align:center;
+      align-self:center;
+    }
+
+    .pc-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      width: 100%;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid #e6eef6;
+      padding: 6px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stat.small { padding: 5px; font-size: 9px; }
+    .stat-value { font-weight: 800; font-size: 11px; color: #062a44; }
+    .stat-label { font-size: 8.5px; color: #617787; margin-top: 4px; }
+
+    .pc-staff, .pc-guardian {
+      width: 100%;
+      text-align: right;
+      border-top: 1px dashed #eef4fb;
+      padding-top: 8px;
+    }
+    .pc-staff .label, .pc-guardian .label {
+      font-size: 8.5px;
+      color: #6b7f8f;
+      text-transform:uppercase;
+      font-weight:700;
+    }
+    .pc-staff .value, .pc-guardian .value {
+      font-size: 10px;
+      font-weight:700;
+      color: #0b2a3a;
+    }
+
+    /* Modernized remarks / signatures styling (print-friendly) */
+    .remarks {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 9px;
+    }
+
+    .remarks-grid {
+      display: flex;
+      gap: 12px;
+      align-items:stretch;
+      width: 100%;
+    }
+
+    .remark-card {
+      flex: 1;
+      border: 1px solid #e3e6e8;
+      padding: 10px;
+      border-radius: 6px;
+      background: #ffffff;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+      box-sizing: border-box;
+      min-height: 78px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .remark-title {
+      font-weight: 700;
+      font-size: 10px;
+      color: #0f2a37;
+      margin-bottom: 6px;
+      letter-spacing: 0.1px;
+    }
+
+    .remark-text {
+      background: #fbfbfb;
+      border: 1px solid #f0f0f0;
+      padding: 8px;
+      border-radius: 4px;
+      color: #111;
+      line-height: 1.24;
+      flex: 1;
+      font-size: 9px;
+    }
+
+    .signature-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      margin-top: 6px;
+      width: 100%;
+    }
+
+    .signature-block {
+      display: flex;
+      gap: 18px;
+      align-items: flex-end;
+    }
+
+    .sig-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .sign-line {
+      width: 220px;
+      border-top: 1px solid #111;
+      height: 0;
+    }
+
+    .sign-name {
+      font-size: 9px;
+      margin-top: 3px;
+      color: #222;
+      font-weight: 700;
+    }
+
+    .sign-role {
+      font-size: 8.5px;
+      color: #666;
+    }
+
+    .next-term {
+      text-align: right;
+      font-size: 9px;
+      color: #111;
+      min-width: 180px;
+    }
+
+    .next-term .nt-label {
+      color: #666;
+      font-size: 8.5px;
+    }
+
+    .next-term .nt-date {
+      font-weight: 700;
+      margin-top: 4px;
+      font-size: 10px;
+    }
+
+    /* Preserve print behavior */
+    .no-break { page-break-inside: avoid; }
+
+    /* Print-friendly tweaks */
+    @media print {
+      .profile-card { box-shadow: none; border: 1px solid #bbb; background: #fff; }
+      .pc-term { box-shadow: none; }
+      .cog-table thead th.vertical { height: 70px; } /* slightly reduce on print */
+    }
+
+    /* Responsive for very narrow widths (keeps layout robust) */
+    @media (max-width: 720px) {
+      .profile-card { grid-template-columns: 1fr 96px 200px; gap:10px; }
+      .pc-photo { width:72px; height:72px; }
+      .cog-table thead th.vertical { height: 70px; }
+    }
+
+    @media (max-width: 520px) {
+      .profile-card { display:block; }
+      .pc-left-details, .pc-right { width:100%; }
+      .pc-photo-wrap { margin: 10px 0; display:flex; justify-content:center; }
+      .cog-table thead th.vertical { height: 64px; }
+    }
+
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-  <div class="report-container" id="reportCardDom">
-    <img class="background-blur" src="logo-1679575828 (1).jpeg" alt="Blurred background">
-    <button class="no-print-btn" onclick="downloadPDF()">Download as PDF</button>
-    <header>
-      <div class="school-header">
-        <img src="logo-1679575828 (1).jpeg" alt="Golding Schools Logo" class="school-logo">
-        <div class="school-info">
-          <h1>GOLD AND LINC SCHOOLS</h1>
-          <p>
-            <span class="address">BEHIND IRENITEMI HOTEL, TESTING GROUND AREA, OFF OSOGBO ROAD, ILESA.</span><br>
-            <span class="web">Website: goldlincschools.com</span>
-            <span class="phone">Phone : 08034430941</span><br>
-            <span class="email">Email : goldlincschool@gmail.com</span><br>
-            <span class="motto">Motto : FOR A SOLID BEGINNING...</span>
-          </p>
-        </div>
-        <img src="images (7).jpeg" alt="Nigeria Coat of Arms" class="coat-of-arms">
-      </div>
-      <div class="term-title">
-        <h2 id="termTitle">FIRST TERM, 2024-2025 (END OF TERM REPORT)</h2>
-      </div>
-    </header>
-    <section class="student-info-section">
-      <table class="student-info-table" id="studentInfoTable">
-        <tr>
-          <td><strong>Name:</strong> <span id="stuName"></span></td>
-          <td rowspan="8" style="text-align:center; vertical-align:middle;">
-            <img id="stuPhoto" src="" alt="Student Photo">
-          </td>
-          <td><strong>Performance Grade:</strong> <span id="perfGrade"></span></td>
-        </tr>
-        <tr>
-          <td><strong>Reg. No:</strong> <span id="stuRegNo"></span></td>
-          <td><strong>Class Size:</strong> <span id="classSize"></span></td>
-        </tr>
-        <tr>
-          <td><strong>Gender:</strong> <span id="stuGender"></span></td>
-          <td><strong>No. of Subjects:</strong> <span id="numSubjects"></span></td>
-        </tr>
-        <tr>
-          <td><strong>Age:</strong> <span id="stuAge"></span></td>
-          <td><strong>Student Total Score:</strong> <span id="stuTotalScore"></span></td>
-        </tr>
-        <tr>
-          <td><strong>DOB:</strong> <span id="stuDOB"></span></td>
-          <td><strong>Student Average (%):</strong> <span id="stuAverage"></span></td>
-        </tr>
-        <tr>
-          <td><strong>Class:</strong> <span id="stuClass"></span></td>
-          <td id="gpaCell"><strong>Grade Point Average:</strong> <span id="stuGPA"></span></td>
-        </tr>
-        <tr>
-          <td><strong>Email:</strong> <span id="stuEmail"></span></td>
-          <td id="summaryCell"><strong>Result Summary:</strong> <span id="resultSummary"></span></td>
-        </tr>
-      </table>
-    </section>
-    <section class="results-section">
-      <table class="results-table" id="resultsTable">
-        <thead>
-          <tr>
-            <th>Subject</th>
-            <th>Continuous Assessment</th>
-            <th>Mid Term Test</th>
-            <th>Examination</th>
-            <th>Total Score</th>
-            <th>Score Grade</th>
-            <th class="subject-pos-col">Subject Position</th>
-            <th class="grade-points-col">Grade Points</th>
-            <th class="teacher-remark-col">Class Teacher's Comment</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Populated by JS -->
-        </tbody>
-      </table>
-    </section>
-    <section class="skills-tables-section">
-      <table class="skills-table affective-skills" id="affectiveSkillsTable">
-        <thead>
-          <tr>
-            <th colspan="2">Affective Skills Rating (5)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Populated by JS -->
-        </tbody>
-      </table>
-      <table class="skills-table psychomotor-skills" id="psychomotorSkillsTable">
-        <thead>
-          <tr>
-            <th colspan="2">Psychomotor Skills Rating (5)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Populated by JS -->
-        </tbody>
-      </table>
-      <table class="skills-table attendance" id="attendanceTable">
-        <thead>
-          <tr>
-            <th colspan="2">Attendance Report</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Populated by JS -->
-        </tbody>
-      </table>
-    </section>
-    <section class="grades-key-section">
-      <table class="grades-key-table">
-        <tr>
-          <th>Key to Grades</th>
-          <td>70-100: <strong>A</strong></td>
-          <td>60-69: <strong>B</strong></td>
-          <td>50-59: <strong>C</strong></td>
-          <td>45-49: <strong>D</strong></td>
-          <td>40-44: <strong>E</strong></td>
-          <td>0-39: <strong>F</strong></td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>Excellent<br>5 Grade Points.</td>
-          <td>Very Good<br>4 Grade Points.</td>
-          <td>Good<br>3 Grade Points.</td>
-          <td>Pass<br>2 Grade Points.</td>
-          <td>Poor<br>1 Grade Point.</td>
-          <td>Fail<br>0 Grade Points.</td>
-        </tr>
-      </table>
-    </section>
-    <section class="comments-section">
-      <p class="principal-comment">
-        <strong>Principal's Comment :</strong> <span id="principalComment"></span>
-      </p>
-      <div class="principal-sign">
-        <span><strong>Principal:</strong> <span id="principalName"></span></span>
-        <span><strong>Principal's Signature :</strong> ____________________</span>
-      </div>
-    </section>
-    <section class="footer-section">
-      <div class="next-term">
-        <strong>Next Term Begins:</strong> <span class="next-term-date" id="nextTermDate"></span>
-      </div>
-      <div class="footer-meta">
-        <span id="printDate"></span>
-      </div>
-    </section>
-    <div class="seal-container">
-      <img src="images (6).jpeg" alt="Red Seal" />
+  <div class="sheet no-break">
+<img src="../logo.png" alt="Watermark" class="watermark-img"/>
+<div class="report-header" style="border-bottom:2px solid #557199; padding:6px 0 8px; display:grid; grid-template-columns:52px 1fr 52px; align-items:start; gap:6px; margin-bottom:10px; background:#fff;">
+  <!-- Left crest/logo -->
+  <div style="display:flex; justify-content:flex-start; align-items:flex-start;">
+    <img src="arm.jpg" alt="School Logo Left" style="width:48px; height:48px; object-fit:contain; display:block;">
+  </div>
+
+  <!-- Center Info (larger, more compact) -->
+  <div style="text-align:center; padding-top:2px;">
+
+    <div class="school-name" style="font-family:'Georgia',serif; font-weight:900; font-size:17px; color:#072043; line-height:1.05;">
+      CHRIST IS THE ANSWER GROUP OF SCHOOLS
+    </div>
+
+    <div style="font-size:11px; font-weight:700; margin-top:4px; color:#2e4961;">
+      IDUMEGAN QUARTERS, EKPOMA, EDO STATE
+    </div>
+
+    <div style="font-size:10.5px; color:#2e4961; margin-top:4px;">
+      Tel: <a href="tel:+2348158339342" style="color:inherit; text-decoration:none;">0815 833 9342</a> &bull;
+      Email: <a href="mailto:admin@citagos.com" style="color:inherit; text-decoration:none;">admin@citagos.com</a>
+    </div>
+
+    <div class="motto" style="font-style:italic; font-size:11px; color:#7a772a; margin-top:4px;">
+      Motto: <strong>KNOWLEDGE IS FREEDOM</strong>
     </div>
   </div>
-<script>
-  let reportPreferences = {};
-  // Use adminToken, superadmin_token, or token for Authorization header if present
-  function getAdminToken() {
-    return localStorage.getItem('adminToken') ||
-           localStorage.getItem('superadmin_token') ||
-           localStorage.getItem('token') || '';
-  }
-  // Fetch preferences before rendering report, always with Authorization header
-  fetch('https://goldlincschools.onrender.com/api/report/preferences', {
-    headers: {
-      'Authorization': 'Bearer ' + getAdminToken()
-    }
-  })
-    .then(r => r.ok ? r.json() : {})
-    .then(p => { reportPreferences = p || {}; fillReport(); })
-    .catch(() => { reportPreferences = {}; fillReport(); });
-  function getFormattedPrintDate() {
-    const now = new Date();
-    const dd = now.getDate().toString().padStart(2,'0');
-    const mm = (now.getMonth()+1).toString().padStart(2,'0');
-    const yyyy = now.getFullYear();
-    let h = now.getHours();
-    let ampm = "am";
-    if (h > 12) { h = h - 12; ampm = "pm"; }
-    else if (h === 0) { h = 12; }
-    const min = now.getMinutes().toString().padStart(2,'0');
-    return `Printed : ${dd}-${mm}-${yyyy} ${h}:${min} ${ampm}`;
-  }
 
-  function formatDate(d) {
-    if (!d) return "";
-    let date;
-    if (typeof d === "string") {
-      const parts = d.split(/[-\/]/);
-      if (parts.length === 3) {
-        let year, month, day;
-        if (parts[0].length === 4) {
-          year = +parts[0]; month = +parts[1]; day = +parts[2];
-        } else {
-          day = +parts[0]; month = +parts[1]; year = +parts[2];
-        }
-        date = new Date(year, month - 1, day);
-      } else {
-        date = new Date(d);
-      }
-    } else {
-      date = new Date(d);
-    }
-    if (!date || isNaN(date.getTime())) return d;
-    return date.toLocaleDateString();
-  }
+  <!-- Right crest/logo -->
+  <div style="display:flex; justify-content:flex-end; align-items:flex-start;">
+    <img src="../logo.png" alt="School Logo Right" style="width:48px; height:48px; object-fit:contain; display:block;">
+  </div>
+</div>
 
-  function calcAge(dobStr) {
-    if (!dobStr) return "";
-    let date;
-    if (typeof dobStr === "string") {
-      const parts = dobStr.split(/[-\/]/);
-      if (parts.length === 3) {
-        let year, month, day;
-        if (parts[0].length === 4) {
-          year = +parts[0]; month = +parts[1]; day = +parts[2];
-        } else {
-          day = +parts[0]; month = +parts[1]; year = +parts[2];
-        }
-        date = new Date(year, month-1, day);
-      } else {
-        date = new Date(dobStr);
-      }
-    } else {
-      date = new Date(dobStr);
-    }
-    if (!date || isNaN(date.getTime())) return "";
-    const now = new Date();
-    let age = now.getFullYear() - date.getFullYear();
-    if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) {
-      age--;
-    }
-    return age;
-  }
+    <div class="report-title">SECOND TERM STUDENT'S PERFORMANCE REPORT</div>
+<!-- Restyled profile card (replace the existing id-block/profile-card with this) -->
+<!-- Redesigned student profile block: profile pic centered, restyled structure, age under general details, email under stat table -->
+<div class="id-block no-break modern-profile-card" role="region" aria-label="Student profile summary" style="max-width:820px;margin:14px auto 10px auto;padding:18px 20px 16px 20px;background:#fafdff;border-radius:11px;box-shadow:0 2px 9px rgba(38,80,120,0.06);border:1.5px solid #e2e9f0;">
+  <div style="display:grid;grid-template-columns:1fr 180px 1fr;align-items:center;gap:20px;">
+    <!-- Left: General Info -->
+    <div style="padding:0 2px 0 0;">
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <tr>
+          <td style="font-weight:700;width:70px;color:#3f5473;">Full Name:</td>
+          <td>EZE, Chikaodili Nkechi</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Admission No:</td>
+          <td>04/1643</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Class:</td>
+          <td>JSS 2A</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Session:</td>
+          <td>2022 / 2023</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">D.O.B.:</td>
+          <td>02-Feb-2004</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Age:</td>
+          <td>
+            19
+            <!-- Optionally, you could calculate this age dynamically with JavaScript if date changes -->
+          </td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Sex:</td>
+          <td>Female</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">House:</td>
+          <td>Femi Awoniyi</td>
+        </tr>
+      </table>
+    </div>
 
-  // Helper to get grade remark for a total score
-  function getGradeRemark(total) {
-    if (total >= 70) return "Excellent";
-    if (total >= 60) return "Very Good";
-    if (total >= 50) return "Good";
-    if (total >= 45) return "Pass";
-    if (total >= 40) return "Poor";
-    return "Fail";
-  }
+    <!-- Center: Profile Photo -->
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <img class="pc-photo" src="../avatar.jpg" alt="Student photo" style="width:112px;height:112px;border-radius:8px;border:2.5px solid #d9ddea;box-shadow:0 2.5px 18px rgba(46,50,80,0.13);background:#eef0f7;object-fit:cover;margin-bottom:10px;">
+      <!-- Caption or label if desired
+      <span style="display:block;margin-top:4px;font-size:10px;color:#767885;">Student</span>
+      -->
+    </div>
 
-  function fillReport() {
-    const dataStr = sessionStorage.getItem("reportData");
-    if (!dataStr) return;
-    const data = JSON.parse(dataStr);
-
-    // Set term & session
-    if (data.term && data.session) {
-      document.getElementById("termTitle").innerText = `${data.term}, ${data.session} (END OF TERM REPORT)`;
-    }
-
-    // Student name & info
-    let studentPhoto = "";
-    if (data.student) {
-      let name = "";
-      if (data.student.firstname || data.student.surname || data.student.othernames) {
-        name = [data.student.firstname, data.student.othernames, data.student.surname].filter(Boolean).join(" ");
-      } else if (data.student.name) {
-        name = data.student.name;
-      }
-      document.getElementById("stuName").innerText = name;
-      document.getElementById("stuRegNo").innerText = data.student.regNo || data.regNo || "";
-      document.getElementById("stuGender").innerText = data.student.gender || "";
-      let dobVal = data.student.dob || data.student.DOB || "";
-      document.getElementById("stuDOB").innerText = formatDate(dobVal);
-      let ageVal = data.student.age || calcAge(dobVal);
-      document.getElementById("stuAge").innerText = ageVal ? ageVal : "";
-      document.getElementById("stuEmail").innerText = data.student.studentEmail || data.student.email || data.student.parentEmail || "";
-      document.getElementById("stuClass").innerText = (data.class || "") + (data.student.classArm ? " - " + data.student.classArm : "");
-      if (data.student.photoBase64) {
-        studentPhoto = data.student.photoBase64;
-      }
-    } else {
-      document.getElementById("stuRegNo").innerText = data.regNo || "";
-      document.getElementById("stuClass").innerText = data.class || "";
-    }
-    document.getElementById("stuPhoto").src = studentPhoto || "images/default-avatar.png";
-    document.getElementById("stuPhoto").alt = studentPhoto ? "Student Photo" : "No Photo";
-
-    // Class size
-    document.getElementById("classSize").innerText = data.classSize || "";
-
-    // Number of subjects
-    let numSubjects = Array.isArray(data.results) ? data.results.length : "";
-    document.getElementById("numSubjects").innerText = numSubjects;
-
-    // Principal's comment, name, next term date
-    if (data.principalComment) document.getElementById("principalComment").innerText = data.principalComment;
-    if (data.principalName) document.getElementById("principalName").innerText = data.principalName;
-    if (data.nextTermDate) document.getElementById("nextTermDate").innerText = data.nextTermDate;
-
-    // Results table
-    const tbody = document.querySelector("#resultsTable tbody");
-    let totalScore = 0;
-    let totalGradePoints = 0;
-    let subjectCount = 0;
-    const maxPerSubject = 100;
-
-    if (tbody && Array.isArray(data.results)) {
-      tbody.innerHTML = data.results.map(res => {
-        let subjectName = "";
-        if (res.subject && typeof res.subject === "object" && res.subject.name) {
-          subjectName = res.subject.name;
-        } else if (typeof res.subject === "string") {
-          subjectName = res.subject;
-        } else if (res.subject_name) {
-          subjectName = res.subject_name;
-        }
-        const ca1 = parseFloat(res.ca1_score || 0);
-        const ca2 = parseFloat(res.ca2_score || 0);
-        const mid = parseFloat(res.midterm_score || 0);
-        const exam = parseFloat(res.exam_score || 0);
-        const total = ca1 + ca2 + mid + exam;
-        let gradePoint = 0;
-        if (res.grade && res.grade.toUpperCase() === "F") {
-          gradePoint = 0;
-        } else if (typeof res.grade_point !== "undefined" && !isNaN(Number(res.grade_point))) {
-          gradePoint = Number(res.grade_point);
-        } else if (total >= 70) gradePoint = 5;
-        else if (total >= 60) gradePoint = 4;
-        else if (total >= 50) gradePoint = 3;
-        else if (total >= 45) gradePoint = 2;
-        else if (total >= 40) gradePoint = 1;
-        else gradePoint = 0;
-
-        totalScore += total;
-        totalGradePoints += gradePoint;
-        subjectCount++;
-
-        let teacherComment = "";
-        const remark = getGradeRemark(total);
-        if (remark === "Excellent") teacherComment = "Excellent performance!";
-        else if (remark === "Very Good") teacherComment = "Very good work!";
-        else if (remark === "Good") teacherComment = "Good effort!";
-        else if (remark === "Pass") teacherComment = "Passed. Needs improvement.";
-        else if (remark === "Poor") teacherComment = "Poor. More effort needed.";
-        else if (remark === "Fail") teacherComment = "Failed. Must work much harder!";
-        if (res.teacher_comment) teacherComment = res.teacher_comment;
-
-        return `
+    <!-- Right: Stats & Email -->
+    <div style="padding:0 0 0 2px;">
+      <section style="background:#f6fafe;border:1px solid #e2e8f6;border-radius:7px;padding:8px 12px 10px 12px;">
+        <div style="font-size:11px;font-weight:700;color:#23548a;text-align:center;letter-spacing:.1em;padding-bottom:3px;">SECOND TERM</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px 10px;margin-bottom:6px;">
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:8px 4px;text-align:center;">
+            <div style="font-size:15px;color:#1f375e;font-weight:900;">69.9%</div>
+            <div style="font-size:10px;color:#6ea041;font-weight:600;">Overall %</div>
+          </div>
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:8px 4px;text-align:center;">
+            <div style="font-size:15px;color:#1f375e;font-weight:900;">C4</div>
+            <div style="font-size:10px;color:#888;font-weight:600;">Grade</div>
+          </div>
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:6px 3px;text-align:center;">
+            <div style="font-size:12px;color:#1f375e;font-weight:800;">13th / 32</div>
+            <div style="font-size:9.7px;color:#66819a;font-weight:600;">Position</div>
+          </div>
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:6px 3px;text-align:center;">
+            <div style="font-size:12px;color:#1f375e;font-weight:800;">32</div>
+            <div style="font-size:9.7px;color:#66819a;font-weight:600;">Class Size</div>
+          </div>
+        </div>
+        <table style="width:100%;font-size:10.4px;">
           <tr>
-            <td>${subjectName}</td>
-            <td>${ca1 + ca2}</td>
-            <td>${mid}</td>
-            <td>${exam}</td>
-            <td>${res.total !== undefined ? res.total : total}</td>
-            <td>${res.grade || ""}</td>
-            <td class="subject-pos-col">${res.subject_position || ""}</td>
-            <td class="grade-points-col">${gradePoint}</td>
-            <td class="teacher-remark-col">${teacherComment}</td>
+            <td style="font-weight:700;color:#27608a;width:44px;">Email:</td>
+            <td><a href="mailto:ctagosexample@gmail.com" style="color:#265095;text-decoration:underline;">ctagosexample@gmail.com</a></td>
           </tr>
-        `;
-      }).join('');
+        </table>
+      </section>
+    </div>
+  </div>
+</div>
+
+    <div class="content no-break">
+      <div class="main no-break">
+        <!-- Main result table with vertical column titles (reduced height for headers) -->
+        <table class="cog-table small no-break" aria-label="Cognitive domain table">
+          <thead>
+            <tr>
+              <th style="width:44%;">COGNITIVE DOMAIN / SUBJECTS</th>
+              <th style="width:6%;" class="vertical" scope="col" aria-label="40 marks">CA</th>
+              <th style="width:6%;" class="vertical" scope="col" aria-label="60 marks">EXAM</th>
+              <th style="width:7%;" class="vertical" scope="col" aria-label="Exam total">TERM TOTAL</th>
+              <th style="width:8%;" class="vertical" scope="col" aria-label="Term total">GRADE</th>
+              <th style="width:8%;" class="vertical" scope="col" aria-label="Grade">SUBJECT POSN</th>
+              <th style="width:6%;" class="vertical" scope="col" aria-label="Position">GRADE REMARK</th>
+              <th style="width:8%;" class="vertical" scope="col" aria-label="Class average">CLASS AVG</th>
+              <th style="width:7%;" class="vertical" scope="col" aria-label="First term score">1st TERM</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>AGRICULTURAL SCIENCE</td><td class="tc">37</td><td class="tc">47</td><td class="tc">84</td><td class="tc">B2</td><td class="tc">2nd</td><td class="tc">VERY GOOD</td><td class="tc">72.5</td><td class="tc">85</td></tr>
+            <tr><td>BASIC SCIENCE</td><td class="tc">34</td><td class="tc">34</td><td class="tc">68</td><td class="tc">C4</td><td class="tc">17th</td><td class="tc">CREDIT</td><td class="tc">68.9</td><td class="tc">70</td></tr>
+            <tr><td>BASIC TECHNOLOGY</td><td class="tc">32</td><td class="tc">39</td><td class="tc">71</td><td class="tc">C3</td><td class="tc">20th</td><td class="tc">GOOD</td><td class="tc">70.8</td><td class="tc">72</td></tr>
+            <tr><td>CIVIC EDUCATION</td><td class="tc">35</td><td class="tc">42</td><td class="tc">77</td><td class="tc">B2</td><td class="tc">11th</td><td class="tc">VERY GOOD</td><td class="tc">72.3</td><td class="tc">78</td></tr>
+
+            <tr><td>ENGLISH STUDIES</td><td class="tc">19</td><td class="tc">49</td><td class="tc">68</td><td class="tc">C4</td><td class="tc">14th</td><td class="tc">CREDIT</td><td class="tc">66.6</td><td class="tc">69</td></tr>
+            <tr><td>FRENCH</td><td class="tc">28</td><td class="tc">43</td><td class="tc">71</td><td class="tc">B3</td><td class="tc">16th</td><td class="tc">GOOD</td><td class="tc">68.3</td><td class="tc">74</td></tr>
+            <tr><td>HOME ECONOMICS</td><td class="tc">26</td><td class="tc">29</td><td class="tc">55</td><td class="tc">C6</td><td class="tc">30th</td><td class="tc">CREDIT</td><td class="tc">68.4</td><td class="tc">60</td></tr>
+            <tr><td>INFO. &amp; COMM. TECHNOLOGY</td><td class="tc">27</td><td class="tc">53</td><td class="tc">80</td><td class="tc">B2</td><td class="tc">6th</td><td class="tc">VERY GOOD</td><td class="tc">71.2</td><td class="tc">82</td></tr>
+
+            <tr><td>PHONICS</td><td class="tc">30</td><td class="tc">31</td><td class="tc">61</td><td class="tc">C5</td><td class="tc">29th</td><td class="tc">CREDIT</td><td class="tc">72.9</td><td class="tc">65</td></tr>
+            <tr><td>PHYSICAL &amp; HEALTH EDUCATION</td><td class="tc">24</td><td class="tc">56</td><td class="tc">80</td><td class="tc">B2</td><td class="tc">5th</td><td class="tc">VERY GOOD</td><td class="tc">74.1</td><td class="tc">78</td></tr>
+            <tr><td>RELIGIOUS STUDIES</td><td class="tc">27</td><td class="tc">35</td><td class="tc">62</td><td class="tc">C5</td><td class="tc">21st</td><td class="tc">CREDIT</td><td class="tc">68.7</td><td class="tc">70</td></tr>
+            <tr><td>SECURITY EDUCATION</td><td class="tc">27</td><td class="tc">41</td><td class="tc">68</td><td class="tc">C4</td><td class="tc">22nd</td><td class="tc">CREDIT</td><td class="tc">72.3</td><td class="tc">71</td></tr>
+
+            <tr><td>MATHEMATICS</td><td class="tc">31</td><td class="tc">40</td><td class="tc">71</td><td class="tc">B3</td><td class="tc">16th</td><td class="tc">GOOD</td><td class="tc">71.0</td><td class="tc">73</td></tr>
+            <tr><td>CULTURAL &amp; CREATIVE ARTS</td><td class="tc">32</td><td class="tc">51</td><td class="tc">83</td><td class="tc">B2</td><td class="tc">2nd</td><td class="tc">VERY GOOD</td><td class="tc">75.3</td><td class="tc">85</td></tr>
+            <tr><td>MUSIC</td><td class="tc">26</td><td class="tc">29</td><td class="tc">55</td><td class="tc">C6</td><td class="tc">26th</td><td class="tc">CREDIT</td><td class="tc">66.5</td><td class="tc">60</td></tr>
+            <tr><td>SOCIAL STUDIES</td><td class="tc">30</td><td class="tc">30</td><td class="tc">60</td><td class="tc">C5</td><td class="tc">24th</td><td class="tc">CREDIT</td><td class="tc">68.5</td><td class="tc">68</td></tr>
+
+            <tr><td>YORUBA LANGUAGE</td><td class="tc">27</td><td class="tc">47</td><td class="tc">74</td><td class="tc">B3</td><td class="tc">12th</td><td class="tc">GOOD</td><td class="tc">70.8</td><td class="tc">76</td></tr>
+          </tbody>
+        </table>
+
+        <!-- Performance summary moved directly under the main results table (inline) -->
+        <div class="perf-inline no-break" aria-label="Performance Summary and Grade Analysis inline">
+          <div class="summary">
+            <div style="font-weight:700; margin-bottom:6px;">PERFORMANCE SUMMARY</div>
+            <table style="width:100%; font-size:9px; border-collapse:collapse;">
+              <tr><td>Total Obtained:</td><td class="tr" style="font-weight:700;">1188.0</td></tr>
+              <tr><td>Total Obtainable:</td><td class="tr">1700</td></tr>
+              <tr><td>Total Subjects:</td><td class="tr">17</td></tr>
+              <tr><td>%TAGE:</td><td class="tr" style="font-weight:700;">69.88%</td></tr>
+              <tr><td>GRADE:</td><td class="tr" style="font-weight:700;">C4</td></tr>
+              <tr><td>Position:</td><td class="tr">13th of 32 - CREDIT</td></tr>
+            </table>
+          </div>
+
+          <div class="analysis">
+            <div style="font-weight:700; margin-bottom:6px;">Grade Analysis</div>
+            <table style="width:100%; font-size:9px; border-collapse:collapse;">
+              <tr><td class="tc" style="border:1px solid #000;">A1</td><td class="tc" style="border:1px solid #000;">B2</td><td class="tc" style="border:1px solid #000;">B3</td><td class="tc" style="border:1px solid #000;">C4</td></tr>
+              <tr class="tc"><td style="border:1px solid #000;">0</td><td style="border:1px solid #000;">5</td><td style="border:1px solid #000;">4</td><td style="border:1px solid #000;">3</td></tr>
+            </table>
+
+            <div style="margin-top:6px; font-size:8.5px;">
+              <strong>Rating Indices</strong>
+              <div style="margin-top:4px;">
+                1 - Excellent<br>2 - High level<br>3 - Acceptable<br>4 - Minimal regard<br>5 - No regard
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side column with Affective, Psychomotor, Attendance & Grade Scale -->
+      <div class="side no-break">
+        <div class="box no-break">
+          <h4>AFFECTIVE DOMAIN</h4>
+          <table class="aff-table small" aria-label="Affective domain">
+            <tr style="background:#f0f0f0"><th style="text-align:left">Attributes</th><th class="tc">5</th><th class="tc">4</th><th class="tc">3</th><th class="tc">2</th><th class="tc">1</th></tr>
+            <tr><td>Attentiveness</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Honesty</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Neatness</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Politeness</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Punctuality / Assembly</td><td></td><td class="tc">✓</td><td></td><td></td><td></td></tr>
+            <tr><td>Self Control / Calmness</td><td></td><td></td><td class="tc">✓</td><td></td><td></td></tr>
+          </table>
+        </div>
+
+        <div class="box no-break">
+          <h4>PSYCHOMOTOR - SKILL</h4>
+          <table class="psych-table small" aria-label="Psychomotor">
+            <tr><th style="text-align:left">Skill</th><th class="tc">5</th><th class="tc">4</th><th class="tc">3</th><th class="tc">2</th><th class="tc">1</th></tr>
+            <tr><td>Handling Of Tools</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Drawing/ Painting</td><td></td><td class="tc">✓</td><td></td><td></td><td></td></tr>
+            <tr><td>Handwriting</td><td></td><td></td><td class="tc">✓</td><td></td><td></td></tr>
+            <tr><td>Public Speaking</td><td></td><td></td><td class="tc">✓</td><td></td><td></td></tr>
+            <tr><td>Speech Fluency</td><td></td><td class="tc">✓</td><td></td><td></td><td></td></tr>
+          </table>
+        </div>
+
+        <div class="box no-break" style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h4>ATTENDANCE SUMMARY</h4>
+            <table class="att-table small">
+              <tr><th style="text-align:left">Times School Opened</th><td class="tr">140</td></tr>
+              <tr><th style="text-align:left">No of Times Present</th><td class="tr">126 (90.0%)</td></tr>
+              <tr><th style="text-align:left">No of Times Absent</th><td class="tr">14</td></tr>
+            </table>
+          </div>
+
+          <div style="margin-top:6px;">
+            <h4 style="margin-top:8px;">GRADE SCALE</h4>
+            <table class="grade-scale small">
+              <tr><td style="width:26%">A1</td><td>85-100% EXCELLENT</td></tr>
+              <tr><td>B2</td><td>75-84.9% VERY GOOD</td></tr>
+              <tr><td>B3</td><td>70-74.9% GOOD</td></tr>
+              <tr><td>C4</td><td>65-69.9% CREDIT</td></tr>
+              <tr><td>C5</td><td>60-64.9% CREDIT</td></tr>
+              <tr><td>C6</td><td>50-59.9% CREDIT</td></tr>
+              <tr><td>D7</td><td>45-49.9% PASS</td></tr>
+              <tr><td>E8</td><td>40-44.9% PASS</td></tr>
+              <tr><td>F9</td><td>0-39.9% FAIL</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: remarks and signatures span the page width -->
+<div class="bottom no-break" style="margin-top:8px;">
+  <div class="remarks no-break" role="region" aria-label="Remarks and signatures">
+    <div class="remarks-grid" role="group" aria-label="Teacher and principal remarks">
+      <div class="remark-card" aria-labelledby="class-teacher-remark">
+        <div id="class-teacher-remark" class="remark-title">Class Teacher's Remark</div>
+        <div class="remark-text">Has shown excellent ability to set goals and be persistent in achieving them. Well done — keep the momentum up.</div>
+      </div>
+      <div class="remark-card" aria-labelledby="principal-remark">
+        <div id="principal-remark" class="remark-title">Principal's Remark</div>
+        <div class="remark-text">A bright performance. Overall average — greater focus on study and consistent effort required to improve.</div>
+      </div>
+    </div>
+
+    <div class="signature-row" role="group" aria-label="Signatures and next term">
+      <div class="signature-block" aria-hidden="false">
+        <div class="sig-wrapper">
+          <div class="sign-line" aria-hidden="true"></div>
+          <div class="sign-name">MR ADIGUN TIMILEYIN</div>
+          <div class="sign-role">Class Teacher</div>
+        </div>
+        <div class="sig-wrapper">
+          <div class="sign-line" aria-hidden="true"></div>
+          <div class="sign-name">MR OWOLABI BADMOS</div>
+          <div class="sign-role">Principal</div>
+        </div>
+      </div>
+      <div class="next-term" aria-label="Next term information">
+        <div class="nt-label">Next Term Begins</div>
+        <div class="nt-date">Mon, 24 April 2023</div>
+        <div style="margin-top:6px;" class="nt-label">Date Issued: 7 April 2023</div>
+      </div>
+    </div>
+    
+    <!-- Seal at the bottom, inside remarks -->
+    <img src="seal.jpg" alt="Official Seal" class="seal-image" />
+
+    <!-- Place STAMP image here, inside .remarks, after signature-row and seal -->
+    <img src="sttmp1.png" alt="Official Stamp" class="stamp-image" />
+  </div>
+</div>
+  
+<style>
+/* Reserve space so content doesn't overlap the seal */
+.bottom {
+  position: relative;
+}
+.remarks {
+  position: relative;
+}
+
+.stamp-image {
+  position: absolute;
+  right: 50px;         /* Overlaps next-term area */
+  bottom: 14px;        /* Up from bottom */
+  width: 120px;        /* Larger stamp */
+  height: auto;
+  opacity: 0.83;
+  transform: rotate(-16deg);
+  z-index: 11;
+  pointer-events: none;
+}
+.remarks .seal-image {
+  display: block;
+  margin: 20px auto 0 auto;
+  width: 60px;
+  height: 60px;
+  opacity: 0.98;
+}
+</style>
+    <div class="footer no-break">
+      <div>Powered by ChekMate Software v1.17</div>
+      <div style="font-size:8.5px;">CHRIST IS THE ANSWER GROUP OF SCHOOLS</div>
+    </div>
+  </div>
+    
+</body>
+</html><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Student Performance Report — Performance Summary Inline</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* A4 portrait with tight margins */
+    @page { size: A4 portrait; margin: 6mm; }
+    html,body {
+      height: 297mm;
+      width: 210mm;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      box-sizing: border-box;
+      font-family: "Arial", "Helvetica", sans-serif;
+      background: #fff;
+      color: #000;
+      font-size: 9.2px;
+      line-height: 1.03;
     }
 
-    const maxTotal = subjectCount * maxPerSubject;
-    const avgScore = subjectCount > 0 ? (totalScore / subjectCount) : 0;
-    const gpa = subjectCount > 0 ? (totalGradePoints / subjectCount) : 0;
+    .sheet {
+      width: calc(210mm - 12mm);
+      min-height: calc(297mm - 12mm);
+      margin: 6mm;
+      padding: 6px;
+      box-sizing: border-box;
+    }
+.sheet {
+  position: relative; /* Enable absolute positioning within */
+  overflow: hidden;   /* Hide any overflow from watermark */
+}
 
-    let perfGrade = "";
-    if (avgScore >= 70) perfGrade = "A (Excellent)";
-    else if (avgScore >= 60) perfGrade = "B (Very Good)";
-    else if (avgScore >= 50) perfGrade = "C (Good)";
-    else if (avgScore >= 45) perfGrade = "D (Pass)";
-    else if (avgScore >= 40) perfGrade = "E (Poor)";
-    else perfGrade = "F (Fail)";
+.watermark-img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 65%;
+  max-width: 580px;
+  min-width: 240px;
+  opacity: 0.08;                /* See-through */
+  filter: blur(1.7px);          /* Make it blurry */
+  transform: translate(-50%, -50%) scale(1.1);  /* Center and large */
+  pointer-events: none;         /* Not clickable/selectable */
+  user-select: none;
+  z-index: 0;                   /* Behind report content */
+}
+    .header {
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      border-bottom:2px solid #000;
+      padding-bottom:6px;
+    }
+    .logo { width:66px; height:66px; flex:0 0 56px; border-radius:50%; border:2px solid #6f8f2e; background:#f7f7f3 center/cover no-repeat; }
+    .header-center { flex:1; text-align:center; padding-top:2px; }
+    .school-name { font-family:"Georgia","Times New Roman",serif; font-size:13px; font-weight:800; color:#092739; }
+    .motto { font-size:8.5px; font-weight:700; margin-top:2px; }
+    .school-contact { font-size:8px; margin-top:3px; }
+    .photo { width:72px; height:96px; flex:0 0 72px; border:1px solid #333; background:#eee center/cover no-repeat; }
 
-    let gpaRemark = "";
-    if (gpa >= 4.5) gpaRemark = "Excellent";
-    else if (gpa >= 3.5) gpaRemark = "Very Good";
-    else if (gpa >= 2.5) gpaRemark = "Good";
-    else if (gpa >= 1.5) gpaRemark = "Pass";
-    else if (gpa > 0) gpaRemark = "Poor";
-    else gpaRemark = "Fail";
+    .report-title { text-align:center; font-weight:700; font-size:11px; margin:6px 0; }
 
-    document.getElementById("stuTotalScore").innerText = `${totalScore} / ${maxTotal}`;
-    document.getElementById("stuAverage").innerText = `${avgScore.toFixed(2)}%`;
-    document.getElementById("stuGPA").innerText = gpa.toFixed(2);
-    document.getElementById("perfGrade").innerText = perfGrade;
-    document.getElementById("resultSummary").innerText = gpaRemark;
+    .id-row { display:flex; gap:6px; margin-bottom:3px; }
+    .id-row b { width:86px; display:inline-block; font-size:9px; }
 
-    // Show/hide report sections according to preferences
-    // Columns in results table
-    if (reportPreferences && reportPreferences.showTeacherRemark === false) {
-      document.querySelectorAll('.teacher-remark-col').forEach(el => el.classList.add('hidden'));
-      document.querySelectorAll('#resultsTable th.teacher-remark-col').forEach(el => el.classList.add('hidden'));
+    /* Content area: main table and side column (affective + psychomotor) */
+    .content { display:flex; gap:6px; align-items:flex-start; }
+    .main {
+      flex:1 1 auto;
+      border:1.5px solid #000;
+      padding:4px;
+      box-sizing:border-box;
+      font-size:9px;
     }
-    if (reportPreferences && reportPreferences.showSubjectPosition === false) {
-      document.querySelectorAll('.subject-pos-col').forEach(el => el.classList.add('hidden'));
-      document.querySelectorAll('#resultsTable th.subject-pos-col').forEach(el => el.classList.add('hidden'));
-    }
-    if (reportPreferences && reportPreferences.showGradePoints === false) {
-      document.querySelectorAll('.grade-points-col').forEach(el => el.classList.add('hidden'));
-      document.querySelectorAll('#resultsTable th.grade-points-col').forEach(el => el.classList.add('hidden'));
-    }
-    // GPA Row
-    if (reportPreferences && reportPreferences.showGPA === false) {
-      document.getElementById("gpaCell").classList.add("hidden");
-    }
-    // Result summary row
-    if (reportPreferences && reportPreferences.showResultSummary === false) {
-      document.getElementById("summaryCell").classList.add("hidden");
-    }
-    // Skills tables
-    if (reportPreferences && reportPreferences.showAffectiveSkills === false) {
-      document.getElementById("affectiveSkillsTable").classList.add("hidden");
-    }
-    if (reportPreferences && reportPreferences.showPsychomotorSkills === false) {
-      document.getElementById("psychomotorSkillsTable").classList.add("hidden");
-    }
-    // Attendance table
-    if (reportPreferences && reportPreferences.showAttendance === false) {
-      document.getElementById("attendanceTable").classList.add("hidden");
-    }
-    // Principal's comment section
-    if (reportPreferences && reportPreferences.showPrincipalComment === false) {
-      document.querySelector(".comments-section").classList.add("hidden");
-    }
-if (reportPreferences && reportPreferences.showStudentEmail === false) {
-  document.getElementById("stuEmail").parentElement.classList.add("hidden");
-  }
-    if (reportPreferences && reportPreferences.showStudentAge === false) {
-  document.getElementById("stuAge").parentElement.classList.add("hidden");
-  }
-    if (reportPreferences && reportPreferences.showClassSize === false) {
-  document.getElementById("classSize").parentElement.classList.add("hidden");
-  }
-    if (reportPreferences && reportPreferences.showStudentPhoto === false) {
-  document.getElementById("stuPhoto").classList.add("hidden");
-  }
-    // Fill skills tables if available
-    if (data.affectiveSkills && Array.isArray(data.affectiveSkills)) {
-      const rows = data.affectiveSkills.map(sk => `<tr><td>${sk.name}</td><td>${sk.score}</td></tr>`).join('');
-      document.querySelector("#affectiveSkillsTable tbody").innerHTML = rows;
-    }
-    if (data.psychomotorSkills && Array.isArray(data.psychomotorSkills)) {
-      const rows = data.psychomotorSkills.map(sk => `<tr><td>${sk.name}</td><td>${sk.score}</td></tr>`).join('');
-      document.querySelector("#psychomotorSkillsTable tbody").innerHTML = rows;
-    }
-    // Attendance table (show summary only, no duplication)
-    if (data.attendance && Array.isArray(data.attendance)) {
-      let presentDays = 0, absentDays = 0;
-      data.attendance.forEach(a => {
-        let labelLower = a.label ? a.label.toLowerCase() : "";
-        if (labelLower.includes("present")) presentDays = Number(a.value) || presentDays;
-        if (labelLower.includes("absent")) absentDays = Number(a.value) || absentDays;
-        if (typeof a.present === "number") presentDays = a.present;
-        if (typeof a.absent === "number") absentDays = a.absent;
-      });
-      if (data.attendance.length === 1 && typeof data.attendance[0] === "object") {
-        const att = data.attendance[0];
-        presentDays = att.present || presentDays;
-        absentDays = att.absent || absentDays;
-      }
-      let totalDays = presentDays + absentDays;
-      let attendanceRows = "";
-      attendanceRows += `<tr><td><b>No. of School Days</b></td><td>${totalDays || ""}</td></tr>`;
-      attendanceRows += `<tr><td><b>Days Present</b></td><td>${presentDays || ""}</td></tr>`;
-      attendanceRows += `<tr><td><b>Days Absent</b></td><td>${absentDays || ""}</td></tr>`;
-      if (totalDays > 0 && presentDays > 0) {
-        const pct = ((presentDays / totalDays) * 100).toFixed(2);
-        attendanceRows += `<tr><td><b>Attendance (%)</b></td><td>${pct}%</td></tr>`;
-      }
-      document.querySelector("#attendanceTable tbody").innerHTML = attendanceRows;
+    .side {
+      width:240px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      box-sizing:border-box;
     }
 
-    document.getElementById("printDate").innerText = getFormattedPrintDate();
-  }
+    /* Cognitive table */
+    .cog-table { width:100%; border-collapse:collapse; font-size:9px; }
+    .cog-table th, .cog-table td { border:1px solid #000; padding:3px 4px; vertical-align:middle; }
+    .cog-table thead th { background:#7b9e34; color:#fff; font-weight:700; font-size:9px; text-align:center; }
+    .cog-subject { background:#e9f0d6; font-weight:700; }
 
-  async function downloadPDF() {
-    const reportDom = document.getElementById('reportCardDom');
-    document.querySelector('.no-print-btn').style.visibility = 'hidden';
-    await new Promise(r => setTimeout(r, 250));
-    html2canvas(reportDom, {scale:2, useCORS:true, backgroundColor: "#fff"}).then(canvas => {
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new window.jspdf.jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [297, 210]
-      });
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const imgOriginalWidth = canvas.width;
-      const imgOriginalHeight = canvas.height;
-      const scale = Math.min(pageWidth / imgOriginalWidth, pageHeight / imgOriginalHeight);
-      const imgWidth = imgOriginalWidth * scale;
-      const imgHeight = imgOriginalHeight * scale;
-      const xOffset = (pageWidth - imgWidth) / 2;
-      const yOffset = (pageHeight - imgHeight) / 2;
-      pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
-      pdf.save('ReportCard.pdf');
-      document.querySelector('.no-print-btn').style.visibility = 'visible';
-    }).catch(e=>{
-      alert("Could not generate PDF: " + e.message);
-      document.querySelector('.no-print-btn').style.visibility = 'visible';
-    });
-  }
-  window.onbeforeprint = () => {
-  alert("For best results, select 'A4' paper size and set margins to 'None' in your print dialog.");
-};
-</script>
+    .tc { text-align:center; }
+    .tr { text-align:right; }
+
+    /* Vertical headers for numeric/performance columns (reduced height per request) */
+    .cog-table thead th.vertical {
+      padding: 6px 5px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg); /* keep numbers upright */
+      white-space: nowrap;
+      vertical-align: bottom;
+      height: 76px; /* reduced from original 110px */
+      font-size:9px;
+      line-height:1;
+    }
+    /* keep first column header normal */
+    .cog-table thead th:first-child { writing-mode: horizontal-tb; transform: none; text-align:left; padding-left:8px; }
+
+    /* Performance summary inline — placed immediately after the main results table with zero gap */
+    .perf-inline {
+      margin: 0; /* remove gap */
+      margin-top: 4px; /* tiny separation to visually separate but minimal */
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      width:100%;
+      box-sizing:border-box;
+    }
+    .perf-inline .summary {
+      flex:1;
+      border:1px solid #000;
+      padding:6px;
+      font-size:9px;
+      box-sizing:border-box;
+    }
+    .perf-inline .analysis {
+      width:200px;
+      border:1px solid #000;
+      padding:6px;
+      font-size:9px;
+      box-sizing:border-box;
+    }
+    /* make sure the inline block aligns closely under table */
+    .main .cog-table + .perf-inline { margin-top:4px; }
+
+    /* Side boxes */
+    .box { border:1px solid #222; padding:6px; background:#fafafa; box-sizing:border-box; font-size:9px; }
+    .box h4 { margin:0 0 6px 0; font-size:10px; background:#7e9f3a; color:#fff; padding:3px 6px; font-weight:700; }
+    .aff-table, .psych-table, .att-table, .grade-scale { width:100%; border-collapse:collapse; font-size:9px; }
+    .aff-table td, .aff-table th, .psych-table td, .psych-table th, .att-table td, .att-table th, .grade-scale td, .grade-scale th { border:1px solid #000; padding:3px; }
+
+    /* Bottom remarks and signatures (span full width) */
+    .bottom { margin-top:6px; display:flex; gap:6px; align-items:flex-start; }
+    .remarks { flex:1; border:1.5px solid #000; padding:6px; font-size:9px; box-sizing:border-box; }
+    .remarks .remark-row { display:flex; gap:6px; margin-bottom:6px; }
+    .sign-line { border-top:1px solid #000; width:55%; margin-top:8px; font-size:9px; padding-top:3px; }
+
+    .footer { margin-top:6px; font-size:8.5px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #bbb; padding-top:6px; }
+
+    /* Avoid page-break inside critical blocks */
+    .no-break { page-break-inside: avoid; }
+
+    /* Tight helpers */
+    table.small td, table.small th { padding:2px 3px; font-size:8.5px; }
+    .cog-table tbody tr td:first-child { white-space:normal; } /* allow subject name wrap */
+
+    .profile-card {
+      display: grid;
+      grid-template-columns: 1fr 110px 240px; /* left details | photo | right stats */
+      gap: 14px;
+      align-items: stretch; /* ensure equal height */
+      padding: 10px;
+      border: 1px solid #dde6ef;
+      background: linear-gradient(180deg,#ffffff,#fbfdff);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(13,38,63,0.04);
+      box-sizing: border-box;
+    }
+
+    /* left details column */
+    .pc-left-details {
+      display: flex;
+      flex-direction: column;
+      justify-content: center; /* vertically center contents to match right column */
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .pc-left-details .pc-name {
+      margin: 0;
+      font-family: "Georgia", serif;
+      font-size: 13px;
+      color: #062c48;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .pc-left-details .pc-details {
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      column-gap: 10px;
+      row-gap: 6px;
+    }
+    .pc-left-details .pc-details dt {
+      margin: 0;
+      font-size: 8.8px;
+      font-weight: 700;
+      color: #3f5666;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .pc-left-details .pc-details dd {
+      margin: 0;
+      font-size: 10px;
+      font-weight: 600;
+      color: #0b2a3a;
+    }
+
+    /* center: passport photo (centered between two columns) */
+    .pc-photo-wrap {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .pc-photo {
+      width:88px;
+      height:88px;
+      border-radius:6px;
+      background: #f0f2f6 center/cover no-repeat;
+      border:2px solid #e1e8f2;
+      box-shadow: 0 1px 2px rgba(11,42,60,0.04);
+    }
+
+    /* right: performance & contact - ensure it stretches to match left height */
+    .pc-right {
+      display:flex;
+      flex-direction:column;
+      justify-content: center; /* centers content vertically so left and right align */
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .pc-term {
+      background: linear-gradient(180deg,#3b82c4,#1e5790);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: 0.6px;
+      box-shadow: 0 2px 5px rgba(30,78,140,0.12);
+      width: 100%;
+      text-align:center;
+      align-self:center;
+    }
+
+    .pc-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      width: 100%;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid #e6eef6;
+      padding: 6px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stat.small { padding: 5px; font-size: 9px; }
+    .stat-value { font-weight: 800; font-size: 11px; color: #062a44; }
+    .stat-label { font-size: 8.5px; color: #617787; margin-top: 4px; }
+
+    .pc-staff, .pc-guardian {
+      width: 100%;
+      text-align: right;
+      border-top: 1px dashed #eef4fb;
+      padding-top: 8px;
+    }
+    .pc-staff .label, .pc-guardian .label {
+      font-size: 8.5px;
+      color: #6b7f8f;
+      text-transform:uppercase;
+      font-weight:700;
+    }
+    .pc-staff .value, .pc-guardian .value {
+      font-size: 10px;
+      font-weight:700;
+      color: #0b2a3a;
+    }
+
+    /* Modernized remarks / signatures styling (print-friendly) */
+    .remarks {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 9px;
+    }
+
+    .remarks-grid {
+      display: flex;
+      gap: 12px;
+      align-items:stretch;
+      width: 100%;
+    }
+
+    .remark-card {
+      flex: 1;
+      border: 1px solid #e3e6e8;
+      padding: 10px;
+      border-radius: 6px;
+      background: #ffffff;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+      box-sizing: border-box;
+      min-height: 78px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .remark-title {
+      font-weight: 700;
+      font-size: 10px;
+      color: #0f2a37;
+      margin-bottom: 6px;
+      letter-spacing: 0.1px;
+    }
+
+    .remark-text {
+      background: #fbfbfb;
+      border: 1px solid #f0f0f0;
+      padding: 8px;
+      border-radius: 4px;
+      color: #111;
+      line-height: 1.24;
+      flex: 1;
+      font-size: 9px;
+    }
+
+    .signature-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      margin-top: 6px;
+      width: 100%;
+    }
+
+    .signature-block {
+      display: flex;
+      gap: 18px;
+      align-items: flex-end;
+    }
+
+    .sig-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .sign-line {
+      width: 220px;
+      border-top: 1px solid #111;
+      height: 0;
+    }
+
+    .sign-name {
+      font-size: 9px;
+      margin-top: 3px;
+      color: #222;
+      font-weight: 700;
+    }
+
+    .sign-role {
+      font-size: 8.5px;
+      color: #666;
+    }
+
+    .next-term {
+      text-align: right;
+      font-size: 9px;
+      color: #111;
+      min-width: 180px;
+    }
+
+    .next-term .nt-label {
+      color: #666;
+      font-size: 8.5px;
+    }
+
+    .next-term .nt-date {
+      font-weight: 700;
+      margin-top: 4px;
+      font-size: 10px;
+    }
+
+    /* Preserve print behavior */
+    .no-break { page-break-inside: avoid; }
+
+    /* Print-friendly tweaks */
+    @media print {
+      .profile-card { box-shadow: none; border: 1px solid #bbb; background: #fff; }
+      .pc-term { box-shadow: none; }
+      .cog-table thead th.vertical { height: 70px; } /* slightly reduce on print */
+    }
+
+    /* Responsive for very narrow widths (keeps layout robust) */
+    @media (max-width: 720px) {
+      .profile-card { grid-template-columns: 1fr 96px 200px; gap:10px; }
+      .pc-photo { width:72px; height:72px; }
+      .cog-table thead th.vertical { height: 70px; }
+    }
+
+    @media (max-width: 520px) {
+      .profile-card { display:block; }
+      .pc-left-details, .pc-right { width:100%; }
+      .pc-photo-wrap { margin: 10px 0; display:flex; justify-content:center; }
+      .cog-table thead th.vertical { height: 64px; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="sheet no-break">
+<img src="../logo.png" alt="Watermark" class="watermark-img"/>
+<div class="report-header" style="border-bottom:2px solid #557199; padding:6px 0 8px; display:grid; grid-template-columns:52px 1fr 52px; align-items:start; gap:6px; margin-bottom:10px; background:#fff;">
+  <!-- Left crest/logo -->
+  <div style="display:flex; justify-content:flex-start; align-items:flex-start;">
+    <img src="arm.jpg" alt="School Logo Left" style="width:48px; height:48px; object-fit:contain; display:block;">
+  </div>
+
+  <!-- Center Info (larger, more compact) -->
+  <div style="text-align:center; padding-top:2px;">
+
+    <div class="school-name" style="font-family:'Georgia',serif; font-weight:900; font-size:17px; color:#072043; line-height:1.05;">
+      CHRIST IS THE ANSWER GROUP OF SCHOOLS
+    </div>
+
+    <div style="font-size:11px; font-weight:700; margin-top:4px; color:#2e4961;">
+      IDUMEGAN QUARTERS, EKPOMA, EDO STATE
+    </div>
+
+    <div style="font-size:10.5px; color:#2e4961; margin-top:4px;">
+      Tel: <a href="tel:+2348158339342" style="color:inherit; text-decoration:none;">0815 833 9342</a> &bull;
+      Email: <a href="mailto:admin@citagos.com" style="color:inherit; text-decoration:none;">admin@citagos.com</a>
+    </div>
+
+    <div class="motto" style="font-style:italic; font-size:11px; color:#7a772a; margin-top:4px;">
+      Motto: <strong>KNOWLEDGE IS FREEDOM</strong>
+    </div>
+  </div>
+
+  <!-- Right crest/logo -->
+  <div style="display:flex; justify-content:flex-end; align-items:flex-start;">
+    <img src="../logo.png" alt="School Logo Right" style="width:48px; height:48px; object-fit:contain; display:block;">
+  </div>
+</div>
+
+    <div class="report-title">SECOND TERM STUDENT'S PERFORMANCE REPORT</div>
+<!-- Restyled profile card (replace the existing id-block/profile-card with this) -->
+<!-- Redesigned student profile block: profile pic centered, restyled structure, age under general details, email under stat table -->
+<div class="id-block no-break modern-profile-card" role="region" aria-label="Student profile summary" style="max-width:820px;margin:14px auto 10px auto;padding:18px 20px 16px 20px;background:#fafdff;border-radius:11px;box-shadow:0 2px 9px rgba(38,80,120,0.06);border:1.5px solid #e2e9f0;">
+  <div style="display:grid;grid-template-columns:1fr 180px 1fr;align-items:center;gap:20px;">
+    <!-- Left: General Info -->
+    <div style="padding:0 2px 0 0;">
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <tr>
+          <td style="font-weight:700;width:70px;color:#3f5473;">Full Name:</td>
+          <td>EZE, Chikaodili Nkechi</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Admission No:</td>
+          <td>04/1643</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Class:</td>
+          <td>JSS 2A</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Session:</td>
+          <td>2022 / 2023</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">D.O.B.:</td>
+          <td>02-Feb-2004</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Age:</td>
+          <td>
+            19
+            <!-- Optionally, you could calculate this age dynamically with JavaScript if date changes -->
+          </td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Sex:</td>
+          <td>Female</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">House:</td>
+          <td>Femi Awoniyi</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Center: Profile Photo -->
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <img class="pc-photo" src="../avatar.jpg" alt="Student photo" style="width:112px;height:112px;border-radius:8px;border:2.5px solid #d9ddea;box-shadow:0 2.5px 18px rgba(46,50,80,0.13);background:#eef0f7;object-fit:cover;margin-bottom:10px;">
+      <!-- Caption or label if desired
+      <span style="display:block;margin-top:4px;font-size:10px;color:#767885;">Student</span>
+      -->
+    </div>
+
+    <!-- Right: Stats & Email -->
+    <div style="padding:0 0 0 2px;">
+      <section style="background:#f6fafe;border:1px solid #e2e8f6;border-radius:7px;padding:8px 12px 10px 12px;">
+        <div style="font-size:11px;font-weight:700;color:#23548a;text-align:center;letter-spacing:.1em;padding-bottom:3px;">SECOND TERM</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px 10px;margin-bottom:6px;">
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:8px 4px;text-align:center;">
+            <div style="font-size:15px;color:#1f375e;font-weight:900;">69.9%</div>
+            <div style="font-size:10px;color:#6ea041;font-weight:600;">Overall %</div>
+          </div>
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:8px 4px;text-align:center;">
+            <div style="font-size:15px;color:#1f375e;font-weight:900;">C4</div>
+            <div style="font-size:10px;color:#888;font-weight:600;">Grade</div>
+          </div>
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:6px 3px;text-align:center;">
+            <div style="font-size:12px;color:#1f375e;font-weight:800;">13th / 32</div>
+            <div style="font-size:9.7px;color:#66819a;font-weight:600;">Position</div>
+          </div>
+          <div style="background:#fff;border:1.2px solid #dde8f3;border-radius:6.5px;padding:6px 3px;text-align:center;">
+            <div style="font-size:12px;color:#1f375e;font-weight:800;">32</div>
+            <div style="font-size:9.7px;color:#66819a;font-weight:600;">Class Size</div>
+          </div>
+        </div>
+        <table style="width:100%;font-size:10.4px;">
+          <tr>
+            <td style="font-weight:700;color:#27608a;width:44px;">Email:</td>
+            <td><a href="mailto:ctagosexample@gmail.com" style="color:#265095;text-decoration:underline;">ctagosexample@gmail.com</a></td>
+          </tr>
+        </table>
+      </section>
+    </div>
+  </div>
+</div>
+
+    <div class="content no-break">
+      <div class="main no-break">
+        <!-- Main result table with vertical column titles (reduced height for headers) -->
+        <table class="cog-table small no-break" aria-label="Cognitive domain table">
+          <thead>
+            <tr>
+              <th style="width:44%;">COGNITIVE DOMAIN / SUBJECTS</th>
+              <th style="width:6%;" class="vertical" scope="col" aria-label="40 marks">CA</th>
+              <th style="width:6%;" class="vertical" scope="col" aria-label="60 marks">EXAM</th>
+              <th style="width:7%;" class="vertical" scope="col" aria-label="Exam total">TERM TOTAL</th>
+              <th style="width:8%;" class="vertical" scope="col" aria-label="Term total">GRADE</th>
+              <th style="width:8%;" class="vertical" scope="col" aria-label="Grade">SUBJECT POSN</th>
+              <th style="width:6%;" class="vertical" scope="col" aria-label="Position">GRADE REMARK</th>
+              <th style="width:8%;" class="vertical" scope="col" aria-label="Class average">CLASS AVG</th>
+              <th style="width:7%;" class="vertical" scope="col" aria-label="First term score">1st TERM</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>AGRICULTURAL SCIENCE</td><td class="tc">37</td><td class="tc">47</td><td class="tc">84</td><td class="tc">B2</td><td class="tc">2nd</td><td class="tc">VERY GOOD</td><td class="tc">72.5</td><td class="tc">85</td></tr>
+            <tr><td>BASIC SCIENCE</td><td class="tc">34</td><td class="tc">34</td><td class="tc">68</td><td class="tc">C4</td><td class="tc">17th</td><td class="tc">CREDIT</td><td class="tc">68.9</td><td class="tc">70</td></tr>
+            <tr><td>BASIC TECHNOLOGY</td><td class="tc">32</td><td class="tc">39</td><td class="tc">71</td><td class="tc">C3</td><td class="tc">20th</td><td class="tc">GOOD</td><td class="tc">70.8</td><td class="tc">72</td></tr>
+            <tr><td>CIVIC EDUCATION</td><td class="tc">35</td><td class="tc">42</td><td class="tc">77</td><td class="tc">B2</td><td class="tc">11th</td><td class="tc">VERY GOOD</td><td class="tc">72.3</td><td class="tc">78</td></tr>
+
+            <tr><td>ENGLISH STUDIES</td><td class="tc">19</td><td class="tc">49</td><td class="tc">68</td><td class="tc">C4</td><td class="tc">14th</td><td class="tc">CREDIT</td><td class="tc">66.6</td><td class="tc">69</td></tr>
+            <tr><td>FRENCH</td><td class="tc">28</td><td class="tc">43</td><td class="tc">71</td><td class="tc">B3</td><td class="tc">16th</td><td class="tc">GOOD</td><td class="tc">68.3</td><td class="tc">74</td></tr>
+            <tr><td>HOME ECONOMICS</td><td class="tc">26</td><td class="tc">29</td><td class="tc">55</td><td class="tc">C6</td><td class="tc">30th</td><td class="tc">CREDIT</td><td class="tc">68.4</td><td class="tc">60</td></tr>
+            <tr><td>INFO. &amp; COMM. TECHNOLOGY</td><td class="tc">27</td><td class="tc">53</td><td class="tc">80</td><td class="tc">B2</td><td class="tc">6th</td><td class="tc">VERY GOOD</td><td class="tc">71.2</td><td class="tc">82</td></tr>
+
+            <tr><td>PHONICS</td><td class="tc">30</td><td class="tc">31</td><td class="tc">61</td><td class="tc">C5</td><td class="tc">29th</td><td class="tc">CREDIT</td><td class="tc">72.9</td><td class="tc">65</td></tr>
+            <tr><td>PHYSICAL &amp; HEALTH EDUCATION</td><td class="tc">24</td><td class="tc">56</td><td class="tc">80</td><td class="tc">B2</td><td class="tc">5th</td><td class="tc">VERY GOOD</td><td class="tc">74.1</td><td class="tc">78</td></tr>
+            <tr><td>RELIGIOUS STUDIES</td><td class="tc">27</td><td class="tc">35</td><td class="tc">62</td><td class="tc">C5</td><td class="tc">21st</td><td class="tc">CREDIT</td><td class="tc">68.7</td><td class="tc">70</td></tr>
+            <tr><td>SECURITY EDUCATION</td><td class="tc">27</td><td class="tc">41</td><td class="tc">68</td><td class="tc">C4</td><td class="tc">22nd</td><td class="tc">CREDIT</td><td class="tc">72.3</td><td class="tc">71</td></tr>
+
+            <tr><td>MATHEMATICS</td><td class="tc">31</td><td class="tc">40</td><td class="tc">71</td><td class="tc">B3</td><td class="tc">16th</td><td class="tc">GOOD</td><td class="tc">71.0</td><td class="tc">73</td></tr>
+            <tr><td>CULTURAL &amp; CREATIVE ARTS</td><td class="tc">32</td><td class="tc">51</td><td class="tc">83</td><td class="tc">B2</td><td class="tc">2nd</td><td class="tc">VERY GOOD</td><td class="tc">75.3</td><td class="tc">85</td></tr>
+            <tr><td>MUSIC</td><td class="tc">26</td><td class="tc">29</td><td class="tc">55</td><td class="tc">C6</td><td class="tc">26th</td><td class="tc">CREDIT</td><td class="tc">66.5</td><td class="tc">60</td></tr>
+            <tr><td>SOCIAL STUDIES</td><td class="tc">30</td><td class="tc">30</td><td class="tc">60</td><td class="tc">C5</td><td class="tc">24th</td><td class="tc">CREDIT</td><td class="tc">68.5</td><td class="tc">68</td></tr>
+
+            <tr><td>YORUBA LANGUAGE</td><td class="tc">27</td><td class="tc">47</td><td class="tc">74</td><td class="tc">B3</td><td class="tc">12th</td><td class="tc">GOOD</td><td class="tc">70.8</td><td class="tc">76</td></tr>
+          </tbody>
+        </table>
+
+        <!-- Performance summary moved directly under the main results table (inline) -->
+        <div class="perf-inline no-break" aria-label="Performance Summary and Grade Analysis inline">
+          <div class="summary">
+            <div style="font-weight:700; margin-bottom:6px;">PERFORMANCE SUMMARY</div>
+            <table style="width:100%; font-size:9px; border-collapse:collapse;">
+              <tr><td>Total Obtained:</td><td class="tr" style="font-weight:700;">1188.0</td></tr>
+              <tr><td>Total Obtainable:</td><td class="tr">1700</td></tr>
+              <tr><td>Total Subjects:</td><td class="tr">17</td></tr>
+              <tr><td>%TAGE:</td><td class="tr" style="font-weight:700;">69.88%</td></tr>
+              <tr><td>GRADE:</td><td class="tr" style="font-weight:700;">C4</td></tr>
+              <tr><td>Position:</td><td class="tr">13th of 32 - CREDIT</td></tr>
+            </table>
+          </div>
+
+          <div class="analysis">
+            <div style="font-weight:700; margin-bottom:6px;">Grade Analysis</div>
+            <table style="width:100%; font-size:9px; border-collapse:collapse;">
+              <tr><td class="tc" style="border:1px solid #000;">A1</td><td class="tc" style="border:1px solid #000;">B2</td><td class="tc" style="border:1px solid #000;">B3</td><td class="tc" style="border:1px solid #000;">C4</td></tr>
+              <tr class="tc"><td style="border:1px solid #000;">0</td><td style="border:1px solid #000;">5</td><td style="border:1px solid #000;">4</td><td style="border:1px solid #000;">3</td></tr>
+            </table>
+
+            <div style="margin-top:6px; font-size:8.5px;">
+              <strong>Rating Indices</strong>
+              <div style="margin-top:4px;">
+                1 - Excellent<br>2 - High level<br>3 - Acceptable<br>4 - Minimal regard<br>5 - No regard
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side column with Affective, Psychomotor, Attendance & Grade Scale -->
+      <div class="side no-break">
+        <div class="box no-break">
+          <h4>AFFECTIVE DOMAIN</h4>
+          <table class="aff-table small" aria-label="Affective domain">
+            <tr style="background:#f0f0f0"><th style="text-align:left">Attributes</th><th class="tc">5</th><th class="tc">4</th><th class="tc">3</th><th class="tc">2</th><th class="tc">1</th></tr>
+            <tr><td>Attentiveness</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Honesty</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Neatness</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Politeness</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Punctuality / Assembly</td><td></td><td class="tc">✓</td><td></td><td></td><td></td></tr>
+            <tr><td>Self Control / Calmness</td><td></td><td></td><td class="tc">✓</td><td></td><td></td></tr>
+          </table>
+        </div>
+
+        <div class="box no-break">
+          <h4>PSYCHOMOTOR - SKILL</h4>
+          <table class="psych-table small" aria-label="Psychomotor">
+            <tr><th style="text-align:left">Skill</th><th class="tc">5</th><th class="tc">4</th><th class="tc">3</th><th class="tc">2</th><th class="tc">1</th></tr>
+            <tr><td>Handling Of Tools</td><td class="tc">✓</td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>Drawing/ Painting</td><td></td><td class="tc">✓</td><td></td><td></td><td></td></tr>
+            <tr><td>Handwriting</td><td></td><td></td><td class="tc">✓</td><td></td><td></td></tr>
+            <tr><td>Public Speaking</td><td></td><td></td><td class="tc">✓</td><td></td><td></td></tr>
+            <tr><td>Speech Fluency</td><td></td><td class="tc">✓</td><td></td><td></td><td></td></tr>
+          </table>
+        </div>
+
+        <div class="box no-break" style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h4>ATTENDANCE SUMMARY</h4>
+            <table class="att-table small">
+              <tr><th style="text-align:left">Times School Opened</th><td class="tr">140</td></tr>
+              <tr><th style="text-align:left">No of Times Present</th><td class="tr">126 (90.0%)</td></tr>
+              <tr><th style="text-align:left">No of Times Absent</th><td class="tr">14</td></tr>
+            </table>
+          </div>
+
+          <div style="margin-top:6px;">
+            <h4 style="margin-top:8px;">GRADE SCALE</h4>
+            <table class="grade-scale small">
+              <tr><td style="width:26%">A1</td><td>85-100% EXCELLENT</td></tr>
+              <tr><td>B2</td><td>75-84.9% VERY GOOD</td></tr>
+              <tr><td>B3</td><td>70-74.9% GOOD</td></tr>
+              <tr><td>C4</td><td>65-69.9% CREDIT</td></tr>
+              <tr><td>C5</td><td>60-64.9% CREDIT</td></tr>
+              <tr><td>C6</td><td>50-59.9% CREDIT</td></tr>
+              <tr><td>D7</td><td>45-49.9% PASS</td></tr>
+              <tr><td>E8</td><td>40-44.9% PASS</td></tr>
+              <tr><td>F9</td><td>0-39.9% FAIL</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: remarks and signatures span the page width -->
+<div class="bottom no-break" style="margin-top:8px;">
+  <div class="remarks no-break" role="region" aria-label="Remarks and signatures">
+    <div class="remarks-grid" role="group" aria-label="Teacher and principal remarks">
+      <div class="remark-card" aria-labelledby="class-teacher-remark">
+        <div id="class-teacher-remark" class="remark-title">Class Teacher's Remark</div>
+        <div class="remark-text">Has shown excellent ability to set goals and be persistent in achieving them. Well done — keep the momentum up.</div>
+      </div>
+      <div class="remark-card" aria-labelledby="principal-remark">
+        <div id="principal-remark" class="remark-title">Principal's Remark</div>
+        <div class="remark-text">A bright performance. Overall average — greater focus on study and consistent effort required to improve.</div>
+      </div>
+    </div>
+
+    <div class="signature-row" role="group" aria-label="Signatures and next term">
+      <div class="signature-block" aria-hidden="false">
+        <div class="sig-wrapper">
+          <div class="sign-line" aria-hidden="true"></div>
+          <div class="sign-name">MR ADIGUN TIMILEYIN</div>
+          <div class="sign-role">Class Teacher</div>
+        </div>
+        <div class="sig-wrapper">
+          <div class="sign-line" aria-hidden="true"></div>
+          <div class="sign-name">MR OWOLABI BADMOS</div>
+          <div class="sign-role">Principal</div>
+        </div>
+      </div>
+      <div class="next-term" aria-label="Next term information">
+        <div class="nt-label">Next Term Begins</div>
+        <div class="nt-date">Mon, 24 April 2023</div>
+        <div style="margin-top:6px;" class="nt-label">Date Issued: 7 April 2023</div>
+      </div>
+    </div>
+    
+    <!-- Seal at the bottom, inside remarks -->
+    <img src="seal.jpg" alt="Official Seal" class="seal-image" />
+
+    <!-- Place STAMP image here, inside .remarks, after signature-row and seal -->
+    <img src="sttmp1.png" alt="Official Stamp" class="stamp-image" />
+  </div>
+</div>
+  
+<style>
+/* Reserve space so content doesn't overlap the seal */
+.bottom {
+  position: relative;
+}
+.remarks {
+  position: relative;
+}
+
+.stamp-image {
+  position: absolute;
+  right: 50px;         /* Overlaps next-term area */
+  bottom: 14px;        /* Up from bottom */
+  width: 120px;        /* Larger stamp */
+  height: auto;
+  opacity: 0.83;
+  transform: rotate(-16deg);
+  z-index: 11;
+  pointer-events: none;
+}
+.remarks .seal-image {
+  display: block;
+  margin: 20px auto 0 auto;
+  width: 60px;
+  height: 60px;
+  opacity: 0.98;
+}
+</style>
+    <div class="footer no-break">
+      <div>Powered by ChekMate Software v1.17</div>
+      <div style="font-size:8.5px;">CHRIST IS THE ANSWER GROUP OF SCHOOLS</div>
+    </div>
+  </div>
+    
 </body>
 </html>
