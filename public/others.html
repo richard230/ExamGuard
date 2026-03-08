@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Others | ExamGuard — Library, Hostel, Transport, Feeding, Birthdays</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap" rel="stylesheet">
+  <link rel="icon" href="../logo.png">
+  <style>
+    :root{
+      --bg-0:#f6f8ff; --bg-1:#eef2ff;
+      --accent:#3b82f6; --accent-2:#6366f1; --muted:#6b7280;
+      --card-bg:#ffffff; --sidebar-w:300px;
+      --radius:12px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,var(--bg-0),var(--bg-1));-webkit-font-smoothing:antialiased;color:#0b2a44}
+    a{color:inherit;text-decoration:none}
+    .app{display:flex;min-height:100vh;align-items:stretch}
+    .overlay{position:fixed;inset:0;background:rgba(2,6,23,0.45);z-index:50;display:none}
+    .overlay.visible{display:block}
+
+    /* Sidebar (desktop instant show) */
+    .sidebar{
+      width:var(--sidebar-w);min-width:var(--sidebar-w);
+      background:linear-gradient(180deg,#0f172a 0%, #1e3a8a 100%);color:#fff;padding:20px 16px;position:fixed;left:0;top:0;bottom:0;z-index:100;
+      box-shadow:4px 0 28px rgba(15,23,42,0.12);display:flex;flex-direction:column;gap:14px;overflow-y:auto;transition:none;
+    }
+    @media (max-width:720px){
+      .sidebar{transform:translateX(-110%);transition:transform .28s ease;position:fixed;width:86vw;min-width:86vw}
+      .sidebar.hidden{transform:translateX(-110%)}
+      .sidebar.open{transform:translateX(0);box-shadow:0 24px 48px rgba(2,6,23,0.5)}
+    }
+
+    .brand{display:flex;gap:12px;align-items:center}
+    .brand img{width:44px;height:44px;border-radius:10px;object-fit:cover;border:3px solid rgba(255,224,102,0.12);background:#fff}
+    .brand .title{font-weight:800;font-size:1.05rem;color:#ffe066}
+    .nav{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+    .nav a{display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;font-weight:700;font-size:1rem;color:#e6eefc}
+    .nav a.active,.nav a:hover{background:rgba(255,255,255,0.04);color:#ffe066}
+
+    /* "Others" submenu (now inside sidebar) */
+    .subnav{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,0.04)}
+    .subnav a{padding:10px;border-radius:8px;color:var(--accent-2);font-weight:700;background:transparent}
+    .subnav a.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff}
+
+    .spacer{flex:1}
+    .profile{display:flex;gap:12px;align-items:center;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04)}
+    .profile img{width:48px;height:48px;border-radius:10px;object-fit:cover;border:2px solid #ffe066}
+
+    /* Topbar */
+    .topbar{position:fixed;left:var(--sidebar-w);top:0;width:calc(100vw - var(--sidebar-w));z-index:90;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;backdrop-filter: blur(6px);background: rgba(255,255,255,0.86);border-bottom:1px solid rgba(11,42,60,0.06);box-shadow:0 6px 18px rgba(11,42,60,0.04);min-height:64px}
+    @media (max-width:720px){.topbar{left:0;width:100vw;padding:10px 12px;min-height:56px}}
+
+    .hamburger{display:none;background:var(--accent);color:#fff;border:none;padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:800}
+    @media (max-width:980px){.hamburger{display:inline-flex}}
+
+    .page-title{font-weight:800;font-size:1.05rem;color:var(--accent-2)}
+    .small{font-size:0.92rem;color:var(--muted)}
+
+    .main{margin-left:var(--sidebar-w);padding:20px;flex:1;transition:margin-left .28s;min-height:100vh;padding-top:90px;overflow-y:auto}
+    @media (max-width:720px){.main{margin-left:0;padding:14px;padding-top:80px}}
+
+    /* Content area */
+    .content{display:flex;flex-direction:column;gap:12px}
+    .section{background:var(--card-bg);border-radius:12px;padding:16px;border:1px solid #eef3ff}
+    .section h2{margin:0 0 8px 0;font-size:1.05rem}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media (max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:720px){.grid{grid-template-columns:1fr}}
+
+    .card{background:#fff;border-radius:12px;padding:12px;border:1px solid #eef3ff;display:flex;flex-direction:column;gap:8px}
+    .card .title{font-weight:800}
+    .card .meta{color:var(--muted);font-size:0.92rem}
+
+    /* small controls */
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{padding:9px 12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff;font-weight:800}
+    .btn.ghost{background:transparent;color:var(--accent-2);border:1px solid rgba(59,130,246,0.08)}
+
+    /* search/filter */
+    .search-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .search-row input[type="search"], .search-row select{padding:8px;border-radius:8px;border:1px solid #e6e9ef;width:100%}
+
+    /* modals */
+    .modal{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:none;align-items:center;justify-content:center;z-index:9999;padding:12px}
+    .modal.active{display:flex}
+    .modal .panel{background:#fff;border-radius:12px;max-width:900px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(2,6,23,0.25)}
+    .modal .head{padding:12px 16px;border-bottom:1px solid #eef3ff;background:#f8fbff;display:flex;justify-content:space-between;align-items:center}
+    .modal .body{padding:14px;max-height:70vh;overflow:auto}
+
+    .muted-small{font-size:0.9rem;color:var(--muted)}
+    .empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed #eef3ff;border-radius:12px}
+
+    /* accessibility */
+    :focus{outline:3px solid rgba(99,102,241,0.18);outline-offset:2px;border-radius:6px}
+
+    /* Page loader overlay (centered spinner) */
+    .page-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 1200;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(3px);
+      flex-direction: column;
+    }
+    .page-loader.hidden { display: none; }
+    .page-loader .spinner {
+      width:60px; height:60px; border-radius:50%;
+      border:6px solid rgba(0,0,0,0.06);
+      border-top-color:var(--accent);
+      animation: page-spin 0.9s linear infinite;
+    }
+    @keyframes page-spin { to { transform: rotate(360deg); } }
+    .page-loader .msg { font-weight:800; color:#0b2a44; font-size:1rem; }
+    .page-loader .sub { color:var(--muted); font-size:0.92rem; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Page loader overlay (shown while data / initial UI is being prepared) -->
+    <div id="pageLoader" class="page-loader" role="status" aria-live="polite" aria-hidden="false">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="msg">Loading services…</div>
+      <div class="sub" id="pageLoaderSub">Preparing library, hostel and transport data</div>
+    </div>
+
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation" aria-hidden="false">
+      <div class="brand">
+        <img src="../logo.png" alt="logo">
+        <div>
+          <div class="title">Student Portal</div>
+          <div class="small">Services</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="primary">
+        <a href="student.html">🏠 Dashboard</a>
+        <a href="/marketting/school-fees.html">💳 Fees</a>
+        <a href="/marketting/cbt-exam.html">🖥️ Exams</a>
+        <a href="#library" class="active">🔗 Others</a>
+
+        <div class="subnav" role="menu" aria-label="Other services submenu">
+          <a href="#library" data-tab="library" class="sidebar-tab" role="menuitem">📚 Library</a>
+          <a href="#hostel" data-tab="hostel" class="sidebar-tab" role="menuitem">🏠 Hostel</a>
+          <a href="#transport" data-tab="transport" class="sidebar-tab" role="menuitem">🚌 Transportation</a>
+          <a href="#feeding" data-tab="feeding" class="sidebar-tab" role="menuitem">🍽️ Feeding</a>
+          <a href="#birthdays" data-tab="birthdays" class="sidebar-tab" role="menuitem">🎂 Birthdays</a>
+        </div>
+      </nav>
+
+      <div class="spacer" aria-hidden="true"></div>
+
+      <div class="profile">
+        <img src="../avatar.jpg" alt="student" style="width:44px;height:44px;border-radius:8px">
+        <div>
+          <div style="font-weight:800" id="studentName">Student</div>
+          <div class="muted-small" id="studentClass">—</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="topbar">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <div>
+          <div class="page-title">Others</div>
+          <div class="small muted">Library, Hostel, Transport, Feeding & Birthdays</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;">
+        <img src="../avatar.jpg" alt="you" style="width:44px;height:44px;border-radius:8px;border:2px solid #fff" id="topbarAvatar">
+      </div>
+    </div>
+
+    <main class="main" id="main" role="main" tabindex="-1">
+      <div class="content" id="contentArea">
+        <!-- Library -->
+        <section id="library" class="section tab-section" role="region" aria-labelledby="libTitle">
+          <h2 id="libTitle">Library</h2>
+          <div class="muted-small">Search catalogue, request books and view current loans.</div>
+
+          <div style="margin-top:12px" class="search-row">
+            <input type="search" id="libSearch" placeholder="Search by title, author or ISBN" aria-label="Search library">
+            <select id="libFilter">
+              <option value="">All categories</option>
+            </select>
+            <button class="btn" id="libNewReq">Request book</button>
+          </div>
+
+          <div style="margin-top:12px" id="libGridWrap">
+            <div class="grid" id="libGrid" aria-live="polite"></div>
+            <div id="libEmpty" class="empty" style="display:none">No books found.</div>
+          </div>
+        </section>
+
+        <!-- Hostel -->
+        <section id="hostel" class="section tab-section" role="region" aria-labelledby="hostelTitle" style="display:none">
+          <h2 id="hostelTitle">Hostel</h2>
+          <div class="muted-small">Room assignments, availability and lodging requests.</div>
+
+          <div style="margin-top:12px" class="controls">
+            <button class="btn" id="hostelAvailableBtn">Show available rooms</button>
+            <button class="btn ghost" id="hostelApplyBtn">Apply for lodging</button>
+          </div>
+
+          <div style="margin-top:12px" id="hostelGridWrap">
+            <div class="grid" id="hostelGrid"></div>
+            <div id="hostelEmpty" class="empty" style="display:none">No rooms found.</div>
+          </div>
+        </section>
+
+        <!-- Transportation -->
+        <section id="transport" class="section tab-section" role="region" aria-labelledby="transportTitle" style="display:none">
+          <h2 id="transportTitle">Transportation</h2>
+          <div class="muted-small">Routes, schedules and bus reservations.</div>
+
+          <div style="margin-top:12px" class="search-row">
+            <select id="routeFilter">
+              <option value="">All routes</option>
+            </select>
+            <button class="btn" id="reserveSeatBtn">Reserve seat</button>
+          </div>
+
+          <div style="margin-top:12px" id="routesWrap">
+            <div class="grid" id="routesGrid"></div>
+            <div id="routesEmpty" class="empty" style="display:none">No routes available.</div>
+          </div>
+        </section>
+
+        <!-- Feeding -->
+        <section id="feeding" class="section tab-section" role="region" aria-labelledby="feedingTitle" style="display:none">
+          <h2 id="feedingTitle">Feeding</h2>
+          <div class="muted-small">Daily menus, meal plans and special dietary requests.</div>
+
+          <div style="margin-top:12px" class="controls">
+            <button class="btn" id="viewMenuBtn">View this week menu</button>
+            <button class="btn ghost" id="dietReqBtn">Submit dietary request</button>
+          </div>
+
+          <div style="margin-top:12px" id="menuWrap"></div>
+          <div id="menuEmpty" class="empty" style="display:none">No menu available.</div>
+        </section>
+
+        <!-- Birthdays -->
+        <section id="birthdays" class="section tab-section" role="region" aria-labelledby="bdayTitle" style="display:none">
+          <h2 id="bdayTitle">Birthdays</h2>
+          <div class="muted-small">Celebrate classmates — upcoming and recent birthdays.</div>
+
+          <div style="margin-top:12px" id="bdayWrap"></div>
+          <div id="bdayEmpty" class="empty" style="display:none">No upcoming birthdays.</div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Generic details modal used for items -->
+    <div class="modal" id="detailModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="detailTitle">
+      <div class="panel" role="document">
+        <div class="head">
+          <div id="detailTitle" style="font-weight:800">Details</div>
+          <div><button class="btn ghost" id="closeDetailBtn">Close</button></div>
+        </div>
+        <div class="body" id="detailBody"></div>
+      </div>
+    </div>
+
+    <!-- Simple booking/request modal -->
+    <div class="modal" id="formModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="formTitle">
+      <div class="panel" role="document">
+        <div class="head">
+          <div id="formTitle" style="font-weight:800">Request</div>
+          <div><button class="btn ghost" id="closeFormBtn">Close</button></div>
+        </div>
+        <div class="body">
+          <form id="genericForm">
+            <div style="display:grid;gap:8px">
+              <label>Reason / Note<input type="text" id="formNote" required style="width:100%;padding:8px;border-radius:8px;border:1px solid #e6e9ef"></label>
+              <label>Contact phone<input type="tel" id="formPhone" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e6e9ef"></label>
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button type="button" class="btn ghost" id="cancelFormBtn">Cancel</button>
+                <button type="submit" class="btn" id="submitFormBtn">Submit</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      const API_BASE = 'https://examguard-ow0z.onrender.com/api';
+      const TOKEN = localStorage.getItem('eg_token') || null;
+
+      // DOM refs
+      const pageLoader = document.getElementById('pageLoader');
+      const pageLoaderSub = document.getElementById('pageLoaderSub');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+      const hamburger = document.getElementById('hamburger');
+      const topbarAvatar = document.getElementById('topbarAvatar');
+      const studentNameEl = document.getElementById('studentName');
+      const studentClassEl = document.getElementById('studentClass');
+
+      // sections / grids
+      const libGrid = document.getElementById('libGrid');
+      const libFilter = document.getElementById('libFilter');
+      const libSearch = document.getElementById('libSearch');
+      const libEmpty = document.getElementById('libEmpty');
+
+      const hostelGrid = document.getElementById('hostelGrid');
+      const hostelEmpty = document.getElementById('hostelEmpty');
+
+      const routesGrid = document.getElementById('routesGrid');
+      const routeFilter = document.getElementById('routeFilter');
+      const routesEmpty = document.getElementById('routesEmpty');
+
+      const menuWrap = document.getElementById('menuWrap');
+      const menuEmpty = document.getElementById('menuEmpty');
+
+      const bdayWrap = document.getElementById('bdayWrap');
+      const bdayEmpty = document.getElementById('bdayEmpty');
+
+      // modals & forms
+      const detailModal = document.getElementById('detailModal');
+      const detailBody = document.getElementById('detailBody');
+      const closeDetailBtn = document.getElementById('closeDetailBtn');
+      const formModal = document.getElementById('formModal');
+      const closeFormBtn = document.getElementById('closeFormBtn');
+      const cancelFormBtn = document.getElementById('cancelFormBtn');
+      const genericForm = document.getElementById('genericForm');
+
+      // state
+      let libraryBooks = [];
+      let hostelRooms = [];
+      let routes = [];
+      let menus = [];
+      let birthdays = [];
+
+      // utilities
+      function showPageLoader(msg) {
+        if (msg) pageLoaderSub.textContent = msg;
+        pageLoader.classList.remove('hidden');
+        pageLoader.setAttribute('aria-hidden', 'false');
+      }
+      function hidePageLoader() {
+        pageLoader.classList.add('hidden');
+        pageLoader.setAttribute('aria-hidden', 'true');
+      }
+
+      function sanitizeText(s){ return String(s == null ? '' : s); }
+      function authHeaders(extra = {}) {
+        const h = Object.assign({}, extra);
+        if (TOKEN) h['Authorization'] = 'Bearer ' + TOKEN;
+        if (!h['Content-Type']) h['Content-Type'] = 'application/json';
+        return h;
+      }
+
+      // read logged in application info
+      function getLoggedApp() {
+        try { return JSON.parse(localStorage.getItem('eg_application') || 'null') || null; } catch { return null; }
+      }
+
+      // Try multiple candidate endpoints when API shapes may vary
+      async function tryFetchCandidates(candidates, options = {}) {
+        for (const url of candidates) {
+          if (!url) continue;
+          try {
+            const res = await fetch(url, options);
+            if (!res.ok) continue;
+            const data = await res.json();
+            // Prefer arrays in common keys
+            if (Array.isArray(data)) return data;
+            if (Array.isArray(data.items)) return data.items;
+            if (Array.isArray(data.data)) return data.data;
+            if (Array.isArray(data.results)) return data.results;
+            if (Array.isArray(data.books)) return data.books;
+            if (Array.isArray(data.invoices)) return data.invoices;
+            // if single object, wrap
+            if (data && (typeof data === 'object') && (data.id || data._id || data.reference || data.name)) return [data];
+          } catch (err) {
+            // ignore and try next
+            console.warn('candidate fetch failed', url, err);
+          }
+        }
+        return null;
+      }
+
+      // Fetchers
+      async function fetchLibrary(studentId) {
+        const candidates = [
+          `${API_BASE}/library/books?student=${encodeURIComponent(studentId || '')}`,
+          `${API_BASE}/library/books`,
+          `${API_BASE}/books?student=${encodeURIComponent(studentId || '')}`,
+          `${API_BASE}/books`,
+          `${API_BASE}/catalogue`
+        ];
+        return await tryFetchCandidates(candidates, { headers: authHeaders({}) });
+      }
+
+      async function fetchHostel(studentId) {
+        const candidates = [
+          `${API_BASE}/hostel/rooms?student=${encodeURIComponent(studentId || '')}`,
+          `${API_BASE}/hostel/rooms`,
+          `${API_BASE}/rooms?student=${encodeURIComponent(studentId || '')}`,
+          `${API_BASE}/hostel`
+        ];
+        return await tryFetchCandidates(candidates, { headers: authHeaders({}) });
+      }
+
+      async function fetchRoutes(studentId) {
+        const candidates = [
+          `${API_BASE}/transport/routes?student=${encodeURIComponent(studentId || '')}`,
+          `${API_BASE}/transport/routes`,
+          `${API_BASE}/routes`
+        ];
+        return await tryFetchCandidates(candidates, { headers: authHeaders({}) });
+      }
+
+      async function fetchMenus() {
+        const candidates = [
+          `${API_BASE}/feeding/menus`,
+          `${API_BASE}/menus`,
+          `${API_BASE}/feeding/menu`
+        ];
+        return await tryFetchCandidates(candidates, { headers: authHeaders({}) });
+      }
+
+      async function fetchBirthdays() {
+        const candidates = [
+          `${API_BASE}/birthdays?upcoming=true`,
+          `${API_BASE}/students/birthdays?upcoming=true`,
+          `${API_BASE}/birthdays`
+        ];
+        return await tryFetchCandidates(candidates, { headers: authHeaders({}) });
+      }
+
+      // Renderers (expect arrays)
+      function renderLibrary(list = []) {
+        libraryBooks = Array.isArray(list) ? list : [];
+        libGrid.innerHTML = '';
+        if (!libraryBooks.length) {
+          libEmpty.style.display = '';
+          return;
+        } else libEmpty.style.display = 'none';
+
+        // populate filter categories
+        const cats = new Set();
+        libraryBooks.forEach(b => { if (b.category || b.cat) cats.add(b.category || b.cat); });
+
+        libFilter.innerHTML = '<option value="">All categories</option>';
+        Array.from(cats).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          libFilter.appendChild(opt);
+        });
+
+        libraryBooks.forEach(b => {
+          const title = b.title || b.name || b.label || 'Untitled';
+          const author = b.author || b.writer || '';
+          const cat = b.category || b.cat || '';
+          const available = (typeof b.available === 'boolean') ? b.available : (b.copies ? b.copies > 0 : true);
+          const isbn = b.isbn || b.ISBN || '';
+
+          const c = document.createElement('article'); c.className = 'card';
+          c.innerHTML = `<div class="title">${sanitizeText(title)}</div>
+            <div class="meta">${sanitizeText(author)} • ${sanitizeText(cat)}</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+              <button class="btn" data-id="${sanitizeText(b.id || b._id || '')}" data-action="view">View</button>
+              <button class="btn ghost" data-id="${sanitizeText(b.id || b._id || '')}" data-action="${available ? 'request' : 'waitlist'}">${available ? 'Request' : 'Join waitlist'}</button>
+            </div>`;
+          libGrid.appendChild(c);
+        });
+      }
+
+      function renderHostel(list = []) {
+        hostelRooms = Array.isArray(list) ? list : [];
+        hostelGrid.innerHTML = '';
+        if (!hostelRooms.length) {
+          hostelEmpty.style.display = '';
+          return;
+        } else hostelEmpty.style.display = 'none';
+
+        hostelRooms.forEach(r => {
+          const id = r.id || r.roomId || r._id || '';
+          const block = r.block || r.building || '';
+          const type = r.type || r.roomType || '';
+          const occupant = r.occupant || r.tenant || null;
+          const available = !occupant;
+
+          const c = document.createElement('article'); c.className = 'card';
+          c.innerHTML = `<div class="title">${sanitizeText(id)} ${block ? ('— Block ' + sanitizeText(block)) : ''}</div>
+            <div class="meta">${sanitizeText(type)} • ${available ? 'Available' : 'Occupied'}</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn ghost" data-id="${sanitizeText(id)}" data-action="details">Details</button>
+              ${available ? `<button class="btn" data-id="${sanitizeText(id)}" data-action="book">Apply</button>` : ''}
+            </div>`;
+          hostelGrid.appendChild(c);
+        });
+      }
+
+      function renderRoutes(list = []) {
+        routes = Array.isArray(list) ? list : [];
+        routesGrid.innerHTML = '';
+        if (!routes.length) {
+          routesEmpty.style.display = '';
+          return;
+        } else routesEmpty.style.display = 'none';
+
+        // populate route select
+        routeFilter.innerHTML = '<option value="">All routes</option>';
+        routes.forEach(rt => {
+          const id = rt.id || rt.routeId || rt.code || '';
+          const name = rt.name || rt.label || '';
+          const opt = document.createElement('option');
+          opt.value = id; opt.textContent = name || id;
+          routeFilter.appendChild(opt);
+        });
+
+        routes.forEach(rt => {
+          const id = rt.id || rt.routeId || rt.code || '';
+          const name = rt.name || rt.label || '';
+          const schedule = rt.schedule || rt.times || '';
+          const seats = rt.seats || rt.capacity || '-';
+          const c = document.createElement('article'); c.className = 'card';
+          c.innerHTML = `<div class="title">${sanitizeText(name || id)}</div><div class="meta">Schedule: ${sanitizeText(schedule)}</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn" data-id="${sanitizeText(id)}" data-action="reserve">Reserve seat</button>
+              <button class="btn ghost" data-id="${sanitizeText(id)}" data-action="view">View</button>
+            </div>`;
+          routesGrid.appendChild(c);
+        });
+      }
+
+      function renderMenu(list = []) {
+        menus = Array.isArray(list) ? list : [];
+        menuWrap.innerHTML = '';
+        if (!menus.length) {
+          menuEmpty.style.display = '';
+          return;
+        } else menuEmpty.style.display = 'none';
+
+        const g = document.createElement('div'); g.className = 'grid';
+        menus.forEach(m => {
+          const day = m.day || m.date || '';
+          const breakfast = m.breakfast || m.morning || '';
+          const lunch = m.lunch || m.midday || '';
+          const dinner = m.dinner || m.evening || '';
+          const c = document.createElement('article'); c.className = 'card';
+          c.innerHTML = `<div style="font-weight:800">${sanitizeText(day)}</div>
+            <div class="muted-small">Breakfast: ${sanitizeText(breakfast)}</div>
+            <div class="muted-small">Lunch: ${sanitizeText(lunch)}</div>
+            <div class="muted-small">Dinner: ${sanitizeText(dinner)}</div>`;
+          g.appendChild(c);
+        });
+        menuWrap.appendChild(g);
+      }
+
+      function renderBirthdays(list = []) {
+        birthdays = Array.isArray(list) ? list : [];
+        bdayWrap.innerHTML = '';
+        if (!birthdays.length) {
+          bdayEmpty.style.display = '';
+          return;
+        } else bdayEmpty.style.display = 'none';
+
+        const g = document.createElement('div'); g.className = 'grid';
+        birthdays.forEach(b => {
+          const name = b.name || b.studentName || '';
+          const date = b.date || b.birthday || '';
+          const cls = b.class || b.program || '';
+          const c = document.createElement('article'); c.className = 'card';
+          c.innerHTML = `<div style="font-weight:800">${sanitizeText(name)}</div><div class="muted-small">${new Date(date).toLocaleDateString()} • ${sanitizeText(cls)}</div>
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button class="btn" data-action="wish" data-name="${sanitizeText(name)}">Send wish</button>
+              <button class="btn ghost" data-action="view" data-name="${sanitizeText(name)}">View</button>
+            </div>`;
+          g.appendChild(c);
+        });
+        bdayWrap.appendChild(g);
+      }
+
+      // Actions: Post requests to backend. We'll try several candidate endpoints depending on action.
+      async function postAction(candidates, payload) {
+        const headers = authHeaders();
+        for (const url of candidates) {
+          try {
+            const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+            if (!res.ok) {
+              // if 4xx/5xx, try next candidate
+              console.warn('POST failed', url, res.status);
+              continue;
+            }
+            const data = await res.json();
+            return data;
+          } catch (err) {
+            console.warn('POST candidate failed', url, err);
+          }
+        }
+        throw new Error('Action failed (no available endpoint)');
+      }
+
+      // UI helpers for modals
+      function openDetail(html) {
+        detailBody.innerHTML = html;
+        detailModal.classList.add('active');
+        detailModal.setAttribute('aria-hidden', 'false');
+        setTimeout(()=> closeDetailBtn.focus(), 50);
+      }
+      function closeDetail() {
+        detailModal.classList.remove('active');
+        detailModal.setAttribute('aria-hidden', 'true');
+      }
+      closeDetailBtn.addEventListener('click', closeDetail);
+
+      function openForm(title, callback) {
+        document.getElementById('formTitle').textContent = title || 'Request';
+        genericForm._callback = callback;
+        formModal.classList.add('active');
+        formModal.setAttribute('aria-hidden', 'false');
+        setTimeout(()=> document.getElementById('formNote').focus(), 50);
+      }
+      function closeForm() {
+        formModal.classList.remove('active');
+        formModal.setAttribute('aria-hidden', 'true');
+        genericForm.reset();
+      }
+      closeFormBtn.addEventListener('click', closeForm);
+      cancelFormBtn.addEventListener('click', closeForm);
+      genericForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const note = document.getElementById('formNote').value.trim();
+        const phone = document.getElementById('formPhone').value.trim();
+        if (!note) return alert('Please enter a note or reason.');
+
+        // try to post to backend if callback provided with endpoints
+        if (typeof genericForm._callback === 'function') {
+          try {
+            await genericForm._callback({ note, phone });
+            closeForm();
+            alert('Request submitted. The administration will respond shortly.');
+          } catch (err) {
+            console.error(err);
+            alert('Failed to submit request: ' + (err.message || 'Server error'));
+          }
+        } else {
+          closeForm();
+          alert('Request submitted (no backend endpoint configured).');
+        }
+      });
+
+      // Delegate click actions and wire to backend
+      document.body.addEventListener('click', async (e) => {
+        const t = e.target;
+
+        // Library view / request / waitlist
+        if (t.matches('button[data-action="view"]') && t.closest('#libGrid')) {
+          const id = t.dataset.id;
+          // fetch single book details if backend provides endpoint
+          const candidates = [
+            `${API_BASE}/library/books/${encodeURIComponent(id)}`,
+            `${API_BASE}/books/${encodeURIComponent(id)}`
+          ];
+          let details = null;
+          try { details = await tryFetchCandidates(candidates, { headers: authHeaders({}) }); } catch {}
+          if (details && details[0]) openDetail(`<div style="font-weight:800">${sanitizeText(details[0].title || details[0].name)}</div><div class="muted-small">${sanitizeText(details[0].author || '')}</div><div style="margin-top:8px">ISBN: ${sanitizeText(details[0].isbn || '')}</div>`);
+          else openDetail(`<div style="font-weight:800">Book details</div><div class="muted-small">Details not available from server.</div>`);
+        }
+
+        if (t.matches('button[data-action="request"]')) {
+          const id = t.dataset.id;
+          openForm('Request book', async ({ note, phone }) => {
+            const app = getLoggedApp();
+            const student = app && (app._id || app.id || app.username);
+            const payload = { bookId: id, note, phone, student };
+            const candidates = [
+              `${API_BASE}/library/requests`,
+              `${API_BASE}/books/${encodeURIComponent(id)}/request`,
+              `${API_BASE}/requests/book`
+            ];
+            await postAction(candidates, payload);
+          });
+        }
+
+        if (t.matches('button[data-action="waitlist"]')) {
+          const id = t.dataset.id;
+          openForm('Join waitlist', async ({ note, phone }) => {
+            const app = getLoggedApp();
+            const student = app && (app._id || app.id || app.username);
+            const payload = { bookId: id, note, phone, student };
+            const candidates = [
+              `${API_BASE}/library/waitlist`,
+              `${API_BASE}/books/${encodeURIComponent(id)}/waitlist`
+            ];
+            await postAction(candidates, payload);
+          });
+        }
+
+        // Hostel details / apply
+        if (t.matches('button[data-action="details"]') && t.closest('#hostelGrid')) {
+          const id = t.dataset.id;
+          const candidates = [
+            `${API_BASE}/hostel/rooms/${encodeURIComponent(id)}`,
+            `${API_BASE}/rooms/${encodeURIComponent(id)}`
+          ];
+          const details = await tryFetchCandidates(candidates, { headers: authHeaders({}) });
+          if (details && details[0]) {
+            const r = details[0];
+            openDetail(`<div style="font-weight:800">Room ${sanitizeText(r.id || r.roomId)}</div><div class="muted-small">Block ${sanitizeText(r.block || r.building)} • ${sanitizeText(r.type || r.roomType)}</div><div style="margin-top:8px">${r.occupant ? 'Occupied' : 'Available'}</div>`);
+          } else {
+            openDetail(`<div style="font-weight:800">Room details</div><div class="muted-small">Details not available from server.</div>`);
+          }
+        }
+
+        if (t.matches('button[data-action="book"]')) {
+          const id = t.dataset.id;
+          openForm('Hostel application', async ({ note, phone }) => {
+            const app = getLoggedApp();
+            const student = app && (app._id || app.id || app.username);
+            const payload = { roomId: id, note, phone, student };
+            const candidates = [
+              `${API_BASE}/hostel/apply`,
+              `${API_BASE}/hostel/rooms/${encodeURIComponent(id)}/apply`,
+              `${API_BASE}/rooms/${encodeURIComponent(id)}/apply`
+            ];
+            await postAction(candidates, payload);
+          });
+        }
+
+        // Transport reserve / view
+        if (t.matches('button[data-action="reserve"]')) {
+          const id = t.dataset.id;
+          openForm('Reserve seat — Route ' + id, async ({ note, phone }) => {
+            const app = getLoggedApp();
+            const student = app && (app._id || app.id || app.username);
+            const payload = { routeId: id, note, phone, student };
+            const candidates = [
+              `${API_BASE}/transport/reserve`,
+              `${API_BASE}/routes/${encodeURIComponent(id)}/reserve`
+            ];
+            await postAction(candidates, payload);
+          });
+        }
+
+        if (t.matches('button[data-action="view"]') && t.closest('#routesGrid')) {
+          const id = t.dataset.id;
+          const rt = routes.find(r => (r.id || r.routeId || r.code) === id);
+          if (rt) openDetail(`<div style="font-weight:800">${sanitizeText(rt.name || rt.label || id)}</div><div class="muted-small">Schedule: ${sanitizeText(rt.schedule || rt.times || '')}</div><div style="margin-top:8px">Seats: ${sanitizeText(rt.seats || rt.capacity)}</div>`);
+        }
+
+        // Feeding: open menu view or submit dietary request
+        if (t.matches('#viewMenuBtn')) {
+          setActiveTabIfNeeded('feeding');
+        }
+        if (t.matches('#dietReqBtn')) {
+          openForm('Dietary request', async ({ note, phone }) => {
+            const app = getLoggedApp();
+            const student = app && (app._id || app.id || app.username);
+            const payload = { note, phone, student };
+            const candidates = [
+              `${API_BASE}/feeding/requests`,
+              `${API_BASE}/dietary/requests`
+            ];
+            await postAction(candidates, payload);
+          });
+        }
+
+        // birthdays actions
+        if (t.matches('button[data-action="wish"]')) {
+          const name = t.dataset.name;
+          openForm('Send birthday wish', async ({ note, phone }) => {
+            const payload = { name, message: note, phone };
+            const candidates = [
+              `${API_BASE}/birthdays/wish`,
+              `${API_BASE}/students/birthdays/wish`
+            ];
+            await postAction(candidates, payload);
+          });
+        }
+        if (t.matches('button[data-action="view"]') && t.closest('#bdayWrap')) {
+          const name = t.dataset.name;
+          openDetail(`<div style="font-weight:800">${sanitizeText(name)}</div><div class="muted-small">Birthday details</div>`);
+        }
+      });
+
+      // search/filter handlers
+      libSearch.addEventListener('input', () => {
+        const q = libSearch.value.trim().toLowerCase();
+        const cat = libFilter.value;
+        const filtered = libraryBooks.filter(b => {
+          if (cat && (b.category || b.cat || '') !== cat) return false;
+          if (!q) return true;
+          return ((b.title||b.name||'') + ' ' + (b.author||'') + ' ' + (b.isbn||'')).toLowerCase().includes(q);
+        });
+        renderLibrary(filtered);
+      });
+      libFilter.addEventListener('change', () => libSearch.dispatchEvent(new Event('input')));
+
+      routeFilter.addEventListener('change', (e) => {
+        const v = e.target.value;
+        if (!v) renderRoutes(routes);
+        else renderRoutes(routes.filter(r => (r.id || r.routeId || r.code) === v));
+      });
+
+      // Sidebar mobile handlers
+      if (hamburger) {
+        hamburger.addEventListener('click', () => {
+          sidebar.classList.remove('hidden');
+          sidebar.classList.add('open');
+          overlay.classList.add('visible');
+          document.body.classList.add('no-scroll');
+        });
+        overlay.addEventListener('click', () => {
+          sidebar.classList.remove('open');
+          sidebar.classList.add('hidden');
+          overlay.classList.remove('visible');
+          document.body.classList.remove('no-scroll');
+        });
+      }
+
+      // Hash/tab handling
+      const sidebarTabs = Array.from(document.querySelectorAll('.sidebar-tab'));
+      const tabSections = Array.from(document.querySelectorAll('.tab-section'));
+      function setActiveTab(name, push = true) {
+        sidebarTabs.forEach(t => {
+          const is = t.dataset.tab === name;
+          t.classList.toggle('active', is);
+          t.setAttribute('aria-current', is ? 'true' : 'false');
+        });
+        tabSections.forEach(s => s.style.display = s.id === name ? '' : 'none');
+        if (push) history.replaceState(null, '', '#' + name);
+        if (window.innerWidth <= 720) {
+          sidebar.classList.remove('open');
+          sidebar.classList.add('hidden');
+          overlay.classList.remove('visible');
+          document.body.classList.remove('no-scroll');
+        }
+        const sec = document.getElementById(name);
+        if (sec) {
+          const focusable = sec.querySelector('button, [href], input, select, textarea');
+          if (focusable) focusable.focus();
+        }
+      }
+      sidebarTabs.forEach(t => t.addEventListener('click', (e) => { e.preventDefault(); setActiveTab(t.dataset.tab); }));
+      const initialHash = (location.hash || '').replace('#', '') || 'library';
+      setActiveTab(initialHash, false);
+      window.addEventListener('hashchange', () => { const h = (location.hash || '').replace('#', '') || 'library'; setActiveTab(h, false); });
+
+      // keyboard and overlay handlers for modals
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          [detailModal, formModal].forEach(m => m.classList.remove('active'));
+          overlay.classList.remove('visible');
+        }
+      });
+      overlay.addEventListener('click', () => { [detailModal, formModal].forEach(m => m.classList.remove('active')); });
+
+      // bootstrap: fetch data from backend and render
+      async function init() {
+        showPageLoader('Loading library, hostel, transport and feeding data...');
+        const app = getLoggedApp();
+        if (app) {
+          studentNameEl.textContent = (app.firstName || app.name || app.username) + (app.lastName ? (' ' + app.lastName) : '');
+          studentClassEl.textContent = app.program || app.class || app.level || '';
+          if (app.profilePic) topbarAvatar.src = app.profilePic;
+        }
+
+        const studentId = app && (app._id || app.id || app.studentId || app.username);
+
+        try {
+          // fetch in parallel
+          const [
+            libData,
+            hostelData,
+            routesData,
+            menusData,
+            bdaysData
+          ] = await Promise.all([
+            fetchLibrary(studentId).catch(()=>null),
+            fetchHostel(studentId).catch(()=>null),
+            fetchRoutes(studentId).catch(()=>null),
+            fetchMenus().catch(()=>null),
+            fetchBirthdays().catch(()=>null)
+          ]);
+
+          renderLibrary(Array.isArray(libData) ? libData : []);
+          renderHostel(Array.isArray(hostelData) ? hostelData : []);
+          renderRoutes(Array.isArray(routesData) ? routesData : []);
+          renderMenu(Array.isArray(menusData) ? menusData : []);
+          renderBirthdays(Array.isArray(bdaysData) ? bdaysData : []);
+        } catch (err) {
+          console.error('Failed to load services data', err);
+          // keep UI empty with "no data" messages visible
+          renderLibrary([]);
+          renderHostel([]);
+          renderRoutes([]);
+          renderMenu([]);
+          renderBirthdays([]);
+        } finally {
+          // ensure loader visible for perceptible time to avoid jank
+          setTimeout(() => hidePageLoader(), 180);
+        }
+      }
+
+      // helper to switch tab if needed
+      function setActiveTabIfNeeded(name) {
+        const current = (location.hash || '').replace('#', '') || 'library';
+        if (current !== name) {
+          history.replaceState(null, '', '#' + name);
+          window.dispatchEvent(new Event('hashchange'));
+        }
+      }
+
+      // start
+      init();
+
+    })();
+  </script>
+</body>
+</html>
