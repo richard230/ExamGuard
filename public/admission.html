@@ -936,13 +936,16 @@
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="armSelect">Arm</label>
-            <select name="armId" id="armSelect" required>
-              <option value="">Select Arm</option>
-            </select>
-          </div>
-
+          <!-- Updated Arm Select in Admission Setup Section -->
+<div class="form-group">
+  <label for="armSelect">Arm</label>
+  <select name="armId" id="armSelect" required>
+    <option value="">Select Arm</option>
+    <option value="arm-a">Arm A</option>
+    <option value="arm-b">Arm B</option>
+    <option value="arm-c">Arm C</option>
+  </select>
+</div>
           <div class="form-group">
             <label for="startDate">Start Date</label>
             <input type="date" name="startDate" required>
@@ -1056,79 +1059,93 @@
     </div>
   </div>
 
-  <!-- Cohort Modal (Create/Edit) -->
-  <div class="modal-overlay" id="cohortModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="cohortModalTitle"><i class="fa fa-plus-circle"></i> Create New Cohort</h2>
-        <button type="button" class="modal-close" onclick="closeCohortModal()">
-          <i class="fa fa-times"></i>
-        </button>
-      </div>
-      <form id="cohortForm" class="modal-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+<!-- Cohort Modal (Updated with hardcoded arms) -->
+<div class="modal-overlay" id="cohortModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="cohortModalTitle"><i class="fa fa-layer-group"></i> Create New Admission Cohort</h2>
+      <button type="button" class="modal-close" onclick="closeCohortModal()">✕</button>
+    </div>
+    
+    <form id="cohortForm" onsubmit="saveCohort(event)">
+      <div class="modal-body">
         <div class="modal-field">
-          <label>Session</label>
+          <label for="cohortName">Cohort Name *</label>
+          <input type="text" id="cohortName" placeholder="e.g., 2024-2025 JSS 1 Admission" required>
+        </div>
+
+        <div class="modal-field">
+          <label for="cohortSession">Session *</label>
           <select id="cohortSession" required>
             <option value="">Select Session</option>
+            <option value="2024-2025">2024-2025</option>
+            <option value="2025-2026">2025-2026</option>
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
           </select>
         </div>
 
         <div class="modal-field">
-          <label>Term</label>
+          <label for="cohortTerm">Term *</label>
           <select id="cohortTerm" required>
             <option value="">Select Term</option>
-            <option>First Term</option>
-            <option>Second Term</option>
-            <option>Third Term</option>
+            <option value="First Term">First Term</option>
+            <option value="Second Term">Second Term</option>
+            <option value="Third Term">Third Term</option>
           </select>
         </div>
 
         <div class="modal-field">
-          <label>Class</label>
-          <select id="cohortClass" required>
+          <label for="cohortAcademicClass">Class *</label>
+          <select id="cohortAcademicClass" required>
             <option value="">Select Class</option>
+            <option value="jss-1">JSS 1</option>
+            <option value="jss-2">JSS 2</option>
+            <option value="jss-3">JSS 3</option>
+            <option value="ss-1">SS 1</option>
+            <option value="ss-2">SS 2</option>
+            <option value="ss-3">SS 3</option>
           </select>
         </div>
 
         <div class="modal-field">
-          <label>Arm</label>
+          <label for="cohortArm">Arm *</label>
           <select id="cohortArm" required>
             <option value="">Select Arm</option>
+            <option value="arm-a">Arm A</option>
+            <option value="arm-b">Arm B</option>
+            <option value="arm-c">Arm C</option>
           </select>
         </div>
 
         <div class="modal-field">
-          <label>Start Date</label>
+          <label for="cohortStartDate">Start Date *</label>
           <input type="date" id="cohortStartDate" required>
         </div>
 
         <div class="modal-field">
-          <label>End Date</label>
+          <label for="cohortEndDate">End Date *</label>
           <input type="date" id="cohortEndDate" required>
         </div>
 
-        <div class="modal-field" style="grid-column: 1/-1;">
-          <label>Application Fee (₦)</label>
-          <input type="number" id="cohortAppFee" min="0" required>
+        <div class="modal-field">
+          <label for="cohortCapacity">Capacity (Max Students) *</label>
+          <input type="number" id="cohortCapacity" min="1" placeholder="e.g., 60" required>
         </div>
 
-        <div class="modal-field" style="grid-column: 1/-1;">
-          <label>Description</label>
-          <input type="text" id="cohortDescription" placeholder="Optional description">
+        <div class="modal-field" style="grid-column: 1 / -1;">
+          <label for="cohortApplicationFee">Application Fee (₦) *</label>
+          <input type="number" id="cohortApplicationFee" min="0" placeholder="e.g., 5000" required>
         </div>
-      </form>
+      </div>
 
       <div class="modal-actions">
-        <button class="btn btn-primary" onclick="saveCohort()">
-          <i class="fa fa-save"></i> Save Cohort
-        </button>
-        <button class="btn btn-danger" onclick="closeCohortModal()">
-          <i class="fa fa-times"></i> Cancel
-        </button>
+        <button type="button" class="btn btn-danger" onclick="closeCohortModal()">Cancel</button>
+        <button type="submit" class="btn btn-success">Save Cohort</button>
       </div>
-      <div id="cohortModalMessage" class="message" style="margin-top: 16px;"></div>
-    </div>
+    </form>
   </div>
+</div>
 
   <script>
     const API_BASE = "https://goldlincschools.onrender.com/api";
@@ -1186,39 +1203,59 @@
     });
 
     // ==================== LOAD DROPDOWNS ====================
+    // Hardcoded Arms
+    const ARMS = [
+      { _id: 'arm-a', name: 'Arm A' },
+      { _id: 'arm-b', name: 'Arm B' },
+      { _id: 'arm-c', name: 'Arm C' }
+    ];
+
     async function loadDropdowns() {
       try {
-        const sessionRes = await fetch(API_BASE + "/sessions", { headers: { Authorization: "Bearer " + token } });
+        // Load Sessions from API
+        const sessionRes = await fetch(API_BASE + "/sessions", { 
+          headers: { Authorization: "Bearer " + token } 
+        });
         const sessions = await sessionRes.json();
         const sessionSelect = document.getElementById('sessionSelect');
         const cohortSessionSelect = document.getElementById('cohortSession');
-        const html = '<option value="">Select Session</option>' +
+        const sessionHtml = '<option value="">Select Session</option>' +
           sessions.map(s => `<option value="${s._id}">${s.name}</option>`).join('');
-        sessionSelect.innerHTML = html;
-        cohortSessionSelect.innerHTML = html;
+        sessionSelect.innerHTML = sessionHtml;
+        cohortSessionSelect.innerHTML = sessionHtml;
 
-        const classRes = await fetch(API_BASE + "/classes", { headers: { Authorization: "Bearer " + token } });
+        // Load Classes from API
+        const classRes = await fetch(API_BASE + "/classes", { 
+          headers: { Authorization: "Bearer " + token } 
+        });
         const classes = await classRes.json();
         const classSelect = document.getElementById('classSelect');
-        const cohortClassSelect = document.getElementById('cohortClass');
+        const cohortClassSelect = document.getElementById('cohortAcademicClass');
         const classHtml = '<option value="">Select Class</option>' +
           classes.map(c => `<option value="${c._id}">${c.name}</option>`).join('');
         classSelect.innerHTML = classHtml;
         cohortClassSelect.innerHTML = classHtml;
 
-        const armRes = await fetch(API_BASE + "/arms", { headers: { Authorization: "Bearer " + token } });
-        const arms = await armRes.json();
+        // Use Hardcoded Arms (no API call)
         const armSelect = document.getElementById('armSelect');
         const cohortArmSelect = document.getElementById('cohortArm');
         const armHtml = '<option value="">Select Arm</option>' +
-          arms.map(a => `<option value="${a._id}">${a.name}</option>`).join('');
+          ARMS.map(a => `<option value="${a._id}">${a.name}</option>`).join('');
         armSelect.innerHTML = armHtml;
         cohortArmSelect.innerHTML = armHtml;
       } catch (e) {
         console.error('Error loading dropdowns:', e);
       }
     }
+
+    // Call on page load
     loadDropdowns();
+
+    // Helper function to get arm name
+    function getArmName(armId) {
+      const arm = ARMS.find(a => a._id === armId);
+      return arm ? arm.name : armId;
+    }
 
     // ==================== LOAD COHORTS ====================
     async function loadCohorts() {
@@ -1308,16 +1345,55 @@
     }
     loadCohorts();
 
-    // ==================== COHORT MODAL FUNCTIONS ====================
-    function openCohortModal() {
-      currentCohortId = null;
-      document.getElementById('cohortModalTitle').innerHTML = '<i class="fa fa-plus-circle"></i> Create New Cohort';
-      document.getElementById('cohortForm').reset();
-      document.getElementById('cohortModalMessage').classList.remove('error', 'success');
-      document.getElementById('cohortModalMessage').style.display = 'none';
-      document.getElementById('cohortModal').classList.add('active');
+       // ============================================
+    // UPDATE MODAL WITH HARDCODED ARMS
+    // ============================================
+
+    function openCohortModal(cohortId = null) {
+      const modal = document.getElementById('cohortModal');
+      const form = document.getElementById('cohortForm');
+      const title = document.getElementById('cohortModalTitle');
+
+      if (cohortId) {
+        title.textContent = 'Edit Admission Cohort';
+        // Load cohort data and populate form
+        loadCohortData(cohortId).then(data => {
+          document.getElementById('cohortName').value = data.name;
+          document.getElementById('cohortSession').value = data.session;
+          document.getElementById('cohortTerm').value = data.term;
+          document.getElementById('cohortAcademicClass').value = data.classId;
+          
+          // Populate arms dropdown and set value
+          populateCohortArmsDropdown();
+          document.getElementById('cohortArm').value = data.armId;
+          
+          document.getElementById('cohortStartDate').value = data.startDate;
+          document.getElementById('cohortEndDate').value = data.endDate;
+          document.getElementById('cohortCapacity').value = data.capacity;
+          document.getElementById('cohortApplicationFee').value = data.applicationFee;
+          form.dataset.cohortId = cohortId;
+        });
+      } else {
+        title.textContent = 'Create New Admission Cohort';
+        form.reset();
+        populateCohortArmsDropdown();
+        delete form.dataset.cohortId;
+      }
+
+      modal.classList.add('active');
     }
 
+    function populateCohortArmsDropdown() {
+      const armSelect = document.getElementById('cohortArm');
+      armSelect.innerHTML = '<option value="">Select Arm</option>';
+      
+      ARMS.forEach(arm => {
+        const option = document.createElement('option');
+        option.value = arm.id;
+        option.textContent = arm.name;
+        armSelect.appendChild(option);
+      });
+    }
     function closeCohortModal() {
       document.getElementById('cohortModal').classList.remove('active');
       currentCohortId = null;
