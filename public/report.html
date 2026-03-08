@@ -92,7 +92,7 @@
       margin: 6px 0;
     }
 
-    /* Content area - FLEX ROW with equal heights */
+    /* Content area */
     .content {
       display: flex;
       gap: 6px;
@@ -112,8 +112,9 @@
 
     .side {
       width: 240px;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: auto auto auto auto;
+      grid-auto-rows: 1fr;
       gap: 6px;
       box-sizing: border-box;
     }
@@ -151,7 +152,7 @@
     .tc { text-align: center; }
     .tr { text-align: right; }
 
-    /* Performance summary - fills remaining space */
+    /* Performance summary */
     .perf-inline {
       margin: 4px 0 0 0;
       display: flex;
@@ -180,13 +181,7 @@
       background: #e9f0d6;
     }
 
-    /* Side boxes - equal height distribution */
-    .side {
-      display: grid;
-      grid-template-rows: auto auto auto auto;
-      grid-auto-rows: 1fr;
-    }
-
+    /* Side boxes */
     .box {
       border: 1px solid #222;
       padding: 6px;
@@ -272,8 +267,8 @@
       width: 112px;
       height: 112px;
       border-radius: 6px;
-      border: 2px solid #d9ddea;
-      box-shadow: 0 2px 8px rgba(46, 50, 80, 0.1);
+      border: 2.5px solid #d9ddea;
+      box-shadow: 0 2.5px 18px rgba(46, 50, 80, 0.13);
       object-fit: cover;
       background: #f0f2f6;
     }
@@ -448,12 +443,11 @@
       padding-top: 6px;
     }
 
-    .no-break {
-      page-break-inside: avoid;
-    }
+    .no-break { page-break-inside: avoid; }
 
     @media print {
       .profile-section { box-shadow: none; border: 1px solid #bbb; }
+      body { background: #fff; }
     }
 
     table.small td, table.small th {
@@ -464,12 +458,12 @@
 </head>
 <body>
   <div class="sheet no-break">
-    <img src="mainlogo.png" alt="Watermark" class="watermark-img"/>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="Watermark" class="watermark-img"/>
 
     <!-- Header -->
     <div class="report-header">
       <div style="display:flex; justify-content:flex-start; align-items:flex-start;">
-        <img src="mainlogo.png" alt="School Logo Left" style="width:48px; height:48px; object-fit:contain; display:block;">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="School Logo Left" style="width:48px; height:48px; object-fit:contain; display:block;">
       </div>
 
       <div style="text-align:center; padding-top:2px;">
@@ -480,7 +474,7 @@
       </div>
 
       <div style="display:flex; justify-content:flex-end; align-items:flex-start;">
-        <img src="arm.jpg" alt="School Logo Right" style="width:48px; height:48px; object-fit:contain; display:block;">
+        <img src="https://goldlincschools.com/assets/media/logos/favicon.ico" alt="School Logo Right" style="width:48px; height:48px; object-fit:contain; display:block;">
       </div>
     </div>
 
@@ -518,15 +512,11 @@
             <td>Sex:</td>
             <td id="profileSex">-</td>
           </tr>
-          <tr>
-            <td>House/Stream:</td>
-            <td id="profileHouse">-</td>
-          </tr>
         </table>
       </div>
 
       <div class="profile-photo">
-        <img id="profilePhoto" src="avatar.jpg" alt="Student photo">
+        <img id="profilePhoto" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="Student photo">
       </div>
 
       <div class="profile-stats">
@@ -769,43 +759,6 @@
             <div style="margin-top:6px;" class="nt-label">Date Issued: <span id="dateIssued">-</span></div>
           </div>
         </div>
-            
-    <!-- Seal at the bottom, inside remarks -->
-    <img src="seal.jpg" alt="Official Seal" class="seal-image" />
-
-    <!-- Place STAMP image here, inside .remarks, after signature-row and seal -->
-    <img src="sttmp1.png" alt="Official Stamp" class="stamp-image" />
-  </div>
-</div>
-  
-<style>
-/* Reserve space so content doesn't overlap the seal */
-.bottom {
-  position: relative;
-}
-.remarks {
-  position: relative;
-}
-
-.stamp-image {
-  position: absolute;
-  right: 50px;         /* Overlaps next-term area */
-  bottom: 14px;        /* Up from bottom */
-  width: 120px;        /* Larger stamp */
-  height: auto;
-  opacity: 0.83;
-  transform: rotate(-16deg);
-  z-index: 11;
-  pointer-events: none;
-}
-.remarks .seal-image {
-  display: block;
-  margin: 20px auto 0 auto;
-  width: 60px;
-  height: 60px;
-  opacity: 0.98;
-}
-</style>
       </div>
     </div>
 
@@ -846,7 +799,7 @@
 
     // Get grade distribution
     function getGradeDistribution(results) {
-      const grades = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
+      const grades = ['A', 'B', 'C', 'D', 'E', 'F'];
       const distribution = {};
       
       grades.forEach(grade => distribution[grade] = 0);
@@ -864,12 +817,15 @@
     function loadReportData() {
       try {
         const reportDataStr = sessionStorage.getItem('reportData');
+        console.log('SessionStorage data:', reportDataStr);
+        
         if (!reportDataStr) {
-          console.error('No report data found');
+          console.error('No report data found in sessionStorage');
           return null;
         }
 
         const data = JSON.parse(reportDataStr);
+        console.log('Parsed data:', data);
         return data;
       } catch (error) {
         console.error('Error loading report data:', error);
@@ -887,17 +843,21 @@
 
       const results = data.results || [];
       const student = data.student || {};
+      const skillsReport = data.skillsReport || {};
       const classSize = data.classSize || 0;
+
+      console.log('Populating with results:', results);
+      console.log('Student:', student);
+      console.log('Skills:', skillsReport);
 
       // Populate profile
       document.getElementById('profileName').textContent = student.name || '-';
       document.getElementById('profileAdmNo').textContent = student.regNo || '-';
-      document.getElementById('profileClass').textContent = student.class?.name || '-';
+      document.getElementById('profileClass').textContent = student.class?.name || student.class || '-';
       document.getElementById('profileSession').textContent = data.session || '-';
       document.getElementById('profileDOB').textContent = formatDate(student.DOB);
       document.getElementById('profileAge').textContent = calculateAge(student.DOB);
       document.getElementById('profileSex').textContent = student.gender || '-';
-      document.getElementById('profileHouse').textContent = student.house || '-';
       document.getElementById('profileEmail').textContent = student.email || '-';
       document.getElementById('classSize').textContent = classSize;
 
@@ -909,9 +869,10 @@
       // Calculate statistics
       let totalScore = 0, highestScore = 0, lowestScore = Infinity;
       results.forEach(r => {
-        totalScore += r.total || 0;
-        if (r.total > highestScore) highestScore = r.total;
-        if (r.total < lowestScore) lowestScore = r.total;
+        const score = parseInt(r.total) || 0;
+        totalScore += score;
+        if (score > highestScore) highestScore = score;
+        if (score < lowestScore) lowestScore = score;
       });
 
       if (lowestScore === Infinity) lowestScore = 0;
@@ -962,7 +923,7 @@
 
       // Grade analysis
       const distribution = getGradeDistribution(results);
-      const grades = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
+      const grades = ['A', 'B', 'C', 'D', 'E', 'F'];
       
       let gradeCountsRow = '<tr>';
       let gradeValuesRow = '<tr>';
@@ -978,60 +939,82 @@
       document.getElementById('gradeCountsRow').innerHTML = gradeCountsRow;
       document.getElementById('gradeValuesRow').innerHTML = gradeValuesRow;
 
-      // Populate skills (if available)
-      const skillsReport = data.skillsReport || {};
+      // Populate skills
+      const affSkills = skillsReport.skills?.affective || {};
+      const psychSkills = skillsReport.skills?.psychomotor || {};
+      const attendance = skillsReport.attendance || {};
 
       // Affective Domain
-      if (skillsReport.affective && Object.keys(skillsReport.affective).length > 0) {
+      if (Object.keys(affSkills).length > 0) {
         const affectiveTable = document.getElementById('affectiveTable');
-        for (const [key, value] of Object.entries(skillsReport.affective)) {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td style="text-align:left; padding:3px 4px;">${key}</td>
-            <td class="tc" style="padding:3px;">${value === 5 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 4 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 3 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 2 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 1 ? '✓' : ''}</td>
-          `;
-          affectiveTable.appendChild(row);
+        const affectiveMap = {
+          'attentiveness': 'Attentiveness',
+          'honesty': 'Honesty',
+          'neatness': 'Neatness',
+          'politeness': 'Politeness',
+          'punctuality': 'Punctuality / Assembly',
+          'selfControl': 'Self Control / Calmness'
+        };
+
+        for (const [key, label] of Object.entries(affectiveMap)) {
+          const value = affSkills[key];
+          if (value) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td style="text-align:left; padding:3px 4px;">${label}</td>
+              <td class="tc" style="padding:2px;">${value === 5 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 4 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 3 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 2 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 1 ? '✓' : ''}</td>
+            `;
+            affectiveTable.appendChild(row);
+          }
         }
       }
 
       // Psychomotor Skills
-      if (skillsReport.psychomotor && Object.keys(skillsReport.psychomotor).length > 0) {
+      if (Object.keys(psychSkills).length > 0) {
         const psychomotorTable = document.getElementById('psychomotorTable');
-        for (const [key, value] of Object.entries(skillsReport.psychomotor)) {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td style="text-align:left; padding:3px 4px;">${key}</td>
-            <td class="tc" style="padding:3px;">${value === 5 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 4 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 3 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 2 ? '✓' : ''}</td>
-            <td class="tc" style="padding:3px;">${value === 1 ? '✓' : ''}</td>
-          `;
-          psychomotorTable.appendChild(row);
+        const psychomotorMap = {
+          'handling': 'Handling Of Tools',
+          'drawing': 'Drawing / Painting',
+          'handwriting': 'Handwriting',
+          'speaking': 'Public Speaking',
+          'fluency': 'Speech Fluency'
+        };
+
+        for (const [key, label] of Object.entries(psychomotorMap)) {
+          const value = psychSkills[key];
+          if (value) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td style="text-align:left; padding:3px 4px;">${label}</td>
+              <td class="tc" style="padding:2px;">${value === 5 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 4 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 3 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 2 ? '✓' : ''}</td>
+              <td class="tc" style="padding:2px;">${value === 1 ? '✓' : ''}</td>
+            `;
+            psychomotorTable.appendChild(row);
+          }
         }
       }
 
       // Attendance
-      if (skillsReport.attendance && Object.keys(skillsReport.attendance).length > 0) {
-        document.getElementById('schoolOpened').textContent = skillsReport.attendance.schoolOpened || '-';
-        document.getElementById('timesPresent').textContent = skillsReport.attendance.timesPresent || '-';
-        document.getElementById('timesAbsent').textContent = skillsReport.attendance.timesAbsent || '-';
+      if (Object.keys(attendance).length > 0) {
+        document.getElementById('schoolOpened').textContent = attendance.schoolOpened || '-';
+        document.getElementById('timesPresent').textContent = attendance.timesPresent || '-';
+        document.getElementById('timesAbsent').textContent = attendance.timesAbsent || '-';
       }
 
       // Remarks
-      document.getElementById('teacherRemark').textContent = data.teacherRemark || 'No remark';
-      document.getElementById('principalRemark').textContent = data.principalComment || 'No remark';
+      document.getElementById('teacherRemark').textContent = skillsReport.teacherRemark || 'No remark';
+      document.getElementById('principalRemark').textContent = skillsReport.comment || data.principalComment || 'No remark';
       document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
       document.getElementById('principalName').textContent = data.principalName || 'Principal';
       document.getElementById('nextTermDate').textContent = data.nextTermDate || '-';
       document.getElementById('dateIssued').textContent = formatDate(new Date().toISOString());
-
-      // Clear sessionStorage after loading
-      sessionStorage.removeItem('reportData');
     }
 
     // Initialize on page load
