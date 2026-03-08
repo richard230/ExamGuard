@@ -327,6 +327,18 @@
     .badge-completed { background: #18ba89; color: #fff; }
     .badge-overdue { background: #e74c3c; color: #fff; }
     .badge-reviewed { background: #ffd600; color: #22305a; }
+    .badge-submitted { background: #3b82f6; color: #fff; }
+
+    /* Score Badge */
+    .score-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
 
     /* Buttons */
     .btn {
@@ -344,6 +356,12 @@
     .btn:hover {
       transform: translateY(-2px);
       box-shadow: var(--shadow-hover);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
     }
 
     .btn.ghost {
@@ -365,11 +383,26 @@
       cursor: pointer;
       font-weight: 700;
       transition: color 0.12s ease;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      background: rgba(59, 130, 246, 0.04);
+      display: inline-block;
     }
 
     .action-link:hover {
       color: var(--accent-2);
-      text-decoration: underline;
+      text-decoration: none;
+      background: rgba(59, 130, 246, 0.08);
+    }
+
+    .action-link.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      color: #9ca3af;
+      border-color: #e5e7eb;
+      background: #f3f4f6;
+      pointer-events: none;
     }
 
     .action-link.success {
@@ -872,7 +905,7 @@
         <a href="student-dashboard.html" data-section="home">🏠 Home</a>
         <a href="#" data-section="courses">📘 My Courses</a>
         <a href="assignments.html" data-section="assignments" class="active">📝 Assignments</a>
-        <a href="#" data-section="grades">📊 Grades</a>
+        <a href="check-result.html" data-section="grades">📊 Grades</a>
         <a href="#" data-section="timetable">⏰ Timetable</a>
         <a href="#" data-section="messages">✉️ Messages</a>
         <a href="#" data-section="resources">📂 Resources</a>
@@ -987,7 +1020,7 @@
         <div class="modal-title" id="cbtModalHeader"></div>
         <button class="modal-close" onclick="closeCbtModal()">&times;</button>
       </div>
-      <div class="text-center mb-2">
+      <div style="text-align: center; margin-bottom: 16px;">
         <span class="cbt-timer" id="cbtTimer"></span>
       </div>
       <form id="cbtQuizForm">
@@ -1002,117 +1035,42 @@
   </div>
 
   <script>
-    // Backend API
-    const API_BASE = "https://goldlincschools.onrender.com/api";
-    const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
+    const API_BASE_URL = "https://goldlincschools.onrender.com";
+    let allAssignments = [];
     let currentFilter = 'all';
+    let currentAssignment = null;
 
-    // Sidebar & Topbar Logic
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
-    const hamburger = document.getElementById('hamburger');
-
-    hamburger.addEventListener('click', () => {
-      sidebar.classList.toggle('open');
-      overlay.classList.toggle('visible');
-    });
-
-    overlay.addEventListener('click', () => {
-      sidebar.classList.remove('open');
-      overlay.classList.remove('visible');
-    });
-
-    // Close sidebar on link click (mobile)
-    document.querySelectorAll('.nav a').forEach(link => {
-      link.addEventListener('click', () => {
-        if (window.innerWidth < 980) {
-          sidebar.classList.remove('open');
-          overlay.classList.remove('visible');
+    // Load student info
+    function loadStudentInfo() {
+      const student = JSON.parse(localStorage.getItem('student') || '{}');
+      if (student.name) {
+        document.getElementById('studentName').textContent = student.name;
+        document.getElementById('studentClass').textContent = student.class || 'Student';
+        if (student.photoBase64) {
+          const avatar = `data:image/jpeg;base64,${student.photoBase64}`;
+          document.getElementById('studentAvatar').src = avatar;
+          document.getElementById('topbarAvatar').src = avatar;
         }
-      });
-    });
-
-    // Profile filling
-    function fillProfile(data) {
-      document.getElementById('studentName').textContent = data.name || 'Student Name';
-      document.getElementById('studentClass').textContent = data.class || 'Student';
-      const avatarUrl = data.photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name || 'Student') + '&background=2647a6&color=fff';
-      document.getElementById('studentAvatar').src = avatarUrl;
-      document.getElementById('topbarAvatar').src = avatarUrl;
+      }
     }
 
-    // Fetch and fill assignments
-    async function fetchAssignments() {
+    // Load Assignments from API
+    async function loadAssignments() {
       try {
-        // Student profile
-        const resProfile = await fetch(API_BASE + "/student/me", {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const student = await resProfile.json();
-        fillProfile(student);
-
-        // Main assignments
-        const res = await fetch(API_BASE + "/assignments/me", {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (!res.ok) throw new Error("Failed to fetch assignments");
-        const assignments = await res.json();
-
-        const tbody = document.getElementById('assignmentsTableBody');
-        if (!assignments.length) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="6">
-                <div class="empty-state">
-                  <div class="empty-state-icon">📭</div>
-                  <div class="empty-state-title">No assignments found</div>
-                  <p class="text-muted">Check back later for new assignments</p>
-                </div>
-              </td>
-            </tr>
-          `;
-          return;
-        }
-
-        tbody.innerHTML = assignments.map((a, i) => {
-          // Status
-          let statusClass = "badge-pending", statusLabel = "Pending";
-          if (a.status === "Completed" || a.status === "Submitted") { statusClass = "badge-completed"; statusLabel = "Submitted"; }
-          if (a.status === "Reviewed") { statusClass = "badge-reviewed"; statusLabel = "Reviewed"; }
-          if (a.status === "Overdue" || (a.dueDate && new Date(a.dueDate) < new Date() && !a.submitted)) { statusClass = "badge-overdue"; statusLabel = "Overdue"; }
-
-          // Score
-          let score = a.score !== undefined && a.score !== null ? `${a.score}/${a.totalScore || 100}` : "-";
-
-          // Action button: CBT or regular
-          let cbtId = (a.cbt && typeof a.cbt === 'object') ? a.cbt._id : a.cbt;
-          let cbtBtn = cbtId
-            ? `<a class="action-link success" onclick="openCbtModal('${cbtId}','${a.subject && a.subject.name ? a.subject.name : a.subject}','${a.title.replace(/'/g,"&#39;")}')"><i class='fa fa-desktop'></i> Take Test</a>`
-            : `<a class="action-link" onclick="openAssignmentModal(${i})"><i class="fa fa-eye"></i> View</a>`;
-
-          return `
-            <tr>
-              <td><strong>${a.title}</strong></td>
-              <td>${a.subject?.name || a.subject || ''}</td>
-              <td>${a.dueDate ? a.dueDate.slice(0,10) : ''}</td>
-              <td><span class="badge ${statusClass}">${statusLabel}</span></td>
-              <td>${score}</td>
-              <td>${cbtBtn}</td>
-            </tr>
-          `;
-        }).join('');
-
-        // Store for modal use
-        window._assignments = assignments;
+        const response = await fetch(`${API_BASE_URL}/api/assignments`);
+        if (!response.ok) throw new Error('Failed to fetch assignments');
+        
+        allAssignments = await response.json();
+        displayAssignments(allAssignments);
       } catch (err) {
-        console.error(err);
+        console.error('Error loading assignments:', err);
         document.getElementById('assignmentsTableBody').innerHTML = `
           <tr>
-            <td colspan="6">
+            <td colspan="6" style="text-align:center; padding:40px;">
               <div class="empty-state">
                 <div class="empty-state-icon">⚠️</div>
-                <div class="empty-state-title">Unable to load assignments</div>
-                <p class="text-muted">Please refresh the page or contact support</p>
+                <div class="empty-state-title">Error loading assignments</div>
+                <p class="text-muted">${err.message}</p>
               </div>
             </td>
           </tr>
@@ -1120,280 +1078,330 @@
       }
     }
 
-    // Filter logic
-    function filterAssignments(status) {
-      currentFilter = status;
-      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-
+    // Display Assignments in Table
+    function displayAssignments(assignments) {
       const tbody = document.getElementById('assignmentsTableBody');
-      const rows = tbody.querySelectorAll('tr');
+      
+      if (!assignments || assignments.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center; padding:40px;">
+              <div class="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <div class="empty-state-title">No assignments</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
 
-      rows.forEach(row => {
-        if (status === 'all') {
-          row.style.display = '';
-        } else {
-          const badge = row.querySelector('.badge');
-          if (!badge) return;
-          const badgeText = badge.textContent.toLowerCase();
-          let show = false;
-
-          if (status === 'pending' && badgeText.includes('pending')) show = true;
-          if (status === 'submitted' && badgeText.includes('submitted')) show = true;
-          if (status === 'reviewed' && badgeText.includes('reviewed')) show = true;
-          if (status === 'overdue' && badgeText.includes('overdue')) show = true;
-
-          row.style.display = show ? '' : 'none';
+      tbody.innerHTML = assignments.map(assignment => {
+        const status = getAssignmentStatus(assignment);
+        const statusBadge = getStatusBadge(status);
+        
+        // Check if assignment has been completed (has score)
+        const isCompleted = assignment.score !== undefined && assignment.score !== null;
+        const actionDisabled = isCompleted ? 'disabled' : '';
+        const actionClass = isCompleted ? 'disabled' : '';
+        
+        // Format score display
+        let scoreDisplay = '-';
+        if (isCompleted) {
+          scoreDisplay = `<span class="score-badge">${assignment.score}/${assignment.totalScore || 100}</span>`;
         }
-      });
+
+        return `
+          <tr>
+            <td><strong>${assignment.title || 'Untitled'}</strong></td>
+            <td>${assignment.subject || '-'}</td>
+            <td>${formatDate(assignment.dueDate) || '-'}</td>
+            <td>${statusBadge}</td>
+            <td>${scoreDisplay}</td>
+            <td>
+              ${isCompleted 
+                ? `<span class="action-link disabled" title="Test completed"><i class="fa fa-check-circle"></i> Completed</span>`
+                : `<a class="action-link" onclick="openAssignmentModal('${assignment._id}')"><i class="fa fa-external-link"></i> Start</a>`
+              }
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    // Modal logic
-    function openAssignmentModal(idx) {
-      const a = window._assignments[idx];
-      document.getElementById('modalTitle').textContent = a.title;
-      document.getElementById('modalSubject').textContent = a.subject?.name || a.subject || '';
-      document.getElementById('modalDue').textContent = a.dueDate ? new Date(a.dueDate).toLocaleString() : 'N/A';
-      document.getElementById('modalDescription').innerHTML = (a.description || 'No description').replace(/\n/g,'<br>');
+    // Get Assignment Status
+    function getAssignmentStatus(assignment) {
+      const now = new Date();
+      const dueDate = new Date(assignment.dueDate);
 
-      // Submission section
-      let uploadSection = '';
-      if (a.status === "Reviewed") {
-        uploadSection += `<div class="status-message status-success"><strong>✓ Reviewed</strong><br>${a.feedback || 'No feedback provided'}</div>`;
+      if (assignment.score !== undefined && assignment.score !== null) {
+        return assignment.reviewed ? 'reviewed' : 'submitted';
       }
 
-      if (!a.submitted && (!a.status || a.status === "Pending" || a.status === "Overdue")) {
-        uploadSection += `
-          <form id="uploadForm" enctype="multipart/form-data">
-            <div class="form-group">
-              <label class="form-label">Upload your work</label>
-              <div class="file-input-wrapper">
-                <input type="file" name="file" id="submissionFile" required class="file-input">
-                <label for="submissionFile" class="file-label">
-                  <i class="fa fa-upload"></i> Choose File
-                </label>
-              </div>
-              <small class="text-muted" id="fileName" style="display:block; margin-top:8px;"></small>
-            </div>
-            <button type="submit" class="btn success" style="width: 100%;">
-              <i class="fa fa-check"></i> Submit Assignment
-            </button>
-          </form>
-        `;
-      } else if (a.submitted) {
-        uploadSection += `
-          <div class="status-message status-info">
-            <strong>✓ Submitted</strong><br>
-            <small>Submitted on ${new Date(a.submittedAt || Date.now()).toLocaleString()}</small>
-          </div>
-        `;
-        if (a.submissionFile) {
-          uploadSection += `<a href="${a.submissionFile}" target="_blank" class="btn ghost" style="width: 100%; display: block;"><i class="fa fa-download"></i> Download Submission</a>`;
-        }
+      if (now > dueDate) return 'overdue';
+      return 'pending';
+    }
+
+    // Get Status Badge HTML
+    function getStatusBadge(status) {
+      const badges = {
+        pending: '<span class="badge badge-pending">⏳ Pending</span>',
+        submitted: '<span class="badge badge-submitted">✓ Submitted</span>',
+        reviewed: '<span class="badge badge-reviewed">👁️ Reviewed</span>',
+        overdue: '<span class="badge badge-overdue">✗ Overdue</span>'
+      };
+      return badges[status] || '<span class="badge badge-pending">Unknown</span>';
+    }
+
+    // Format Date
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch (e) {
+        return dateStr;
       }
+    }
 
-      document.getElementById('modalUploadSection').innerHTML = uploadSection;
+    // Filter Assignments
+    function filterAssignments(filter) {
+      currentFilter = filter;
+      
+      // Update filter buttons
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
 
-      // Status message
-      let statusMsg = '';
-      if (a.status === "Reviewed" && a.score !== undefined && a.score !== null) {
-        statusMsg = `<div class="status-message status-success"><strong>Score: ${a.score}/${a.totalScore || 100}</strong></div>`;
-      } else if (a.status === "Overdue" || (!a.submitted && a.dueDate && new Date(a.dueDate) < new Date())) {
-        statusMsg = `<div class="status-message status-error"><strong>Overdue!</strong> This assignment was due on ${new Date(a.dueDate).toLocaleDateString()}</div>`;
-      }
-      document.getElementById('modalSubmissionStatus').innerHTML = statusMsg;
-
-      // File input change listener
-      const fileInput = document.getElementById('submissionFile');
-      if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-          document.getElementById('fileName').textContent = e.target.files[0]?.name || '';
+      // Filter assignments
+      let filtered = allAssignments;
+      if (filter !== 'all') {
+        filtered = allAssignments.filter(a => {
+          const status = getAssignmentStatus(a);
+          return status === filter;
         });
       }
 
-      // Form submit
-      const form = document.getElementById('uploadForm');
-      if (form) {
-        form.onsubmit = (ev) => {
-          ev.preventDefault();
-          submitAssignment(a._id || a.id);
-        };
+      displayAssignments(filtered);
+    }
+
+    // Open Assignment Modal
+    function openAssignmentModal(assignmentId) {
+      currentAssignment = allAssignments.find(a => a._id === assignmentId);
+      
+      if (!currentAssignment) return;
+
+      document.getElementById('modalTitle').textContent = currentAssignment.title || 'Assignment';
+      document.getElementById('modalSubject').textContent = currentAssignment.subject || '-';
+      document.getElementById('modalDue').textContent = formatDate(currentAssignment.dueDate) || '-';
+      document.getElementById('modalDescription').textContent = currentAssignment.description || 'No description available';
+
+      // Show/Hide submission status
+      const submissionStatus = document.getElementById('modalSubmissionStatus');
+      if (currentAssignment.score !== undefined && currentAssignment.score !== null) {
+        submissionStatus.innerHTML = `
+          <div class="status-success">
+            <strong>✓ Completed</strong><br>
+            Score: ${currentAssignment.score}/${currentAssignment.totalScore || 100}
+          </div>
+        `;
+      } else {
+        submissionStatus.innerHTML = '';
+      }
+
+      // Show upload/start section
+      const uploadSection = document.getElementById('modalUploadSection');
+      if (currentAssignment.type === 'cbt' || currentAssignment.type === 'mock') {
+        uploadSection.innerHTML = `
+          <button type="button" class="btn success" onclick="startCBT('${currentAssignment._id}')">
+            <i class="fa fa-play"></i> Start Test
+          </button>
+        `;
+      } else {
+        uploadSection.innerHTML = `
+          <div class="file-input-wrapper">
+            <label class="file-label" for="fileInput">
+              <i class="fa fa-upload"></i> Upload Assignment
+            </label>
+            <input type="file" id="fileInput" class="file-input" onchange="handleFileUpload(event)">
+          </div>
+        `;
       }
 
       document.getElementById('assignmentModal').classList.add('active');
     }
 
+    // Close Assignment Modal
     function closeAssignmentModal() {
       document.getElementById('assignmentModal').classList.remove('active');
+      currentAssignment = null;
     }
 
-    // Modal backdrop click
-    window.onclick = function(e) {
-      const modal = document.getElementById('assignmentModal');
-      const cbtModalBg = document.getElementById('cbtModalBg');
-      if (modal.classList.contains('active') && e.target === modal) closeAssignmentModal();
-      if (cbtModalBg.classList.contains('active') && e.target === cbtModalBg) closeCbtModal();
-    }
-
-    // Submit assignment
-    async function submitAssignment(assignmentId) {
-      const fileInput = document.getElementById('submissionFile');
-      if (!fileInput.files.length) {
-        alert('Please select a file.');
-        return;
-      }
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
+    // Start CBT
+    async function startCBT(assignmentId) {
       try {
-        const res = await fetch(`${API_BASE}/assignments/${assignmentId}/submit`, {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token },
-          body: formData
-        });
-        if (!res.ok) throw new Error("Failed to submit assignment.");
-        alert("✓ Submission successful!");
+        document.getElementById('cbtQuizLoader').style.display = 'flex';
+        
+        const response = await fetch(`${API_BASE_URL}/api/exam/${assignmentId}`);
+        if (!response.ok) throw new Error('Failed to load CBT questions');
+        
+        const exam = await response.json();
+        
+        renderCBT(exam);
         closeAssignmentModal();
-        fetchAssignments();
-      } catch {
-        alert("Failed to submit assignment. Please try again.");
+        document.getElementById('cbtModalBg').classList.add('active');
+        
+        document.getElementById('cbtQuizLoader').style.display = 'none';
+      } catch (err) {
+        console.error('Error starting CBT:', err);
+        alert('Failed to start test: ' + err.message);
+        document.getElementById('cbtQuizLoader').style.display = 'none';
       }
     }
 
-    // --- CBT/Mock Modal Logic ---
-    let cbtTimerInterval = null;
-    let cbtStartTime = null;
-    let cbtDuration = 0;
-    let cbtQuestions = [];
-    let cbtAnswers = [];
-    let cbtAssignmentId = null;
-    let cbtExamId = null;
+    // Render CBT
+    function renderCBT(exam) {
+      document.getElementById('cbtModalHeader').textContent = exam.title || 'Quiz';
+      
+      const questionsBlock = document.getElementById('cbtQuestionsBlock');
+      questionsBlock.innerHTML = '';
 
-    async function openCbtModal(cbtId, subject, title) {
-      cbtQuestions = [];
-      cbtAnswers = [];
-      cbtAssignmentId = null;
-      cbtExamId = null;
-
-      document.getElementById('cbtModalHeader').innerHTML = `<i class="fa fa-lightbulb" style="color: #10b981; margin-right: 8px;"></i> ${subject} <span style="font-weight: 400; font-size: 0.9rem;">(${title})</span>`;
-      document.getElementById('cbtQuestionsBlock').innerHTML = '';
-      document.getElementById('cbtFeedback').innerHTML = '';
-      document.getElementById('cbtSubmitBtn').disabled = false;
-      document.getElementById('cbtQuizLoader').style.display = '';
-      document.getElementById('cbtQuizForm').style.display = 'none';
-      document.getElementById('cbtTimer').textContent = '--:--';
-      document.getElementById('cbtModalBg').classList.add('active');
-
-      // Find assignment id
-      const a = (window._assignments||[]).find(ass=>ass.cbt && ass.cbt._id ? ass.cbt._id === cbtId : ass.cbt === cbtId);
-      cbtAssignmentId = a?._id || a?.id;
-      cbtExamId = cbtId;
-
-      // Fetch CBT
-      let cbt = null;
-      try {
-        const res = await fetch(`${API_BASE}/exam/${cbtId}`, { headers: { 'Authorization': 'Bearer ' + token } });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        cbt = data.cbt || data;
-      } catch {
-        document.getElementById('cbtQuizLoader').innerHTML = `<span style="color: #e74c3c;">Failed to load CBT. Please try again.</span>`;
-        return;
-      }
-
-      cbtDuration = cbt.duration || 30;
-      cbtQuestions = cbt.questions || [];
-      cbtAnswers = Array(cbtQuestions.length).fill(null);
-
-      // Render questions
-      let qHtml = cbtQuestions.map((q, i) => `
-        <div class="cbt-q-block">
-          <h4>Question ${i+1}</h4>
-          <div style="margin-bottom: 12px; color: var(--text-main);">${q.text}</div>
-          <div>
-            ${(q.options||[]).map((opt, oi) => `
+      (exam.questions || []).forEach((q, idx) => {
+        const questionHtml = `
+          <div class="cbt-q-block">
+            <h4>Q${idx + 1}. ${q.question}</h4>
+            ${(q.options || []).map((opt, optIdx) => `
               <div class="cbt-opt-row">
-                <input type="radio" id="cbt-q${i}-opt${oi}" name="cbt-q${i}" value="${oi}" required onchange="cbtAnswers[${i}]=${oi}">
-                <label for="cbt-q${i}-opt${oi}">${opt.value || opt}</label>
+                <input type="radio" id="opt_${idx}_${optIdx}" name="q_${idx}" value="${opt}">
+                <label for="opt_${idx}_${optIdx}">${opt}</label>
               </div>
             `).join('')}
           </div>
-        </div>
-      `).join('');
-      document.getElementById('cbtQuestionsBlock').innerHTML = qHtml;
-      document.getElementById('cbtQuizLoader').style.display = 'none';
-      document.getElementById('cbtQuizForm').style.display = '';
+        `;
+        questionsBlock.innerHTML += questionHtml;
+      });
 
-      // Start timer
-      cbtStartTime = Date.now();
-      updateCbtTimer();
-      clearInterval(cbtTimerInterval);
-      cbtTimerInterval = setInterval(updateCbtTimer, 1000);
+      // Timer
+      let timeRemaining = exam.duration * 60;
+      updateTimer(timeRemaining);
+      setInterval(() => {
+        timeRemaining--;
+        if (timeRemaining < 0) timeRemaining = 0;
+        updateTimer(timeRemaining);
+        if (timeRemaining === 0) {
+          document.getElementById('cbtSubmitBtn').click();
+        }
+      }, 1000);
+
+      // Submit handler
+      document.getElementById('cbtQuizForm').onsubmit = (e) => {
+        e.preventDefault();
+        submitCBT(exam._id);
+      };
     }
 
+    // Update Timer
+    function updateTimer(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      document.getElementById('cbtTimer').textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // Submit CBT
+    async function submitCBT(examId) {
+      try {
+        const formData = new FormData(document.getElementById('cbtQuizForm'));
+        const answers = {};
+        
+        for (let [key, value] of formData) {
+          if (key.startsWith('q_')) {
+            answers[key] = value;
+          }
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/exam/${examId}/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers })
+        });
+
+        if (!response.ok) throw new Error('Failed to submit CBT');
+        
+        const result = await response.json();
+
+        // Show feedback
+        document.getElementById('cbtFeedback').innerHTML = `✓ Score: ${result.score}/${result.totalScore}`;
+        document.getElementById('cbtSubmitBtn').disabled = true;
+
+        // Update the assignment in our list with the score ✅ NEW
+        const assignmentIndex = allAssignments.findIndex(a => a._id === currentAssignment._id);
+        if (assignmentIndex !== -1) {
+          allAssignments[assignmentIndex].score = result.score;
+          allAssignments[assignmentIndex].totalScore = result.totalScore;
+          allAssignments[assignmentIndex].reviewed = true;
+        }
+
+        // Refresh table display ✅ NEW
+        displayAssignments(allAssignments);
+
+        // Disable further interactions
+        document.getElementById('cbtQuizForm').style.opacity = '0.6';
+        document.getElementById('cbtQuizForm').style.pointerEvents = 'none';
+
+        setTimeout(() => {
+          closeCbtModal();
+        }, 3000);
+      } catch (err) {
+        console.error('Error submitting CBT:', err);
+        alert('Failed to submit: ' + err.message);
+      }
+    }
+
+    // Close CBT Modal
     function closeCbtModal() {
       document.getElementById('cbtModalBg').classList.remove('active');
-      clearInterval(cbtTimerInterval);
+      document.getElementById('cbtQuizForm').reset();
+      document.getElementById('cbtFeedback').innerHTML = '';
+      document.getElementById('cbtSubmitBtn').disabled = false;
+      document.getElementById('cbtQuizForm').style.opacity = '1';
+      document.getElementById('cbtQuizForm').style.pointerEvents = 'auto';
     }
 
-    function updateCbtTimer() {
-      if (!cbtStartTime) return;
-      const elapsed = Math.floor((Date.now() - cbtStartTime)/1000);
-      const left = Math.max(0, cbtDuration*60 - elapsed);
-      const min = Math.floor(left/60), sec = left%60;
-      document.getElementById('cbtTimer').textContent = min.toString().padStart(2,'0')+':'+sec.toString().padStart(2,'0');
-      if (left === 0) {
-        clearInterval(cbtTimerInterval);
-        document.getElementById('cbtFeedback').innerHTML = `<span style="color: #e74c3c;">⏱️ Time is up! Submitting...</span>`;
-        setTimeout(()=>{ submitCbtQuiz(); }, 1200);
-        document.getElementById('cbtSubmitBtn').disabled = true;
-      }
+    // Handle File Upload
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('assignmentId', currentAssignment._id);
+
+      // Simulated upload - replace with actual API call
+      console.log('File ready to upload:', file.name);
+      alert('File upload feature coming soon!');
     }
 
-    // CBT submission
-    document.getElementById('cbtQuizForm').onsubmit = function(ev) {
-      ev.preventDefault();
-      submitCbtQuiz();
-    };
+    // Hamburger Menu
+    document.getElementById('hamburger')?.addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('visible');
+      document.body.classList.toggle('no-scroll');
+    });
 
-    async function submitCbtQuiz() {
-      document.getElementById('cbtSubmitBtn').disabled = true;
-      let answers = [];
-      for (let i=0; i<cbtQuestions.length; i++) {
-        let sel = document.querySelector(`input[name="cbt-q${i}"]:checked`);
-        answers[i] = sel ? Number(sel.value) : null;
-      }
+    document.getElementById('overlay')?.addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('visible');
+      document.body.classList.remove('no-scroll');
+    });
 
-      let score = 0, total = cbtQuestions.length;
-      for (let i=0; i<cbtQuestions.length; i++) {
-        if (answers[i] !== null && answers[i] === cbtQuestions[i].answer) score++;
-      }
-
-      document.getElementById('cbtFeedback').innerHTML = `<span style="color: #10b981;">✓ Submitted! Your score: <strong>${score}/${total}</strong></span>`;
-
-      if (cbtAssignmentId) {
-        try {
-          await fetch(`${API_BASE}/assignments/${cbtAssignmentId}/submit`, {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              cbt: cbtExamId,
-              answers,
-              score,
-              totalScore: total,
-              status: "Submitted"
-            })
-          });
-        } catch {}
-      }
-
-      setTimeout(()=>{
-        closeCbtModal();
-        fetchAssignments();
-      }, 2200);
-    }
-
-    // Initial load
-    fetchAssignments();
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStudentInfo();
+      loadAssignments();
+    });
   </script>
 </body>
 </html>
