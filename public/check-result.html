@@ -597,38 +597,6 @@
       line-height: 1.5;
     }
 
-    /* TEACHER & PRINCIPAL INFO */
-    .teacher-principal-info {
-      background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%);
-      border: 1px solid #c7d2fe;
-      border-radius: 8px;
-      padding: 16px;
-      margin-top: 16px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-    }
-
-    .teacher-info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .teacher-info-label {
-      font-weight: 700;
-      font-size: 0.85rem;
-      color: #4f46e5;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .teacher-info-value {
-      font-size: 0.95rem;
-      color: var(--text-main);
-      font-weight: 600;
-    }
-
     /* PREVIOUS RESULTS */
     .previous-results-list {
       display: grid;
@@ -782,10 +750,6 @@
         grid-template-columns: 1fr;
       }
 
-      .teacher-principal-info {
-        grid-template-columns: 1fr;
-      }
-
       .student-info-card {
         flex-direction: column;
         align-items: center;
@@ -840,10 +804,6 @@
       .student-info-card img {
         width: 70px;
         height: 70px;
-      }
-
-      .teacher-principal-info {
-        grid-template-columns: 1fr;
       }
     }
 
@@ -1029,18 +989,6 @@
           </table>
         </div>
 
-        <!-- Teacher & Principal Info -->
-        <div class="teacher-principal-info">
-          <div class="teacher-info-item">
-            <div class="teacher-info-label">Class Teacher / Form Master</div>
-            <div class="teacher-info-value" id="classTeacherName">-</div>
-          </div>
-          <div class="teacher-info-item">
-            <div class="teacher-info-label">Principal</div>
-            <div class="teacher-info-value" id="principalNameDisplay">-</div>
-          </div>
-        </div>
-
         <!-- Skills & Attendance Section -->
         <div class="skills-attendance-container" id="skillsAttendanceContainer" style="display:none;">
           <div class="skill-box" id="affectiveSkillsBox"></div>
@@ -1051,262 +999,515 @@
         <!-- Principal Comment -->
         <div class="principal-comment-box" id="principalCommentBox" style="display:none;">
           <h4>📝 Principal's Comment</h4>
-          <p id="principalCommentText">-</p>
+          <p id="principalCommentText"></p>
         </div>
 
-        <!-- Download Button -->
-        <button class="download-btn" onclick="openReportWindow()" id="downloadBtn">
-          <i class="fa fa-file-pdf"></i> View Full Report
-        </button>
+        <button class="download-btn" id="downloadBtn" onclick="downloadCurrentResult()"><i class="fa fa-download"></i> Download Result</button>
+      </section>
+
+      <!-- Previously Viewed Results -->
+      <section class="results-section">
+        <div class="section-title"><i class="fa fa-history"></i> Previously Viewed Results</div>
+        <div class="previous-results-list" id="previousResultsList"></div>
       </section>
     </main>
   </div>
 
   <script>
     const API_BASE_URL = "https://goldlincschools.onrender.com";
+    const API_TIMEOUT = 15000; // 15 seconds timeout
 
-    // Sidebar toggle
+    let lastStudentProfile = null;
+    let isLoadingResults = false;
+    let currentResultData = null; // Store current result for download
+
+    // ============================================
+    // Helper: Fetch with timeout
+    // ============================================
+    async function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    }
+
+    // ============================================
+    // Helper: Show/Hide Messages
+    // ============================================
+    function showError(message) {
+      const errorEl = document.getElementById('searchError');
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+      document.getElementById('searchSuccess').classList.remove('show');
+    }
+
+    function showSuccess(message) {
+      const successEl = document.getElementById('searchSuccess');
+      successEl.textContent = message;
+      successEl.classList.add('show');
+      document.getElementById('searchError').classList.remove('show');
+    }
+
+    function clearMessages() {
+      document.getElementById('searchError').classList.remove('show');
+      document.getElementById('searchSuccess').classList.remove('show');
+    }
+
+    // ============================================
+    // Sidebar & Navigation Functions
+    // ============================================
     const hamburger = document.getElementById('hamburger');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
 
-    hamburger.addEventListener('click', () => {
+    hamburger?.addEventListener('click', () => {
       sidebar.classList.toggle('open');
       overlay.classList.toggle('visible');
       document.body.classList.toggle('no-scroll');
     });
 
-    overlay.addEventListener('click', () => {
+    overlay?.addEventListener('click', () => {
       sidebar.classList.remove('open');
       overlay.classList.remove('visible');
       document.body.classList.remove('no-scroll');
     });
 
-    // Navigation
-    function navClick(e) {
+    function navClick(event) {
+      event.preventDefault();
+      const link = event.currentTarget;
       document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-      e.currentTarget.classList.add('active');
+      link.classList.add('active');
+      
+      // Close sidebar on mobile
+      if (window.innerWidth <= 720) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('visible');
+        document.body.classList.remove('no-scroll');
+      }
+
+      // Navigate if href is set
+      const href = link.getAttribute('href');
+      if (href && href !== '#') {
+        window.location.href = href;
+      }
     }
 
-    // Load student info from localStorage
-    window.addEventListener('load', () => {
-      const studentData = JSON.parse(localStorage.getItem('studentData') || '{}');
-      if (studentData.regNo) {
-        document.getElementById('regNoInput').value = studentData.regNo;
-        document.getElementById('studentName').textContent = studentData.name || 'Student';
-        document.getElementById('studentClass').textContent = studentData.class || 'N/A';
-        if (studentData.photoBase64) {
-          const avatar = 'data:image/jpeg;base64,' + studentData.photoBase64;
-          document.getElementById('studentAvatar').src = avatar;
-          document.getElementById('topbarAvatar').src = avatar;
-        }
-      }
-    });
+    // ============================================
+    // Student Profile & Result Management
+    // ============================================
+    let affixedClass = null, affixedSession = null, affixedTerm = null;
 
-    // Handle result search
-    async function handleResultSearch(e) {
-      e.preventDefault();
-      
-      const regNo = document.getElementById('regNoInput').value;
-      const scratchCard = document.getElementById('scratchCardInput').value;
-      const className = document.getElementById('classInput').value;
-      const session = document.getElementById('sessionInput').value;
-      const term = document.getElementById('termInput').value;
+    async function autofillRegNoAndAffix() {
+      const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
+      const regNoInput = document.getElementById('regNoInput');
       const submitBtn = document.getElementById('submitBtn');
-      const searchError = document.getElementById('searchError');
-      const resultsSection = document.getElementById('resultsDisplaySection');
-
-      if (!regNo || !scratchCard || !className || !session || !term) {
-        searchError.textContent = 'Please fill in all fields';
-        searchError.classList.add('show');
-        return false;
+      
+      if (!token) {
+        regNoInput.value = '';
+        regNoInput.placeholder = 'Login required';
+        regNoInput.disabled = true;
+        regNoInput.readOnly = true;
+        submitBtn.disabled = true;
+        return;
       }
-
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner-small"></span> Checking...';
-      searchError.classList.remove('show');
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/results/check?regNo=${encodeURIComponent(regNo)}&scratchCard=${encodeURIComponent(scratchCard)}&class=${encodeURIComponent(className)}&session=${encodeURIComponent(session)}&term=${encodeURIComponent(term)}`
-        );
+        const res = await fetchWithTimeout(API_BASE_URL + '/api/students/me', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to fetch results');
+        if (res.ok) {
+          const student = await res.json();
+          lastStudentProfile = student;
+          const regNo = student.regNo || student.student_id || '';
+          
+          regNoInput.value = regNo;
+          regNoInput.disabled = true;
+          regNoInput.readOnly = true;
+          submitBtn.disabled = false;
+          
+          affixedClass = student.class_name || student.class || null;
+          affixedSession = student.session || null;
+          affixedTerm = student.term || null;
+
+          if (affixedClass) {
+            const classInput = document.getElementById('classInput');
+            classInput.value = affixedClass;
+            classInput.disabled = true;
+          }
+          if (affixedSession) {
+            const sessionInput = document.getElementById('sessionInput');
+            sessionInput.value = affixedSession;
+            sessionInput.disabled = true;
+          }
+          if (affixedTerm) {
+            const termInput = document.getElementById('termInput');
+            termInput.value = affixedTerm;
+            termInput.disabled = true;
+          }
+
+          // Update sidebar profile
+          document.getElementById('studentName').textContent = student.full_name || student.name || 'Student';
+          document.getElementById('studentClass').textContent = affixedClass || 'N/A';
+          if (student.avatar || student.profile_pic) {
+            document.getElementById('studentAvatar').src = student.avatar || student.profile_pic;
+            document.getElementById('topbarAvatar').src = student.avatar || student.profile_pic;
+          }
+        } else {
+          regNoInput.value = '';
+          regNoInput.placeholder = 'Login required';
+          regNoInput.disabled = true;
+          regNoInput.readOnly = true;
+          submitBtn.disabled = true;
         }
-
-        const data = await response.json();
-        
-        // Store in sessionStorage for report.html
-        sessionStorage.setItem('reportData', JSON.stringify(data));
-
-        // Display results
-        displayResults(data);
-        resultsSection.style.display = 'block';
-        resultsSection.scrollIntoView({ behavior: 'smooth' });
-
-      } catch (err) {
-        searchError.textContent = err.message;
-        searchError.classList.add('show');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa fa-search"></i> View Result';
+      } catch (error) {
+        console.error('Error autofilling student data:', error);
+        regNoInput.value = '';
+        regNoInput.placeholder = 'Login required';
+        regNoInput.disabled = true;
+        regNoInput.readOnly = true;
+        submitBtn.disabled = true;
       }
-
-      return false;
     }
 
-    // Display results
-    function displayResults(data) {
+    autofillRegNoAndAffix();
+
+    // ============================================
+    // Local Storage for Previously Viewed Results
+    // ============================================
+    function getViewedResults() {
+      let arr = [];
+      try {
+        arr = JSON.parse(localStorage.getItem("viewedResults")) || [];
+      } catch (e) {
+        console.error('Error parsing viewed results:', e);
+      }
+      return arr;
+    }
+
+    function saveViewedResult(entry) {
+      let arr = getViewedResults();
+      arr = arr.filter(x => !(
+        x.regNo === entry.regNo && x.session === entry.session && x.term === entry.term && x.class === entry.class
+      ));
+      arr.unshift(entry);
+      if (arr.length > 6) arr = arr.slice(0, 6);
+      localStorage.setItem("viewedResults", JSON.stringify(arr));
+    }
+
+    function renderPreviousResults() {
+      const arr = getViewedResults();
+      const el = document.getElementById("previousResultsList");
+      if (!arr.length) {
+        el.innerHTML = `<div style="color:var(--muted); padding: 12px; text-align: center; grid-column: 1/-1;">No previously viewed results.</div>`;
+        return;
+      }
+      el.innerHTML = arr.map((r, i) => `
+        <div class="previous-result-card" onclick="viewPreviousResult(${i})" role="button" tabindex="0" onkeypress="if(event.key==='Enter') viewPreviousResult(${i})">
+          <div class="previous-result-title">${r.regNo}</div>
+          <div class="previous-result-meta">${r.class} • ${r.session} • ${r.term}</div>
+        </div>
+      `).join("");
+    }
+
+    async function viewPreviousResult(index) {
+      const arr = getViewedResults();
+      const r = arr[index];
+      if (!r) return;
+
+      // Fill the form
+      document.getElementById('regNoInput').value = r.regNo;
+      document.getElementById('scratchCardInput').value = r.scratchCard || '';
+      document.getElementById('classInput').value = r.class;
+      document.getElementById('sessionInput').value = r.session;
+      document.getElementById('termInput').value = r.term;
+
+      // Trigger search
+      handleResultSearch(new Event('submit'));
+    }
+
+    // ============================================
+    // Helper: Calculate grade color class
+    // ============================================
+    function getGradeColorClass(grade) {
+      if (['A', 'B'].includes(grade)) return 'grade-high';
+      if (['C', 'D'].includes(grade)) return 'grade-mid';
+      return 'grade-low';
+    }
+
+    // ============================================
+    // Helper: Format date
+    // ============================================
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    // ============================================
+    // Main Search Handler
+    // ============================================
+    async function handleResultSearch(event) {
+      event.preventDefault();
+      
+      if (isLoadingResults) return;
+      isLoadingResults = true;
+      clearMessages();
+
+      const submitBtn = document.getElementById('submitBtn');
+      const originalBtnText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-small"></span> Loading...';
+
+      try {
+        const regNo = document.getElementById('regNoInput').value.trim();
+        const scratchCard = document.getElementById('scratchCardInput').value.trim();
+        const className = document.getElementById('classInput').value.trim();
+        const session = document.getElementById('sessionInput').value.trim();
+        const term = document.getElementById('termInput').value.trim();
+
+        // Validate all fields
+        if (!regNo || !scratchCard || !className || !session || !term) {
+          showError('Please fill all required fields.');
+          isLoadingResults = false;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnText;
+          return;
+        }
+
+        // Build API URL with proper encoding
+        const url = new URL(API_BASE_URL + '/api/results/check');
+        url.searchParams.append('regNo', regNo);
+        url.searchParams.append('scratchCard', scratchCard);
+        url.searchParams.append('class', className);
+        url.searchParams.append('session', session);
+        url.searchParams.append('term', term);
+
+        const response = await fetchWithTimeout(url.toString());
+        const data = await response.json();
+
+        if (!response.ok) {
+          showError(data.error || 'Failed to retrieve results. Please try again.');
+          isLoadingResults = false;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnText;
+          return;
+        }
+
+        // Store current result for download
+        currentResultData = data;
+
+        // Save to viewed results
+        saveViewedResult({
+          regNo,
+          scratchCard,
+          class: className,
+          session,
+          term
+        });
+
+        // Display results
+        displayResults(data, className, session, term);
+        showSuccess('Results loaded successfully!');
+
+        // Scroll to results
+        setTimeout(() => {
+          document.getElementById('resultsDisplaySection').scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+
+      } catch (error) {
+        console.error('Error fetching results:', error);
+        if (error.name === 'AbortError') {
+          showError('Request timeout. Please check your connection and try again.');
+        } else {
+          showError('Network error. Please try again.');
+        }
+      } finally {
+        isLoadingResults = false;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
+    }
+
+    // ============================================
+    // Display Results Function
+    // ============================================
+    function displayResults(data, className, session, term) {
+      // Extract data
       const results = data.results || [];
       const student = data.student || {};
       const skillsReport = data.skillsReport || {};
-      const attendance = data.attendance || {};
+      const classSize = data.classSize || 0;
+      const principalComment = data.principalComment || '';
 
-      // Student info
-      document.getElementById('resultStudentName').textContent = student.name || '-';
+      // Display section
+      const displaySection = document.getElementById('resultsDisplaySection');
+      displaySection.style.display = 'block';
+
+      // Student Info
+      document.getElementById('resultStudentName').textContent = student.name || 'Student Name';
       document.getElementById('resultRegNo').textContent = student.regNo || '-';
       document.getElementById('resultGender').textContent = student.gender || '-';
-      document.getElementById('resultDOB').textContent = student.DOB ? new Date(student.DOB).toLocaleDateString() : '-';
-      document.getElementById('resultClass').textContent = student.class?.name || '-';
-      document.getElementById('resultSession').textContent = data.session || '-';
-      document.getElementById('resultTerm').textContent = data.term || '-';
-      document.getElementById('resultClassSize').textContent = data.classSize || '-';
+      document.getElementById('resultDOB').textContent = formatDate(student.DOB);
+      document.getElementById('resultClass').textContent = student.class?.name || className || '-';
+      document.getElementById('resultSession').textContent = session || '-';
+      document.getElementById('resultTerm').textContent = term || '-';
+      document.getElementById('resultClassSize').textContent = classSize || '-';
 
       // Student photo
       if (student.photoBase64) {
-        const img = document.getElementById('resultStudentPhoto');
-        img.src = 'data:image/jpeg;base64,' + student.photoBase64;
-        img.style.display = 'block';
+        const photoEl = document.getElementById('resultStudentPhoto');
+        photoEl.src = 'data:image/jpeg;base64,' + student.photoBase64;
+        photoEl.style.display = 'block';
       }
 
-      // Results table
-      const tbody = document.querySelector('.results-table tbody');
+      // Calculate statistics
+      let totalScore = 0, highestScore = 0, lowestScore = Infinity;
+      
+      // Populate results table
+      const tbody = document.querySelector('#resultsTable tbody');
       tbody.innerHTML = '';
-      let totalScore = 0, highest = 0, lowest = Infinity;
 
       results.forEach(r => {
-        const total = parseFloat(r.total) || 0;
-        totalScore += total;
-        if (total > highest) highest = total;
-        if (total < lowest) lowest = total;
+        totalScore += r.total || 0;
+        if (r.total > highestScore) highestScore = r.total;
+        if (r.total < lowestScore) lowestScore = r.total;
 
-        const row = tbody.insertRow();
+        const row = document.createElement('tr');
         row.innerHTML = `
           <td>${r.subject || '-'}</td>
           <td>${r.ca1_score || '-'}</td>
           <td>${r.ca2_score || '-'}</td>
           <td>${r.midterm_score || '-'}</td>
           <td>${r.exam_score || '-'}</td>
-          <td><strong>${total}</strong></td>
-          <td class="${getGradeClass(r.grade)}"><strong>${r.grade || '-'}</strong></td>
+          <td><strong>${r.total || 0}</strong></td>
+          <td class="${getGradeColorClass(r.grade)}">${r.grade || '-'}</td>
           <td>${r.remarks || '-'}</td>
           <td>${r.subject_position || '-'}</td>
         `;
+        tbody.appendChild(row);
       });
 
-      // Stats
-      document.getElementById('totalSubjects').textContent = results.length;
-      document.getElementById('averageScore').textContent = results.length > 0 ? (totalScore / results.length).toFixed(2) : '0.00';
-      document.getElementById('highestScore').textContent = highest === -Infinity ? '0' : highest;
-      document.getElementById('lowestScore').textContent = lowest === Infinity ? '0' : lowest;
+      if (lowestScore === Infinity) lowestScore = 0;
 
-      // Teacher and Principal Info
-      document.getElementById('classTeacherName').textContent = data.teacherName || 'Form Master';
-      document.getElementById('principalNameDisplay').textContent = data.principalName || 'Principal';
+      // Update statistics
+      document.getElementById('totalSubjects').textContent = results.length || 0;
+      document.getElementById('averageScore').textContent = results.length > 0 
+        ? (totalScore / results.length).toFixed(2) 
+        : '0.00';
+      document.getElementById('highestScore').textContent = highestScore || 0;
+      document.getElementById('lowestScore').textContent = lowestScore || 0;
 
-      // Skills & Attendance
-      if (Object.keys(skillsReport.skills?.affective || {}).length > 0) {
-        populateAffectiveSkills(skillsReport.skills.affective);
+      // Display Skills & Attendance
+      const skillsContainer = document.getElementById('skillsAttendanceContainer');
+      let hasSkillsData = false;
+
+      if (skillsReport.skills) {
+        // Affective Skills
+        if (skillsReport.skills.affective && Object.keys(skillsReport.skills.affective).length > 0) {
+          hasSkillsData = true;
+          const affectiveBox = document.getElementById('affectiveSkillsBox');
+          let affectiveHTML = '<h4>🎯 Affective Skills</h4>';
+          for (const [key, value] of Object.entries(skillsReport.skills.affective)) {
+            affectiveHTML += `<div class="skill-item"><span>${key}</span><strong>${value || '-'}</strong></div>`;
+          }
+          affectiveBox.innerHTML = affectiveHTML;
+        }
+
+        // Psychomotor Skills
+        if (skillsReport.skills.psychomotor && Object.keys(skillsReport.skills.psychomotor).length > 0) {
+          hasSkillsData = true;
+          const psychomotorBox = document.getElementById('psychomotorSkillsBox');
+          let psychomotorHTML = '<h4>💪 Psychomotor Skills</h4>';
+          for (const [key, value] of Object.entries(skillsReport.skills.psychomotor)) {
+            psychomotorHTML += `<div class="skill-item"><span>${key}</span><strong>${value || '-'}</strong></div>`;
+          }
+          psychomotorBox.innerHTML = psychomotorHTML;
+        }
       }
 
-      if (Object.keys(skillsReport.skills?.psychomotor || {}).length > 0) {
-        populatePsychomotorSkills(skillsReport.skills.psychomotor);
+      // Attendance
+      if (skillsReport.attendance && Object.keys(skillsReport.attendance).length > 0) {
+        hasSkillsData = true;
+        const attendanceBox = document.getElementById('attendanceBox');
+        let attendanceHTML = '<h4>📍 Attendance</h4>';
+        for (const [key, value] of Object.entries(skillsReport.attendance)) {
+          attendanceHTML += `<div class="attendance-item"><span>${key}</span><strong>${value || '-'}</strong></div>`;
+        }
+        attendanceBox.innerHTML = attendanceHTML;
       }
 
-      if (Object.keys(attendance).length > 0) {
-        populateAttendance(attendance);
+      if (hasSkillsData) {
+        skillsContainer.style.display = 'grid';
+      } else {
+        skillsContainer.style.display = 'none';
       }
 
-      if (skillsReport.skills || attendance) {
-        document.getElementById('skillsAttendanceContainer').style.display = 'grid';
-      }
-
-      if (data.principalComment) {
-        document.getElementById('principalCommentText').textContent = data.principalComment;
+      // Principal Comment
+      if (principalComment && principalComment.trim()) {
+        document.getElementById('principalCommentText').textContent = principalComment;
         document.getElementById('principalCommentBox').style.display = 'block';
+      } else {
+        document.getElementById('principalCommentBox').style.display = 'none';
+      }
+
+      // Refresh previous results
+      renderPreviousResults();
+    }
+
+    // ============================================
+    // Download Result - Opens Report Page with Data
+    // ============================================
+    function downloadCurrentResult() {
+      if (!currentResultData) {
+        showError('No result data to download.');
+        return;
+      }
+
+      const downloadBtn = document.getElementById('downloadBtn');
+      downloadBtn.disabled = true;
+      downloadBtn.innerHTML = '<span class="spinner-small"></span> Generating...';
+
+      try {
+        // Store result data in sessionStorage for report page
+        sessionStorage.setItem('reportData', JSON.stringify(currentResultData));
+        
+        // Open report page in new tab
+        const reportUrl = 'report.html';
+        window.open(reportUrl, '_blank');
+        
+        setTimeout(() => {
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
+        }, 500);
+      } catch (error) {
+        console.error('Error opening report:', error);
+        showError('Failed to generate report. Please try again.');
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
       }
     }
 
-    function getGradeClass(grade) {
-      if (!grade) return '';
-      const gradeNum = grade.charCodeAt(0);
-      if (grade === 'A' || grade === 'B') return 'grade-high';
-      if (grade === 'C' || grade === 'D') return 'grade-mid';
-      return 'grade-low';
-    }
-
-    function populateAffectiveSkills(skills) {
-      const affectiveMap = {
-        'attentiveness': 'Attentiveness',
-        'honesty': 'Honesty',
-        'neatness': 'Neatness',
-        'politeness': 'Politeness',
-        'punctuality': 'Punctuality / Assembly',
-        'selfControl': 'Self Control / Calmness'
-      };
-
-      const box = document.getElementById('affectiveSkillsBox');
-      box.innerHTML = '<h4>Affective Domain</h4>';
-      
-      for (const [key, label] of Object.entries(affectiveMap)) {
-        if (skills[key]) {
-          const rating = ['', 'Excellent', 'Good', 'Acceptable', 'Needs Improvement', 'Poor'][skills[key]] || '';
-          box.innerHTML += `<div class="skill-item"><span>${label}</span><strong>${rating}</strong></div>`;
-        }
-      }
-    }
-
-    function populatePsychomotorSkills(skills) {
-      const psychomotorMap = {
-        'handling': 'Handling Of Tools',
-        'drawing': 'Drawing / Painting',
-        'handwriting': 'Handwriting',
-        'speaking': 'Public Speaking',
-        'fluency': 'Speech Fluency'
-      };
-
-      const box = document.getElementById('psychomotorSkillsBox');
-      box.innerHTML = '<h4>Psychomotor Skills</h4>';
-      
-      for (const [key, label] of Object.entries(psychomotorMap)) {
-        if (skills[key]) {
-          const rating = ['', 'Excellent', 'Good', 'Acceptable', 'Needs Improvement', 'Poor'][skills[key]] || '';
-          box.innerHTML += `<div class="skill-item"><span>${label}</span><strong>${rating}</strong></div>`;
-        }
-      }
-    }
-
-    function populateAttendance(attendance) {
-      const box = document.getElementById('attendanceBox');
-      box.innerHTML = '<h4>Attendance Summary</h4>';
-      
-      if (attendance.schoolOpened) {
-        box.innerHTML += `<div class="attendance-item"><span>Days School Opened</span><strong>${attendance.schoolOpened}</strong></div>`;
-      }
-      if (attendance.timesPresent) {
-        box.innerHTML += `<div class="attendance-item"><span>Days Present</span><strong>${attendance.timesPresent}</strong></div>`;
-      }
-      if (attendance.timesAbsent) {
-        box.innerHTML += `<div class="attendance-item"><span>Days Absent</span><strong>${attendance.timesAbsent}</strong></div>`;
-      }
-    }
-
-    // Open full report
-    function openReportWindow() {
-      window.open('/report.html', 'StudentReport', 'width=1000,height=800');
-    }
+    // ============================================
+    // Initialize on page load
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      renderPreviousResults();
+    });
   </script>
+
 </body>
 </html>
