@@ -336,16 +336,20 @@
         </section>
 
         <!-- Assignments -->
-        <section id="assignments" class="section tab-section" role="region" aria-labelledby="assignTitle" style="display:none">
-          <h2 id="assignTitle">Assignments</h2>
-          <div class="muted-small">Create assignments, collect submissions & grade</div>
+       <!-- Assignments Section (Replace existing) -->
+<section id="assignments" class="section tab-section" role="region" aria-labelledby="assignTitle" style="display:none">
+  <h2 id="assignTitle">📝 Assignments</h2>
+  <div class="muted-small">Create assignments, collect submissions & grade</div>
 
-          <div style="margin-top:12px" class="controls">
-            <button class="btn" id="newAssignBtn" onclick="openAssignmentModal()">New Assignment</button>
-          </div>
+  <div style="margin-top:12px" class="controls">
+    <select id="assignment-filter-class" style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;">
+      <option value="">All Classes</option>
+    </select>
+    <button class="btn" id="newAssignBtn" onclick="window.openAssignmentModal()"><i class="fa fa-plus"></i> New Assignment</button>
+  </div>
 
-          <div style="margin-top:12px" id="assignment-list"></div>
-        </section>
+  <div style="margin-top:16px" id="assignment-list"></div>
+</section>
 
         <!-- Gradebook -->
         <!-- Gradebook -->
@@ -478,37 +482,43 @@
     </main>
 
     <!-- Assignment Modal -->
-    <div id="assignmentModalBg" class="form-modal-bg">
-      <div class="form-modal">
-        <button class="close-btn" onclick="closeAssignmentModal()">&times;</button>
-        <h3>Create/Update Assignment</h3>
-        <form id="assignmentForm">
-          <label>Class
-            <select id="assignment-class" required></select>
-          </label>
-          <label>Title
-            <input type="text" id="assignment-title" name="title" required>
-          </label>
-          <label>Subject
-            <select name="subject" id="assignment-subject" required></select>
-          </label>
-          <label>CBT (optional)
-            <select id="assignment-cbt">
-              <option value="">None (regular assignment)</option>
-            </select>
-          </label>
-          <label>Description/Instruction
-            <input type="text" id="assignment-desc" name="desc" required>
-          </label>
-          <label>Due Date
-            <input type="date" id="assignment-due" name="due" required>
-          </label>
-          <div class="modal-actions">
-            <button type="submit" class="btn">Save Assignment</button>
-          </div>
-        </form>
+<!-- Assignment Modal (Replace existing) -->
+<div id="assignmentModalBg" class="form-modal-bg">
+  <div class="form-modal">
+    <button class="close-btn" onclick="closeAssignmentModal()">&times;</button>
+    <h3>Create/Update Assignment</h3>
+    <form id="assignmentForm">
+      <input type="hidden" id="assignment-id-edit" value="">
+      
+      <label>Class *
+        <select id="assignment-class" required style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;margin-bottom:12px;"></select>
+      </label>
+
+      <label>Title *
+        <input type="text" id="assignment-title" placeholder="Assignment title" required style="margin-bottom:12px;">
+      </label>
+
+      <label>Subject
+        <select id="assignment-subject" style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;width:100%;margin-bottom:12px;">
+          <option value="">Select Subject</option>
+        </select>
+      </label>
+
+      <label>Description/Instructions *
+        <textarea id="assignment-desc" placeholder="Assignment description" required style="min-height:100px;margin-bottom:12px;"></textarea>
+      </label>
+
+      <label>Due Date *
+        <input type="date" id="assignment-due" required style="margin-bottom:12px;">
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" onclick="closeAssignmentModal()">Cancel</button>
+        <button type="submit" class="btn">Save Assignment</button>
       </div>
-    </div>
+    </form>
+  </div>
+</div>
 
     <!-- Result Modal -->
     <div id="resultModalBg" class="form-modal-bg">
@@ -1295,32 +1305,354 @@ function renderDraftResults() {
   }).join('');
 }
 
-      function renderAssignments() {
-        const div = document.getElementById('assignment-list');
-        if (!assignments.length) {
-          div.innerHTML = '<div class="empty">No assignments yet. <button class="btn" onclick="window.openAssignmentModal()" style="margin-top:12px;">Create one</button></div>';
-          return;
-        }
-        let html = '<table><thead><tr><th>Title</th><th>Class</th><th>Due</th><th>CBT</th><th>Description</th></tr></thead><tbody>';
-        assignments.forEach(a => {
-          const classId = a.class && a.class._id ? a.class._id : a.class;
-          const cls = teacher.classes.find(c => c.id == classId);
-          let cbtTitle = '';
-          if (a.cbt) {
-            const found = cbts.find(cbt => cbt._id === a.cbt);
-            cbtTitle = found ? found.title : a.cbt;
-          }
-          html += `<tr>
-            <td>${a.title}</td>
-            <td>${(a.class && a.class.name) || (cls && cls.name) || classId || 'Unknown'}</td>
-            <td>${a.dueDate ? a.dueDate.slice(0,10) : (a.due || '')}</td>
-            <td>${cbtTitle || '-'}</td>
-            <td>${a.description || a.desc}</td>
-          </tr>`;
+    // ============================================
+    // ASSIGNMENTS MANAGEMENT
+    // ============================================
+    
+    let allAssignments = [];
+    let assignmentSubmissions = {};
+
+    async function fetchAssignmentsWithSubmissions() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/assignments`, {
+          headers: authHeaders()
         });
-        html += '</tbody></table>';
-        div.innerHTML = html;
+        if (!res.ok) return [];
+        const data = await res.json();
+        allAssignments = Array.isArray(data.assignments) ? data.assignments : [];
+        
+        // Fetch submissions for each assignment
+        for (let assign of allAssignments) {
+          const subRes = await fetch(
+            `${API_BASE_URL}/api/teachers/assignments/${encodeURIComponent(assign._id || assign.id)}/submissions`,
+            { headers: authHeaders() }
+          );
+          if (subRes.ok) {
+            const subData = await subRes.json();
+            assignmentSubmissions[assign._id || assign.id] = Array.isArray(subData) ? subData : (subData.submissions || []);
+          }
+        }
+        
+        return allAssignments;
+      } catch (err) {
+        console.error('Error fetching assignments:', err);
+        return [];
       }
+    }
+
+    function renderAssignments() {
+      const container = document.getElementById('assignment-list');
+      if (!allAssignments || allAssignments.length === 0) {
+        container.innerHTML = '<div class="empty"><i class="fa fa-inbox" style="font-size:2rem;margin-bottom:12px;"></i><br>No assignments yet. Create one to get started!</div>';
+        return;
+      }
+
+      let html = '';
+      allAssignments.forEach(assign => {
+        const submissions = assignmentSubmissions[assign._id || assign.id] || [];
+        const submitted = submissions.filter(s => s.submitted).length;
+        const graded = submissions.filter(s => s.score !== null && s.score !== undefined).length;
+        const dueDate = new Date(assign.dueDate);
+        const isOverdue = new Date() > dueDate;
+        const dueDateStr = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        html += `
+          <div class="card" style="margin-bottom:16px;border-left:4px solid var(--accent);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+              <div style="flex:1;">
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
+                  <div style="font-weight:800;font-size:1.1rem;color:var(--text-main);">${assign.title || 'Untitled'}</div>
+                  <span style="background:#e6e9ef;color:#6b7280;padding:4px 10px;border-radius:12px;font-size:0.85rem;font-weight:700;">${assign.class || 'Class'}</span>
+                </div>
+                
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px;">
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="small muted">Due Date</span>
+                    <span style="font-weight:700;color:${isOverdue ? '#ef4444' : 'var(--text-main)'}">
+                      <i class="fa fa-calendar"></i> ${dueDateStr} ${isOverdue ? '<span style="color:#ef4444;">(Overdue)</span>' : ''}
+                    </span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="small muted">Submissions</span>
+                    <span style="font-weight:700;color:var(--accent);">${submitted}/${submissions.length} submitted</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="small muted">Grading</span>
+                    <span style="font-weight:700;color:var(--accent-2);">${graded}/${submitted} graded</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <span class="small muted">Subject</span>
+                    <span style="font-weight:700;">${assign.subject || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div style="background:#f8faff;padding:10px;border-radius:8px;margin-bottom:12px;border-left:3px solid var(--accent);">
+                  <div class="small muted">Description</div>
+                  <div style="color:var(--text-main);font-size:0.95rem;margin-top:4px;">${assign.description || assign.desc || 'No description'}</div>
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                  <button class="btn" onclick="window.viewAssignmentSubmissions('${assign._id || assign.id}', '${assign.title}')">
+                    <i class="fa fa-eye"></i> View Submissions
+                  </button>
+                  <button class="btn ghost" onclick="window.editAssignment('${assign._id || assign.id}')">
+                    <i class="fa fa-edit"></i> Edit
+                  </button>
+                  <button class="btn ghost" style="color:#ef4444;border-color:#fecaca;" onclick="window.deleteAssignment('${assign._id || assign.id}', '${assign.title}')">
+                    <i class="fa fa-trash"></i> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // View Submissions Modal
+    window.viewAssignmentSubmissions = function(assignmentId, assignmentTitle) {
+      const submissions = assignmentSubmissions[assignmentId] || [];
+      
+      let html = `
+        <div style="position:fixed;inset:0;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;" id="submissionsModal">
+          <div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:85vh;overflow:hidden;box-shadow:0 20px 60px rgba(2,6,23,0.25);display:flex;flex-direction:column;">
+            
+            <!-- Header -->
+            <div style="padding:20px;border-bottom:1px solid #eef3ff;background:#f8faff;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <h3 style="margin:0;color:var(--text-main);">Submissions for "${assignmentTitle}"</h3>
+                <div class="small muted">Total: ${submissions.length}</div>
+              </div>
+              <button onclick="document.getElementById('submissionsModal').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">&times;</button>
+            </div>
+
+            <!-- Body -->
+            <div style="flex:1;overflow-y:auto;padding:20px;">
+              ${submissions.length === 0 ? 
+                '<div class="empty">No submissions yet</div>' :
+                `<div style="display:grid;gap:16px;">
+                  ${submissions.map((sub, idx) => {
+                    const submittedDate = sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString() : 'Not submitted';
+                    const isGraded = sub.score !== null && sub.score !== undefined;
+                    
+                    return `
+                      <div style="border:1px solid #eef3ff;border-radius:10px;padding:16px;background:#f8faff;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:12px;">
+                          <div>
+                            <div style="font-weight:800;font-size:1.05rem;color:var(--text-main);">${sub.studentName || sub.student?.name || 'Unknown'}</div>
+                            <div class="small muted">Submitted: ${submittedDate}</div>
+                          </div>
+                          <div>
+                            ${isGraded ? 
+                              `<div style="background:var(--accent);color:#fff;padding:8px 16px;border-radius:8px;text-align:center;font-weight:800;font-size:1.1rem;">${sub.score}</div>` :
+                              `<div style="background:#eef3ff;color:var(--muted);padding:8px 16px;border-radius:8px;text-align:center;font-weight:700;">Not Graded</div>`
+                            }
+                          </div>
+                        </div>
+
+                        ${sub.fileUrl ? `
+                          <div style="margin-bottom:12px;">
+                            <a href="${sub.fileUrl}" target="_blank" rel="noopener" class="btn ghost" style="display:inline-flex;align-items:center;gap:6px;">
+                              <i class="fa fa-download"></i> Download Submission
+                            </a>
+                          </div>
+                        ` : ''}
+
+                        ${sub.submissionText ? `
+                          <div style="background:#fff;padding:12px;border-radius:8px;border-left:3px solid var(--accent);margin-bottom:12px;">
+                            <div class="small muted" style="margin-bottom:6px;">Submission Text</div>
+                            <div style="color:var(--text-main);font-size:0.95rem;word-break:break-word;">${sub.submissionText}</div>
+                          </div>
+                        ` : ''}
+
+                        <div style="display:flex;gap:8px;">
+                          <input type="number" id="score-${sub._id || sub.id}" value="${sub.score || ''}" placeholder="Enter score" style="flex:1;padding:8px;border:1px solid #eef3ff;border-radius:8px;max-width:100px;" min="0" max="100">
+                          <button class="btn" onclick="window.gradeSubmission('${assignmentId}', '${sub._id || sub.id}', '${sub.studentName || sub.student?.name}')" style="padding:8px 16px;">
+                            <i class="fa fa-check"></i> Grade
+                          </button>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>`
+              }
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.insertAdjacentHTML('beforeend', html);
+    };
+
+    // Grade a submission
+    window.gradeSubmission = async function(assignmentId, submissionId, studentName) {
+      const scoreInput = document.getElementById(`score-${submissionId}`);
+      const score = scoreInput?.value;
+
+      if (!score || isNaN(score)) {
+        alert('Please enter a valid score');
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/teachers/assignments/${encodeURIComponent(assignmentId)}/submissions/${encodeURIComponent(submissionId)}/grade`,
+          {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify({ score: parseFloat(score) })
+          }
+        );
+
+        if (!res.ok) throw new Error('Failed to save grade');
+        
+        alert(`Grade saved for ${studentName}!`);
+        
+        // Update local data
+        const submission = (assignmentSubmissions[assignmentId] || []).find(s => (s._id || s.id) === submissionId);
+        if (submission) {
+          submission.score = parseFloat(score);
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    };
+
+    // Edit Assignment
+    window.editAssignment = function(assignmentId) {
+      const assign = allAssignments.find(a => (a._id || a.id) === assignmentId);
+      if (!assign) return;
+
+      document.getElementById('assignment-id-edit').value = assignmentId;
+      document.getElementById('assignment-title').value = assign.title || '';
+      document.getElementById('assignment-desc').value = assign.description || assign.desc || '';
+      document.getElementById('assignment-due').value = assign.dueDate ? new Date(assign.dueDate).toISOString().split('T')[0] : '';
+      document.getElementById('assignment-class').value = assign.classId || assign.class || '';
+      document.getElementById('assignment-subject').value = assign.subject || '';
+
+      // Load classes if not already loaded
+      if (!document.getElementById('assignment-class').options.length) {
+        teacher.classes.forEach(cls => {
+          const opt = document.createElement('option');
+          opt.value = cls._id || cls.id;
+          opt.textContent = cls.name;
+          document.getElementById('assignment-class').appendChild(opt);
+        });
+      }
+
+      document.getElementById('assignmentModalBg').classList.add('active');
+    };
+
+    // Delete Assignment
+    window.deleteAssignment = async function(assignmentId, assignmentTitle) {
+      if (!confirm(`Are you sure you want to delete "${assignmentTitle}"? This cannot be undone.`)) {
+        return;
+      }
+
+      showLoader('Deleting assignment...', 'Please wait');
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/teachers/assignments/${encodeURIComponent(assignmentId)}`,
+          {
+            method: 'DELETE',
+            headers: authHeaders()
+          }
+        );
+
+        if (!res.ok) throw new Error('Failed to delete assignment');
+
+        allAssignments = allAssignments.filter(a => (a._id || a.id) !== assignmentId);
+        delete assignmentSubmissions[assignmentId];
+        
+        renderAssignments();
+        alert('Assignment deleted successfully!');
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        hideLoader();
+      }
+    };
+
+    // Open Assignment Modal for creating new
+    window.openAssignmentModal = function() {
+      document.getElementById('assignment-id-edit').value = '';
+      document.getElementById('assignmentForm').reset();
+      
+      // Load classes
+      const classSelect = document.getElementById('assignment-class');
+      classSelect.innerHTML = '<option value="">Select Class</option>';
+      teacher.classes.forEach(cls => {
+        const opt = document.createElement('option');
+        opt.value = cls._id || cls.id;
+        opt.textContent = cls.name;
+        classSelect.appendChild(opt);
+      });
+
+      document.getElementById('assignmentModalBg').classList.add('active');
+    };
+
+    function closeAssignmentModal() {
+      document.getElementById('assignmentModalBg').classList.remove('active');
+    }
+
+    // Submit Assignment
+    document.getElementById('assignmentForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const assignmentId = document.getElementById('assignment-id-edit')?.value || '';
+      const title = document.getElementById('assignment-title').value;
+      const description = document.getElementById('assignment-desc').value;
+      const dueDate = document.getElementById('assignment-due').value;
+      const classId = document.getElementById('assignment-class').value;
+      const subject = document.getElementById('assignment-subject').value;
+
+      if (!title || !dueDate || !classId) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const payload = { title, description, dueDate, classId, subject };
+      const url = assignmentId 
+        ? `${API_BASE_URL}/api/teachers/assignments/${encodeURIComponent(assignmentId)}`
+        : `${API_BASE_URL}/api/teachers/assignments`;
+      const method = assignmentId ? 'PUT' : 'POST';
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: authHeaders(),
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Failed to save assignment');
+
+        const data = await res.json();
+        alert(assignmentId ? 'Assignment updated!' : 'Assignment created!');
+        
+        closeAssignmentModal();
+        allAssignments = await fetchAssignmentsWithSubmissions();
+        renderAssignments();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    // Initialize on tab switch
+    const originalShowTab = window.showTeacherTab;
+    window.showTeacherTab = function(tab) {
+      if (originalShowTab) originalShowTab(tab);
+      
+      if (tab === 'assignments' && (!allAssignments || allAssignments.length === 0)) {
+        showLoader('Loading assignments...', 'Fetching data');
+        fetchAssignmentsWithSubmissions().then(() => {
+          renderAssignments();
+          hideLoader();
+        });
+      }
+    };
 
 // Update renderGradebook to properly initialize the table
 function renderGradebook() {
