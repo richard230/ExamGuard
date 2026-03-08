@@ -1428,18 +1428,48 @@
       }
     }
 
-    async function saveCohort() {
-      const data = {
+       // When saving cohort
+    async function saveCohort(event) {
+      event.preventDefault();
+
+      const cohortData = {
+        name: document.getElementById('cohortName').value,
         session: document.getElementById('cohortSession').value,
         term: document.getElementById('cohortTerm').value,
-        class: document.getElementById('cohortClass').value,
-        arm: document.getElementById('cohortArm').value,
+        classId: document.getElementById('cohortAcademicClass').value,
+        arm: document.getElementById('cohortArm').value,  // Changed from armId to arm
         startDate: document.getElementById('cohortStartDate').value,
         endDate: document.getElementById('cohortEndDate').value,
-        applicationFee: parseFloat(document.getElementById('cohortAppFee').value),
-        description: document.getElementById('cohortDescription').value
+        capacity: document.getElementById('cohortCapacity').value,
+        applicationFee: document.getElementById('cohortApplicationFee').value
       };
 
+      try {
+        const url = cohortForm.dataset.cohortId 
+          ? API_BASE + "/admission/" + cohortForm.dataset.cohortId
+          : API_BASE + "/admission";
+        
+        const method = cohortForm.dataset.cohortId ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify(cohortData)
+        });
+
+        if (!res.ok) throw new Error('Failed to save cohort');
+        
+        alert('Cohort saved successfully!');
+        closeCohortModal();
+        loadCohorts();
+      } catch (e) {
+        console.error('Error saving cohort:', e);
+        alert('Error: ' + e.message);
+      }
+    }
       const messageBox = document.getElementById('cohortModalMessage');
       messageBox.classList.remove('error', 'success');
       messageBox.textContent = '⏳ Saving...';
