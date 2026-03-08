@@ -1,4 +1,4 @@
-// app.js
+// /app.js
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -6,15 +6,38 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const ensureSuperAdmin = require('./utils/ensureSuperAdmin');
 
-// Create Express app
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '20mb' })); 
-app.use(express.static(path.join(__dirname, 'public')));
+/* ================= CORS ================= */
 
-// ========== Routes ==========
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  : [];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('CORS not allowed for this origin'));
+  },
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+/* ================= Middleware ================= */
+
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+/* ================= Routes ================= */
+
 const resultsRoute = require('./routes/results');
 const classesRoute = require('./routes/classes');
 const studentsRoute = require('./routes/students');
@@ -42,9 +65,12 @@ const uploadRoute = require('./routes/upload');
 const resultscbtRoute = require('./routes/resultscbt');
 const admissionRoute = require('./routes/admission');
 const paymentsRoute = require('./routes/payments');
-const financeRoute = require('./routes/finance'); // NEW
+const financeRoute = require('./routes/finance');
+const sessionSettingsRoute = require('./routes/sessionSettings');
+const applicationRoute = require('./routes/application');
 
-// ========== Route Mounting ==========
+/* ================= Route Mounting ================= */
+
 app.use('/api/exam', examRoute);
 app.use('/api/result', resultscbtRoute);
 app.use('/api/activity', activityRoute);
@@ -71,11 +97,47 @@ app.use('/api/student', studentsRoute);
 app.use('/api/students', studentsRoute);
 app.use('/api/admin', adminRoute);
 app.use('/api/report/preferences', require('./routes/reportPreferences'));
+app.use('/api/report/session', sessionSettingsRoute);
 app.use('/api/admission', admissionRoute);
 app.use('/api/payments', paymentsRoute);
-app.use('/api/finance', financeRoute); // NEW - Finance routes
+app.use('/api/finance', financeRoute);
+app.use('/api/application', applicationRoute);
 
-// Super Admin protected route
+/* ================= Static Page Routes ================= */
+
+// Serve platform landing page
+app.get('/platform', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'platform-landing.html'));
+});
+
+// Serve individual feature pages
+app.get('/features', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'features.html'));
+});
+
+app.get('/pricing', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pricing.html'));
+});
+
+app.get('/platforms', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'platforms.html'));
+});
+
+app.get('/security', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'security.html'));
+});
+
+app.get('/roadmap', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'roadmap.html'));
+});
+
+// Application form page
+app.get('/application', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'application.html'));
+});
+
+/* ================= Super Admin Route ================= */
+
 app.get('/api/dashboard', authMiddleware, (req, res) => {
   if (req.user.role !== 'superadmin') {
     return res.status(403).json({ error: 'Forbidden: Super Admin access only.' });
@@ -83,12 +145,48 @@ app.get('/api/dashboard', authMiddleware, (req, res) => {
   res.json({ message: 'Welcome, Super Admin!' });
 });
 
-// Serve index.html as fallback
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+/* ================= Error Handling Middleware ================= */
+
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+
+  // Handle multer errors
+  if (err.name === 'MulterError') {
+    if (err.code === 'FILE_TOO_LARGE') {
+      return res.status(413).json({ message: 'File too large. Maximum 8MB allowed.' });
+    }
+    return res.status(400).json({ message: 'File upload error: ' + err.message });
+  }
+
+  // Handle validation errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ message: 'Validation error: ' + err.message });
+  }
+
+  // Handle MongoDB errors
+  if (err.name === 'MongoError' || err.name === 'MongoServerError') {
+    return res.status(500).json({ message: 'Database error: ' + err.message });
+  }
+
+  // Handle CORS errors
+  if (err.message && err.message.includes('CORS')) {
+    return res.status(403).json({ message: 'CORS error: ' + err.message });
+  }
+
+  // Generic error
+  res.status(err.status || 500).json({
+    message: err.message || 'An unexpected error occurred'
+  });
 });
 
-// MongoDB connection + boot
+/* ================= 404 Handler ================= */
+
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+/* ================= Mongo Boot ================= */
+
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/myschoolapp';
 
@@ -98,11 +196,18 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/myschoolap
       useNewUrlParser: true,
       useUnifiedTopology: true
     });
+
     console.log('✅ MongoDB connected');
 
-    await ensureSuperAdmin(); // 👑 Ensure superadmin now that DB is ready
+    await ensureSuperAdmin();
 
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📍 API Base URL: http://localhost:${PORT}/api`);
+      console.log(`🌐 Platform: http://localhost:${PORT}/platform`);
+      console.log(`📝 Application Form: http://localhost:${PORT}/application`);
+    });
+
   } catch (err) {
     console.error('❌ App initialization failed:', err);
     process.exit(1);
