@@ -7,6 +7,7 @@ const Session = require('../models/Session');
 const Term = require('../models/Term');
 const Class = require('../models/Class');
 const Subject = require('../models/Subject');
+const Teacher = require('../models/Teacher'); // Add Teacher model
 
 /**
  * UTILITY: Assign grade/remark based on total score
@@ -19,6 +20,7 @@ function getGradeAndRemark(totalScore) {
   if (totalScore >= 40) return { grade: 'E', remark: 'Poor' };
   return { grade: 'F', remark: 'Fail' };
 }
+
 function ordinalSuffix(pos) {
   if (typeof pos !== "number") pos = parseInt(pos);
   if (pos % 100 >= 11 && pos % 100 <= 13) return pos + "th";
@@ -70,6 +72,24 @@ async function computeAndPersistSubjectPositions({ classId, sessionId, termId, s
   return posMap;
 }
 
+/**
+ * UTILITY: Get session settings from sessionSettings module
+ */
+async function getSessionSettings() {
+  try {
+    const sessionSettingsModule = require('./sessionSettings');
+    // sessionSettingsModule has getSettings function and sessionSettings object
+    const settings = sessionSettingsModule.getSettings?.() || sessionSettingsModule.sessionSettings || {};
+    return {
+      principalName: settings.principalName || 'Principal',
+      classAssignments: settings.classAssignments || {}
+    };
+  } catch (err) {
+    console.error('Error fetching session settings:', err);
+    return { principalName: 'Principal', classAssignments: {} };
+  }
+}
+
 async function findOrCreateByName(Model, name, extra = {}) {
   if (!name) return null;
   let doc = await Model.findOne({ name });
@@ -78,6 +98,7 @@ async function findOrCreateByName(Model, name, extra = {}) {
   await doc.save();
   return doc;
 }
+
 async function findOrCreateStudent(row, classId) {
   if (!row.student_id) return null;
   let student = await Student.findOne({ student_id: row.student_id });
@@ -91,7 +112,121 @@ async function findOrCreateStudent(row, classId) {
   return student;
 }
 
-// --- MAIN CHECK ROUTE (GET /check) ---
+/**
+ * BUILD REPORT DATA - Helper function
+ */
+async function buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings) {
+  const data = [];
+  
+  for (const r of results) {
+    let total = 0;
+    if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
+    if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
+    if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
+    if (r.exam_score) total += parseFloat(r.exam_score) || 0;
+    if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) total = parseFloat(r.score) || 0;
+
+    const { grade, remark } = getGradeAndRemark(total);
+
+    let subjectPos = '';
+    if (r.subject && r.subject.name) {
+      const posMap = await computeAndPersistSubjectPositions({
+        classId: classObj._id,
+        sessionId: sessionObj._id,
+        termId: termObj._id,
+        subjectId: r.subject._id
+      });
+      subjectPos = posMap[r._id.toString()]?.position || r.subject_position || '';
+      if (r.grade !== grade || r.remarks !== remark || r.subject_position !== subjectPos) {
+        await Result.findByIdAndUpdate(r._id, {
+          grade: grade,
+          remarks: remark,
+          subject_position: subjectPos
+        });
+      }
+    }
+
+    data.push({
+      subject: r.subject?.name || '',
+      ca1_score: r.ca1_score || '',
+      ca2_score: r.ca2_score || '',
+      midterm_score: r.midterm_score || '',
+      exam_score: r.exam_score || '',
+      total,
+      grade,
+      remarks: remark,
+      subject_position: subjectPos
+    });
+  }
+
+  const classSize = await Result.distinct('student', {
+    class: classObj._id,
+    session: sessionObj._id,
+    term: termObj._id,
+    status: 'Published'
+  }).then(students => students.length);
+
+  let skillsReport = { skills: { affective: {}, psychomotor: {} }, attendance: {}, comment: "" };
+  if (Array.isArray(student.skillsReports)) {
+    const found = student.skillsReports.find(r =>
+      r.session?.toLowerCase() === sessionObj.name.toLowerCase() &&
+      r.term?.toLowerCase() === termObj.name.toLowerCase()
+    );
+    if (found) {
+      skillsReport = {
+        skills: found.skills || { affective: {}, psychomotor: {} },
+        attendance: found.attendance || {},
+        comment: found.comment || ""
+      };
+    }
+  }
+
+  const principalComment = skillsReport.comment || "";
+  const attendance = skillsReport.attendance || {};
+
+  // Get form master for this student's class
+  const classId = classObj._id.toString();
+  const formMasterId = sessionSettings?.classAssignments?.[classId];
+  let formMasterName = 'Form Master';
+
+  if (formMasterId) {
+    try {
+      const formMaster = await Teacher.findById(formMasterId);
+      if (formMaster) {
+        formMasterName = `${formMaster.firstName || ''} ${formMaster.lastName || ''}`.trim() || 'Form Master';
+      }
+    } catch (err) {
+      console.error('Error fetching form master:', err);
+    }
+  }
+
+  const studentInfo = {
+    name: student.name || `${student.surname || ''} ${student.firstname || ''}`.trim(),
+    regNo: student.regNo,
+    gender: student.gender,
+    DOB: student.dob,
+    email: student.studentEmail,
+    age: student.age,
+    class: { name: classObj.name, _id: classObj._id },
+    photoBase64: student.photoBase64 || ""
+  };
+
+  return {
+    results: data,
+    skillsReport,
+    attendance,
+    principalComment,
+    classSize,
+    student: studentInfo,
+    principalName: sessionSettings?.principalName || 'Principal',
+    teacherName: formMasterName,
+    session: sessionObj.name,
+    term: termObj.name,
+    studentPosition: 1 // Calculate this if needed
+  };
+}
+
+// --- MAIN CHECK ROUTE (GET /check) - WITH PRINCIPAL & FORM MASTER ---
 router.get('/check', async (req, res) => {
   try {
     const { regNo, scratchCard, class: className, session, term } = req.query;
@@ -115,7 +250,6 @@ router.get('/check', async (req, res) => {
     const termObj = await Term.findOne({ name: term });
     if (!termObj) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
 
-    // Find results and populate subject
     const results = await Result.find({
       student: student._id,
       class: classObj._id,
@@ -126,140 +260,356 @@ router.get('/check', async (req, res) => {
 
     if (!results.length) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
 
-    // --- Compose result data, auto-fill grade/remark/position ---
-    const data = [];
-    for (const r of results) {
-      let total = 0;
-      if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
-      if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
-      if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
-      if (r.exam_score) total += parseFloat(r.exam_score) || 0;
-      if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) total = parseFloat(r.score) || 0;
+    // Get session settings from your sessionSettings route/module
+    const sessionSettings = await getSessionSettings();
 
-      // Assign grade/remark if missing or incorrect in DB
-      const { grade, remark } = getGradeAndRemark(total);
+    // Build complete report data with principal name and form master
+    const reportData = await buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings);
 
-      // --- Calculate and persist subject position for this subject ---
-      let subjectPos = '';
-      if (r.subject && r.subject.name) {
-        const posMap = await computeAndPersistSubjectPositions({
-          classId: classObj._id,
-          sessionId: sessionObj._id,
-          termId: termObj._id,
-          subjectId: r.subject._id
-        });
-        subjectPos = posMap[r._id.toString()]?.position || r.subject_position || '';
-        if (r.grade !== grade || r.remarks !== remark || r.subject_position !== subjectPos) {
-          await Result.findByIdAndUpdate(r._id, {
-            grade: grade,
-            remarks: remark,
-            subject_position: subjectPos
-          });
-        }
-      }
-
-      data.push({
-        subject: r.subject?.name || '',
-        ca1_score: r.ca1_score || '',
-        ca2_score: r.ca2_score || '',
-        midterm_score: r.midterm_score || '',
-        exam_score: r.exam_score || '',
-        total,
-        grade,
-        remarks: remark,
-        subject_position: subjectPos
-      });
-    }
-
-    const classSize = await Result.distinct('student', {
-      class: classObj._id,
-      session: sessionObj._id,
-      term: termObj._id,
-      status: 'Published'
-    }).then(students => students.length);
-
-    // --- improved skillsReport and attendance extraction ---
-    let skillsReport = { skills: { affective: {}, psychomotor: {} }, attendance: {}, comment: "" };
-    if (Array.isArray(student.skillsReports)) {
-      const found = student.skillsReports.find(r =>
-        r.session?.toLowerCase() === session.toLowerCase() &&
-        r.term?.toLowerCase() === term.toLowerCase()
-      );
-      if (found) {
-        skillsReport = {
-          skills: found.skills || { affective: {}, psychomotor: {} },
-          attendance: found.attendance || {},
-          comment: found.comment || ""
-        };
-      }
-    }
-
-    // --- Always send principalComment and attendance at top-level too ---
-    const principalComment = skillsReport.comment || "";
-    const attendance = skillsReport.attendance || {};
-
-    // --- Add class info to student object ---
-    const studentInfo = {
-      name: student.name || `${student.surname || ''} ${student.firstname || ''}`.trim(),
-      regNo: student.regNo,
-      gender: student.gender,
-      DOB: student.dob,
-      email: student.studentEmail,
-      age: student.age,
-      class: { name: classObj.name, _id: classObj._id },
-      photoBase64: student.photoBase64 || ""
-    };
-
-    res.json({
-      results: data,
-      skillsReport,
-      attendance,
-      principalComment,
-      classSize,
-      student: studentInfo
-    });
+    res.json(reportData);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 /**
- * BULK UPLOAD
+ * NEW ROUTE: GET student report by ID (for admin/teacher viewing)
+ * Usage: GET /api/results/student/:studentId/report?sessionId=xxx&termId=xxx
  */
-router.post('/upload', async (req, res) => {
+router.get('/student/:studentId/report', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { sessionId, termId, classId } = req.query;
+
+    if (!studentId || !sessionId || !termId) {
+      return res.status(400).json({ error: 'Missing required parameters: studentId, sessionId, termId' });
+    }
+
+    // Fetch student
+    const student = await Student.findById(studentId).populate('class');
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Fetch session and term
+    const sessionObj = await Session.findById(sessionId);
+    const termObj = await Term.findById(termId);
+    if (!sessionObj || !termObj) {
+      return res.status(404).json({ error: 'Session or Term not found' });
+    }
+
+    // Fetch class
+    let classObj = student.class;
+    if (classId) {
+      classObj = await Class.findById(classId);
+    }
+    if (!classObj) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    // Fetch results
+    const results = await Result.find({
+      student: student._id,
+      class: classObj._id,
+      session: sessionObj._id,
+      term: termObj._id,
+      status: 'Published'
+    }).populate('subject');
+
+    if (!results.length) {
+      return res.status(404).json({ error: 'No results found for this student' });
+    }
+
+    // Get session settings from your sessionSettings module
+    const sessionSettings = await getSessionSettings();
+
+    // Build complete report data with principal name and form master
+    const reportData = await buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings);
+
+    res.json(reportData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * MERGE DUPLICATES UTILITY
+ * Finds all duplicate results for student+subject+session+term and merges them
+ */
+async function mergeDuplicateResults() {
+  try {
+    console.log('Starting duplicate merge process...');
+    
+    // Find all results grouped by student, subject, session, term
+    const duplicateGroups = await Result.aggregate([
+      {
+        $group: {
+          _id: {
+            student: '$student',
+            subject: '$subject',
+            session: '$session',
+            term: '$term'
+          },
+          count: { $sum: 1 },
+          ids: { $push: '$_id' },
+          results: { $push: '$$ROOT' }
+        }
+      },
+      {
+        $match: { count: { $gt: 1 } }
+      }
+    ]);
+
+    console.log(`Found ${duplicateGroups.length} duplicate groups`);
+
+    let mergedCount = 0;
+
+    for (const group of duplicateGroups) {
+      const results = group.results;
+      
+      // Keep the first result and merge all scores into it
+      const primaryResult = results[0];
+      const othersToDelete = results.slice(1);
+
+      // Merge all scores (take the highest or most recent score for each type)
+      const mergedData = {
+        ca1_score: primaryResult.ca1_score,
+        ca2_score: primaryResult.ca2_score,
+        midterm_score: primaryResult.midterm_score,
+        exam_score: primaryResult.exam_score,
+        score: primaryResult.score,
+        grade: primaryResult.grade,
+        remarks: primaryResult.remarks
+      };
+
+      // Update with any non-empty scores from other results
+      for (const other of othersToDelete) {
+        if (other.ca1_score && !mergedData.ca1_score) mergedData.ca1_score = other.ca1_score;
+        if (other.ca2_score && !mergedData.ca2_score) mergedData.ca2_score = other.ca2_score;
+        if (other.midterm_score && !mergedData.midterm_score) mergedData.midterm_score = other.midterm_score;
+        if (other.exam_score && !mergedData.exam_score) mergedData.exam_score = other.exam_score;
+        if (other.score && !mergedData.score) mergedData.score = other.score;
+      }
+
+      // Update primary result with merged data
+      await Result.findByIdAndUpdate(primaryResult._id, mergedData);
+
+      // Delete other duplicate results
+      for (const other of othersToDelete) {
+        await Result.findByIdAndDelete(other._id);
+      }
+
+      mergedCount++;
+    }
+
+    console.log(`Merged ${mergedCount} duplicate groups`);
+    return { mergedCount, duplicateGroupsFound: duplicateGroups.length };
+  } catch (err) {
+    console.error('Error in mergeDuplicateResults:', err);
+    throw err;
+  }
+}
+
+/**
+ * UPSERT BULK UPLOAD - Prevents duplicates and merges scores
+ */
+router.post('/upsert', async (req, res) => {
   try {
     const { session, term, class: className, subject, resultType, results } = req.body;
+    
+    if (!results || results.length === 0) {
+      return res.status(400).json({ success: false, error: 'No results provided' });
+    }
+
     const sessionObj = await findOrCreateByName(Session, session);
     const termObj = await findOrCreateByName(Term, term);
     const classObj = await findOrCreateByName(Class, className);
     const subjectObj = await findOrCreateByName(Subject, subject);
 
-    const insertedResults = [];
-    for (const row of results) {
-      const student = await findOrCreateStudent(row, classObj?._id);
-      if (!student || !sessionObj || !termObj || !classObj || !subjectObj) {
-        throw new Error(`Missing required reference: student=${!!student}, session=${!!sessionObj}, term=${!!termObj}, class=${!!classObj}, subject=${!!subjectObj}`);
-      }
-
-      const resultData = {
-        student: student._id,
-        session: sessionObj._id,
-        term: termObj._id,
-        class: classObj._id,
-        subject: subjectObj._id,
-        grade: row.grade,
-        remarks: row.remarks,
-        status: row.status || 'Draft'
-      };
-
-      resultData[`${resultType}_score`] = row.score;
-      const result = new Result(resultData);
-      await result.save();
-      insertedResults.push(result);
+    if (!sessionObj || !termObj || !classObj || !subjectObj) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required references (session, term, class, or subject)' 
+      });
     }
 
-    res.json({ success: true, inserted: insertedResults.length, results: insertedResults });
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+
+    for (const row of results) {
+      try {
+        const student = await findOrCreateStudent(row, classObj._id);
+        
+        if (!student) {
+          errors.push(`${row.student_name}: Could not find or create student`);
+          continue;
+        }
+
+        // Build update data with score type
+        const updateData = {
+          student: student._id,
+          session: sessionObj._id,
+          term: termObj._id,
+          class: classObj._id,
+          subject: subjectObj._id,
+          grade: row.grade,
+          remarks: row.remarks || '',
+          status: row.status || 'Draft'
+        };
+
+        // Set the appropriate score field based on resultType
+        updateData[`${resultType}_score`] = row.score;
+
+        // Upsert: find existing record and update, or create new one
+        const existingResult = await Result.findOne({
+          student: student._id,
+          session: sessionObj._id,
+          term: termObj._id,
+          class: classObj._id,
+          subject: subjectObj._id
+        });
+
+        if (existingResult) {
+          // Update existing result - merge the score
+          const updatedResult = await Result.findByIdAndUpdate(
+            existingResult._id,
+            updateData,
+            { new: true }
+          );
+          updated++;
+        } else {
+          // Create new result
+          const newResult = new Result(updateData);
+          await newResult.save();
+          inserted++;
+        }
+      } catch (err) {
+        errors.push(`${row.student_name}: ${err.message}`);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      inserted, 
+      updated,
+      total: inserted + updated,
+      errors: errors.length > 0 ? errors : undefined 
+    });
   } catch (err) {
+    console.error('Upsert error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * BULK UPLOAD - Updated to use upsert logic
+ */
+router.post('/upload', async (req, res) => {
+  try {
+    const { session, term, class: className, subject, resultType, results, upsert } = req.body;
+    
+    if (!results || results.length === 0) {
+      return res.status(400).json({ success: false, error: 'No results provided' });
+    }
+
+    const sessionObj = await findOrCreateByName(Session, session);
+    const termObj = await findOrCreateByName(Term, term);
+    const classObj = await findOrCreateByName(Class, className);
+    const subjectObj = await findOrCreateByName(Subject, subject);
+
+    if (!sessionObj || !termObj || !classObj || !subjectObj) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required references' 
+      });
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    const insertedResults = [];
+    const errors = [];
+
+    for (const row of results) {
+      try {
+        const student = await findOrCreateStudent(row, classObj._id);
+        
+        if (!student) {
+          errors.push(`${row.student_name}: Could not find or create student`);
+          continue;
+        }
+
+        const resultData = {
+          student: student._id,
+          session: sessionObj._id,
+          term: termObj._id,
+          class: classObj._id,
+          subject: subjectObj._id,
+          grade: row.grade,
+          remarks: row.remarks || '',
+          status: row.status || 'Draft'
+        };
+
+        resultData[`${resultType}_score`] = row.score;
+
+        // If upsert flag is true, check for existing and update
+        if (upsert) {
+          const existingResult = await Result.findOne({
+            student: student._id,
+            session: sessionObj._id,
+            term: termObj._id,
+            class: classObj._id,
+            subject: subjectObj._id
+          });
+
+          if (existingResult) {
+            const updatedResult = await Result.findByIdAndUpdate(
+              existingResult._id,
+              resultData,
+              { new: true }
+            );
+            updated++;
+            insertedResults.push(updatedResult);
+            continue;
+          }
+        }
+
+        // Create new result
+        const result = new Result(resultData);
+        await result.save();
+        inserted++;
+        insertedResults.push(result);
+      } catch (err) {
+        errors.push(`${row.student_name}: ${err.message}`);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      inserted, 
+      updated,
+      total: inserted + updated,
+      results: insertedResults,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * ADMIN ROUTE: Merge all existing duplicates
+ * Usage: POST /api/results/merge-duplicates (should be admin-protected)
+ */
+router.post('/merge-duplicates', async (req, res) => {
+  try {
+    const result = await mergeDuplicateResults();
+    res.json({ 
+      success: true, 
+      message: 'Duplicate merge completed',
+      ...result
+    });
+  } catch (err) {
+    console.error('Merge duplicates error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -452,4 +802,5 @@ router.post('/push-cbt', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 module.exports = router;
