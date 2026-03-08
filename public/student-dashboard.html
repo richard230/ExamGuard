@@ -898,7 +898,7 @@
         <a href="#" data-section="messages" onclick="navClick(event)">✉️ Messages</a>
         <a href="#" data-section="resources" onclick="navClick(event)">📂 Resources</a>
         <a href="#" data-section="settings" onclick="navClick(event)">⚙️ Settings</a>
-        <a href="#" data-section="others" onclick="navClick(event)">📋 Others</a>
+        <a href="others.html">📋 Others</a>
       </nav>
 
       <div class="spacer" aria-hidden="true"></div>
@@ -1015,9 +1015,7 @@
               <div style="font-weight:800">Recent Assignments</div>
               <div class="small muted">Track & submit</div>
             </div>
-            <div style="margin-top:10px;">
-              <div id="dashboardAssignmentsTable" style="max-height: 400px; overflow-y: auto;"></div>
-            </div>
+            <div class="assignments" id="assignmentsList" style="margin-top:10px"></div>
             <div style="margin-top:10px;display:flex;justify-content:flex-end">
               <a href="assignments.html" class="btn">View all assignments →</a>
             </div>
@@ -1108,14 +1106,6 @@
         </div>
       </section>
 
-      <!-- Others Section (placeholder for future use) -->
-      <section id="others" class="section" style="display:none">
-        <div class="card">
-          <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Others</div>
-          <div id="othersContent">Additional options coming soon</div>
-        </div>
-      </section>
-
     </main>
   </div>
 
@@ -1175,14 +1165,12 @@
       e.preventDefault();
       e.stopPropagation();
       
-      // On mobile: show overlay, then slide in sidebar
       if (window.innerWidth <= 720) {
         overlay.classList.add('visible');
         sidebar.classList.add('open');
         sidebar.classList.remove('hidden');
         document.body.classList.add('no-scroll');
       } else {
-        // On desktop: normal toggle
         sidebar.classList.toggle('open');
         sidebar.classList.toggle('hidden');
       }
@@ -1195,7 +1183,6 @@
       document.body.classList.remove('no-scroll');
     });
 
-    // Close sidebar when clicking nav items on mobile
     document.querySelectorAll('.nav a').forEach(link => {
       link.addEventListener('click', () => {
         if (window.innerWidth <= 720) {
@@ -1219,22 +1206,24 @@
     function navTo(section) {
       currentSection = section;
 
-      // Hide all sections
       document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-      document.getElementById(section).style.display = 'block';
+      const targetSection = document.getElementById(section);
+      if (targetSection) {
+        targetSection.style.display = 'block';
+      }
 
-      // Update nav active
       document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-      document.querySelector(`[data-section="${section}"]`)?.classList.add('active');
+      const activeLink = document.querySelector(`[data-section="${section}"]`);
+      if (activeLink) {
+        activeLink.classList.add('active');
+      }
 
-      // Update page title
       const sectionTitles = {
         home: 'Welcome back',
         timetable: 'Weekly Timetable',
         messages: 'Messages',
         resources: 'Learning Resources',
-        settings: 'Settings',
-        others: 'Others'
+        settings: 'Settings'
       };
       pageTitle.textContent = sectionTitles[section] || 'Welcome back';
     }
@@ -1244,7 +1233,7 @@
     // ============================================
     async function fetchDashboardAssignments() {
       const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
-      const container = document.getElementById('dashboardAssignmentsTable');
+      const container = document.getElementById('assignmentsList');
 
       try {
         const res = await fetch(`${API_BASE_URL}/api/academics/assignments`, {
@@ -1259,21 +1248,32 @@
           return;
         }
 
-        // Display limited assignments (first 5)
-        const limitedAssignments = assignments.slice(0, 5);
+        // Display limited assignments (first 3)
+        const limitedAssignments = assignments.slice(0, 3);
         const html = limitedAssignments.map(a => {
           let badgeClass = 'badge-pending';
-          if (a.status === 'completed') badgeClass = 'badge-completed';
-          else if (a.status === 'overdue') badgeClass = 'badge-overdue';
-          else if (a.status === 'reviewed') badgeClass = 'badge-reviewed';
+          let statusText = 'pending';
+          
+          if (a.status === 'completed' || a.status === 'submitted') {
+            badgeClass = 'badge-completed';
+            statusText = 'completed';
+          } else if (a.status === 'overdue') {
+            badgeClass = 'badge-overdue';
+            statusText = 'overdue';
+          } else if (a.status === 'reviewed') {
+            badgeClass = 'badge-reviewed';
+            statusText = 'reviewed';
+          }
+
+          const dueDate = a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A';
 
           return `
-            <div class="assignments item" style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div class="assignments item">
               <div style="flex: 1;">
-                <div style="font-weight: 600; color: var(--text-main);">${a.title || 'Untitled'}</div>
-                <div class="small muted">${a.subject || ''} • Due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A'}</div>
+                <div style="font-weight: 600; color: var(--text-main);">${a.title || 'Untitled Assignment'}</div>
+                <div class="small muted">${a.subject || 'Subject'} • Due: ${dueDate}</div>
               </div>
-              <span class="badge ${badgeClass}">${a.status || 'pending'}</span>
+              <span class="badge ${badgeClass}">${statusText}</span>
             </div>
           `;
         }).join('');
@@ -1304,7 +1304,6 @@
         populateDashboard(null);
       } finally {
         hideLoader();
-        // Fetch assignments after dashboard loads
         fetchDashboardAssignments();
       }
     }
@@ -1323,7 +1322,6 @@
 
       currentStudent = data;
 
-      // Update Profile
       const fullName = data.name || '';
       studentName.textContent = fullName;
       pageTitle.textContent = `Welcome back, ${fullName}`;
@@ -1338,7 +1336,6 @@
         topbarAvatar.src = avatarUrl;
       }
 
-      // Populate News
       const newsContent = document.getElementById('newsContent');
       if (data.news && data.news.length > 0) {
         newsContent.innerHTML = data.news.map(news =>
@@ -1348,7 +1345,6 @@
         newsContent.innerHTML = '';
       }
 
-      // Populate Grades Table
       const gradesTable = document.getElementById('gradesTable');
       if (data.grades && data.grades.length > 0) {
         gradesTable.innerHTML = data.grades.map(g =>
@@ -1358,7 +1354,6 @@
         gradesTable.innerHTML = '';
       }
 
-      // Populate Today's Timetable
       const todayTimetable = document.getElementById('todayTimetable');
       if (data.timetable && data.timetable.length > 0) {
         const today = data.timetable[0];
@@ -1391,7 +1386,7 @@
             html += `<div style="font-weight:700;background:#f8faff;text-align:center;">${day}</div>`;
           });
 
-          cbts.forEach((cbt, i) => {
+          cbts.forEach((cbt) => {
             html += `<div class="time-slot">${new Date(cbt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>`;
             html += `<div class="subject" style="grid-column: span 5;">${cbt.title}</div>`;
           });
@@ -1413,7 +1408,6 @@
       fetchStudentDashboard();
     });
 
-    // Responsive sidebar
     window.addEventListener('resize', () => {
       if (window.innerWidth > 720) {
         sidebar.classList.remove('hidden', 'open');
