@@ -477,6 +477,12 @@
       box-shadow: 0 6px 18px rgba(16, 185, 129, 0.12);
     }
 
+    .download-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     /* STUDENT INFO CARD */
     .student-info-card {
       display: flex;
@@ -996,7 +1002,7 @@
           <p id="principalCommentText"></p>
         </div>
 
-        <button class="download-btn" onclick="downloadCurrentResult()"><i class="fa fa-download"></i> Download Result</button>
+        <button class="download-btn" id="downloadBtn" onclick="downloadCurrentResult()"><i class="fa fa-download"></i> Download Result</button>
       </section>
 
       <!-- Previously Viewed Results -->
@@ -1463,7 +1469,7 @@
     }
 
     // ============================================
-    // Download Result as PDF
+    // Download Result - Opens Report Page with Data
     // ============================================
     function downloadCurrentResult() {
       if (!currentResultData) {
@@ -1471,9 +1477,28 @@
         return;
       }
 
-      // For now, use browser print function
-      // In production, integrate with a PDF library like jsPDF
-      window.print();
+      const downloadBtn = document.getElementById('downloadBtn');
+      downloadBtn.disabled = true;
+      downloadBtn.innerHTML = '<span class="spinner-small"></span> Generating...';
+
+      try {
+        // Store result data in sessionStorage for report page
+        sessionStorage.setItem('reportData', JSON.stringify(currentResultData));
+        
+        // Open report page in new tab
+        const reportUrl = 'report.html';
+        window.open(reportUrl, '_blank');
+        
+        setTimeout(() => {
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
+        }, 500);
+      } catch (error) {
+        console.error('Error opening report:', error);
+        showError('Failed to generate report. Please try again.');
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
+      }
     }
 
     // ============================================
@@ -1483,5 +1508,6 @@
       renderPreviousResults();
     });
   </script>
+
 </body>
 </html>
