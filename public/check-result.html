@@ -576,72 +576,60 @@
       margin-bottom: 0;
     }
 
-    /* PRINCIPAL & FORM MASTER SECTION */
-    .principals-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-      margin-top: 16px;
-    }
-
-    .principal-card {
-      background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
-      border: 1px solid #fbcfe8;
-      border-radius: 8px;
-      padding: 16px;
-      text-align: center;
-    }
-
-    .principal-card h4 {
-      margin: 0 0 12px 0;
-      color: var(--text-main);
-      font-size: 0.9rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      opacity: 0.8;
-    }
-
-    .principal-card .name {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--text-main);
-      margin-bottom: 8px;
-      border-bottom: 2px solid rgba(0, 0, 0, 0.1);
-      padding-bottom: 8px;
-    }
-
-    .principal-card .role {
-      font-size: 0.85rem;
-      color: var(--muted);
-      font-style: italic;
-    }
-
     .principal-comment-box {
       background: linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);
       border: 1px solid #ddd6fe;
       border-radius: 8px;
-      padding: 16px;
+      padding: 14px;
       margin-top: 16px;
     }
 
     .principal-comment-box h4 {
-      margin: 0 0 12px 0;
+      margin: 0 0 8px 0;
       color: var(--text-main);
       font-size: 0.95rem;
-      font-weight: 700;
     }
 
     .principal-comment-box p {
       margin: 0;
       color: var(--text-main);
       font-size: 0.9rem;
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
-    .principal-comment-box p.empty {
-      color: var(--muted);
-      font-style: italic;
+    /* TEACHER & PRINCIPAL INFO BOX */
+    .teacher-principal-box {
+      background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
+      border: 1px solid #c7d2fe;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+    }
+
+    .teacher-card, .principal-card {
+      padding: 12px;
+      background: #fff;
+      border-radius: 6px;
+      border: 1px solid #dbeafe;
+    }
+
+    .teacher-card h5, .principal-card h5 {
+      margin: 0 0 8px 0;
+      color: var(--accent-2);
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .teacher-card p, .principal-card p {
+      margin: 0;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      font-weight: 600;
     }
 
     /* PREVIOUS RESULTS */
@@ -797,7 +785,7 @@
         grid-template-columns: 1fr;
       }
 
-      .principals-section {
+      .teacher-principal-box {
         grid-template-columns: 1fr;
       }
 
@@ -857,12 +845,8 @@
         height: 70px;
       }
 
-      .principals-section {
+      .teacher-principal-box {
         grid-template-columns: 1fr;
-      }
-
-      .principal-card {
-        padding: 12px;
       }
     }
 
@@ -1048,20 +1032,6 @@
           </table>
         </div>
 
-        <!-- Principal & Form Master Section -->
-        <div class="principals-section" id="principalsSection">
-          <div class="principal-card">
-            <h4>Form Master</h4>
-            <div class="name" id="formMasterName">Form Master</div>
-            <div class="role">Class Teacher</div>
-          </div>
-          <div class="principal-card">
-            <h4>Principal</h4>
-            <div class="name" id="principalName">Principal</div>
-            <div class="role">Head of Institution</div>
-          </div>
-        </div>
-
         <!-- Skills & Attendance Section -->
         <div class="skills-attendance-container" id="skillsAttendanceContainer" style="display:none;">
           <div class="skill-box" id="affectiveSkillsBox"></div>
@@ -1071,224 +1041,281 @@
 
         <!-- Principal Comment -->
         <div class="principal-comment-box" id="principalCommentBox" style="display:none;">
-          <h4><i class="fa fa-comment"></i> Principal's Comment</h4>
-          <p id="principalCommentText">No comment</p>
+          <h4>📝 Principal's Comment</h4>
+          <p id="principalCommentText">No comment available</p>
         </div>
+
+        <!-- Teacher & Principal Info -->
+        <div class="teacher-principal-box" id="teacherPrincipalBox" style="display:none;">
+          <div class="teacher-card">
+            <h5>👨‍🏫 Class Teacher (Form Master)</h5>
+            <p id="teacherName">Teacher Name</p>
+          </div>
+          <div class="principal-card">
+            <h5>👔 Principal</h5>
+            <p id="principalName">Principal Name</p>
+          </div>
+        </div>
+
+        <!-- Download Report Button -->
+        <button class="download-btn" id="downloadReportBtn" onclick="openReport()">
+          <i class="fa fa-file-pdf"></i> Download Full Report
+        </button>
       </section>
     </main>
   </div>
 
   <script>
     const API_BASE_URL = "https://goldlincschools.onrender.com";
-    let currentStudentData = null;
 
-    // Sidebar toggle
-    const hamburger = document.getElementById('hamburger');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
-
-    hamburger?.addEventListener('click', () => {
-      sidebar?.classList.toggle('open');
-      overlay?.classList.toggle('visible');
-      document.body.classList.toggle('no-scroll');
-    });
-
-    overlay?.addEventListener('click', () => {
-      sidebar?.classList.remove('open');
-      overlay?.classList.remove('visible');
-      document.body.classList.remove('no-scroll');
-    });
-
-    // Load student info on page load
-    document.addEventListener('DOMContentLoaded', async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        window.location.href = 'login.html';
-        return;
+    // Get student info from localStorage or session
+    function loadStudentInfo() {
+      const student = JSON.parse(localStorage.getItem('student') || '{}');
+      if (student.regNo) {
+        document.getElementById('regNoInput').value = student.regNo;
+        document.getElementById('studentName').textContent = student.name || 'Student';
+        document.getElementById('studentClass').textContent = student.class || 'N/A';
+        document.getElementById('studentAvatar').src = student.photoBase64 
+          ? `data:image/jpeg;base64,${student.photoBase64}` 
+          : 'https://via.placeholder.com/48';
+        document.getElementById('topbarAvatar').src = document.getElementById('studentAvatar').src;
       }
+    }
 
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/student/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const student = await res.json();
-          document.getElementById('regNoInput').value = student.regNo || '';
-          document.getElementById('studentName').textContent = student.name || 'Student';
-          document.getElementById('studentClass').textContent = student.class?.name || 'N/A';
-          if (student.photoBase64) {
-            document.getElementById('studentAvatar').src = `data:image/jpeg;base64,${student.photoBase64}`;
-            document.getElementById('topbarAvatar').src = `data:image/jpeg;base64,${student.photoBase64}`;
-          }
-        }
-      } catch (err) {
-        console.error('Error loading student:', err);
-      }
-    });
-
-    // Handle result search
+    // Handle Result Search
     async function handleResultSearch(e) {
       e.preventDefault();
-
+      const submitBtn = document.getElementById('submitBtn');
+      const searchError = document.getElementById('searchError');
+      const searchSuccess = document.getElementById('searchSuccess');
+      
+      // Clear messages
+      searchError.classList.remove('show');
+      searchSuccess.classList.remove('show');
+      
       const regNo = document.getElementById('regNoInput').value;
       const scratchCard = document.getElementById('scratchCardInput').value;
       const className = document.getElementById('classInput').value;
       const session = document.getElementById('sessionInput').value;
       const term = document.getElementById('termInput').value;
 
-      const submitBtn = document.getElementById('submitBtn');
-      const searchError = document.getElementById('searchError');
-      const searchSuccess = document.getElementById('searchSuccess');
+      if (!regNo || !scratchCard || !className || !session || !term) {
+        searchError.textContent = 'Please fill all fields';
+        searchError.classList.add('show');
+        return false;
+      }
 
-      searchError.classList.remove('show');
-      searchSuccess.classList.remove('show');
+      submitBtn.disabled = true;
 
       try {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-small"></span> Searching...';
-
-        const res = await fetch(
+        const response = await fetch(
           `${API_BASE_URL}/api/results/check?regNo=${regNo}&scratchCard=${scratchCard}&class=${className}&session=${session}&term=${term}`
         );
 
-        if (!res.ok) {
-          const error = await res.json();
+        if (!response.ok) {
+          const error = await response.json();
           throw new Error(error.error || 'Failed to fetch results');
         }
 
-        const data = await res.json();
-        currentStudentData = data;
+        const data = await response.json();
+        
+        // Store report data for download
+        window.reportData = data;
+        
         displayResults(data);
         searchSuccess.textContent = '✓ Results loaded successfully!';
         searchSuccess.classList.add('show');
-
       } catch (err) {
         console.error(err);
-        searchError.textContent = `✗ ${err.message}`;
+        searchError.textContent = err.message;
         searchError.classList.add('show');
       } finally {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa fa-search"></i> View Result';
       }
 
       return false;
     }
 
-    // Display results
+    // Display Results
     function displayResults(data) {
-      const { results, student, skillsReport, attendance, principalComment, classSize, principalName, teacherName, session, term } = data;
+      const resultsDisplaySection = document.getElementById('resultsDisplaySection');
+      const tbody = document.querySelector('.results-table tbody');
+      
+      // Clear previous results
+      tbody.innerHTML = '';
 
-      // Student info
-      document.getElementById('resultStudentName').textContent = student.name || 'N/A';
-      document.getElementById('resultRegNo').textContent = student.regNo || 'N/A';
+      // Student Info
+      const student = data.student || {};
+      document.getElementById('resultStudentName').textContent = student.name || '-';
+      document.getElementById('resultRegNo').textContent = student.regNo || '-';
       document.getElementById('resultGender').textContent = student.gender || '-';
-      document.getElementById('resultDOB').textContent = student.DOB ? new Date(student.DOB).toLocaleDateString() : '-';
+      document.getElementById('resultDOB').textContent = formatDate(student.DOB) || '-';
       document.getElementById('resultClass').textContent = student.class?.name || '-';
-      document.getElementById('resultSession').textContent = session || '-';
-      document.getElementById('resultTerm').textContent = term || '-';
-      document.getElementById('resultClassSize').textContent = classSize || '-';
+      document.getElementById('resultSession').textContent = data.session || '-';
+      document.getElementById('resultTerm').textContent = data.term || '-';
+      document.getElementById('resultClassSize').textContent = data.classSize || '-';
 
-      // Student photo
+      // Student Photo
       if (student.photoBase64) {
-        document.getElementById('resultStudentPhoto').src = `data:image/jpeg;base64,${student.photoBase64}`;
-        document.getElementById('resultStudentPhoto').style.display = 'block';
+        const img = document.getElementById('resultStudentPhoto');
+        img.src = `data:image/jpeg;base64,${student.photoBase64}`;
+        img.style.display = 'block';
       }
 
-      // Calculate stats
-      let totalScore = 0, highest = 0, lowest = Infinity;
+      // Calculate Statistics
+      const results = data.results || [];
+      let totalScore = 0, highestScore = 0, lowestScore = Infinity;
+
       results.forEach(r => {
-        const score = parseFloat(r.total) || 0;
+        const score = parseInt(r.total) || 0;
         totalScore += score;
-        if (score > highest) highest = score;
-        if (score < lowest) lowest = score;
+        if (score > highestScore) highestScore = score;
+        if (score < lowestScore) lowestScore = score;
       });
 
-      if (lowest === Infinity) lowest = 0;
-      const average = results.length > 0 ? (totalScore / results.length).toFixed(2) : 0;
+      if (lowestScore === Infinity) lowestScore = 0;
 
       document.getElementById('totalSubjects').textContent = results.length;
-      document.getElementById('averageScore').textContent = average;
-      document.getElementById('highestScore').textContent = highest;
-      document.getElementById('lowestScore').textContent = lowest;
+      document.getElementById('averageScore').textContent = results.length > 0 
+        ? (totalScore / results.length).toFixed(2) 
+        : '0.00';
+      document.getElementById('highestScore').textContent = highestScore;
+      document.getElementById('lowestScore').textContent = lowestScore;
 
-      // Populate results table
-      const tbody = document.querySelector('.results-table tbody');
-      tbody.innerHTML = '';
+      // Populate Results Table
       results.forEach(r => {
-        let gradeClass = '';
-        if (r.grade === 'A' || r.grade === 'B') gradeClass = 'grade-high';
-        else if (r.grade === 'C' || r.grade === 'D') gradeClass = 'grade-mid';
-        else gradeClass = 'grade-low';
-
         const row = document.createElement('tr');
+        const total = parseInt(r.total) || 0;
+        let gradeClass = 'grade-low';
+        if (total >= 70) gradeClass = 'grade-high';
+        else if (total >= 50) gradeClass = 'grade-mid';
+
         row.innerHTML = `
           <td>${r.subject || '-'}</td>
           <td>${r.ca1_score || '-'}</td>
           <td>${r.ca2_score || '-'}</td>
           <td>${r.midterm_score || '-'}</td>
           <td>${r.exam_score || '-'}</td>
-          <td><strong>${r.total || 0}</strong></td>
-          <td><strong class="${gradeClass}">${r.grade || '-'}</strong></td>
+          <td><strong>${total}</strong></td>
+          <td class="${gradeClass}">${r.grade || '-'}</td>
           <td>${r.remarks || '-'}</td>
           <td>${r.subject_position || '-'}</td>
         `;
         tbody.appendChild(row);
       });
 
-      // Display principal & form master names ✓✓✓
-      document.getElementById('formMasterName').textContent = teacherName || 'Form Master';
-      document.getElementById('principalName').textContent = principalName || 'Principal';
-
-      // Display skills if available
-      if (skillsReport?.skills?.affective && Object.keys(skillsReport.skills.affective).length > 0) {
-        const affBox = document.getElementById('affectiveSkillsBox');
-        affBox.innerHTML = '<h4>Affective Skills</h4>';
-        for (const [key, value] of Object.entries(skillsReport.skills.affective)) {
-          const skillName = key.replace(/([A-Z])/g, ' $1').trim();
-          affBox.innerHTML += `<div class="skill-item"><span>${skillName}</span> <span>${['', 'Excellent', 'Very Good', 'Good', 'Fair', 'Poor'][value] || '-'}</span></div>`;
-        }
-        document.getElementById('skillsAttendanceContainer').style.display = 'grid';
+      // Display Teacher & Principal Info ✅ NEW
+      const teacherPrincipalBox = document.getElementById('teacherPrincipalBox');
+      if (data.principalName || data.teacherName) {
+        document.getElementById('teacherName').textContent = data.teacherName || 'Form Master';
+        document.getElementById('principalName').textContent = data.principalName || 'Principal';
+        teacherPrincipalBox.style.display = 'grid';
       }
 
-      if (skillsReport?.skills?.psychomotor && Object.keys(skillsReport.skills.psychomotor).length > 0) {
-        const psychBox = document.getElementById('psychomotorSkillsBox');
-        psychBox.innerHTML = '<h4>Psychomotor Skills</h4>';
-        for (const [key, value] of Object.entries(skillsReport.skills.psychomotor)) {
-          const skillName = key.replace(/([A-Z])/g, ' $1').trim();
-          psychBox.innerHTML += `<div class="skill-item"><span>${skillName}</span> <span>${['', 'Excellent', 'Very Good', 'Good', 'Fair', 'Poor'][value] || '-'}</span></div>`;
-        }
-        document.getElementById('skillsAttendanceContainer').style.display = 'grid';
+      // Display Skills & Attendance
+      const skillsReport = data.skillsReport || {};
+      const attendance = data.attendance || {};
+
+      if (Object.keys(skillsReport.skills || {}).length > 0 || Object.keys(attendance).length > 0) {
+        displaySkillsAndAttendance(skillsReport, attendance);
       }
 
-      if (attendance && Object.keys(attendance).length > 0) {
-        const attBox = document.getElementById('attendanceBox');
-        attBox.innerHTML = '<h4>Attendance</h4>';
-        for (const [key, value] of Object.entries(attendance)) {
-          const attName = key.replace(/([A-Z])/g, ' $1').trim();
-          attBox.innerHTML += `<div class="attendance-item"><span>${attName}</span> <span><strong>${value}</strong></span></div>`;
-        }
-        document.getElementById('skillsAttendanceContainer').style.display = 'grid';
-      }
-
-      // Display principal comment
-      if (principalComment) {
-        document.getElementById('principalCommentText').textContent = principalComment;
+      // Display Principal Comment
+      if (data.principalComment) {
+        document.getElementById('principalCommentText').textContent = data.principalComment;
         document.getElementById('principalCommentBox').style.display = 'block';
       }
 
       // Show results section
-      document.getElementById('resultsDisplaySection').style.display = 'block';
-      document.getElementById('resultsDisplaySection').scrollIntoView({ behavior: 'smooth' });
+      resultsDisplaySection.style.display = 'block';
+      resultsDisplaySection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Display Skills & Attendance
+    function displaySkillsAndAttendance(skillsReport, attendance) {
+      const skillsAttendanceContainer = document.getElementById('skillsAttendanceContainer');
+      const affectiveSkillsBox = document.getElementById('affectiveSkillsBox');
+      const psychomotorSkillsBox = document.getElementById('psychomotorSkillsBox');
+      const attendanceBox = document.getElementById('attendanceBox');
+
+      // Affective Skills
+      if (Object.keys(skillsReport.skills?.affective || {}).length > 0) {
+        let html = '<h4>😊 Affective Skills</h4>';
+        Object.entries(skillsReport.skills.affective).forEach(([key, value]) => {
+          html += `<div class="skill-item"><span>${key}:</span> <strong>${value}</strong></div>`;
+        });
+        affectiveSkillsBox.innerHTML = html;
+      }
+
+      // Psychomotor Skills
+      if (Object.keys(skillsReport.skills?.psychomotor || {}).length > 0) {
+        let html = '<h4>🎯 Psychomotor Skills</h4>';
+        Object.entries(skillsReport.skills.psychomotor).forEach(([key, value]) => {
+          html += `<div class="skill-item"><span>${key}:</span> <strong>${value}</strong></div>`;
+        });
+        psychomotorSkillsBox.innerHTML = html;
+      }
+
+      // Attendance
+      if (Object.keys(attendance).length > 0) {
+        let html = '<h4>📅 Attendance Summary</h4>';
+        Object.entries(attendance).forEach(([key, value]) => {
+          html += `<div class="attendance-item"><span>${key}:</span> <strong>${value}</strong></div>`;
+        });
+        attendanceBox.innerHTML = html;
+      }
+
+      if (Object.keys(skillsReport.skills?.affective || {}).length > 0 ||
+          Object.keys(skillsReport.skills?.psychomotor || {}).length > 0 ||
+          Object.keys(attendance).length > 0) {
+        skillsAttendanceContainer.style.display = 'grid';
+      }
+    }
+
+    // Format Date Helper
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    // Open Report in New Window
+    function openReport() {
+      if (window.reportData) {
+        sessionStorage.setItem('reportData', JSON.stringify(window.reportData));
+        window.open('/report.html', 'StudentReport', 'width=1000,height=800');
+      }
     }
 
     // Navigation
     function navClick(e) {
-      if (e.currentTarget.href.includes('#') || e.currentTarget.href.includes('check-result')) {
-        e.preventDefault();
+      if (e.target.href && !e.target.href.includes('#')) {
+        return;
       }
-      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-      e.currentTarget.classList.add('active');
+      e.preventDefault();
     }
+
+    // Hamburger Menu
+    document.getElementById('hamburger')?.addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('visible');
+      document.body.classList.toggle('no-scroll');
+    });
+
+    document.getElementById('overlay')?.addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('visible');
+      document.body.classList.remove('no-scroll');
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadStudentInfo);
   </script>
 </body>
 </html>
