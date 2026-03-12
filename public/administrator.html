@@ -74,6 +74,51 @@
       }
     }
 
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ================= LOADER ================= */
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid var(--gray-300);
+      border-radius: 50%;
+      border-top-color: var(--gold);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 40px;
+      color: var(--gray-600);
+    }
+
+    .no-data {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--gray-600);
+    }
+
+    .no-data-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
     /* ================= TOP NAVBAR ================= */
     .navbar {
       position: fixed;
@@ -136,7 +181,7 @@
     }
 
     .search-box {
-      display: none;
+      display: flex;
       position: relative;
       width: 250px;
     }
@@ -256,6 +301,11 @@
       transition: all 0.3s ease;
       font-size: 14px;
       font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
     }
 
     .sidebar-menu-link:hover,
@@ -311,6 +361,16 @@
     .page-subtitle {
       color: var(--gray-600);
       font-size: 14px;
+    }
+
+    /* ================= TAB SECTIONS ================= */
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
     }
 
     /* ================= STATS CARDS ================= */
@@ -393,7 +453,7 @@
       color: var(--accent-red);
     }
 
-    /* ================= REQUESTS TABLE ================= */
+    /* ================= SECTIONS ================= */
     .section {
       background: var(--white);
       border-radius: 12px;
@@ -409,6 +469,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
     }
 
     .section-title {
@@ -514,6 +576,21 @@
     }
 
     .status-badge.rejected {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--accent-red);
+    }
+
+    .status-badge.active {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--accent-green);
+    }
+
+    .status-badge.inactive {
+      background: rgba(107, 114, 128, 0.1);
+      color: #6b7280;
+    }
+
+    .status-badge.suspended {
       background: rgba(239, 68, 68, 0.1);
       color: var(--accent-red);
     }
@@ -678,6 +755,42 @@
       opacity: 0.9;
     }
 
+    .btn-success {
+      background: var(--accent-green);
+      color: var(--white);
+    }
+
+    .btn-success:hover {
+      opacity: 0.9;
+    }
+
+    /* ================= PAGINATION ================= */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .pagination button {
+      padding: 8px 12px;
+      border: 1px solid var(--gray-200);
+      background: var(--white);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .pagination button:hover,
+    .pagination button.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: var(--navy);
+    }
+
     /* ================= RESPONSIVE ================= */
     @media (max-width: 1200px) {
       .stats-grid {
@@ -685,7 +798,6 @@
       }
 
       .search-box {
-        display: block;
         width: 180px;
       }
     }
@@ -760,7 +872,7 @@
       .section-header {
         padding: 16px;
         flex-direction: column;
-        gap: 12px;
+        align-items: flex-start;
       }
 
       .filter-buttons {
@@ -769,6 +881,7 @@
 
       .filter-btn {
         flex: 1;
+        min-width: 80px;
       }
 
       table {
@@ -907,20 +1020,20 @@
   <div class="navbar-right">
     <div class="search-box">
       <i class="fas fa-search"></i>
-      <input type="text" placeholder="Search requests...">
+      <input type="text" id="globalSearch" placeholder="Search...">
     </div>
     <div class="navbar-icons">
-      <button class="icon-btn">
+      <button class="icon-btn" title="Notifications">
         <i class="fas fa-bell"></i>
-        <span class="notification-badge">3</span>
+        <span class="notification-badge" id="notificationBadge">0</span>
       </button>
-      <button class="icon-btn">
+      <button class="icon-btn" title="Settings">
         <i class="fas fa-cog"></i>
       </button>
     </div>
     <div class="profile-menu">
-      <div class="profile-avatar">AD</div>
-      <span style="font-size: 13px; font-weight: 600;">Admin</span>
+      <div class="profile-avatar" id="userInitials">AD</div>
+      <span id="userName" style="font-size: 13px; font-weight: 600;">Admin</span>
     </div>
   </div>
 </nav>
@@ -929,34 +1042,34 @@
 <aside class="sidebar" id="sidebar">
   <ul class="sidebar-menu">
     <li class="sidebar-menu-item">
-      <a href="#" class="sidebar-menu-link active" onclick="switchTab('dashboard')">
+      <button class="sidebar-menu-link active" onclick="switchTab('dashboard')">
         <div class="sidebar-menu-icon"><i class="fas fa-chart-line"></i></div>
         <span>Dashboard</span>
-      </a>
+      </button>
     </li>
     <li class="sidebar-menu-item">
-      <a href="#" class="sidebar-menu-link" onclick="switchTab('requests')">
+      <button class="sidebar-menu-link" onclick="switchTab('requests')">
         <div class="sidebar-menu-icon"><i class="fas fa-inbox"></i></div>
         <span>Demo Requests</span>
-      </a>
+      </button>
     </li>
     <li class="sidebar-menu-item">
-      <a href="#" class="sidebar-menu-link" onclick="switchTab('schools')">
+      <button class="sidebar-menu-link" onclick="switchTab('schools')">
         <div class="sidebar-menu-icon"><i class="fas fa-building"></i></div>
         <span>Schools</span>
-      </a>
+      </button>
     </li>
     <li class="sidebar-menu-item">
-      <a href="#" class="sidebar-menu-link" onclick="switchTab('accounts')">
+      <button class="sidebar-menu-link" onclick="switchTab('accounts')">
         <div class="sidebar-menu-icon"><i class="fas fa-users"></i></div>
-        <span>Accounts</span>
-      </a>
+        <span>Admin Accounts</span>
+      </button>
     </li>
     <li class="sidebar-menu-item">
-      <a href="#" class="sidebar-menu-link" onclick="switchTab('reports')">
-        <div class="sidebar-menu-icon"><i class="fas fa-file-alt"></i></div>
-        <span>Reports</span>
-      </a>
+      <button class="sidebar-menu-link" onclick="logout()">
+        <div class="sidebar-menu-icon"><i class="fas fa-sign-out-alt"></i></div>
+        <span>Logout</span>
+      </button>
     </li>
   </ul>
 </aside>
@@ -967,7 +1080,7 @@
 <!-- ================= MAIN CONTENT ================= -->
 <main class="main-content">
   
-  <!-- DASHBOARD TAB -->
+  <!-- ================= DASHBOARD TAB ================= -->
   <div id="dashboard-tab" class="tab-content active">
     <div class="page-header">
       <h1 class="page-title">Dashboard</h1>
@@ -983,8 +1096,8 @@
             <i class="fas fa-inbox"></i>
           </div>
         </div>
-        <div class="stat-card-value">47</div>
-        <div class="stat-card-change">↑ 12 this month</div>
+        <div class="stat-card-value" id="totalRequests">-</div>
+        <div class="stat-card-change" id="requestsChange">Loading...</div>
       </div>
 
       <div class="stat-card">
@@ -994,8 +1107,8 @@
             <i class="fas fa-check-circle"></i>
           </div>
         </div>
-        <div class="stat-card-value">23</div>
-        <div class="stat-card-change">↑ 5 new this month</div>
+        <div class="stat-card-value" id="activeSchools">-</div>
+        <div class="stat-card-change" id="schoolsChange">Loading...</div>
       </div>
 
       <div class="stat-card">
@@ -1005,8 +1118,8 @@
             <i class="fas fa-clock"></i>
           </div>
         </div>
-        <div class="stat-card-value">8</div>
-        <div class="stat-card-change">Average: 2 days</div>
+        <div class="stat-card-value" id="pendingRequests">-</div>
+        <div class="stat-card-change">To be reviewed</div>
       </div>
 
       <div class="stat-card">
@@ -1016,8 +1129,8 @@
             <i class="fas fa-chart-pie"></i>
           </div>
         </div>
-        <div class="stat-card-value">49%</div>
-        <div class="stat-card-change">↑ 2% vs last month</div>
+        <div class="stat-card-value" id="conversionRate">-</div>
+        <div class="stat-card-change">Approval rate</div>
       </div>
     </div>
 
@@ -1026,70 +1139,20 @@
       <div class="section-header">
         <h2 class="section-title">Recent Demo Requests</h2>
         <div class="filter-buttons">
-          <button class="filter-btn active" onclick="filterRequests('all')">All</button>
-          <button class="filter-btn" onclick="filterRequests('pending')">Pending</button>
-          <button class="filter-btn" onclick="filterRequests('approved')">Approved</button>
+          <button class="filter-btn active" onclick="filterDashboardRequests('all')">All</button>
+          <button class="filter-btn" onclick="filterDashboardRequests('pending')">Pending</button>
+          <button class="filter-btn" onclick="filterDashboardRequests('approved')">Approved</button>
         </div>
       </div>
       <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Request ID</th>
-              <th>School Name</th>
-              <th>Contact</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="request-id">#REQ-001</td>
-              <td class="school-name">St. Joseph Academy</td>
-              <td>Mary Kamani</td>
-              <td><span class="status-badge pending">Pending</span></td>
-              <td>2024-03-10</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="viewRequest('#REQ-001')">View</button>
-                  <button class="action-btn" onclick="approveRequest('#REQ-001')">Approve</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="request-id">#REQ-002</td>
-              <td class="school-name">Global Prep School</td>
-              <td>Richard Johnson</td>
-              <td><span class="status-badge approved">Approved</span></td>
-              <td>2024-03-09</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="viewRequest('#REQ-002')">View</button>
-                  <button class="action-btn danger" onclick="rejectRequest('#REQ-002')">Reject</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="request-id">#REQ-003</td>
-              <td class="school-name">Excellence High School</td>
-              <td>Sarah Nwosu</td>
-              <td><span class="status-badge reviewed">Reviewed</span></td>
-              <td>2024-03-08</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="viewRequest('#REQ-003')">View</button>
-                  <button class="action-btn" onclick="approveRequest('#REQ-003')">Approve</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div id="dashboardRequestsTable">
+          <div class="loading"><div class="loader"></div> Loading requests...</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- REQUESTS TAB -->
+  <!-- ================= DEMO REQUESTS TAB ================= -->
   <div id="requests-tab" class="tab-content">
     <div class="page-header">
       <h1 class="page-title">Demo Requests</h1>
@@ -1100,76 +1163,23 @@
       <div class="section-header">
         <h2 class="section-title">All Requests</h2>
         <div class="filter-buttons">
-          <button class="filter-btn active" onclick="filterRequestsTab('all')">All (47)</button>
-          <button class="filter-btn" onclick="filterRequestsTab('pending')">Pending (8)</button>
-          <button class="filter-btn" onclick="filterRequestsTab('reviewed')">Reviewed (15)</button>
-          <button class="filter-btn" onclick="filterRequestsTab('approved')">Approved (20)</button>
-          <button class="filter-btn" onclick="filterRequestsTab('rejected')">Rejected (4)</button>
+          <button class="filter-btn active" onclick="filterRequests('all')">All</button>
+          <button class="filter-btn" onclick="filterRequests('pending')">Pending</button>
+          <button class="filter-btn" onclick="filterRequests('reviewed')">Reviewed</button>
+          <button class="filter-btn" onclick="filterRequests('approved')">Approved</button>
+          <button class="filter-btn" onclick="filterRequests('rejected')">Rejected</button>
         </div>
       </div>
       <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Request ID</th>
-              <th>School</th>
-              <th>Contact Person</th>
-              <th>Students</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="request-id">#REQ-001</td>
-              <td class="school-name">St. Joseph Academy</td>
-              <td>Mary Kamani</td>
-              <td>450</td>
-              <td><span class="status-badge pending">Pending</span></td>
-              <td>2024-03-10</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="viewRequest('#REQ-001')">View</button>
-                  <button class="action-btn" onclick="approveRequest('#REQ-001')">Approve</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="request-id">#REQ-004</td>
-              <td class="school-name">Bright Future School</td>
-              <td>James Okoro</td>
-              <td>650</td>
-              <td><span class="status-badge pending">Pending</span></td>
-              <td>2024-03-11</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="viewRequest('#REQ-004')">View</button>
-                  <button class="action-btn" onclick="approveRequest('#REQ-004')">Approve</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="request-id">#REQ-005</td>
-              <td class="school-name">Heritage Academy</td>
-              <td>Chioma Eze</td>
-              <td>320</td>
-              <td><span class="status-badge reviewed">Reviewed</span></td>
-              <td>2024-03-07</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="viewRequest('#REQ-005')">View</button>
-                  <button class="action-btn" onclick="approveRequest('#REQ-005')">Approve</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div id="requestsTable">
+          <div class="loading"><div class="loader"></div> Loading requests...</div>
+        </div>
       </div>
+      <div id="requestsPagination" class="pagination"></div>
     </div>
   </div>
 
-  <!-- SCHOOLS TAB -->
+  <!-- ================= SCHOOLS TAB ================= -->
   <div id="schools-tab" class="tab-content">
     <div class="page-header">
       <h1 class="page-title">Schools Management</h1>
@@ -1180,74 +1190,22 @@
       <div class="section-header">
         <h2 class="section-title">All Schools</h2>
         <div class="filter-buttons">
-          <button class="filter-btn active" onclick="filterSchools('all')">All (23)</button>
-          <button class="filter-btn" onclick="filterSchools('active')">Active (21)</button>
-          <button class="filter-btn" onclick="filterSchools('inactive')">Inactive (2)</button>
+          <button class="filter-btn active" onclick="filterSchools('all')">All</button>
+          <button class="filter-btn" onclick="filterSchools('active')">Active</button>
+          <button class="filter-btn" onclick="filterSchools('inactive')">Inactive</button>
+          <button class="filter-btn" onclick="filterSchools('suspended')">Suspended</button>
         </div>
       </div>
       <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>School Name</th>
-              <th>Type</th>
-              <th>Location</th>
-              <th>Students</th>
-              <th>Status</th>
-              <th>Join Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="school-name">St. Joseph Academy</td>
-              <td>Secondary</td>
-              <td>Lagos, Nigeria</td>
-              <td>450</td>
-              <td><span class="status-badge approved">Active</span></td>
-              <td>2024-02-15</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="manageSchool('St. Joseph')">Manage</button>
-                  <button class="action-btn" onclick="viewSchoolDetails('St. Joseph')">Details</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="school-name">Global Prep School</td>
-              <td>International</td>
-              <td>Abuja, Nigeria</td>
-              <td>650</td>
-              <td><span class="status-badge approved">Active</span></td>
-              <td>2024-02-20</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="manageSchool('Global Prep')">Manage</button>
-                  <button class="action-btn" onclick="viewSchoolDetails('Global Prep')">Details</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="school-name">Excellence High School</td>
-              <td>Primary & Secondary</td>
-              <td>Port Harcourt, Nigeria</td>
-              <td>320</td>
-              <td><span class="status-badge approved">Active</span></td>
-              <td>2024-03-01</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="manageSchool('Excellence')">Manage</button>
-                  <button class="action-btn" onclick="viewSchoolDetails('Excellence')">Details</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div id="schoolsTable">
+          <div class="loading"><div class="loader"></div> Loading schools...</div>
+        </div>
       </div>
+      <div id="schoolsPagination" class="pagination"></div>
     </div>
   </div>
 
-  <!-- ACCOUNTS TAB -->
+  <!-- ================= ACCOUNTS TAB ================= -->
   <div id="accounts-tab" class="tab-content">
     <div class="page-header">
       <h1 class="page-title">Admin Accounts</h1>
@@ -1259,62 +1217,12 @@
         <h2 class="section-title">Admin Users</h2>
       </div>
       <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Last Login</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="school-name">Admin User</td>
-              <td>admin@examguard.com</td>
-              <td>Super Admin</td>
-              <td><span class="status-badge approved">Active</span></td>
-              <td>Today</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="editAdmin('admin')">Edit</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="school-name">Support Team</td>
-              <td>support@examguard.com</td>
-              <td>Support Manager</td>
-              <td><span class="status-badge approved">Active</span></td>
-              <td>2 hours ago</td>
-              <td>
-                <div class="action-buttons">
-                  <button class="action-btn" onclick="editAdmin('support')">Edit</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- REPORTS TAB -->
-  <div id="reports-tab" class="tab-content">
-    <div class="page-header">
-      <h1 class="page-title">Reports</h1>
-      <p class="page-subtitle">View analytics and system reports</p>
-    </div>
-
-    <div class="section">
-      <div class="section-header">
-        <h2 class="section-title">System Reports</h2>
-      </div>
-      <div style="padding: 24px; text-align: center; color: var(--gray-600);">
-        <i class="fas fa-chart-bar" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-        <p>Reports dashboard coming soon</p>
+        <div id="accountsTable">
+          <div class="no-data">
+            <div class="no-data-icon"><i class="fas fa-user"></i></div>
+            <p>Admin accounts management coming soon</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1331,63 +1239,145 @@
     <div class="modal-body">
       <div class="detail-row">
         <div class="detail-label">Request ID</div>
-        <div class="detail-value" id="modalRequestId">#REQ-001</div>
+        <div class="detail-value" id="modalRequestId">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">School Name</div>
-        <div class="detail-value" id="modalSchoolName">St. Joseph Academy</div>
+        <div class="detail-value" id="modalSchoolName">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">School Type</div>
-        <div class="detail-value" id="modalSchoolType">Secondary School</div>
+        <div class="detail-value" id="modalSchoolType">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Students</div>
-        <div class="detail-value" id="modalStudents">450</div>
+        <div class="detail-value" id="modalStudents">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Contact Person</div>
-        <div class="detail-value" id="modalContactPerson">Mary Kamani</div>
+        <div class="detail-value" id="modalContactPerson">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Email</div>
-        <div class="detail-value" id="modalEmail">mary@stjoseph.edu</div>
+        <div class="detail-value" id="modalEmail">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Phone</div>
-        <div class="detail-value" id="modalPhone">+234 701 234 567</div>
+        <div class="detail-value" id="modalPhone">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Country</div>
-        <div class="detail-value" id="modalCountry">Nigeria</div>
+        <div class="detail-value" id="modalCountry">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Needs</div>
-        <div class="detail-value" id="modalNeeds">Student Management, Grading, Parent Portal</div>
+        <div class="detail-value" id="modalNeeds">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Budget</div>
-        <div class="detail-value" id="modalBudget">₦100K - ₦200K</div>
+        <div class="detail-value" id="modalBudget">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Timeline</div>
+        <div class="detail-value" id="modalTimeline">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Status</div>
-        <div class="detail-value" id="modalStatus"><span class="status-badge pending">Pending</span></div>
+        <div class="detail-value" id="modalStatus">-</div>
       </div>
       <div class="detail-row">
         <div class="detail-label">Submitted</div>
-        <div class="detail-value" id="modalSubmitted">2024-03-10 10:30 AM</div>
+        <div class="detail-value" id="modalSubmitted">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Notes</div>
+        <textarea id="modalAdminNotes" style="width: 100%; padding: 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px; font-family: inherit;" rows="3" placeholder="Add admin notes..."></textarea>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('requestModal')">Close</button>
-      <button class="btn btn-primary" onclick="approveFromModal()">Approve Request</button>
+      <button class="btn btn-danger" onclick="updateRequestStatus('rejected')">Reject</button>
+      <button class="btn btn-success" onclick="updateRequestStatus('approved')">Approve</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SCHOOL DETAIL MODAL ================= -->
+<div class="modal" id="schoolModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">School Details</h2>
+      <button class="modal-close" onclick="closeModal('schoolModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-row">
+        <div class="detail-label">School Name</div>
+        <div class="detail-value" id="schoolModalName">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Type</div>
+        <div class="detail-value" id="schoolModalType">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Students</div>
+        <div class="detail-value" id="schoolModalStudents">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Location</div>
+        <div class="detail-value" id="schoolModalLocation">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Email</div>
+        <div class="detail-value" id="schoolModalEmail">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Phone</div>
+        <div class="detail-value" id="schoolModalPhone">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Subscription Plan</div>
+        <div class="detail-value" id="schoolModalPlan">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Status</div>
+        <div class="detail-value" id="schoolModalStatus">-</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Join Date</div>
+        <div class="detail-value" id="schoolModalJoinDate">-</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('schoolModal')">Close</button>
+      <button class="btn btn-primary" onclick="editSchool()">Edit</button>
     </div>
   </div>
 </div>
 
 <!-- ================= JAVASCRIPT ================= -->
 <script>
-  // Sidebar Toggle for Mobile
+  // ================= CONFIG ================= 
+  const API_BASE_URL = 'http://localhost:5000/api';
+  const TOKEN = localStorage.getItem('adminToken') || '';
+
+  let currentRequestPage = 1;
+  let currentSchoolPage = 1;
+  let currentFilterStatus = 'all';
+  let currentViewingRequestId = null;
+  let currentViewingSchoolId = null;
+
+  // ================= INITIALIZATION ================= 
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeDashboard();
+  });
+
+  function initializeDashboard() {
+    loadDashboardStats();
+    loadDashboardRequests();
+    setupEventListeners();
+  }
+
+  // ================= SIDEBAR TOGGLE ================= 
   const sidebarToggle = document.getElementById('sidebarToggle');
   const sidebar = document.getElementById('sidebar');
   const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -1402,10 +1392,8 @@
     sidebarOverlay.classList.remove('active');
   });
 
-  // Tab Navigation
+  // ================= TAB SWITCHING ================= 
   function switchTab(tabName) {
-    event.preventDefault();
-    
     // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(tab => {
       tab.classList.remove('active');
@@ -1425,9 +1413,323 @@
     // Close sidebar on mobile
     sidebar.classList.remove('active');
     sidebarOverlay.classList.remove('active');
+
+    // Load data for specific tabs
+    if (tabName === 'requests') {
+      loadRequests(1, 'all');
+    } else if (tabName === 'schools') {
+      loadSchools(1, 'all');
+    }
   }
 
-  // Modal Functions
+  // ================= API HELPERS ================= 
+  async function apiCall(endpoint, method = 'GET', body = null) {
+    try {
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${TOKEN}`
+        }
+      };
+
+      if (body) {
+        options.body = JSON.stringify(body);
+      }
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'API Error');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API Error:', error);
+      showError(error.message);
+      throw error;
+    }
+  }
+
+  function showError(message) {
+    // You can implement a toast notification here
+    console.error(message);
+  }
+
+  function showSuccess(message) {
+    // You can implement a toast notification here
+    console.log(message);
+  }
+
+  // ================= DASHBOARD FUNCTIONS ================= 
+  async function loadDashboardStats() {
+    try {
+      const data = await apiCall('/demo-requests/admin/dashboard-stats');
+      
+      document.getElementById('totalRequests').textContent = data.data.totalRequests;
+      document.getElementById('pendingRequests').textContent = data.data.pendingRequests;
+      document.getElementById('conversionRate').textContent = data.data.conversionRate + '%';
+      document.getElementById('requestsChange').textContent = `↑ ${data.data.requestsThisMonth} this month`;
+
+      // Load school stats
+      const schoolStats = await apiCall('/schools/admin/stats');
+      document.getElementById('activeSchools').textContent = schoolStats.data.activeSchools;
+      document.getElementById('schoolsChange').textContent = `↑ ${schoolStats.data.activeSchools} active`;
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  }
+
+  async function loadDashboardRequests() {
+    try {
+      const data = await apiCall('/demo-requests?limit=5');
+      
+      if (!data.data || data.data.length === 0) {
+        document.getElementById('dashboardRequestsTable').innerHTML = `
+          <div class="no-data">
+            <div class="no-data-icon"><i class="fas fa-inbox"></i></div>
+            <p>No demo requests yet</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '<table><thead><tr><th>Request ID</th><th>School</th><th>Contact</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+      
+      data.data.forEach(req => {
+        html += `
+          <tr>
+            <td class="request-id">${req.requestId}</td>
+            <td class="school-name">${req.schoolName}</td>
+            <td>${req.fullName}</td>
+            <td><span class="status-badge ${req.status}">${req.status}</span></td>
+            <td>${new Date(req.createdAt).toLocaleDateString()}</td>
+            <td>
+              <div class="action-buttons">
+                <button class="action-btn" onclick="viewRequest('${req._id}')">View</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('dashboardRequestsTable').innerHTML = html;
+    } catch (error) {
+      document.getElementById('dashboardRequestsTable').innerHTML = `
+        <div class="no-data">
+          <div class="no-data-icon"><i class="fas fa-exclamation-circle"></i></div>
+          <p>Error loading requests</p>
+        </div>
+      `;
+    }
+  }
+
+  function filterDashboardRequests(status) {
+    updateFilterButtonState(event.target);
+    loadDashboardRequests();
+  }
+
+  // ================= REQUESTS TAB ================= 
+  async function loadRequests(page = 1, status = 'all') {
+    try {
+      const endpoint = status === 'all' 
+        ? `/demo-requests?page=${page}&limit=10`
+        : `/demo-requests?status=${status}&page=${page}&limit=10`;
+
+      const data = await apiCall(endpoint);
+      
+      currentRequestPage = page;
+      currentFilterStatus = status;
+
+      if (!data.data || data.data.length === 0) {
+        document.getElementById('requestsTable').innerHTML = `
+          <div class="no-data">
+            <div class="no-data-icon"><i class="fas fa-inbox"></i></div>
+            <p>No requests found</p>
+          </div>
+        `;
+        document.getElementById('requestsPagination').innerHTML = '';
+        return;
+      }
+
+      let html = '<table><thead><tr><th>Request ID</th><th>School</th><th>Contact</th><th>Students</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+      
+      data.data.forEach(req => {
+        html += `
+          <tr>
+            <td class="request-id">${req.requestId}</td>
+            <td class="school-name">${req.schoolName}</td>
+            <td>${req.fullName}</td>
+            <td>${req.studentCount}</td>
+            <td><span class="status-badge ${req.status}">${req.status}</span></td>
+            <td>${new Date(req.createdAt).toLocaleDateString()}</td>
+            <td>
+              <div class="action-buttons">
+                <button class="action-btn" onclick="viewRequest('${req._id}')">View</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('requestsTable').innerHTML = html;
+
+      // Pagination
+      renderPagination('requestsPagination', data.pagination, (page) => loadRequests(page, status));
+    } catch (error) {
+      document.getElementById('requestsTable').innerHTML = `
+        <div class="no-data">
+          <div class="no-data-icon"><i class="fas fa-exclamation-circle"></i></div>
+          <p>Error loading requests</p>
+        </div>
+      `;
+    }
+  }
+
+  function filterRequests(status) {
+    updateFilterButtonState(event.target);
+    loadRequests(1, status);
+  }
+
+  // ================= SCHOOLS TAB ================= 
+  async function loadSchools(page = 1, status = 'all') {
+    try {
+      const endpoint = status === 'all' 
+        ? `/schools?page=${page}&limit=10`
+        : `/schools?status=${status}&page=${page}&limit=10`;
+
+      const data = await apiCall(endpoint);
+      
+      currentSchoolPage = page;
+
+      if (!data.data || data.data.length === 0) {
+        document.getElementById('schoolsTable').innerHTML = `
+          <div class="no-data">
+            <div class="no-data-icon"><i class="fas fa-building"></i></div>
+            <p>No schools found</p>
+          </div>
+        `;
+        document.getElementById('schoolsPagination').innerHTML = '';
+        return;
+      }
+
+      let html = '<table><thead><tr><th>School Name</th><th>Type</th><th>Location</th><th>Students</th><th>Status</th><th>Plan</th><th>Actions</th></tr></thead><tbody>';
+      
+      data.data.forEach(school => {
+        html += `
+          <tr>
+            <td class="school-name">${school.schoolName}</td>
+            <td>${capitalizeFirst(school.schoolType)}</td>
+            <td>${school.city}, ${school.country}</td>
+            <td>${school.studentCount}</td>
+            <td><span class="status-badge ${school.status}">${school.status}</span></td>
+            <td>${capitalizeFirst(school.subscriptionPlan)}</td>
+            <td>
+              <div class="action-buttons">
+                <button class="action-btn" onclick="viewSchool('${school._id}')">View</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('schoolsTable').innerHTML = html;
+
+      // Pagination
+      renderPagination('schoolsPagination', data.pagination, (page) => loadSchools(page, status));
+    } catch (error) {
+      document.getElementById('schoolsTable').innerHTML = `
+        <div class="no-data">
+          <div class="no-data-icon"><i class="fas fa-exclamation-circle"></i></div>
+          <p>Error loading schools</p>
+        </div>
+      `;
+    }
+  }
+
+  function filterSchools(status) {
+    updateFilterButtonState(event.target);
+    loadSchools(1, status);
+  }
+
+  // ================= MODAL FUNCTIONS ================= 
+  async function viewRequest(requestId) {
+    try {
+      const data = await apiCall(`/demo-requests/${requestId}`);
+      const req = data.data;
+
+      currentViewingRequestId = req._id;
+
+      document.getElementById('modalRequestId').textContent = req.requestId;
+      document.getElementById('modalSchoolName').textContent = req.schoolName;
+      document.getElementById('modalSchoolType').textContent = capitalizeFirst(req.schoolType);
+      document.getElementById('modalStudents').textContent = req.studentCount;
+      document.getElementById('modalContactPerson').textContent = req.fullName;
+      document.getElementById('modalEmail').textContent = req.email;
+      document.getElementById('modalPhone').textContent = req.phone;
+      document.getElementById('modalCountry').textContent = req.country;
+      document.getElementById('modalNeeds').textContent = req.needs.join(', ');
+      document.getElementById('modalBudget').textContent = formatBudget(req.budget);
+      document.getElementById('modalTimeline').textContent = capitalizeFirst(req.timeline);
+      document.getElementById('modalStatus').innerHTML = `<span class="status-badge ${req.status}">${req.status}</span>`;
+      document.getElementById('modalSubmitted').textContent = new Date(req.createdAt).toLocaleString();
+      document.getElementById('modalAdminNotes').value = req.adminNotes || '';
+
+      openModal('requestModal');
+    } catch (error) {
+      console.error('Error viewing request:', error);
+    }
+  }
+
+  async function viewSchool(schoolId) {
+    try {
+      const data = await apiCall(`/schools/${schoolId}`);
+      const school = data.data;
+
+      currentViewingSchoolId = school._id;
+
+      document.getElementById('schoolModalName').textContent = school.schoolName;
+      document.getElementById('schoolModalType').textContent = capitalizeFirst(school.schoolType);
+      document.getElementById('schoolModalStudents').textContent = school.studentCount;
+      document.getElementById('schoolModalLocation').textContent = `${school.city}, ${school.country}`;
+      document.getElementById('schoolModalEmail').textContent = school.email;
+      document.getElementById('schoolModalPhone').textContent = school.phone;
+      document.getElementById('schoolModalPlan').textContent = capitalizeFirst(school.subscriptionPlan);
+      document.getElementById('schoolModalStatus').innerHTML = `<span class="status-badge ${school.status}">${school.status}</span>`;
+      document.getElementById('schoolModalJoinDate').textContent = new Date(school.createdAt).toLocaleDateString();
+
+      openModal('schoolModal');
+    } catch (error) {
+      console.error('Error viewing school:', error);
+    }
+  }
+
+  async function updateRequestStatus(status) {
+    try {
+      const notes = document.getElementById('modalAdminNotes').value;
+      await apiCall(`/demo-requests/${currentViewingRequestId}/status`, 'PATCH', {
+        status,
+        adminNotes: notes
+      });
+
+      showSuccess(`Request ${status} successfully`);
+      closeModal('requestModal');
+      loadRequests(currentRequestPage, currentFilterStatus);
+      loadDashboardRequests();
+      loadDashboardStats();
+    } catch (error) {
+      console.error('Error updating request:', error);
+    }
+  }
+
+  function editSchool() {
+    alert('Edit functionality coming soon');
+  }
+
   function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
   }
@@ -1436,74 +1738,68 @@
     document.getElementById(modalId).classList.remove('active');
   }
 
-  // Request Actions
-  function viewRequest(requestId) {
-    openModal('requestModal');
-    // In real app, fetch data from backend
-    console.log('Viewing request:', requestId);
+  // ================= UTILITY FUNCTIONS ================= 
+  function renderPagination(containerId, pagination, callback) {
+    const container = document.getElementById(containerId);
+    let html = '';
+
+    if (pagination.pages <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+
+    for (let i = 1; i <= pagination.pages; i++) {
+      html += `
+        <button class="${i === pagination.currentPage ? 'active' : ''}" 
+          onclick="(function() { ${callback.toString().replace('(page)', `(${i})`)}; })()">
+          ${i}
+        </button>
+      `;
+    }
+
+    container.innerHTML = html;
   }
 
-  function approveRequest(requestId) {
-    alert('Request ' + requestId + ' approved!');
-    console.log('Approved:', requestId);
+  function updateFilterButtonState(target) {
+    target.parentElement.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    target.classList.add('active');
   }
 
-  function approveFromModal() {
-    alert('Request approved successfully!');
-    closeModal('requestModal');
+  function capitalizeFirst(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
-  function rejectRequest(requestId) {
-    if (confirm('Are you sure you want to reject this request?')) {
-      alert('Request ' + requestId + ' rejected!');
-      console.log('Rejected:', requestId);
+  function formatBudget(budget) {
+    const budgetMap = {
+      'under-50k': 'Under ₦50,000',
+      '50k-100k': '₦50K - ₦100K',
+      '100k-200k': '₦100K - ₦200K',
+      '200k-plus': '₦200K+',
+      'not-sure': 'Not sure yet'
+    };
+    return budgetMap[budget] || budget;
+  }
+
+  function setupEventListeners() {
+    // Search functionality
+    document.getElementById('globalSearch').addEventListener('input', (e) => {
+      console.log('Search:', e.target.value);
+      // Implement search functionality
+    });
+  }
+
+  // ================= LOGOUT ================= 
+  function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+      localStorage.removeItem('adminToken');
+      window.location.href = '/';
     }
   }
 
-  // Filter Functions
-  function filterRequests(status) {
-    console.log('Filtering requests by:', status);
-    // Update button active state
-    document.querySelectorAll('.filter-buttons .filter-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-  }
-
-  function filterRequestsTab(status) {
-    console.log('Filtering requests by:', status);
-    document.querySelectorAll('#requests-tab .filter-buttons .filter-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-  }
-
-  function filterSchools(status) {
-    console.log('Filtering schools by:', status);
-    document.querySelectorAll('#schools-tab .filter-buttons .filter-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-  }
-
-  // School Management
-  function manageSchool(schoolName) {
-    console.log('Managing school:', schoolName);
-    alert('Managing account for: ' + schoolName);
-  }
-
-  function viewSchoolDetails(schoolName) {
-    console.log('Viewing details for:', schoolName);
-    alert('Viewing details for: ' + schoolName);
-  }
-
-  // Admin Management
-  function editAdmin(adminId) {
-    console.log('Editing admin:', adminId);
-    alert('Editing admin account: ' + adminId);
-  }
-
-  // Close modals on outside click
+  // ================= MODAL CLOSE ON OUTSIDE CLICK ================= 
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
@@ -1511,6 +1807,13 @@
       }
     });
   });
+
+  // ================= AUTO REFRESH STATS ================= 
+  setInterval(() => {
+    if (document.getElementById('dashboard-tab').classList.contains('active')) {
+      loadDashboardStats();
+    }
+  }, 10000); // Refresh every 30 seconds
 </script>
 
 </body>
