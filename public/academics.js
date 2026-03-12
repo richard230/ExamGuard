@@ -28,7 +28,7 @@ document.querySelectorAll('#examTabs button').forEach(btn => {
 
 // ============ API CONFIGURATION ============
 
-const API_BASE = "https://goldlincschools.onrender.com/api/academics";
+const API_BASE = "https://examguard-8rxe.onrender.com/api/academics";
 const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
 
 // ============ UTILITY FUNCTIONS ============
