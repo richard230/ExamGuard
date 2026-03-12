@@ -70,7 +70,22 @@ const sessionSettingsRoute = require('./routes/sessionSettings');
 const applicationRoute = require('./routes/application');
 
 /* ================= Route Mounting ================= */
+// Add after the existing route imports
+const demoRequestsRoute = require('./routes/demoRequests');
+const schoolsRoute = require('./routes/schools');
 
+// Add after other route mounting
+app.use('/api/demo-requests', demoRequestsRoute);
+app.use('/api/schools', schoolsRoute);
+
+// Also add static page routes for the new pages
+app.get('/demo-request', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'demo-request.html'));
+});
+
+app.get('/admin-dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'administrator.html'));
+});
 app.use('/api/exam', examRoute);
 app.use('/api/result', resultscbtRoute);
 app.use('/api/activity', activityRoute);
