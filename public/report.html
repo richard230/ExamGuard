@@ -144,11 +144,18 @@
       color: #fff;
       font-weight: 700;
       text-align: center;
+      padding: 6px 4px;
+      font-size: 8.5px;
     }
 
     .results-table thead th:first-child {
       text-align: left;
       padding-left: 8px;
+    }
+
+    .results-table tbody td {
+      padding: 6px 4px;
+      font-size: 9.2px;
     }
 
     .results-table tbody tr:nth-child(even) {
@@ -158,15 +165,89 @@
     .tc { text-align: center; }
     .tr { text-align: right; }
 
+    /* Results wrapper for dynamic sizing */
+    .results-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .results-table-container {
+      flex: 0 1 auto;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+    }
+
+    .results-table-container table {
+      width: 100%;
+    }
+
+    /* Pass/Fail Summary */
+    .pass-fail-summary {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+      font-size: 8.8px;
+      flex-wrap: wrap;
+      padding: 4px 0;
+    }
+
+    .pass-fail-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 2px;
+    }
+
+    .pass-fail-label {
+      font-weight: 700;
+      color: #333;
+    }
+
+    .pass-fail-value {
+      font-weight: 700;
+      color: #1f375e;
+    }
+
+    .pass-status {
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 2px;
+      font-size: 8.8px;
+    }
+
+    .pass-status.passed {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .pass-status.promoted {
+      background: #cce5ff;
+      color: #004085;
+      border: 1px solid #b8daff;
+    }
+
+    .pass-status.failed {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
     /* Performance summary */
     .perf-inline {
-      margin: 4px 0 0 0;
+      margin: 2px 0 0 0;
       display: flex;
       gap: 8px;
       align-items: flex-start;
       width: 100%;
       box-sizing: border-box;
-      flex: 1;
+      flex: 0 0 auto;
     }
 
     .perf-inline .summary {
@@ -325,7 +406,7 @@
 
     /* Bottom remarks and signatures */
     .bottom {
-      margin-top: 8px;
+      margin-top: 2px;
       display: flex;
       gap: 6px;
       align-items: flex-start;
@@ -440,13 +521,13 @@
     }
 
     .footer {
-      margin-top: 6px;
+      margin-top: 2px;
       font-size: 8.5px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-top: 1px solid #bbb;
-      padding-top: 6px;
+      padding-top: 4px;
     }
 
     .no-break { page-break-inside: avoid; }
@@ -578,27 +659,45 @@
     <!-- Main Content - EQUAL HEIGHT LAYOUT -->
     <div class="content no-break">
       <div class="main no-break">
-        <!-- Results Table -->
-        <table class="results-table small no-break" aria-label="Results table">
-          <thead>
-            <tr>
-              <th style="width:40%; text-align:left; padding-left:8px;">Subject</th>
-              <th style="width:8%;">CA1</th>
-              <th style="width:8%;">CA2</th>
-              <th style="width:8%;">Midterm</th>
-              <th style="width:8%;">Exam</th>
-              <th style="width:8%;">Total</th>
-              <th style="width:8%;">Grade</th>
-              <th style="width:12%;">Remark</th>
-              <th style="width:8%;">Position</th>
-            </tr>
-          </thead>
-          <tbody id="resultsTableBody">
-            <tr>
-              <td colspan="9" style="text-align:center; padding:10px;">Loading results...</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Results wrapper for dynamic sizing -->
+        <div class="results-wrapper no-break">
+          <!-- Results Table -->
+          <table class="results-table no-break" aria-label="Results table">
+            <thead>
+              <tr>
+                <th style="width:40%; text-align:left; padding-left:8px;">Subject</th>
+                <th style="width:8%;">CA1</th>
+                <th style="width:8%;">CA2</th>
+                <th style="width:8%;">Midterm</th>
+                <th style="width:8%;">Exam</th>
+                <th style="width:8%;">Total</th>
+                <th style="width:8%;">Grade</th>
+                <th style="width:12%;">Remark</th>
+                <th style="width:8%;">Position</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTableBody">
+              <tr>
+                <td colspan="9" style="text-align:center; padding:10px;">Loading results...</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pass/Fail Summary -->
+          <div class="pass-fail-summary no-break">
+            <div class="pass-fail-item">
+              <span class="pass-fail-label">Total Passed:</span>
+              <span class="pass-fail-value" id="totalPassed">0</span>
+            </div>
+            <div class="pass-fail-item">
+              <span class="pass-fail-label">Total Failed:</span>
+              <span class="pass-fail-value" id="totalFailed">0</span>
+            </div>
+            <div class="pass-fail-item">
+              <span class="pass-status" id="overallStatus">-</span>
+            </div>
+          </div>
+        </div>
 
         <!-- Performance Summary - FILLS REMAINING SPACE -->
         <div class="perf-inline no-break" aria-label="Performance Summary">
@@ -754,7 +853,7 @@
     </div>
 
     <!-- Bottom Remarks & Signatures -->
-    <div class="bottom no-break" style="margin-top:8px;">
+    <div class="bottom no-break" style="margin-top:2px;">
       <div class="remarks no-break" role="region" aria-label="Remarks and signatures">
         <div class="remarks-grid" role="group" aria-label="Teacher and principal remarks">
           <div class="remark-card">
@@ -846,6 +945,12 @@
       return distribution;
     }
 
+    // Check if grade is passing (typically A-D)
+    function isPassingGrade(grade) {
+      const passingGrades = ['A', 'B', 'C', 'D'];
+      return passingGrades.includes(grade);
+    }
+
     // Load report data from sessionStorage
     function loadReportData() {
       try {
@@ -878,6 +983,7 @@
       const student = data.student || {};
       const skillsReport = data.skillsReport || {};
       const classSize = data.classSize || 0;
+      const term = data.term || '';
 
       console.log('Populating with results:', results);
       console.log('Student:', student);
@@ -901,11 +1007,20 @@
 
       // Calculate statistics
       let totalScore = 0, highestScore = 0, lowestScore = Infinity;
+      let passCount = 0, failCount = 0;
+
       results.forEach(r => {
         const score = parseInt(r.total) || 0;
         totalScore += score;
         if (score > highestScore) highestScore = score;
         if (score < lowestScore) lowestScore = score;
+
+        // Count pass/fail
+        if (isPassingGrade(r.grade)) {
+          passCount++;
+        } else {
+          failCount++;
+        }
       });
 
       if (lowestScore === Infinity) lowestScore = 0;
@@ -936,6 +1051,38 @@
         `;
         tbody.appendChild(row);
       });
+
+      // Populate pass/fail summary
+      document.getElementById('totalPassed').textContent = passCount;
+      document.getElementById('totalFailed').textContent = failCount;
+
+      // Determine overall status
+      let statusElement = document.getElementById('overallStatus');
+      let statusText = '';
+      let statusClass = '';
+
+      if (failCount > 0) {
+        statusText = 'FAILED';
+        statusClass = 'failed';
+      } else if (term && term.toUpperCase().includes('TERM 3') && student.class) {
+        // Check if it's term 3 and below SS3
+        const classNameLower = (student.class?.name || student.class || '').toLowerCase();
+        const isBeforeSS3 = !classNameLower.includes('ss3') && !classNameLower.includes('form 3');
+        
+        if (isBeforeSS3) {
+          statusText = 'PROMOTED';
+          statusClass = 'promoted';
+        } else {
+          statusText = 'PASSED';
+          statusClass = 'passed';
+        }
+      } else {
+        statusText = 'PASSED';
+        statusClass = 'passed';
+      }
+
+      statusElement.textContent = statusText;
+      statusElement.className = `pass-status ${statusClass}`;
 
       // Populate performance summary
       document.getElementById('totalObtained').textContent = totalScore.toFixed(1);
@@ -1006,15 +1153,14 @@
         }
       }
 
-      // Psychomotor Skills
+      // Psychomotor Domain
       if (Object.keys(psychSkills).length > 0) {
         const psychomotorTable = document.getElementById('psychomotorTable');
         const psychomotorMap = {
-          'handling': 'Handling Of Tools',
-          'drawing': 'Drawing / Painting',
           'handwriting': 'Handwriting',
-          'speaking': 'Public Speaking',
-          'fluency': 'Speech Fluency'
+          'drawing': 'Drawing',
+          'manipulation': 'Manipulation',
+          'communication': 'Communication'
         };
 
         for (const [key, label] of Object.entries(psychomotorMap)) {
@@ -1042,24 +1188,16 @@
       }
 
       // Remarks
-      document.getElementById('teacherRemark').textContent = skillsReport.teacherRemark || 'No remark';
-      document.getElementById('principalRemark').textContent = skillsReport.comment || data.principalComment || 'No remark';
-      document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
-      document.getElementById('principalName').textContent = data.principalName || 'Principal';
-      document.getElementById('nextTermDate').textContent = data.nextTermDate || '-';
-      document.getElementById('dateIssued').textContent = formatDate(new Date().toISOString());
+      document.getElementById('teacherRemark').textContent = data.teacherRemark || '-';
+      document.getElementById('principalRemark').textContent = data.principalRemark || '-';
+      document.getElementById('teacherName').textContent = data.teacherName || 'Teacher Name';
+      document.getElementById('principalName').textContent = data.principalName || 'Principal Name';
+      document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate);
+      document.getElementById('dateIssued').textContent = formatDate(data.dateIssued);
     }
 
-    // Initialize on page load
+    // Call on page load
     document.addEventListener('DOMContentLoaded', populateReport);
-
-    // Auto-print after a short delay
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        window.print();
-      }, 500);
-    });
   </script>
-
 </body>
 </html>
