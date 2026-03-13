@@ -135,7 +135,7 @@
 
     .results-table th, .results-table td {
       border: 1px solid #000;
-      padding: 8px 5px;
+      padding: 6px 4px;
       vertical-align: middle;
     }
 
@@ -154,8 +154,8 @@
     }
 
     .results-table tbody td {
-      padding: 6px 4px;
-      font-size: 9.2px;
+      padding: 5px 4px;
+      font-size: 9px;
     }
 
     .results-table tbody tr:nth-child(even) {
@@ -172,33 +172,24 @@
       flex-direction: column;
       min-height: 0;
       overflow: hidden;
-    }
-
-    .results-table-container {
-      flex: 0 1 auto;
-      overflow-y: auto;
-      border: 1px solid #ddd;
-    }
-
-    .results-table-container table {
-      width: 100%;
+      margin-bottom: 2px;
     }
 
     /* Pass/Fail Summary */
     .pass-fail-summary {
       display: flex;
       gap: 8px;
-      margin-top: 2px;
-      font-size: 8.8px;
+      font-size: 8.5px;
       flex-wrap: wrap;
-      padding: 4px 0;
+      padding: 3px 0;
+      align-items: center;
     }
 
     .pass-fail-item {
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 3px 6px;
+      padding: 2px 5px;
       background: #f5f5f5;
       border: 1px solid #ddd;
       border-radius: 2px;
@@ -216,9 +207,9 @@
 
     .pass-status {
       font-weight: 700;
-      padding: 3px 8px;
+      padding: 2px 8px;
       border-radius: 2px;
-      font-size: 8.8px;
+      font-size: 8.5px;
     }
 
     .pass-status.passed {
@@ -462,6 +453,7 @@
       font-size: 8.5px;
       word-break: break-word;
       white-space: pre-wrap;
+      overflow: hidden;
     }
 
     .signature-row {
@@ -664,7 +656,7 @@
         <!-- Results wrapper for dynamic sizing -->
         <div class="results-wrapper no-break">
           <!-- Results Table -->
-          <table class="results-table no-break" aria-label="Results table">
+          <table class="results-table small no-break" aria-label="Results table">
             <thead>
               <tr>
                 <th style="width:40%; text-align:left; padding-left:8px;">Subject</th>
@@ -908,10 +900,9 @@
       if (!dateStr) return '-';
       try {
         const date = new Date(dateStr);
-        const formatted = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-        return formatted === 'Invalid Date' ? '-' : formatted;
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       } catch (e) {
-        return dateStr || '-';
+        return dateStr;
       }
     }
 
@@ -948,7 +939,7 @@
       return distribution;
     }
 
-    // Check if grade is passing (typically A-D)
+    // Check if grade is passing
     function isPassingGrade(grade) {
       const passingGrades = ['A', 'B', 'C', 'D'];
       return passingGrades.includes(grade);
@@ -991,10 +982,6 @@
       console.log('Populating with results:', results);
       console.log('Student:', student);
       console.log('Skills:', skillsReport);
-      console.log('Teacher Remark:', data.teacherRemark);
-      console.log('Principal Remark:', data.principalRemark);
-      console.log('Next Term Date:', data.nextTermDate);
-      console.log('Date Issued:', data.dateIssued);
 
       // Populate profile
       document.getElementById('profileName').textContent = student.name || '-';
@@ -1131,11 +1118,7 @@
       const psychSkills = skillsReport.skills?.psychomotor || {};
       const attendance = skillsReport.attendance || {};
 
-      console.log('Affective skills:', affSkills);
-      console.log('Psychomotor skills:', psychSkills);
-      console.log('Attendance:', attendance);
-
-      // Affective Domain - Show all items regardless of value
+      // Affective Domain
       const affectiveTable = document.getElementById('affectiveTable');
       const affectiveMap = {
         'attentiveness': 'Attentiveness',
@@ -1160,13 +1143,14 @@
         affectiveTable.appendChild(row);
       }
 
-      // Psychomotor Domain - Show all items regardless of value
+      // Psychomotor Skills - Show ALL items
       const psychomotorTable = document.getElementById('psychomotorTable');
       const psychomotorMap = {
+        'handling': 'Handling Of Tools',
+        'drawing': 'Drawing / Painting',
         'handwriting': 'Handwriting',
-        'drawing': 'Drawing',
-        'manipulation': 'Manipulation',
-        'communication': 'Communication'
+        'speaking': 'Public Speaking',
+        'fluency': 'Speech Fluency'
       };
 
       for (const [key, label] of Object.entries(psychomotorMap)) {
@@ -1188,24 +1172,30 @@
       document.getElementById('timesPresent').textContent = attendance.timesPresent || '-';
       document.getElementById('timesAbsent').textContent = attendance.timesAbsent || '-';
 
-      // Remarks - with proper handling
-      const teacherRemarkText = data.teacherRemark && data.teacherRemark.trim() !== '' ? data.teacherRemark : '-';
-      const principalRemarkText = data.principalRemark && data.principalRemark.trim() !== '' ? data.principalRemark : '-';
+      // Remarks - Check both locations
+      const teacherRemarkValue = skillsReport.teacherRemark || data.teacherRemark || 'No remark';
+      const principalRemarkValue = skillsReport.comment || skillsReport.principalComment || data.principalComment || data.principalRemark || 'No remark';
       
-      document.getElementById('teacherRemark').textContent = teacherRemarkText;
-      document.getElementById('principalRemark').textContent = principalRemarkText;
+      document.getElementById('teacherRemark').textContent = teacherRemarkValue;
+      document.getElementById('principalRemark').textContent = principalRemarkValue;
       
-      document.getElementById('teacherName').textContent = data.teacherName && data.teacherName.trim() !== '' ? data.teacherName : 'Teacher Name';
-      document.getElementById('principalName').textContent = data.principalName && data.principalName.trim() !== '' ? data.principalName : 'Principal Name';
+      document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
+      document.getElementById('principalName').textContent = data.principalName || 'Principal';
       
-      document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate);
-      document.getElementById('dateIssued').textContent = formatDate(data.dateIssued);
-
-      console.log('Report populated successfully');
+      document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate) || '-';
+      document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
     }
 
-    // Call on page load
+    // Initialize on page load
     document.addEventListener('DOMContentLoaded', populateReport);
+
+    // Auto-print after a short delay
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    });
   </script>
+
 </body>
 </html>
