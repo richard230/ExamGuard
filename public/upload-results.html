@@ -989,100 +989,132 @@
             }
         });
 
-        // Submit results
-        document.getElementById('manualUploadForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const form = e.target;
-            const statusEl = document.getElementById('uploadStatus');
-            const submitBtn = form.querySelector('button[type="submit"]');
+        
+document.getElementById('manualUploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const statusEl = document.getElementById('uploadStatus');
+    const submitBtn = form.querySelector('button[type="submit"]');
 
-            const session = form.session.value;
-            const term = form.term.value;
-            const className = form.class.value;
-            const subject = form.subject.value;
-            const resultType = form.resultType.value;
+    const session = form.session.value;
+    const term = form.term.value;
+    const className = document.getElementById('classSelect').value;
+    const subject = document.getElementById('subjectSelect').value;
+    const resultType = document.getElementById('resultTypeSelect').value;
 
-            // Gather student results
-            const studentIds = Array.from(form.querySelectorAll('input[name="student_id[]"]')).map(inp => inp.value);
-            const studentNames = Array.from(form.querySelectorAll('input[name="student_name[]"]')).map(inp => inp.value);
-            const scores = Array.from(form.querySelectorAll('input[name="score[]"]')).map(inp => inp.value.trim());
-            const grades = Array.from(form.querySelectorAll('input[name="grade[]"]')).map(inp => inp.value.trim());
-            const remarks = Array.from(form.querySelectorAll('input[name="remarks[]"]')).map(inp => inp.value.trim());
+    // Get all input arrays
+    const studentIds = Array.from(form.querySelectorAll('input[name="student_id[]"]')).map(el => el.value);
+    const studentNames = Array.from(form.querySelectorAll('input[name="student_name[]"]')).map(el => el.value);
+    const scores = Array.from(form.querySelectorAll('input[name="score[]"]')).map(el => el.value);
+    const grades = Array.from(form.querySelectorAll('input[name="grade[]"]')).map(el => el.value);
+    const remarks = Array.from(form.querySelectorAll('input[name="remarks[]"]')).map(el => el.value);
 
-            const results = [];
-            for (let i = 0; i < studentIds.length; i++) {
-                // Check if score has a value (not empty, null, or undefined)
-                const scoreValue = scores[i];
-                if (scoreValue && scoreValue !== '' && !isNaN(parseFloat(scoreValue))) {
-                    results.push({
-                        student_id: studentIds[i],
-                        student_name: studentNames[i],
-                        score: parseFloat(scoreValue),
-                        grade: grades[i] || '',
-                        remarks: remarks[i] || ''
-                    });
-                }
-            }
+    // **FIX**: Validate that at least ONE score is entered (not empty and not 0 or just whitespace)
+    const hasValidScores = scores.some(score => score && score.trim() !== '' && parseFloat(score) > 0);
+    
+    if (!hasValidScores) {
+        statusEl.className = 'status-message show error';
+        statusEl.innerHTML = '<i class="fa fa-exclamation-circle"></i> Please enter at least one valid result with a score greater than 0.';
+        return;
+    }
 
-            if (results.length === 0) {
-                statusEl.classList.add('show', 'error');
-                statusEl.innerHTML = '<i class="fa fa-exclamation-circle"></i> Please enter at least one score before submitting.';
-                return;
-            }
+    // Build results array - only include rows with a score
+    const results = [];
+    for (let i = 0; i < studentIds.length; i++) {
+        if (scores[i] && scores[i].trim() !== '') {  // Only add if score is not empty
+            results.push({
+                student_id: studentIds[i],
+                student_name: studentNames[i],
+                score: parseFloat(scores[i]) || 0,
+                grade: grades[i] || '',
+                remarks: remarks[i] || '',
+                subject: subject,
+                class: className,
+                session: session,
+                term: term,
+                result_type: resultType
+            });
+        }
+    }
 
-            submitBtn.disabled = true;
-            statusEl.classList.add('show', 'info');
-            statusEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
+    if (results.length === 0) {
+        statusEl.className = 'status-message show error';
+        statusEl.innerHTML = '<i class="fa fa-exclamation-circle"></i> Upload at least one result.';
+        return;
+    }
 
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        session,
-                        term,
-                        class: className,
-                        subject,
-                        resultType,
-                        results
-                    })
-                });
-                const data = await res.json();
-                
-                statusEl.classList.remove('info');
-                if (data.success) {
-                    statusEl.classList.add('success');
-                    statusEl.innerHTML = `<i class="fa fa-check-circle"></i> Success! Uploaded results for ${data.inserted || results.length} students.`;
-                    // Reset form after successful submission
-                    setTimeout(() => {
-                        form.reset();
-                        document.getElementById('manualResultsTbody').innerHTML = `
-                            <tr>
-                                <td colspan="5">
-                                    <div class="empty-state">
-                                        <div class="empty-state-icon">📊</div>
-                                        <div class="empty-state-title">No students loaded</div>
-                                        <p style="color: var(--muted); margin-top: 8px;">
-                                            Select criteria above and click "Load Students" to begin
-                                        </p>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                        statusEl.classList.remove('show', 'success');
-                    }, 2000);
-                } else {
-                    statusEl.classList.add('error');
-                    statusEl.innerHTML = `<i class="fa fa-times-circle"></i> Error: ${data.error || 'Unknown error.'}`;
-                }
-            } catch (err) {
-                statusEl.classList.remove('info');
-                statusEl.classList.add('error');
-                statusEl.innerHTML = `<i class="fa fa-times-circle"></i> Failed to upload results. Please try again.`;
-                console.error(err);
-            }
-            submitBtn.disabled = false;
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
+    statusEl.className = 'status-message show info';
+    statusEl.innerHTML = '<i class="fa fa-hourglass-half"></i> Uploading results...';
+
+    try {
+        const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ results })
         });
+
+        const responseData = await res.json();
+
+        if (res.ok && responseData.success) {
+            statusEl.className = 'status-message show success';
+            statusEl.innerHTML = `<i class="fa fa-check-circle"></i> ${responseData.message || `Successfully uploaded ${results.length} result(s)!`}`;
+            
+            // Reset form
+            form.reset();
+            document.getElementById('manualResultsTbody').innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📊</div>
+                            <div class="empty-state-title">No students loaded</div>
+                            <p style="color: var(--muted); margin-top: 8px;">
+                                Select criteria above and click "Load Students" to begin
+                            </p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            updateSubjectOptions();
+        } else {
+            statusEl.className = 'status-message show error';
+            statusEl.innerHTML = `<i class="fa fa-exclamation-circle"></i> Error: ${responseData.message || 'Failed to upload results'}`;
+        }
+    } catch (err) {
+        statusEl.className = 'status-message show error';
+        statusEl.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error. Please try again.';
+        console.error('Upload error:', err);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa fa-check-circle"></i> Submit Results';
+    }
+});
+
+// Clear form button
+document.getElementById('clearBtn').addEventListener('click', function() {
+    document.getElementById('manualUploadForm').reset();
+    document.getElementById('manualResultsTbody').innerHTML = `
+        <tr>
+            <td colspan="5">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <div class="empty-state-title">No students loaded</div>
+                    <p style="color: var(--muted); margin-top: 8px;">
+                        Select criteria above and click "Load Students" to begin
+                    </p>
+                </div>
+            </td>
+        </tr>
+    `;
+    document.getElementById('uploadStatus').className = 'status-message';
+    updateSubjectOptions();
+});
 
         // Handle Clear/Reset button
         const clearBtn = document.getElementById('clearBtn');
