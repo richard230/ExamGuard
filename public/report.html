@@ -125,6 +125,15 @@
       box-sizing: border-box;
     }
 
+    /* Results table wrapper */
+    .results-table-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
     /* Results table */
     .results-table {
       width: 100%;
@@ -153,6 +162,85 @@
 
     .results-table tbody tr:nth-child(even) {
       background: #f9f9f9;
+    }
+
+    /* Dynamic font sizing */
+    .results-table.many-results {
+      font-size: 8px;
+    }
+
+    .results-table.many-results td,
+    .results-table.many-results th {
+      padding: 6px 4px;
+    }
+
+    .results-table.few-results {
+      font-size: 10px;
+    }
+
+    .results-table.few-results td,
+    .results-table.few-results th {
+      padding: 10px 6px;
+    }
+
+    /* Pass/Fail Summary */
+    .pass-fail-summary {
+      background: #f5f5f5;
+      border: 1px solid #000;
+      border-top: none;
+      padding: 8px 6px;
+      font-size: 9px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 12px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .summary-item label {
+      font-weight: 700;
+      color: #333;
+      font-size: 8.5px;
+    }
+
+    .summary-item .value {
+      font-weight: 700;
+      font-size: 10px;
+      min-width: 30px;
+      text-align: center;
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .promotion-status {
+      background: #e8f5e9;
+      border: 1px solid #4caf50;
+      padding: 8px 6px;
+      border-top: none;
+      font-size: 9px;
+      text-align: center;
+      font-weight: 700;
+      color: #2e7d32;
+      flex-shrink: 0;
+    }
+
+    .promotion-status.promoted {
+      background: #c8e6c9;
+      color: #1b5e20;
+    }
+
+    .promotion-status.not-promoted {
+      background: #ffebee;
+      border-color: #f44336;
+      color: #c62828;
     }
 
     .tc { text-align: center; }
@@ -578,27 +666,52 @@
     <!-- Main Content - EQUAL HEIGHT LAYOUT -->
     <div class="content no-break">
       <div class="main no-break">
-        <!-- Results Table -->
-        <table class="results-table small no-break" aria-label="Results table">
-          <thead>
-            <tr>
-              <th style="width:40%; text-align:left; padding-left:8px;">Subject</th>
-              <th style="width:8%;">CA1</th>
-              <th style="width:8%;">CA2</th>
-              <th style="width:8%;">Midterm</th>
-              <th style="width:8%;">Exam</th>
-              <th style="width:8%;">Total</th>
-              <th style="width:8%;">Grade</th>
-              <th style="width:12%;">Remark</th>
-              <th style="width:8%;">Position</th>
-            </tr>
-          </thead>
-          <tbody id="resultsTableBody">
-            <tr>
-              <td colspan="9" style="text-align:center; padding:10px;">Loading results...</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Results Table Wrapper -->
+        <div class="results-table-wrapper no-break">
+          <table class="results-table small no-break" id="resultsTableMain" aria-label="Results table">
+            <thead>
+              <tr>
+                <th style="width:40%; text-align:left; padding-left:8px;">Subject</th>
+                <th style="width:8%;">CA1</th>
+                <th style="width:8%;">CA2</th>
+                <th style="width:8%;">Midterm</th>
+                <th style="width:8%;">Exam</th>
+                <th style="width:8%;">Total</th>
+                <th style="width:8%;">Grade</th>
+                <th style="width:12%;">Remark</th>
+                <th style="width:8%;">Position</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTableBody">
+              <tr>
+                <td colspan="9" style="text-align:center; padding:10px;">Loading results...</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pass/Fail Summary -->
+          <div class="pass-fail-summary">
+            <div class="summary-item">
+              <label>Passed:</label>
+              <span class="value" id="passedCount">0</span>
+            </div>
+            <div class="summary-item">
+              <label>Failed:</label>
+              <span class="value" id="failedCount">0</span>
+            </div>
+            <div class="summary-item">
+              <label>Total:</label>
+              <span class="value" id="totalCount">0</span>
+            </div>
+            <div class="summary-item">
+              <label>Overall:</label>
+              <span class="value" id="overallStatus">-</span>
+            </div>
+          </div>
+
+          <!-- Promotion Status (shows for Third Term below SS3) -->
+          <div class="promotion-status" id="promotionStatus" style="display:none;"></div>
+        </div>
 
         <!-- Performance Summary - FILLS REMAINING SPACE -->
         <div class="perf-inline no-break" aria-label="Performance Summary">
@@ -878,6 +991,8 @@
       const student = data.student || {};
       const skillsReport = data.skillsReport || {};
       const classSize = data.classSize || 0;
+      const term = data.term || '';
+      const studentClass = student.class?.name || student.class || '';
 
       console.log('Populating with results:', results);
       console.log('Student:', student);
@@ -886,7 +1001,7 @@
       // Populate profile
       document.getElementById('profileName').textContent = student.name || '-';
       document.getElementById('profileAdmNo').textContent = student.regNo || '-';
-      document.getElementById('profileClass').textContent = student.class?.name || student.class || '-';
+      document.getElementById('profileClass').textContent = studentClass;
       document.getElementById('profileSession').textContent = data.session || '-';
       document.getElementById('profileDOB').textContent = formatDate(student.DOB);
       document.getElementById('profileAge').textContent = calculateAge(student.DOB);
@@ -901,11 +1016,21 @@
 
       // Calculate statistics
       let totalScore = 0, highestScore = 0, lowestScore = Infinity;
+      let passedCount = 0, failedCount = 0;
+      const passingGrade = 50; // Adjust as needed - 50% is passing
+
       results.forEach(r => {
         const score = parseInt(r.total) || 0;
         totalScore += score;
         if (score > highestScore) highestScore = score;
         if (score < lowestScore) lowestScore = score;
+        
+        // Count passed/failed based on score
+        if (score >= passingGrade) {
+          passedCount++;
+        } else {
+          failedCount++;
+        }
       });
 
       if (lowestScore === Infinity) lowestScore = 0;
@@ -914,8 +1039,18 @@
       const percentage = totalObtainable > 0 ? ((totalScore / totalObtainable) * 100).toFixed(2) : 0;
 
       // Populate term info
-      document.getElementById('reportTitleEl').textContent = `${data.term || 'TERM'} STUDENT'S PERFORMANCE REPORT`;
-      document.getElementById('termLabelProfile').textContent = data.term || 'TERM';
+      document.getElementById('reportTitleEl').textContent = `${term || 'TERM'} STUDENT'S PERFORMANCE REPORT`;
+      document.getElementById('termLabelProfile').textContent = term || 'TERM';
+
+      // Dynamic font sizing based on number of results
+      const resultsTable = document.getElementById('resultsTableMain');
+      if (results.length > 15) {
+        resultsTable.classList.add('many-results');
+        resultsTable.classList.remove('few-results');
+      } else if (results.length <= 8) {
+        resultsTable.classList.add('few-results');
+        resultsTable.classList.remove('many-results');
+      }
 
       // Populate results table
       const tbody = document.getElementById('resultsTableBody');
@@ -936,6 +1071,38 @@
         `;
         tbody.appendChild(row);
       });
+
+      // Populate pass/fail summary
+      document.getElementById('passedCount').textContent = passedCount;
+      document.getElementById('failedCount').textContent = failedCount;
+      document.getElementById('totalCount').textContent = results.length;
+
+      // Determine overall status
+      const overallPassed = failedCount === 0;
+      document.getElementById('overallStatus').textContent = overallPassed ? 'PASSED' : 'FAILED';
+      document.getElementById('overallStatus').style.color = overallPassed ? '#27ae60' : '#e74c3c';
+
+      // Show promotion status for Third Term below SS3
+      const promotionStatusEl = document.getElementById('promotionStatus');
+      const isThirdTerm = term && term.toUpperCase().includes('THIRD');
+      const classesBelowSS3 = ['JSS1', 'JSS2', 'JSS3', 'SS1', 'SS2'];
+      const isBelowSS3 = classesBelowSS3.some(cls => studentClass.toUpperCase().includes(cls));
+
+      if (isThirdTerm && isBelowSS3 && studentClass.toUpperCase() !== 'SS3') {
+        promotionStatusEl.style.display = 'block';
+        
+        if (overallPassed) {
+          promotionStatusEl.textContent = '✓ PROMOTED TO NEXT CLASS';
+          promotionStatusEl.classList.add('promoted');
+          promotionStatusEl.classList.remove('not-promoted');
+        } else {
+          promotionStatusEl.textContent = '✗ NOT PROMOTED - REMEDIAL REQUIRED';
+          promotionStatusEl.classList.add('not-promoted');
+          promotionStatusEl.classList.remove('promoted');
+        }
+      } else {
+        promotionStatusEl.style.display = 'none';
+      }
 
       // Populate performance summary
       document.getElementById('totalObtained').textContent = totalScore.toFixed(1);
@@ -1010,11 +1177,11 @@
       if (Object.keys(psychSkills).length > 0) {
         const psychomotorTable = document.getElementById('psychomotorTable');
         const psychomotorMap = {
-          'handling': 'Handling Of Tools',
-          'drawing': 'Drawing / Painting',
           'handwriting': 'Handwriting',
-          'speaking': 'Public Speaking',
-          'fluency': 'Speech Fluency'
+          'articulation': 'Articulation',
+          'drawing': 'Drawing',
+          'physical': 'Physical Fitness',
+          'sports': 'Sports'
         };
 
         for (const [key, label] of Object.entries(psychomotorMap)) {
@@ -1035,31 +1202,28 @@
       }
 
       // Attendance
-      if (Object.keys(attendance).length > 0) {
+      if (attendance && Object.keys(attendance).length > 0) {
         document.getElementById('schoolOpened').textContent = attendance.schoolOpened || '-';
         document.getElementById('timesPresent').textContent = attendance.timesPresent || '-';
         document.getElementById('timesAbsent').textContent = attendance.timesAbsent || '-';
       }
 
       // Remarks
-      document.getElementById('teacherRemark').textContent = skillsReport.teacherRemark || 'No remark';
-      document.getElementById('principalRemark').textContent = skillsReport.comment || data.principalComment || 'No remark';
-      document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
-      document.getElementById('principalName').textContent = data.principalName || 'Principal';
-      document.getElementById('nextTermDate').textContent = data.nextTermDate || '-';
-      document.getElementById('dateIssued').textContent = formatDate(new Date().toISOString());
+      document.getElementById('teacherRemark').textContent = skillsReport.teacherRemark || '-';
+      document.getElementById('principalRemark').textContent = skillsReport.principalRemark || '-';
+      document.getElementById('teacherName').textContent = skillsReport.teacherName || 'Teacher Name';
+      document.getElementById('principalName').textContent = skillsReport.principalName || 'Principal Name';
+      document.getElementById('nextTermDate').textContent = formatDate(skillsReport.nextTermDate) || '-';
+      document.getElementById('dateIssued').textContent = formatDate(new Date()) || '-';
     }
 
-    // Initialize on page load
+    // Initialize on load
     document.addEventListener('DOMContentLoaded', populateReport);
 
-    // Auto-print after a short delay
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        window.print();
-      }, 500);
-    });
+    // Print function (can be called from parent page)
+    function printReport() {
+      window.print();
+    }
   </script>
-
 </body>
 </html>
