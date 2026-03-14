@@ -714,13 +714,29 @@
       }
 
       async function fetchCBTResultsForClass(classId) {
-        try {
-          const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt-results?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
-          if (!res.ok) return [];
-          const data = await res.json();
-          return Array.isArray(data) ? data : (data.results || []);
-        } catch { return []; }
-      }
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt-results?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    let results = Array.isArray(data) ? data : (data.results || []);
+    
+    // Ensure each result has proper data structure
+    return results.map(r => ({
+      ...r,
+      examTitle: r.examTitle || r.exam?.title || '-',
+      subjectName: r.subjectName || r.exam?.subjectName || r.exam?.subject?.name || '-',
+      studentName: r.studentName || r.student?.name || '-',
+      score: r.score || 0,
+      totalScore: r.totalScore || r.total || 100,
+      startedAt: r.startedAt || r.startTime,
+      finishedAt: r.finishedAt || r.endTime
+    }));
+  } catch (err) { 
+    console.error('Error fetching CBT results:', err);
+    return []; 
+  }
+}
+
       async function fetchDraftResultsWithDebug() {
         try {
           const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/results?status=Draft`, { headers: authHeaders() });
@@ -1790,15 +1806,13 @@ async function renderCBTResultsSection() {
               </thead>
               <tbody>
                 ${results.map(r => {
-                  // Calculate total obtainable score from exam questions
-                  const totalScore = (r.exam?.questions || []).reduce((sum, q) => sum + (q.score || 0), 0) || r.totalScore || r.total || '-';
                   
                   return `
                     <tr style="border-bottom:1px solid #eee;">
                       <td style="padding:8px;">${r.examTitle || '-'}</td>
                       <td style="padding:8px;">${r.subjectName || (r.exam?.subjectName) || '-'}</td>
                       <td style="padding:8px;">${r.studentName || '-'}</td>
-                      <td style="padding:8px;font-weight:bold;color:#159d5e;">${r.score} / ${totalScore}</td>
+                      <td style="padding:8px;font-weight:bold;color:#159d5e;">${r.score} / ${r.totalScore || totalScore}</td>
                       <td style="padding:8px;">${r.startedAt ? new Date(r.startedAt).toLocaleString() : '-'}</td>
                       <td style="padding:8px;">${r.finishedAt ? new Date(r.finishedAt).toLocaleString() : '-'}</td>
                       <td style="padding:8px;"><button class="btn" onclick="window.viewCBTResult('${r._id}')" style="padding:6px 10px;"><i class="fa fa-eye"></i></button></td>
