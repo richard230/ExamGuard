@@ -717,23 +717,27 @@
 
 async function fetchCBTResultsForClass(classId) {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt-results?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt-results?classId=${encodeURIComponent(classId)}`, { 
+      headers: authHeaders() 
+    });
+    
     if (!res.ok) return [];
     
     const data = await res.json();
     let results = Array.isArray(data) ? data : (data.results || []);
     
-    // Transform results to match expected format (like admin-cbt.html does)
+    // Normalize data to match admin format
     return results.map(r => ({
-      _id: r._id || r.id,
-      studentName: r.studentName || (r.student?.name ? `${r.student.name}` : '-'),
-      className: r.className || r.class?.name || '-',
-      subjectName: r.subjectName || r.subject?.name || r.exam?.subject?.name || '-',
+      ...r,
+      classId: classId,  // Add classId for grouping
       examTitle: r.examTitle || r.exam?.title || '-',
+      subjectName: r.subjectName || r.exam?.subjectName || r.exam?.subject?.name || '-',
+      studentName: r.studentName || r.student?.name || (r.student?.firstname ? `${r.student.firstname} ${r.student.surname}`.trim() : '-'),
       score: r.score || 0,
-      total: r.total || r.totalScore || 100,
-      startedAt: r.startedAt || r.startTime || null,
-      finishedAt: r.finishedAt || r.endTime || null
+      totalScore: r.totalScore || r.total || 100,
+      startedAt: r.startedAt || r.startTime || r.createdAt,
+      finishedAt: r.finishedAt || r.endTime || r.submittedAt,
+      _id: r._id || r.id
     }));
   } catch (err) {
     console.error('Error fetching CBT results:', err);
@@ -1781,54 +1785,82 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       }
 
+// Replace your current renderCBTResultsSection function with this:
+
 async function renderCBTResultsSection() {
   const container = document.getElementById('cbtResultsContainer');
   container.innerHTML = '<div style="padding:2em;text-align:center;color:#888;"><i class="fa fa-spinner fa-spin"></i> Loading CBT results...</div>';
+  
   if (!teacher || !teacher.classes || teacher.classes.length === 0) {
     container.innerHTML = '<div style="padding:2em;text-align:center;color:#888;">No classes assigned.</div>';
     return;
   }
-  let html = '';
+
+  let allResults = [];
+  
+  // Fetch results for all classes
   for (const cls of teacher.classes) {
     const results = await fetchCBTResultsForClass(cls.id);
-    html += `
-      <div class="card" style="margin-bottom:2.5em;">
-        <h3 style="color:#2647a6;margin-bottom:0.5em;">Class: <span style="color:#1e88e5;">${cls.name}</span></h3>
-        ${results.length === 0
-          ? `<div style="color:#888;padding:1em 0;">No CBT results for this class.</div>`
-          : `<table style="width:100%;border-collapse:collapse;">
-              <thead style="background:#f6f8fa;">
-                <tr>
-                  <th style="padding:8px;">Exam Title</th>
-                  <th style="padding:8px;">Subject</th>
-                  <th style="padding:8px;">Student</th>
-                  <th style="padding:8px;">Score</th>
-                  <th style="padding:8px;">Started</th>
-                  <th style="padding:8px;">Finished</th>
-                  <th style="padding:8px;">Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${results.map(r => {
-                  
-                  return `
-                    <tr style="border-bottom:1px solid #eee;">
-                      <td style="padding:8px;">${r.examTitle || '-'}</td>
-                      <td style="padding:8px;">${r.subjectName || (r.exam?.subjectName) || '-'}</td>
-                      <td style="padding:8px;">${r.studentName || '-'}</td>
-                      <td style="padding:8px;font-weight:bold;color:#159d5e;">${r.score} / ${r.totalScore || totalScore}</td>
-                      <td style="padding:8px;">${r.startedAt ? new Date(r.startedAt).toLocaleString() : '-'}</td>
-                      <td style="padding:8px;">${r.finishedAt ? new Date(r.finishedAt).toLocaleString() : '-'}</td>
-                      <td style="padding:8px;"><button class="btn" onclick="window.viewCBTResult('${r._id}')" style="padding:6px 10px;"><i class="fa fa-eye"></i></button></td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>`
-        }
-      </div>
-    `;
+    allResults = allResults.concat(results);
   }
+
+  // Build HTML with proper structure
+  let html = '';
+  
+  if (allResults.length === 0) {
+    html = '<div style="padding:2em;text-align:center;color:#888;">No CBT results found across all classes.</div>';
+  } else {
+    // Group results by class
+    const groupedByClass = {};
+    allResults.forEach(r => {
+      const classId = r.classId || 'unknown';
+      if (!groupedByClass[classId]) {
+        groupedByClass[classId] = [];
+      }
+      groupedByClass[classId].push(r);
+    });
+
+    for (const cls of teacher.classes) {
+      const classResults = groupedByClass[cls.id] || [];
+      html += `
+        <div class="card" style="margin-bottom:2.5em;">
+          <h3 style="color:#2647a6;margin-bottom:0.5em;">Class: <span style="color:#1e88e5;">${cls.name}</span></h3>
+          ${classResults.length === 0
+            ? `<div style="color:#888;padding:1em 0;">No CBT results for this class.</div>`
+            : `<div class="table-wrapper">
+                <table style="width:100%;border-collapse:collapse;">
+                  <thead style="background:#f6f8fa;">
+                    <tr>
+                      <th style="padding:12px;text-align:left;border-bottom:1px solid #eef3ff;color:#2647a6;font-weight:600;">Exam Title</th>
+                      <th style="padding:12px;text-align:left;border-bottom:1px solid #eef3ff;color:#2647a6;font-weight:600;">Subject</th>
+                      <th style="padding:12px;text-align:left;border-bottom:1px solid #eef3ff;color:#2647a6;font-weight:600;">Student</th>
+                      <th style="padding:12px;text-align:left;border-bottom:1px solid #eef3ff;color:#2647a6;font-weight:600;">Score</th>
+                      <th style="padding:12px;text-align:left;border-bottom:1px solid #eef3ff;color:#2647a6;font-weight:600;">Started</th>
+                      <th style="padding:12px;text-align:left;border-bottom:1px solid #eef3ff;color:#2647a6;font-weight:600;">Finished</th>
+                      <th style="padding:12px;text-align:left;border-bottom:1px solid #eef3ff;color:#2647a6;font-weight:600;">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${classResults.map((r, idx) => `
+                      <tr style="border-bottom:1px solid #eee;hover:background:#f9fafd;">
+                        <td style="padding:12px;text-align:left;">${r.examTitle || '-'}</td>
+                        <td style="padding:12px;text-align:left;">${r.subjectName || '-'}</td>
+                        <td style="padding:12px;text-align:left;">${r.studentName || '-'}</td>
+                        <td style="padding:12px;text-align:left;font-weight:bold;color:#159d5e;">${r.score || 0} / ${r.totalScore || r.total || '-'}</td>
+                        <td style="padding:12px;text-align:left;font-size:0.9rem;">${r.startedAt ? new Date(r.startedAt).toLocaleString() : '-'}</td>
+                        <td style="padding:12px;text-align:left;font-size:0.9rem;">${r.finishedAt ? new Date(r.finishedAt).toLocaleString() : '-'}</td>
+                        <td style="padding:12px;text-align:left;"><button class="btn" onclick="window.viewCBTResult('${r._id}')" style="padding:6px 10px;font-size:0.9rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;"><i class="fa fa-eye"></i></button></td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>`
+          }
+        </div>
+      `;
+    }
+  }
+
   container.innerHTML = html;
 }
 
