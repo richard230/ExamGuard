@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const CBTQuestionSchema = new mongoose.Schema({
   text: String,
   options: [String],
-  answer: Number,
+ answer: [Number],
   score: { type: Number, default: 1 }
 });
 const CBTSchema = new mongoose.Schema({
