@@ -1025,67 +1025,95 @@
         });
 
         
-document.getElementById("manualUploadForm").addEventListener("submit", async function (e) {
+// /js/results-upload.js
+
+const form = document.getElementById("manualUploadForm");
+
+form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const form = e.target;
-    const statusEl = document.getElementById("uploadStatus");
+    const status = document.getElementById("uploadStatus");
     const submitBtn = form.querySelector('button[type="submit"]');
 
-    const session = form.session.value;
-    const term = form.term.value;
+    const session = document.getElementById("sessionSelect").value;
+    const term = document.getElementById("termSelect").value;
     const className = document.getElementById("classSelect").value;
     const subject = document.getElementById("subjectSelect").value;
     const resultType = document.getElementById("resultTypeSelect").value;
 
-    const studentIds = Array.from(form.querySelectorAll('input[name="student_id[]"]')).map(el => el.value);
-    const studentNames = Array.from(form.querySelectorAll('input[name="student_name[]"]')).map(el => el.value);
-
-    const scoreInputs = Array.from(document.querySelectorAll('input[name="score[]"]'));
-    const gradeInputs = Array.from(form.querySelectorAll('input[name="grade[]"]'));
-    const remarkInputs = Array.from(form.querySelectorAll('input[name="remarks[]"]'));
-
-    const scores = scoreInputs.map(el => el.value.trim());
-
-    const hasValidScores = scores.some(v => v !== "" && !isNaN(v) && Number(v) > 0);
-
-    if (!hasValidScores) {
-        statusEl.className = "status-message show error";
-        statusEl.innerHTML =
-            '<i class="fa fa-exclamation-circle"></i> Please enter at least one valid result with a score greater than 0.';
-        return;
-    }
+    const studentIds = [...document.querySelectorAll('input[name="student_id[]"]')];
+    const studentNames = [...document.querySelectorAll('input[name="student_name[]"]')];
+    const scoreInputs = [...document.querySelectorAll('input[name="score[]"]')];
+    const gradeInputs = [...document.querySelectorAll('input[name="grade[]"]')];
+    const remarkInputs = [...document.querySelectorAll('input[name="remarks[]"]')];
 
     const results = [];
 
     scoreInputs.forEach((input, i) => {
-        const value = input.value.trim();
+        const score = input.value.trim();
 
-        if (value !== "" && !isNaN(value)) {
+        if (score !== "" && !isNaN(score)) {
             results.push({
-                student_id: studentIds[i],
-                student_name: studentNames[i],
-                score: Number(value),
+                student_id: studentIds[i].value,
+                student_name: studentNames[i].value,
+                score: Number(score),
                 grade: gradeInputs[i]?.value || "",
                 remarks: remarkInputs[i]?.value || ""
             });
         }
     });
 
-    console.log("Submitting results:", {
-        session,
-        term,
-        className,
-        subject,
-        resultType,
-        results
-    });
+    if (results.length === 0) {
+        status.innerHTML = `<span style="color:var(--danger);">Enter at least one valid score.</span>`;
+        return;
+    }
 
-    statusEl.className = "status-message show success";
-    statusEl.innerHTML =
-        '<i class="fa fa-check-circle"></i> Results ready for submission.';
+    submitBtn.disabled = true;
+    status.innerHTML = "Uploading...";
+
+    try {
+
+        const res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                session,
+                term,
+                class: className,
+                subject,
+                resultType,
+                results
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+
+            status.innerHTML =
+                `<span style="color:var(--accent);">
+                Success! Uploaded results for ${data.inserted} students.
+                </span>`;
+
+        } else {
+
+            status.innerHTML =
+                `<span style="color:var(--danger);">
+                Error: ${data.error || "Unknown error"}
+                </span>`;
+        }
+
+    } catch (err) {
+
+        status.innerHTML =
+            `<span style="color:var(--danger);">
+            Failed to upload results.
+            </span>`;
+
+    }
+
+    submitBtn.disabled = false;
 });
-
 // Clear form button
 document.getElementById('clearBtn').addEventListener('click', function() {
     document.getElementById('manualUploadForm').reset();
