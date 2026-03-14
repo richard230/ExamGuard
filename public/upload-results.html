@@ -1025,17 +1025,22 @@
         });
 
         
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+document.addEventListener("DOMContentLoaded", () => {
 
-  const status = document.getElementById("uploadStatus");
+const form = document.getElementById("manualUploadForm");
+const status = document.getElementById("uploadStatus");
+
+form.addEventListener("submit", async (e) => {
+
+  e.preventDefault(); // prevents page refresh
+
   const submitBtn = form.querySelector('button[type="submit"]');
 
-  const session = sessionSelect.value;
-  const term = termSelect.value;
-  const className = classSelect.value;
-  const subject = subjectSelect.value;
-  const resultType = resultTypeSelect.value;
+  const session = document.getElementById("sessionSelect").value;
+  const term = document.getElementById("termSelect").value;
+  const className = document.getElementById("classSelect").value;
+  const subject = document.getElementById("subjectSelect").value;
+  const resultType = document.getElementById("resultTypeSelect").value;
 
   const studentIds = [...document.querySelectorAll('input[name="student_id[]"]')];
   const studentNames = [...document.querySelectorAll('input[name="student_name[]"]')];
@@ -1046,6 +1051,7 @@ form.addEventListener("submit", async (e) => {
   const resultsBySubject = {};
 
   scoreInputs.forEach((input, i) => {
+
     const score = input.value.trim();
 
     if (score !== "" && !isNaN(score)) {
@@ -1063,24 +1069,28 @@ form.addEventListener("submit", async (e) => {
       }
 
       resultsBySubject[subject].push(result);
+
     }
+
   });
 
   if (Object.keys(resultsBySubject).length === 0) {
-    status.innerHTML = `<span style="color:var(--danger);">Enter at least one valid score.</span>`;
+
+    status.innerHTML =
+      `<span style="color:var(--danger);">Enter at least one valid score.</span>`;
+
     return;
+
   }
 
   submitBtn.disabled = true;
-  status.innerHTML = "Uploading...";
+  status.innerHTML = "Uploading results...";
 
   let totalUploaded = 0;
   let totalUpdated = 0;
   let failedSubjects = [];
 
   for (const [subjectName, subjectResults] of Object.entries(resultsBySubject)) {
-
-    if (subjectResults.length === 0) continue;
 
     const payload = {
       session,
@@ -1138,7 +1148,7 @@ form.addEventListener("submit", async (e) => {
       Success! Uploaded ${totalUploaded} results, updated ${totalUpdated}.
       </span>`;
 
-    // clear inputs
+    // clear fields after success
     scoreInputs.forEach(i => i.value = "");
     gradeInputs.forEach(i => i.value = "");
     remarkInputs.forEach(i => i.value = "");
@@ -1155,6 +1165,9 @@ form.addEventListener("submit", async (e) => {
   submitBtn.disabled = false;
 
 });
+
+});
+
 // Clear form button
 document.getElementById('clearBtn').addEventListener('click', function() {
     document.getElementById('manualUploadForm').reset();
