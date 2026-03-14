@@ -7,7 +7,7 @@ const Session = require('../models/Session');
 const Term = require('../models/Term');
 const Class = require('../models/Class');
 const Subject = require('../models/Subject');
-const Teacher = require('../models/Teacher'); // Add Teacher model
+const Teacher = require('../models/Teacher');
 
 /**
  * UTILITY: Assign grade/remark based on total score
@@ -33,8 +33,23 @@ function ordinalSuffix(pos) {
 }
 
 /**
+ * Calculate total score for a result
+ */
+function calculateResultTotal(result) {
+  let total = 0;
+  if (result.ca1_score) total += parseFloat(result.ca1_score) || 0;
+  if (result.ca2_score) total += parseFloat(result.ca2_score) || 0;
+  if (result.midterm_score) total += parseFloat(result.midterm_score) || 0;
+  if (result.exam_score) total += parseFloat(result.exam_score) || 0;
+  if (!result.ca1_score && !result.ca2_score && !result.midterm_score && !result.exam_score && result.score) {
+    total = parseFloat(result.score) || 0;
+  }
+  return total;
+}
+
+/**
  * Calculate and persist SUBJECT positions for a specific session/term/class/subject
- * IMPORTANT: Positions are scoped to SESSION and TERM to avoid mixing results
+ * CRITICAL: Only counts PUBLISHED results for the specific session/term
  */
 async function computeAndPersistSubjectPositions({ classId, sessionId, termId, subjectId }) {
   const filter = {
@@ -42,35 +57,40 @@ async function computeAndPersistSubjectPositions({ classId, sessionId, termId, s
     session: sessionId,      // Scope to specific session
     term: termId,            // Scope to specific term
     subject: subjectId,
-    status: 'Published'
+    status: 'Published'      // CRITICAL: Only published results
   };
   
   const results = await Result.find(filter);
+  
+  // Build array with ID and total score
   const arr = results.map(r => {
-    let total = 0;
-    if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
-    if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
-    if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
-    if (r.exam_score) total += parseFloat(r.exam_score) || 0;
-    if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) total = parseFloat(r.score) || 0;
+    const total = calculateResultTotal(r);
     return { id: r._id.toString(), total };
   });
   
+  // Sort by total descending
   arr.sort((a, b) => b.total - a.total);
+  
+  // Assign positions with tie-breaking
   let posMap = {};
-  let currentPos = 1, prevTotal = null, skip = 0;
+  let currentPos = 1;
+  let prevTotal = null;
   
   for (let i = 0; i < arr.length; i++) {
+    // If score is different from previous, update position
     if (prevTotal !== null && arr[i].total < prevTotal) {
-      currentPos = i + 1;
-      skip = 0;
-    } else if (prevTotal !== null && arr[i].total === prevTotal) {
-      skip++;
+      currentPos = i + 1;  // Position is based on actual index (handles ties)
     }
-    posMap[arr[i].id] = { position: ordinalSuffix(currentPos), numeric: currentPos };
+    
+    posMap[arr[i].id] = { 
+      position: ordinalSuffix(currentPos), 
+      numeric: currentPos 
+    };
+    
     prevTotal = arr[i].total;
   }
   
+  // Update all results with their positions
   for (const id in posMap) {
     await Result.findByIdAndUpdate(id, {
       subject_position: posMap[id].position,
@@ -83,58 +103,47 @@ async function computeAndPersistSubjectPositions({ classId, sessionId, termId, s
 
 /**
  * Calculate OVERALL positions for a student within their class for a specific session/term
- * IMPORTANT: Positions are scoped to SESSION and TERM
+ * CRITICAL: Only counts PUBLISHED results and scopes to specific session/term
  */
 async function computeOverallPosition({ studentId, classId, sessionId, termId }) {
   try {
-    // Get this student's total score for this specific session/term
+    // Get this student's total score for this specific session/term (PUBLISHED ONLY)
     const studentResults = await Result.find({
       student: studentId,
       class: classId,
       session: sessionId,    // Scope to specific session
       term: termId,          // Scope to specific term
-      status: 'Published'
+      status: 'Published'    // CRITICAL: Only published results
     });
+
+    if (studentResults.length === 0) {
+      return 0;  // No published results
+    }
 
     let studentTotal = 0;
     studentResults.forEach(r => {
-      let total = 0;
-      if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
-      if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
-      if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
-      if (r.exam_score) total += parseFloat(r.exam_score) || 0;
-      if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) {
-        total = parseFloat(r.score) || 0;
-      }
-      studentTotal += total;
+      studentTotal += calculateResultTotal(r);
     });
 
-    // Get all students' totals for this specific session/term
+    // Get all students' totals for this specific session/term (PUBLISHED ONLY)
     const allResults = await Result.find({
       class: classId,
       session: sessionId,    // Scope to specific session
       term: termId,          // Scope to specific term
-      status: 'Published'
+      status: 'Published'    // CRITICAL: Only published results
     }).populate('student');
 
+    // Build student totals map
     const studentTotals = {};
     allResults.forEach(r => {
       const sid = r.student._id.toString();
       if (!studentTotals[sid]) {
         studentTotals[sid] = 0;
       }
-      let total = 0;
-      if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
-      if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
-      if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
-      if (r.exam_score) total += parseFloat(r.exam_score) || 0;
-      if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) {
-        total = parseFloat(r.score) || 0;
-      }
-      studentTotals[sid] += total;
+      studentTotals[sid] += calculateResultTotal(r);
     });
 
-    // Sort by total and assign positions
+    // Sort by total descending
     const sorted = Object.entries(studentTotals)
       .sort((a, b) => b[1] - a[1])
       .map(([sid, total], idx) => ({ sid, total, position: idx + 1 }));
@@ -189,31 +198,28 @@ async function findOrCreateStudent(row, classId) {
 
 /**
  * BUILD REPORT DATA - Helper function
- * FIXED: Now properly scopes positions to session/term
+ * FIXED: Properly scopes all calculations to session/term
  */
 async function buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings) {
   const data = [];
   
   for (const r of results) {
-    let total = 0;
-    if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
-    if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
-    if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
-    if (r.exam_score) total += parseFloat(r.exam_score) || 0;
-    if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) total = parseFloat(r.score) || 0;
-
+    const total = calculateResultTotal(r);
     const { grade, remark } = getGradeAndRemark(total);
 
     let subjectPos = '';
     if (r.subject && r.subject.name) {
-      // FIXED: Pass session and term IDs to ensure scope
+      // Compute positions ONLY for PUBLISHED results in this session/term
       const posMap = await computeAndPersistSubjectPositions({
         classId: classObj._id,
-        sessionId: sessionObj._id,    // Scope to specific session
-        termId: termObj._id,          // Scope to specific term
+        sessionId: sessionObj._id,
+        termId: termObj._id,
         subjectId: r.subject._id
       });
-      subjectPos = posMap[r._id.toString()]?.position || r.subject_position || '';
+      
+      subjectPos = posMap[r._id.toString()]?.position || '';
+      
+      // Update this result with new grade/remark/position
       if (r.grade !== grade || r.remarks !== remark || r.subject_position !== subjectPos) {
         await Result.findByIdAndUpdate(r._id, {
           grade: grade,
@@ -236,12 +242,12 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     });
   }
 
-  // FIXED: Count class size for THIS specific session/term only
+  // CRITICAL: Count ONLY PUBLISHED results for this specific session/term
   const classSize = await Result.distinct('student', {
     class: classObj._id,
-    session: sessionObj._id,    // Scope to specific session
-    term: termObj._id,          // Scope to specific term
-    status: 'Published'
+    session: sessionObj._id,
+    term: termObj._id,
+    status: 'Published'  // Only count published
   }).then(students => students.length);
 
   let skillsReport = { skills: { affective: {}, psychomotor: {} }, attendance: {}, comment: "" };
@@ -262,7 +268,7 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
   const principalComment = skillsReport.comment || "";
   const attendance = skillsReport.attendance || {};
 
-  // Get form master for this student's class
+  // Get form master
   const classId = classObj._id.toString();
   const formMasterId = sessionSettings?.classAssignments?.[classId];
   let formMasterName = 'Form Master';
@@ -289,7 +295,7 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     photoBase64: student.photoBase64 || ""
   };
 
-  // FIXED: Calculate overall position for THIS specific session/term
+  // CRITICAL: Calculate position for THIS specific session/term ONLY
   const studentPosition = await computeOverallPosition({
     studentId: student._id,
     classId: classObj._id,
@@ -308,11 +314,13 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     teacherName: formMasterName,
     session: sessionObj.name,
     term: termObj.name,
-    studentPosition: studentPosition  // Now properly scoped to session/term
+    studentPosition: studentPosition,
+    nextTermDate: null,
+    dateIssued: new Date().toISOString()
   };
 }
 
-// --- MAIN CHECK ROUTE (GET /check) - WITH PRINCIPAL & FORM MASTER ---
+// --- MAIN CHECK ROUTE (GET /check) ---
 router.get('/check', async (req, res) => {
   try {
     const { regNo, scratchCard, class: className, session, term } = req.query;
@@ -336,21 +344,18 @@ router.get('/check', async (req, res) => {
     const termObj = await Term.findOne({ name: term });
     if (!termObj) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
 
-    // FIXED: Query specifically for this session/term only
+    // CRITICAL: Query ONLY Published results for this specific session/term
     const results = await Result.find({
       student: student._id,
       class: classObj._id,
-      session: sessionObj._id,  // Specific session
-      term: termObj._id,        // Specific term
-      status: 'Published'
+      session: sessionObj._id,
+      term: termObj._id,
+      status: 'Published'  // Only published
     }).populate('subject');
 
     if (!results.length) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
 
-    // Get session settings from your sessionSettings route/module
     const sessionSettings = await getSessionSettings();
-
-    // Build complete report data with principal name and form master
     const reportData = await buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings);
 
     res.json(reportData);
@@ -360,9 +365,7 @@ router.get('/check', async (req, res) => {
 });
 
 /**
- * NEW ROUTE: GET student report by ID (for admin/teacher viewing)
- * Usage: GET /api/results/student/:studentId/report?sessionId=xxx&termId=xxx
- * FIXED: Now properly scopes to specific session/term
+ * GET student report by ID for admin/teacher viewing
  */
 router.get('/student/:studentId/report', async (req, res) => {
   try {
@@ -373,18 +376,15 @@ router.get('/student/:studentId/report', async (req, res) => {
       return res.status(400).json({ error: 'Missing required parameters: studentId, sessionId, termId' });
     }
 
-    // Fetch student
     const student = await Student.findById(studentId).populate('class');
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
-    // Fetch session and term
     const sessionObj = await Session.findById(sessionId);
     const termObj = await Term.findById(termId);
     if (!sessionObj || !termObj) {
       return res.status(404).json({ error: 'Session or Term not found' });
     }
 
-    // Fetch class
     let classObj = student.class;
     if (classId) {
       classObj = await Class.findById(classId);
@@ -393,23 +393,20 @@ router.get('/student/:studentId/report', async (req, res) => {
       return res.status(404).json({ error: 'Class not found' });
     }
 
-    // FIXED: Query specifically for this session/term only
+    // CRITICAL: Query ONLY Published results
     const results = await Result.find({
       student: student._id,
       class: classObj._id,
-      session: sessionObj._id,  // Specific session
-      term: termObj._id,        // Specific term
-      status: 'Published'
+      session: sessionObj._id,
+      term: termObj._id,
+      status: 'Published'  // Only published
     }).populate('subject');
 
     if (!results.length) {
       return res.status(404).json({ error: 'No results found for this student' });
     }
 
-    // Get session settings from your sessionSettings module
     const sessionSettings = await getSessionSettings();
-
-    // Build complete report data with principal name and form master
     const reportData = await buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings);
 
     res.json(reportData);
@@ -420,13 +417,11 @@ router.get('/student/:studentId/report', async (req, res) => {
 
 /**
  * MERGE DUPLICATES UTILITY
- * Finds all duplicate results for student+subject+session+term and merges them
  */
 async function mergeDuplicateResults() {
   try {
     console.log('Starting duplicate merge process...');
     
-    // Find all results grouped by student, subject, session, term
     const duplicateGroups = await Result.aggregate([
       {
         $group: {
@@ -452,12 +447,9 @@ async function mergeDuplicateResults() {
 
     for (const group of duplicateGroups) {
       const results = group.results;
-      
-      // Keep the first result and merge all scores into it
       const primaryResult = results[0];
       const othersToDelete = results.slice(1);
 
-      // Merge all scores (take the highest or most recent score for each type)
       const mergedData = {
         ca1_score: primaryResult.ca1_score,
         ca2_score: primaryResult.ca2_score,
@@ -468,7 +460,6 @@ async function mergeDuplicateResults() {
         remarks: primaryResult.remarks
       };
 
-      // Update with any non-empty scores from other results
       for (const other of othersToDelete) {
         if (other.ca1_score && !mergedData.ca1_score) mergedData.ca1_score = other.ca1_score;
         if (other.ca2_score && !mergedData.ca2_score) mergedData.ca2_score = other.ca2_score;
@@ -477,10 +468,8 @@ async function mergeDuplicateResults() {
         if (other.score && !mergedData.score) mergedData.score = other.score;
       }
 
-      // Update primary result with merged data
       await Result.findByIdAndUpdate(primaryResult._id, mergedData);
 
-      // Delete other duplicate results
       for (const other of othersToDelete) {
         await Result.findByIdAndDelete(other._id);
       }
@@ -497,7 +486,7 @@ async function mergeDuplicateResults() {
 }
 
 /**
- * UPSERT BULK UPLOAD - Prevents duplicates and merges scores
+ * UPSERT BULK UPLOAD
  */
 router.post('/upsert', async (req, res) => {
   try {
@@ -532,7 +521,6 @@ router.post('/upsert', async (req, res) => {
           continue;
         }
 
-        // Build update data with score type
         const updateData = {
           student: student._id,
           session: sessionObj._id,
@@ -544,29 +532,21 @@ router.post('/upsert', async (req, res) => {
           status: row.status || 'Draft'
         };
 
-        // Set the appropriate score field based on resultType
         updateData[`${resultType}_score`] = row.score;
 
-        // Upsert: find existing record and update, or create new one
-        // FIXED: Query includes session/term for proper scoping
+        // CRITICAL: Query includes session/term for proper scoping
         const existingResult = await Result.findOne({
           student: student._id,
-          session: sessionObj._id,    // Scope to specific session
-          term: termObj._id,          // Scope to specific term
+          session: sessionObj._id,
+          term: termObj._id,
           class: classObj._id,
           subject: subjectObj._id
         });
 
         if (existingResult) {
-          // Update existing result - merge the score
-          const updatedResult = await Result.findByIdAndUpdate(
-            existingResult._id,
-            updateData,
-            { new: true }
-          );
+          await Result.findByIdAndUpdate(existingResult._id, updateData, { new: true });
           updated++;
         } else {
-          // Create new result
           const newResult = new Result(updateData);
           await newResult.save();
           inserted++;
@@ -590,8 +570,7 @@ router.post('/upsert', async (req, res) => {
 });
 
 /**
- * BULK UPLOAD - Updated to use upsert logic
- * FIXED: Now properly scopes to specific session/term
+ * BULK UPLOAD
  */
 router.post('/upload', async (req, res) => {
   try {
@@ -640,13 +619,11 @@ router.post('/upload', async (req, res) => {
 
         resultData[`${resultType}_score`] = row.score;
 
-        // If upsert flag is true, check for existing and update
         if (upsert) {
-          // FIXED: Query includes session/term for proper scoping
           const existingResult = await Result.findOne({
             student: student._id,
-            session: sessionObj._id,    // Scope to specific session
-            term: termObj._id,          // Scope to specific term
+            session: sessionObj._id,
+            term: termObj._id,
             class: classObj._id,
             subject: subjectObj._id
           });
@@ -663,7 +640,6 @@ router.post('/upload', async (req, res) => {
           }
         }
 
-        // Create new result
         const result = new Result(resultData);
         await result.save();
         inserted++;
@@ -689,7 +665,6 @@ router.post('/upload', async (req, res) => {
 
 /**
  * ADMIN ROUTE: Merge all existing duplicates
- * Usage: POST /api/results/merge-duplicates (should be admin-protected)
  */
 router.post('/merge-duplicates', async (req, res) => {
   try {
@@ -706,8 +681,7 @@ router.post('/merge-duplicates', async (req, res) => {
 });
 
 /**
- * GET: Filter results. Accepts session, term, student_id, class, subject
- * FIXED: Now properly scopes to specific session/term
+ * GET: Filter results with proper session/term scoping
  */
 router.get('/', async (req, res) => {
   try {
@@ -832,9 +806,11 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * CBT PUSH ROUTE
+ */
 router.post('/push-cbt', async (req, res) => {
   try {
-    // Validate input
     const allowedFields = ['ca1_score', 'ca2_score', 'midterm_score', 'exam_score'];
     const { scoreField } = req.body;
     if (!allowedFields.includes(scoreField)) {
@@ -846,27 +822,24 @@ router.post('/push-cbt', async (req, res) => {
     const Result = require('../models/Result');
     const Student = require('../models/Student');
 
-    // Fetch all CBT results
     const cbtResults = await ResultCBT.find().populate('student exam');
     let inserted = 0, skipped = 0, errors = [];
 
     for (const r of cbtResults) {
-      // Gather required info
       const exam = r.exam;
       const student = r.student;
       if (!exam || !student) { skipped++; continue; }
 
-      // FIXED: Check for duplicate including session/term
+      // CRITICAL: Check for duplicate including session/term
       const dup = await Result.findOne({
         student: student._id,
         class: exam.class,
         subject: exam.subject,
-        session: exam.session,    // Include session
-        term: exam.term           // Include term
+        session: exam.session,
+        term: exam.term
       });
       if (dup) { skipped++; continue; }
 
-      // Prepare new universal result
       let resultData = {
         student: student._id,
         class: exam.class || undefined,
@@ -875,11 +848,9 @@ router.post('/push-cbt', async (req, res) => {
         term: exam.term || undefined,
         status: "Draft",
         remarks: "Imported from CBT",
-        [scoreField]: r.score // set only the chosen field
-        // other fields will be default/empty as per schema
+        [scoreField]: r.score
       };
 
-      // Save
       try {
         const newResult = new Result(resultData);
         await newResult.save();
