@@ -997,73 +997,109 @@
       attachUploadFormHandler();
       renderQuestions();
 
-      function attachUploadFormHandler() {
-        const uploadForm = document.getElementById('uploadExamForm');
-        if (!uploadForm) return;
-        uploadForm.onsubmit = async function(e) {
-          e.preventDefault();
+function attachUploadFormHandler() {
+  const uploadForm = document.getElementById('uploadExamForm');
+  if (!uploadForm) return;
 
-          const fd = new FormData(this);
-          const title = fd.get('title');
-          const classId = fd.get('class');
-          const subjectId = fd.get('subject');
-          const duration = Number(fd.get('duration'));
-          if (!title || !classId || !subjectId || !duration) {
-            document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">All exam fields are required.</div>`; return;
-          }
-          if (!questions.length) {
-            document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">Add at least one question.</div>`; return;
-          }
-          for (let [i,q] of questions.entries()) {
-            if (!q.text || !(q.options && q.options.length >= 2)) {
-              document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">Question ${i+1} must have text and at least 2 options.</div>`; return;
-            }
-            for (let [j,o] of (q.options||[]).entries()) {
-              if (!o.value) {
-                document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">Question ${i+1} Option ${String.fromCharCode(65+j)} cannot be empty.</div>`; return;
-              }
-            }
-            if (!Array.isArray(q.answer) || q.answer.length === 0) {
-              document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">Select at least one correct answer for Question ${i+1}.</div>`; return;
-            }
-            for (let ans of q.answer) {
-              if (typeof ans !== 'number' || ans < 0 || ans >= q.options.length) {
-                document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">Invalid correct answer selection for Question ${i+1}.</div>`; return;
-              }
-            }
-          }
+  uploadForm.onsubmit = async function(e) {
+    e.preventDefault();
 
-          const payload = {
-            title,
-            class: classId,
-            subject: subjectId,
-            duration,
-            questions: questions.map(q => ({
-              text: q.text,
-              options: q.options,
-              answer: q.answer,
-              score: q.score || 1
-            }))
-          };
+    const fd = new FormData(this);
+    const title = fd.get('title');
+    const classId = fd.get('class');
+    const subjectId = fd.get('subject');
+    const duration = Number(fd.get('duration'));
 
-          try {
-            const res = await fetch('https://examguard-8rxe.onrender.com/api/exam', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.error) {
-              document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">${data.error}</div>`;
-            } else {
-              document.getElementById('uploadExamMsg').innerHTML = `<div class="text-green-600">Exam uploaded successfully.</div>`;
-              setTimeout(showExams, 1200);
-            }
-          } catch (err) {
-            document.getElementById('uploadExamMsg').innerHTML = `<div class="text-red-600">Network or server error.</div>`;
-          }
-        };
+    if (!title || !classId || !subjectId || !duration) {
+      document.getElementById('uploadExamMsg').innerHTML =
+        `<div class="text-red-600">All exam fields are required.</div>`; 
+      return;
+    }
+
+    if (!questions.length) {
+      document.getElementById('uploadExamMsg').innerHTML =
+        `<div class="text-red-600">Add at least one question.</div>`; 
+      return;
+    }
+
+    // Validate questions
+    for (let [i,q] of questions.entries()) {
+      if (!q.text || !(q.options && q.options.length >= 2)) {
+        document.getElementById('uploadExamMsg').innerHTML =
+          `<div class="text-red-600">Question ${i+1} must have text and at least 2 options.</div>`; 
+        return;
       }
+      for (let [j,o] of (q.options||[]).entries()) {
+        if (!o.value) {
+          document.getElementById('uploadExamMsg').innerHTML =
+            `<div class="text-red-600">Question ${i+1} Option ${String.fromCharCode(65+j)} cannot be empty.</div>`; 
+          return;
+        }
+      }
+      if (!Array.isArray(q.answer) || q.answer.length === 0) {
+        document.getElementById('uploadExamMsg').innerHTML =
+          `<div class="text-red-600">Select at least one correct answer for Question ${i+1}.</div>`; 
+        return;
+      }
+      // Ensure all answers are numbers
+      for (let ans of q.answer) {
+        if (typeof ans !== 'number' || ans < 0 || ans >= q.options.length) {
+          document.getElementById('uploadExamMsg').innerHTML =
+            `<div class="text-red-600">Invalid correct answer selection for Question ${i+1}.</div>`; 
+          return;
+        }
+      }
+    }
+
+    // Map all answers to numbers to satisfy backend Number field
+    const payload = {
+      title,
+      class: classId,
+      subject: subjectId,
+      duration,
+      questions: questions.map(q => ({
+        text: q.text,
+        options: q.options,
+        answer: q.answer.map(a => Number(a)), // <--- cast to number
+        score: q.score || 1
+      }))
+    };
+
+    const submitBtn = uploadForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    document.getElementById('uploadExamMsg').innerHTML =
+      `<div class="text-blue-600">Uploading...</div>`;
+
+    try {
+      const res = await fetch('https://examguard-8rxe.onrender.com/api/exam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        document.getElementById('uploadExamMsg').innerHTML =
+          `<div class="text-red-600">${data.error}</div>`;
+      } else {
+        document.getElementById('uploadExamMsg').innerHTML =
+          `<div class="text-green-600">Exam uploaded successfully.</div>`;
+
+        // Clear all fields after success
+        uploadForm.reset();
+        questions = [];
+        setTimeout(showExams, 1200); // refresh exam list
+      }
+    } catch (err) {
+      document.getElementById('uploadExamMsg').innerHTML =
+        `<div class="text-red-600">Network or server error.</div>`;
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  };
+}
     }
 
     // 3. Schedule Exam
