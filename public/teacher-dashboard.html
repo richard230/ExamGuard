@@ -713,27 +713,31 @@
         } catch { return []; }
       }
 
-      async function fetchCBTResultsForClass(classId) {
+// REPLACE your fetchCBTResultsForClass function with this:
+
+async function fetchCBTResultsForClass(classId) {
   try {
     const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/cbt-results?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
     if (!res.ok) return [];
+    
     const data = await res.json();
     let results = Array.isArray(data) ? data : (data.results || []);
     
-    // Ensure each result has proper data structure
+    // Transform results to match expected format (like admin-cbt.html does)
     return results.map(r => ({
-      ...r,
+      _id: r._id || r.id,
+      studentName: r.studentName || (r.student?.name ? `${r.student.name}` : '-'),
+      className: r.className || r.class?.name || '-',
+      subjectName: r.subjectName || r.subject?.name || r.exam?.subject?.name || '-',
       examTitle: r.examTitle || r.exam?.title || '-',
-      subjectName: r.subjectName || r.exam?.subjectName || r.exam?.subject?.name || '-',
-      studentName: r.studentName || r.student?.name || '-',
       score: r.score || 0,
-      totalScore: r.totalScore || r.total || 100,
-      startedAt: r.startedAt || r.startTime,
-      finishedAt: r.finishedAt || r.endTime
+      total: r.total || r.totalScore || 100,
+      startedAt: r.startedAt || r.startTime || null,
+      finishedAt: r.finishedAt || r.endTime || null
     }));
-  } catch (err) { 
+  } catch (err) {
     console.error('Error fetching CBT results:', err);
-    return []; 
+    return [];
   }
 }
 
