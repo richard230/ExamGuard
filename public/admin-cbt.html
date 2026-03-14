@@ -1023,13 +1023,13 @@ function attachUploadFormHandler() {
     }
 
     // Validate questions
-    for (let [i,q] of questions.entries()) {
+    for (let [i, q] of questions.entries()) {
       if (!q.text || !(q.options && q.options.length >= 2)) {
         document.getElementById('uploadExamMsg').innerHTML =
           `<div class="text-red-600">Question ${i+1} must have text and at least 2 options.</div>`; 
         return;
       }
-      for (let [j,o] of (q.options||[]).entries()) {
+      for (let [j, o] of (q.options || []).entries()) {
         if (!o.value) {
           document.getElementById('uploadExamMsg').innerHTML =
             `<div class="text-red-600">Question ${i+1} Option ${String.fromCharCode(65+j)} cannot be empty.</div>`; 
@@ -1041,7 +1041,7 @@ function attachUploadFormHandler() {
           `<div class="text-red-600">Select at least one correct answer for Question ${i+1}.</div>`; 
         return;
       }
-      // Ensure all answers are numbers
+      // Ensure all answers are valid numbers within option range
       for (let ans of q.answer) {
         if (typeof ans !== 'number' || ans < 0 || ans >= q.options.length) {
           document.getElementById('uploadExamMsg').innerHTML =
@@ -1051,7 +1051,7 @@ function attachUploadFormHandler() {
       }
     }
 
-    // Map all answers to numbers to satisfy backend Number field
+    // Map answers to single Number (take first element if array) for backend
     const payload = {
       title,
       class: classId,
@@ -1060,7 +1060,7 @@ function attachUploadFormHandler() {
       questions: questions.map(q => ({
         text: q.text,
         options: q.options,
-        answer: q.answer.map(a => Number(a)), // <--- cast to number
+        answer: Number(q.answer[0]), // <-- converts [1] to 1
         score: q.score || 1
       }))
     };
@@ -1086,15 +1086,15 @@ function attachUploadFormHandler() {
         document.getElementById('uploadExamMsg').innerHTML =
           `<div class="text-green-600">Exam uploaded successfully.</div>`;
 
-        // Clear all fields after success
+        // Clear form and questions array after success
         uploadForm.reset();
         questions = [];
         setTimeout(showExams, 1200); // refresh exam list
       }
     } catch (err) {
+      console.error(err);
       document.getElementById('uploadExamMsg').innerHTML =
         `<div class="text-red-600">Network or server error.</div>`;
-      console.error(err);
     } finally {
       submitBtn.disabled = false;
     }
