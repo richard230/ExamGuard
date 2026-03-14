@@ -33,16 +33,18 @@ function ordinalSuffix(pos) {
 }
 
 /**
- * Calculate and persist subject positions for a class/session/term/subject
+ * Calculate and persist SUBJECT positions for a specific session/term/class/subject
+ * IMPORTANT: Positions are scoped to SESSION and TERM to avoid mixing results
  */
 async function computeAndPersistSubjectPositions({ classId, sessionId, termId, subjectId }) {
   const filter = {
     class: classId,
-    session: sessionId,
-    term: termId,
+    session: sessionId,      // Scope to specific session
+    term: termId,            // Scope to specific term
     subject: subjectId,
     status: 'Published'
   };
+  
   const results = await Result.find(filter);
   const arr = results.map(r => {
     let total = 0;
@@ -53,23 +55,97 @@ async function computeAndPersistSubjectPositions({ classId, sessionId, termId, s
     if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) total = parseFloat(r.score) || 0;
     return { id: r._id.toString(), total };
   });
+  
   arr.sort((a, b) => b.total - a.total);
   let posMap = {};
   let currentPos = 1, prevTotal = null, skip = 0;
+  
   for (let i = 0; i < arr.length; i++) {
     if (prevTotal !== null && arr[i].total < prevTotal) {
-      currentPos = i + 1; skip = 0;
-    } else if (prevTotal !== null && arr[i].total === prevTotal) { skip++; }
+      currentPos = i + 1;
+      skip = 0;
+    } else if (prevTotal !== null && arr[i].total === prevTotal) {
+      skip++;
+    }
     posMap[arr[i].id] = { position: ordinalSuffix(currentPos), numeric: currentPos };
     prevTotal = arr[i].total;
   }
+  
   for (const id in posMap) {
     await Result.findByIdAndUpdate(id, {
       subject_position: posMap[id].position,
       subject_position_num: posMap[id].numeric
     });
   }
+  
   return posMap;
+}
+
+/**
+ * Calculate OVERALL positions for a student within their class for a specific session/term
+ * IMPORTANT: Positions are scoped to SESSION and TERM
+ */
+async function computeOverallPosition({ studentId, classId, sessionId, termId }) {
+  try {
+    // Get this student's total score for this specific session/term
+    const studentResults = await Result.find({
+      student: studentId,
+      class: classId,
+      session: sessionId,    // Scope to specific session
+      term: termId,          // Scope to specific term
+      status: 'Published'
+    });
+
+    let studentTotal = 0;
+    studentResults.forEach(r => {
+      let total = 0;
+      if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
+      if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
+      if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
+      if (r.exam_score) total += parseFloat(r.exam_score) || 0;
+      if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) {
+        total = parseFloat(r.score) || 0;
+      }
+      studentTotal += total;
+    });
+
+    // Get all students' totals for this specific session/term
+    const allResults = await Result.find({
+      class: classId,
+      session: sessionId,    // Scope to specific session
+      term: termId,          // Scope to specific term
+      status: 'Published'
+    }).populate('student');
+
+    const studentTotals = {};
+    allResults.forEach(r => {
+      const sid = r.student._id.toString();
+      if (!studentTotals[sid]) {
+        studentTotals[sid] = 0;
+      }
+      let total = 0;
+      if (r.ca1_score) total += parseFloat(r.ca1_score) || 0;
+      if (r.ca2_score) total += parseFloat(r.ca2_score) || 0;
+      if (r.midterm_score) total += parseFloat(r.midterm_score) || 0;
+      if (r.exam_score) total += parseFloat(r.exam_score) || 0;
+      if (!r.ca1_score && !r.ca2_score && !r.midterm_score && !r.exam_score && r.score) {
+        total = parseFloat(r.score) || 0;
+      }
+      studentTotals[sid] += total;
+    });
+
+    // Sort by total and assign positions
+    const sorted = Object.entries(studentTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([sid, total], idx) => ({ sid, total, position: idx + 1 }));
+
+    // Find this student's position
+    const positionObj = sorted.find(p => p.sid === studentId.toString());
+    return positionObj?.position || 0;
+  } catch (err) {
+    console.error('Error computing overall position:', err);
+    return 0;
+  }
 }
 
 /**
@@ -78,7 +154,6 @@ async function computeAndPersistSubjectPositions({ classId, sessionId, termId, s
 async function getSessionSettings() {
   try {
     const sessionSettingsModule = require('./sessionSettings');
-    // sessionSettingsModule has getSettings function and sessionSettings object
     const settings = sessionSettingsModule.getSettings?.() || sessionSettingsModule.sessionSettings || {};
     return {
       principalName: settings.principalName || 'Principal',
@@ -114,6 +189,7 @@ async function findOrCreateStudent(row, classId) {
 
 /**
  * BUILD REPORT DATA - Helper function
+ * FIXED: Now properly scopes positions to session/term
  */
 async function buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings) {
   const data = [];
@@ -130,10 +206,11 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
 
     let subjectPos = '';
     if (r.subject && r.subject.name) {
+      // FIXED: Pass session and term IDs to ensure scope
       const posMap = await computeAndPersistSubjectPositions({
         classId: classObj._id,
-        sessionId: sessionObj._id,
-        termId: termObj._id,
+        sessionId: sessionObj._id,    // Scope to specific session
+        termId: termObj._id,          // Scope to specific term
         subjectId: r.subject._id
       });
       subjectPos = posMap[r._id.toString()]?.position || r.subject_position || '';
@@ -159,10 +236,11 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     });
   }
 
+  // FIXED: Count class size for THIS specific session/term only
   const classSize = await Result.distinct('student', {
     class: classObj._id,
-    session: sessionObj._id,
-    term: termObj._id,
+    session: sessionObj._id,    // Scope to specific session
+    term: termObj._id,          // Scope to specific term
     status: 'Published'
   }).then(students => students.length);
 
@@ -211,6 +289,14 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     photoBase64: student.photoBase64 || ""
   };
 
+  // FIXED: Calculate overall position for THIS specific session/term
+  const studentPosition = await computeOverallPosition({
+    studentId: student._id,
+    classId: classObj._id,
+    sessionId: sessionObj._id,
+    termId: termObj._id
+  });
+
   return {
     results: data,
     skillsReport,
@@ -222,7 +308,7 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     teacherName: formMasterName,
     session: sessionObj.name,
     term: termObj.name,
-    studentPosition: 1 // Calculate this if needed
+    studentPosition: studentPosition  // Now properly scoped to session/term
   };
 }
 
@@ -250,11 +336,12 @@ router.get('/check', async (req, res) => {
     const termObj = await Term.findOne({ name: term });
     if (!termObj) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
 
+    // FIXED: Query specifically for this session/term only
     const results = await Result.find({
       student: student._id,
       class: classObj._id,
-      session: sessionObj._id,
-      term: termObj._id,
+      session: sessionObj._id,  // Specific session
+      term: termObj._id,        // Specific term
       status: 'Published'
     }).populate('subject');
 
@@ -275,6 +362,7 @@ router.get('/check', async (req, res) => {
 /**
  * NEW ROUTE: GET student report by ID (for admin/teacher viewing)
  * Usage: GET /api/results/student/:studentId/report?sessionId=xxx&termId=xxx
+ * FIXED: Now properly scopes to specific session/term
  */
 router.get('/student/:studentId/report', async (req, res) => {
   try {
@@ -305,12 +393,12 @@ router.get('/student/:studentId/report', async (req, res) => {
       return res.status(404).json({ error: 'Class not found' });
     }
 
-    // Fetch results
+    // FIXED: Query specifically for this session/term only
     const results = await Result.find({
       student: student._id,
       class: classObj._id,
-      session: sessionObj._id,
-      term: termObj._id,
+      session: sessionObj._id,  // Specific session
+      term: termObj._id,        // Specific term
       status: 'Published'
     }).populate('subject');
 
@@ -460,10 +548,11 @@ router.post('/upsert', async (req, res) => {
         updateData[`${resultType}_score`] = row.score;
 
         // Upsert: find existing record and update, or create new one
+        // FIXED: Query includes session/term for proper scoping
         const existingResult = await Result.findOne({
           student: student._id,
-          session: sessionObj._id,
-          term: termObj._id,
+          session: sessionObj._id,    // Scope to specific session
+          term: termObj._id,          // Scope to specific term
           class: classObj._id,
           subject: subjectObj._id
         });
@@ -502,6 +591,7 @@ router.post('/upsert', async (req, res) => {
 
 /**
  * BULK UPLOAD - Updated to use upsert logic
+ * FIXED: Now properly scopes to specific session/term
  */
 router.post('/upload', async (req, res) => {
   try {
@@ -552,10 +642,11 @@ router.post('/upload', async (req, res) => {
 
         // If upsert flag is true, check for existing and update
         if (upsert) {
+          // FIXED: Query includes session/term for proper scoping
           const existingResult = await Result.findOne({
             student: student._id,
-            session: sessionObj._id,
-            term: termObj._id,
+            session: sessionObj._id,    // Scope to specific session
+            term: termObj._id,          // Scope to specific term
             class: classObj._id,
             subject: subjectObj._id
           });
@@ -616,6 +707,7 @@ router.post('/merge-duplicates', async (req, res) => {
 
 /**
  * GET: Filter results. Accepts session, term, student_id, class, subject
+ * FIXED: Now properly scopes to specific session/term
  */
 router.get('/', async (req, res) => {
   try {
@@ -764,13 +856,13 @@ router.post('/push-cbt', async (req, res) => {
       const student = r.student;
       if (!exam || !student) { skipped++; continue; }
 
-      // Optional: Check for duplicate universal result for same student/exam/subject/class/session/term
+      // FIXED: Check for duplicate including session/term
       const dup = await Result.findOne({
         student: student._id,
         class: exam.class,
         subject: exam.subject,
-        session: exam.session,
-        term: exam.term
+        session: exam.session,    // Include session
+        term: exam.term           // Include term
       });
       if (dup) { skipped++; continue; }
 
