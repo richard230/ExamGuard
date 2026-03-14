@@ -62,22 +62,24 @@
       height: 65px;
       object-fit: contain;
     }
-/* Signature Image Styles */
-.sig-image {
-  width: 45px;
-  height: auto;
-  max-height: 28px;
-  object-fit: contain;
-  margin-bottom: 2px;
-  opacity: 0.9;
-}
 
-.sig-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: flex-start;
-}
+    /* Signature Image Styles */
+    .sig-image {
+      width: 45px;
+      height: auto;
+      max-height: 28px;
+      object-fit: contain;
+      margin-bottom: 2px;
+      opacity: 0.9;
+    }
+
+    .sig-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      align-items: flex-start;
+    }
+
     .school-name {
       font-family: 'Georgia', serif;
       font-weight: 900;
@@ -531,13 +533,6 @@
       align-items: flex-end;
     }
 
-    .sig-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      align-items: flex-start;
-    }
-
     .sign-line {
       width: 180px;
       border-top: 1px solid #111;
@@ -920,28 +915,30 @@
           </div>
         </div>
 
-        <!-- Updated Signature Section - Around line 473 -->
-<div class="signature-row" role="group" aria-label="Signatures and next term">
-  <div class="signature-block">
-    <div class="sig-wrapper">
-      <img id="teacherSigImage" src="seal.jpg" alt="Teacher signature" class="sig-image" style="display:none;">
-      <div class="sign-line"></div>
-      <div class="sign-name" id="teacherName">Ughojo Deborah</div>
-      <div class="sign-role">Class Teacher</div>
-    </div>
-    <div class="sig-wrapper">
-      <img id="principalSigImage" src="seal.jpg" alt="Principal signature" class="sig-image" style="display:none;">
-      <div class="sign-line"></div>
-      <div class="sign-name" id="principalName">Richard O. Timothy</div>
-      <div class="sign-role">Principal</div>
-    </div>
-  </div>
-  <div class="next-term" aria-label="Next term information">
-    <div class="nt-label">Next Term Begins</div>
-    <div class="nt-date" id="nextTermDate">-</div>
-    <div style="margin-top:2px;" class="nt-label">Date Issued: <span id="dateIssued">-</span></div>
-  </div>
-</div>
+        <!-- Updated Signature Section with Static Fallback -->
+        <div class="signature-row" role="group" aria-label="Signatures and next term">
+          <div class="signature-block">
+            <div class="sig-wrapper">
+              <!-- Teacher Signature - Shows fetched image if available, otherwise shows seal.jpg -->
+              <img id="teacherSigImage" src="seal.jpg" alt="Teacher signature" class="sig-image">
+              <div class="sign-line"></div>
+              <div class="sign-name" id="teacherName">Ughojo Deborah</div>
+              <div class="sign-role">Class Teacher</div>
+            </div>
+            <div class="sig-wrapper">
+              <!-- Principal Signature - Shows fetched image if available, otherwise shows seal.jpg -->
+              <img id="principalSigImage" src="seal.jpg" alt="Principal signature" class="sig-image">
+              <div class="sign-line"></div>
+              <div class="sign-name" id="principalName">Richard O. Timothy</div>
+              <div class="sign-role">Principal</div>
+            </div>
+          </div>
+          <div class="next-term" aria-label="Next term information">
+            <div class="nt-label">Next Term Begins</div>
+            <div class="nt-date" id="nextTermDate">-</div>
+            <div style="margin-top:2px;" class="nt-label">Date Issued: <span id="dateIssued">-</span></div>
+          </div>
+        </div>
 
         <!-- Seal at the bottom, inside remarks -->
         <img src="seal.jpg" alt="Official Seal" class="seal-image" />
@@ -1041,6 +1038,27 @@
         table.classList.add('subjects-9-12');
       } else {
         table.classList.add('subjects-13-plus');
+      }
+    }
+
+    // Set signature images with fallback to static seal
+    function setSignatureImages(data) {
+      // Teacher signature
+      const teacherSigImg = document.getElementById('teacherSigImage');
+      if (data.teacherSignatureBase64) {
+        teacherSigImg.src = 'data:image/jpeg;base64,' + data.teacherSignatureBase64;
+      } else {
+        // Keep default seal.jpg for fallback
+        teacherSigImg.src = 'seal.jpg';
+      }
+
+      // Principal signature
+      const principalSigImg = document.getElementById('principalSigImage');
+      if (data.principalSignatureBase64) {
+        principalSigImg.src = 'data:image/jpeg;base64,' + data.principalSignatureBase64;
+      } else {
+        // Keep default seal.jpg for fallback
+        principalSigImg.src = 'seal.jpg';
       }
     }
 
@@ -1261,9 +1279,14 @@
       document.getElementById('teacherRemark').textContent = teacherRemarkValue;
       document.getElementById('principalRemark').textContent = principalRemarkValue;
       
+      // Set names
       document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
       document.getElementById('principalName').textContent = data.principalName || 'Principal';
       
+      // Set signature images with fallback to static seal.jpg
+      setSignatureImages(data);
+      
+      // Dates
       document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate) || '-';
       document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
     }
