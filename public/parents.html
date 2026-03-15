@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Parent Dashboard | Gold and Linc Schools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Inter Font + FontAwesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #3b82f6;
+      --accent-2: #6366f1;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --sidebar-w: 300px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+      --text-main: #0b2a44;
+      --text-muted: #7a90b3;
+      --primary: #2647a6;
+      --success: #18ba89;
+      --warning: #ffd600;
+      --danger: #e74c3c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      color: var(--text-main);
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* App layout */
+    .app {
+      display: flex;
+      min-height: 100vh;
+      align-items: stretch;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.28s ease;
+    }
+
+    .overlay.visible {
+      display: block;
+      opacity: 1;
+    }
+
+    /* SPINNER LOADER */
+    .loader-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      backdrop-filter: blur(2px);
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .loader-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid #eef2ff;
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loader-text {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent-2);
+      letter-spacing: 0.5px;
+    }
+
+    .loader-subtext {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
+      color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform;
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-100%);
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 700;
+      font-size: 1.18rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.96rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .nav a.active,
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+      transform: translateX(3px);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .profile img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ffe066;
+    }
+
+    .profile .name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: #ffe066;
+    }
+
+    .profile .muted {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 20px;
+      flex: 1;
+      transition: margin-left 0.28s;
+      min-height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-width: calc(100vw - var(--sidebar-w));
+      box-sizing: border-box;
+      overflow-x: hidden;
+      padding-top: 90px;
+    }
+
+    .main.full {
+      margin-left: 0;
+      max-width: 100vw;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100vw - var(--sidebar-w));
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
+      min-height: 64px;
+      max-width: 100%;
+      box-sizing: border-box;
+      transition: left 0.28s;
+    }
+
+    .topbar.full {
+      left: 0;
+      width: 100vw;
+    }
+
+    .topbar .hamburger {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.05rem;
+      transition: all 0.12s;
+    }
+
+    .topbar .hamburger:active {
+      transform: scale(0.95);
+    }
+
+    .topbar .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
+    }
+
+    .topbar .small {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    /* CARDS & GRID */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+      align-items: start;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .col-3 { grid-column: span 3; }
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: 1 / -1; }
+
+    /* Tab Navigation */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid rgba(11, 42, 60, 0.06);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 14px;
+    }
+
+    .tabs .tab {
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+      border-bottom: 3px solid transparent;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+
+    .tabs .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tabs .tab:hover {
+      color: var(--accent-2);
+    }
+
+    /* Sections */
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Child Cards */
+    .children-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      width: 100%;
+    }
+
+    .child-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 14px;
+      border: 1px solid rgba(11, 42, 60, 0.06);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .child-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--accent);
+    }
+
+    .child-card img {
+      width: 80px;
+      height: 80px;
+      border-radius: 10px;
+      object-fit: cover;
+      margin: 0 auto 10px;
+      border: 2px solid var(--accent);
+    }
+
+    .child-card .name {
+      font-weight: 700;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+    }
+
+    .child-card .class {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .child-card .status {
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-inactive { background: #fee2e2; color: #7f1d1d; }
+
+    /* Fee Table */
+    .fee-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .fee-table th {
+      background: #f8faff;
+      border: 1px solid #eef3ff;
+      padding: 10px;
+      text-align: left;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text-main);
+    }
+
+    .fee-table td {
+      border: 1px solid #eef3ff;
+      padding: 10px;
+      font-size: 0.9rem;
+    }
+
+    .fee-table tr:hover {
+      background: #fbfdff;
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .badge-pending { background: #e9f0fe; color: #2647a6; }
+    .badge-completed { background: #d1fae5; color: #065f46; }
+    .badge-overdue { background: #fee2e2; color: #7f1d1d; }
+    .badge-paid { background: #d1fae5; color: #065f46; }
+    .badge-unpaid { background: #fef3c7; color: #92400e; }
+    .badge-partial { background: #e9f0fe; color: #2647a6; }
+
+    /* Messages */
+    .messages-wrapper {
+      display: flex;
+      gap: 14px;
+      height: 400px;
+    }
+
+    .conversations {
+      width: 260px;
+      max-width: 35%;
+      min-width: 200px;
+      border-right: 1px solid #eef3ff;
+      overflow-y: auto;
+    }
+
+    .conversation-item {
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+
+    .conversation-item:hover {
+      background: #fbfdff;
+    }
+
+    .conversation-item.active {
+      background: #e9f0fe;
+      border-left: 3px solid var(--accent);
+    }
+
+    .chat {
+      flex: 1;
+      min-height: 200px;
+      border-radius: 10px;
+      overflow: auto;
+      border: 1px solid #eef3ff;
+      background: #fff;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .message {
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+
+    .message.sent {
+      align-self: flex-end;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .message.received {
+      align-self: flex-start;
+      background: #eef2ff;
+      color: var(--text-main);
+    }
+
+    /* Announcements */
+    .announcement-item {
+      padding: 12px;
+      border-left: 4px solid var(--accent);
+      background: #fbfdff;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      border: 1px solid #eef3ff;
+    }
+
+    .announcement-item .title {
+      font-weight: 700;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+    }
+
+    .announcement-item .date {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* Attendance Chart */
+    .attendance-summary {
+      display: flex;
+      gap: 14px;
+      margin: 10px 0;
+    }
+
+    .attendance-item {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      background: #f8faff;
+      border: 1px solid #eef3ff;
+    }
+
+    .attendance-item .label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .attendance-item .value {
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: var(--accent);
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn.btn-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .btn.btn-secondary:hover {
+      background: rgba(59, 130, 246, 0.04);
+    }
+
+    .btn.btn-small {
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Utilities */
+    .small {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hidden { display: none; }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .main {
+        padding: 20px 13px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+
+      .col-3 { grid-column: span 3; }
+      .col-4 { grid-column: span 3; }
+      .col-6 { grid-column: span 6; }
+      .col-8 { grid-column: span 6; }
+
+      .topbar .hamburger {
+        display: inline-flex;
+      }
+    }
+
+    @media (max-width: 720px) {
+      :root {
+        --sidebar-w: 100%;
+      }
+
+      .sidebar {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        transform: translateX(-100%);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 20px 14px;
+        padding-top: 80px;
+        max-width: 100vw;
+        width: 100%;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100vw;
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .topbar.full {
+        left: 0;
+      }
+
+      .nav a {
+        padding: 14px 14px;
+        font-size: 1.08rem;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .col-3, .col-4, .col-6, .col-8, .col-12 {
+        grid-column: auto;
+      }
+
+      .children-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .messages-wrapper {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .conversations {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #eef3ff;
+        max-height: 200px;
+      }
+
+      .fee-table {
+        font-size: 0.8rem;
+      }
+
+      .fee-table th, .fee-table td {
+        padding: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .main {
+        padding: 20px 2vw;
+        padding-top: 70px;
+      }
+
+      .topbar {
+        padding: 10px 2vw;
+        min-height: 50px;
+      }
+
+      .card {
+        padding: 10px;
+      }
+
+      .children-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs {
+        gap: 4px;
+      }
+
+      .tabs .tab {
+        padding: 8px 10px;
+        font-size: 0.85rem;
+      }
+
+      .btn {
+        font-size: 0.8rem;
+        padding: 8px 10px;
+      }
+
+      .topbar .page-title {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Loader Overlay -->
+  <div class="loader-overlay" id="loaderOverlay">
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <div class="loader-text">Loading Parent Dashboard</div>
+      <div class="loader-subtext">Please wait...</div>
+    </div>
+  </div>
+
+  <div class="app" id="app">
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
+      <div class="brand" aria-hidden="false">
+        <img src="mainlogo.png" alt="Logo">
+        <div>
+          <div class="title">ExamGuard Int'l</div>
+          <div class="subtitle">Parent Portal</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav" aria-label="Primary">
+        <a href="#" data-section="overview" class="active" onclick="navClick(event)">🏠 Overview</a>
+        <a href="#" data-section="children" onclick="navClick(event)">👨‍👩‍👧 Children</a>
+        <a href="#" data-section="grades" onclick="navClick(event)">📊 Grades</a>
+        <a href="#" data-section="attendance" onclick="navClick(event)">📅 Attendance</a>
+        <a href="#" data-section="fees" onclick="navClick(event)">💳 Fees</a>
+        <a href="#" data-section="messages" onclick="navClick(event)">✉️ Messages</a>
+        <a href="#" data-section="announcements" onclick="navClick(event)">📢 Announcements</a>
+        <a href="#" data-section="calendar" onclick="navClick(event)">🗓️ Events</a>
+        <a href="profile.html">⚙️ Settings</a>
+      </nav>
+
+      <div class="spacer"></div>
+
+      <div class="profile" role="region" aria-label="Parent profile">
+        <img src="parent-avatar.jpg" alt="Parent avatar" id="parentAvatar">
+        <div>
+          <div class="name" id="parentName">John Doe</div>
+          <div class="muted" id="parentEmail">john@example.com</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Topbar -->
+    <div class="topbar" id="fixedTopbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu" title="Toggle Menu">☰</button>
+        <div>
+          <div class="page-title" id="pageTitle">Welcome back</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="parent-avatar.jpg" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main" id="main" role="main" tabindex="-1">
+
+      <!-- OVERVIEW SECTION -->
+      <section id="overview" class="section active">
+        <div class="grid" style="margin-bottom:14px;">
+          <!-- Total Children -->
+          <div class="card col-3">
+            <div class="small muted">Total Children</div>
+            <div style="margin-top:8px; font-weight:900; font-size:1.5rem;" id="totalChildren">2</div>
+            <div class="small muted" style="margin-top:4px;">Enrolled</div>
+          </div>
+
+          <!-- Outstanding Fees -->
+          <div class="card col-3">
+            <div class="small muted">Outstanding Fees</div>
+            <div style="margin-top:8px; font-weight:900; font-size:1.5rem; color:#e74c3c;" id="outstandingFees">₦250,000</div>
+            <div class="small muted" style="margin-top:4px;">Current</div>
+          </div>
+
+          <!-- Pending Items -->
+          <div class="card col-3">
+            <div class="small muted">Pending Items</div>
+            <div style="margin-top:8px; font-weight:900; font-size:1.5rem; color:#ffd600;" id="pendingCount">3</div>
+            <div class="small muted" style="margin-top:4px;">Require attention</div>
+          </div>
+
+          <!-- Latest Announcement -->
+          <div class="card col-3">
+            <div class="small muted">Latest Update</div>
+            <div style="margin-top:8px; font-weight:700; font-size:0.95rem;" id="latestUpdate">School Reopens Soon</div>
+            <div class="small muted" style="margin-top:4px;">2 days ago</div>
+          </div>
+        </div>
+
+        <!-- Children Overview Summary -->
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:10px; font-size:1.05rem;">📚 Children Overview</div>
+          <div class="children-grid" id="childrenSummary">
+            <!-- Children rendered here -->
+            <div class="child-card" onclick="openStudentProfile(1, 'Chisom Obi')">
+              <img src="student1.jpg" alt="Student">
+              <div class="name">Chisom Obi</div>
+              <div class="class">JSS 2 Alpha</div>
+              <div class="status status-active">Active</div>
+            </div>
+            <div class="child-card" onclick="openStudentProfile(2, 'Zainab Ahmed')">
+              <img src="student2.jpg" alt="Student">
+              <div class="name">Zainab Ahmed</div>
+              <div class="class">SSS 1 Beta</div>
+              <div class="status status-active">Active</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="card" style="margin-top:14px;">
+          <div style="font-weight:700; margin-bottom:10px; font-size:1.05rem;">📈 Quick Stats</div>
+          <div class="grid">
+            <div class="col-6" style="display:grid; gap:8px;">
+              <div style="display:flex; justify-content:space-between; padding:8px; background:#fbfdff; border-radius:8px; border:1px solid #eef3ff;">
+                <span class="small">Average Score (Term)</span>
+                <span style="font-weight:700; color:var(--accent);">78.5%</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:8px; background:#fbfdff; border-radius:8px; border:1px solid #eef3ff;">
+                <span class="small">Overall Attendance</span>
+                <span style="font-weight:700; color:var(--success);">92%</span>
+              </div>
+            </div>
+            <div class="col-6" style="display:grid; gap:8px;">
+              <div style="display:flex; justify-content:space-between; padding:8px; background:#fbfdff; border-radius:8px; border:1px solid #eef3ff;">
+                <span class="small">Subjects Enrolled</span>
+                <span style="font-weight:700;">12</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:8px; background:#fbfdff; border-radius:8px; border:1px solid #eef3ff;">
+                <span class="small">Pending Assignments</span>
+                <span style="font-weight:700; color:#ffd600;">5</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHILDREN SECTION -->
+      <section id="children" class="section">
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:14px; font-size:1.1rem;">👨‍👩‍👧 All Children</div>
+          <div class="children-grid" id="allChildren">
+            <div class="child-card" onclick="openStudentProfile(1, 'Chisom Obi')">
+              <img src="student1.jpg" alt="Student">
+              <div class="name">Chisom Obi</div>
+              <div class="class">JSS 2 Alpha</div>
+              <div style="margin-top:8px; display:flex; gap:6px; justify-content:center; font-size:0.8rem;">
+                <span class="badge badge-completed">Active</span>
+              </div>
+              <div style="margin-top:8px; display:flex; gap:6px;">
+                <button class="btn btn-small" style="flex:1;" onclick="openStudentProfile(1, 'Chisom Obi'); return false;">View Profile</button>
+              </div>
+            </div>
+            <div class="child-card" onclick="openStudentProfile(2, 'Zainab Ahmed')">
+              <img src="student2.jpg" alt="Student">
+              <div class="name">Zainab Ahmed</div>
+              <div class="class">SSS 1 Beta</div>
+              <div style="margin-top:8px; display:flex; gap:6px; justify-content:center; font-size:0.8rem;">
+                <span class="badge badge-completed">Active</span>
+              </div>
+              <div style="margin-top:8px; display:flex; gap:6px;">
+                <button class="btn btn-small" style="flex:1;" onclick="openStudentProfile(2, 'Zainab Ahmed'); return false;">View Profile</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- GRADES SECTION -->
+      <section id="grades" class="section">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('term1', event)">Term 1</button>
+          <button class="tab" onclick="switchTab('term2', event)">Term 2</button>
+          <button class="tab" onclick="switchTab('term3', event)">Term 3</button>
+        </div>
+
+        <div id="term1" class="tab-content active">
+          <div class="card">
+            <div style="font-weight:700; margin-bottom:10px;">Chisom Obi - Term 1 Grades</div>
+            <table class="fee-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>CA1</th>
+                  <th>CA2</th>
+                  <th>Exam</th>
+                  <th>Total</th>
+                  <th>Grade</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Mathematics</td>
+                  <td>18</td>
+                  <td>19</td>
+                  <td>62</td>
+                  <td>99</td>
+                  <td>A</td>
+                  <td><span class="badge badge-completed">Excellent</span></td>
+                </tr>
+                <tr>
+                  <td>English Language</td>
+                  <td>16</td>
+                  <td>17</td>
+                  <td>58</td>
+                  <td>91</td>
+                  <td>B+</td>
+                  <td><span class="badge badge-completed">Good</span></td>
+                </tr>
+                <tr>
+                  <td>Biology</td>
+                  <td>15</td>
+                  <td>16</td>
+                  <td>55</td>
+                  <td>86</td>
+                  <td>B</td>
+                  <td><span class="badge badge-completed">Good</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="term2" class="tab-content" style="display:none;">
+          <div class="card">
+            <div style="font-weight:700; margin-bottom:10px;">Grades - Term 2</div>
+            <p class="small muted">Results will be available after exams.</p>
+          </div>
+        </div>
+
+        <div id="term3" class="tab-content" style="display:none;">
+          <div class="card">
+            <div style="font-weight:700; margin-bottom:10px;">Grades - Term 3</div>
+            <p class="small muted">Grades not yet released.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ATTENDANCE SECTION -->
+      <section id="attendance" class="section">
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:14px; font-size:1.05rem;">📅 Attendance Summary</div>
+
+          <div class="attendance-summary">
+            <div class="attendance-item">
+              <div class="label">Present</div>
+              <div class="value" style="color:var(--success);">87</div>
+            </div>
+            <div class="attendance-item">
+              <div class="label">Absent</div>
+              <div class="value" style="color:var(--danger);">8</div>
+            </div>
+            <div class="attendance-item">
+              <div class="label">Late</div>
+              <div class="value" style="color:var(--warning);">5</div>
+            </div>
+            <div class="attendance-item">
+              <div class="label">Attendance %</div>
+              <div class="value" style="color:var(--accent);">92%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div style="font-weight:700; margin-bottom:10px;">📋 Attendance Details (This Month)</div>
+          <table class="fee-table">
+            <thead>
+              <tr>
+                <th>Child Name</th>
+                <th>Present</th>
+                <th>Absent</th>
+                <th>Late</th>
+                <th>Attendance %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Chisom Obi</td>
+                <td><span class="badge badge-completed">22</span></td>
+                <td><span class="badge badge-pending">1</span></td>
+                <td><span class="badge badge-pending">0</span></td>
+                <td><span style="font-weight:700; color:var(--success);">96%</span></td>
+              </tr>
+              <tr>
+                <td>Zainab Ahmed</td>
+                <td><span class="badge badge-completed">20</span></td>
+                <td><span class="badge badge-pending">2</span></td>
+                <td><span class="badge badge-pending">1</span></td>
+                <td><span style="font-weight:700; color:var(--success);">87%</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FEES SECTION -->
+      <section id="fees" class="section">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('fee2024', event)">2024/2025</button>
+          <button class="tab" onclick="switchTab('fee2023', event)">2023/2024</button>
+        </div>
+
+        <div id="fee2024" class="tab-content active">
+          <div class="card">
+            <div style="font-weight:700; margin-bottom:10px; font-size:1.05rem;">💳 Fee Statement - 2024/2025</div>
+            <table class="fee-table">
+              <thead>
+                <tr>
+                  <th>Child Name</th>
+                  <th>Amount Due</th>
+                  <th>Amount Paid</th>
+                  <th>Balance</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Chisom Obi</td>
+                  <td>₦500,000</td>
+                  <td>₦250,000</td>
+                  <td><span style="font-weight:700; color:var(--danger);">₦250,000</span></td>
+                  <td><span class="badge badge-partial">Partial</span></td>
+                  <td><button class="btn btn-small">Pay Now</button></td>
+                </tr>
+                <tr>
+                  <td>Zainab Ahmed</td>
+                  <td>₦500,000</td>
+                  <td>₦500,000</td>
+                  <td><span style="font-weight:700; color:var(--success);">₦0</span></td>
+                  <td><span class="badge badge-paid">Paid</span></td>
+                  <td><button class="btn btn-small btn-secondary" disabled>Paid</button></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="margin-top:14px; padding:12px; background:#fbfdff; border-radius:8px; border-left:4px solid var(--accent);">
+              <div style="font-weight:700; margin-bottom:4px;">Summary</div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span class="small muted">Total Due</span>
+                <span style="font-weight:700;">₦1,000,000</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span class="small muted">Total Paid</span>
+                <span style="font-weight:700; color:var(--success);">₦750,000</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-top:1px solid #eef3ff; padding-top:6px;">
+                <span class="small muted">Outstanding Balance</span>
+                <span style="font-weight:700; color:var(--danger);">₦250,000</span>
+              </div>
+            </div>
+
+            <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn">💳 Pay Outstanding</button>
+              <button class="btn btn-secondary">📄 Download Invoice</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="fee2023" class="tab-content" style="display:none;">
+          <div class="card">
+            <div style="font-weight:700; margin-bottom:10px;">Previous Year Statement</div>
+            <p class="small muted">All fees for 2023/2024 have been settled. ✓</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- MESSAGES SECTION -->
+      <section id="messages" class="section">
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:10px; font-size:1.05rem;">✉️ Messages</div>
+          <div class="messages-wrapper">
+            <div class="conversations">
+              <div class="conversation-item active">
+                <div style="font-weight:700; font-size:0.9rem;">Mrs. Okafor</div>
+                <div class="small muted">Class Teacher - JSS 2</div>
+              </div>
+              <div class="conversation-item">
+                <div style="font-weight:700; font-size:0.9rem;">Mr. Aminu</div>
+                <div class="small muted">Principal</div>
+              </div>
+              <div class="conversation-item">
+                <div style="font-weight:700; font-size:0.9rem;">School Admin</div>
+                <div class="small muted">General Inquiries</div>
+              </div>
+            </div>
+            <div class="chat" id="chatWindow">
+              <div class="message received">
+                <div style="font-weight:700; font-size:0.8rem; margin-bottom:2px;">Mrs. Okafor</div>
+                <div>Good afternoon! I wanted to update you on Chisom's performance...</div>
+              </div>
+              <div class="message sent">
+                <div>Thank you for the update, ma. We'll encourage more effort.</div>
+              </div>
+              <div class="message received">
+                <div style="font-weight:700; font-size:0.8rem; margin-bottom:2px;">Mrs. Okafor</div>
+                <div>Great! He's doing well overall. Keep up the support.</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <input type="text" placeholder="Type message..." style="flex:1; padding:8px 10px; border:1px solid #eef3ff; border-radius:8px; font-size:0.9rem;">
+            <button class="btn" style="padding:8px 14px;">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ANNOUNCEMENTS SECTION -->
+      <section id="announcements" class="section">
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:10px; font-size:1.05rem;">📢 School Announcements</div>
+          <div id="announcementsList">
+            <div class="announcement-item">
+              <div class="title">🎓 Second Term Resumption</div>
+              <div class="small muted" style="margin-bottom:6px;">Posted 3 days ago</div>
+              <div style="font-size:0.9rem;">Students are expected to resume on 15th April. Parents should ensure all fees are cleared.</div>
+            </div>
+            <div class="announcement-item">
+              <div class="title">🏆 Prize-Giving Ceremony</div>
+              <div class="small muted" style="margin-bottom:6px;">Posted 1 week ago</div>
+              <div style="font-size:0.9rem;">The prize-giving ceremony is scheduled for 30th May at the school hall. All parents are invited.</div>
+            </div>
+            <div class="announcement-item">
+              <div class="title">📚 Library Extended Hours</div>
+              <div class="small muted" style="margin-bottom:6px;">Posted 2 weeks ago</div>
+              <div style="font-size:0.9rem;">The school library will now be open until 5:00 PM on weekdays to support students' studies.</div>
+            </div>
+            <div class="announcement-item">
+              <div class="title">⚽ Sports Day Registration</div>
+              <div class="small muted" style="margin-bottom:6px;">Posted 3 weeks ago</div>
+              <div style="font-size:0.9rem;">Sports day is coming up! Students should register with their house captains by 28th April.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CALENDAR SECTION -->
+      <section id="calendar" class="section">
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:10px; font-size:1.05rem;">🗓️ Upcoming Events</div>
+          <table class="fee-table" style="margin-top:10px;">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Event</th>
+                <th>Type</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>15-Apr-2025</td>
+                <td>Second Term Resumption</td>
+                <td><span class="badge badge-pending">Academic</span></td>
+                <td>Students resume for second term</td>
+              </tr>
+              <tr>
+                <td>20-Apr-2025</td>
+                <td>Parent-Teacher Meeting</td>
+                <td><span class="badge badge-pending">Meeting</span></td>
+                <td>10:00 AM - School Hall</td>
+              </tr>
+              <tr>
+                <td>28-Apr-2025</td>
+                <td>Sports Day Registration Deadline</td>
+                <td><span class="badge badge-pending">Sports</span></td>
+                <td>Last day to register for sports</td>
+              </tr>
+              <tr>
+                <td>30-May-2025</td>
+                <td>Prize-Giving Ceremony</td>
+                <td><span class="badge badge-completed">Event</span></td>
+                <td>2:00 PM - School Hall</td>
+              </tr>
+              <tr>
+                <td>15-Jun-2025</td>
+                <td>End of Term Exams</td>
+                <td><span class="badge badge-pending">Academic</span></td>
+                <td>Final exams commence</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      hideLoader();
+      setupEventListeners();
+    });
+
+    // Hide loader after 500ms
+    function hideLoader() {
+      setTimeout(() => {
+        const loader = document.getElementById('loaderOverlay');
+        loader.classList.add('hidden');
+      }, 500);
+    }
+
+    // Setup all event listeners
+    function setupEventListeners() {
+      const hamburger = document.getElementById('hamburger');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+
+      // Hamburger click
+      hamburger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSidebar();
+      });
+
+      // Overlay click
+      overlay.addEventListener('click', closeSidebar);
+
+      // Close sidebar when clicking outside on mobile
+      document.addEventListener('click', (e) => {
+        if (window.innerWidth < 720) {
+          const isClickInsideSidebar = sidebar.contains(e.target);
+          const isClickOnHamburger = hamburger.contains(e.target);
+          
+          if (!isClickInsideSidebar && !isClickOnHamburger && sidebar.classList.contains('open')) {
+            closeSidebar();
+          }
+        }
+      });
+
+      // Close sidebar on nav link click (mobile)
+      document.querySelectorAll('.nav a').forEach(link => {
+        link.addEventListener('click', () => {
+          if (window.innerWidth < 720) {
+            closeSidebar();
+          }
+        });
+      });
+
+      // Handle resize
+      window.addEventListener('resize', () => {
+        if (window.innerWidth >= 720) {
+          document.getElementById('sidebar').classList.remove('open');
+          document.getElementById('sidebar').classList.remove('hidden');
+          document.getElementById('overlay').classList.remove('visible');
+          document.body.classList.remove('no-scroll');
+        }
+      });
+    }
+
+    // Toggle sidebar
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+      
+      const isOpen = sidebar.classList.contains('open');
+      
+      if (isOpen) {
+        closeSidebar();
+      } else {
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('open');
+        overlay.classList.add('visible');
+        document.body.classList.add('no-scroll');
+      }
+    }
+
+    // Close sidebar
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+      
+      sidebar.classList.remove('open');
+      if (window.innerWidth < 720) {
+        sidebar.classList.add('hidden');
+      }
+      overlay.classList.remove('visible');
+      document.body.classList.remove('no-scroll');
+    }
+
+    // Navigation click
+    function navClick(event) {
+      event.preventDefault();
+      const target = event.target.closest('a');
+      const section = target.getAttribute('data-section');
+
+      if (!section) return;
+
+      // Update active nav
+      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+      target.classList.add('active');
+
+      // Update page title
+      const titles = {
+        overview: 'Parent Dashboard',
+        children: 'Children',
+        grades: 'Grades & Results',
+        attendance: 'Attendance',
+        fees: 'Fees & Payments',
+        messages: 'Messages',
+        announcements: 'Announcements',
+        calendar: 'School Calendar'
+      };
+
+      document.getElementById('pageTitle').textContent = titles[section] || 'Dashboard';
+
+      // Show section
+      showSection(section);
+    }
+
+    // Show section
+    function showSection(sectionId) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      const section = document.getElementById(sectionId);
+      if (section) {
+        section.classList.add('active');
+      }
+    }
+
+    // Switch tabs
+    function switchTab(tabId, event) {
+      event.preventDefault();
+      const clickedTab = event.target;
+
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
+
+      // Remove active from all tabs
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+      // Show selected tab content
+      const tabContent = document.getElementById(tabId);
+      if (tabContent) {
+        tabContent.style.display = 'block';
+      }
+
+      // Mark tab as active
+      clickedTab.classList.add('active');
+    }
+
+    // Open student profile page
+    function openStudentProfile(studentId, studentName) {
+      // Store student info in sessionStorage for the dedicated page
+      sessionStorage.setItem('selectedStudent', JSON.stringify({
+        id: studentId,
+        name: studentName
+      }));
+      
+      // Navigate to student detail page
+      window.location.href = `student-detail.html?id=${studentId}&name=${encodeURIComponent(studentName)}`;
+    }
+  </script>
+</body>
+</html>
