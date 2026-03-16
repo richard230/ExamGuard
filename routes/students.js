@@ -6,7 +6,6 @@ const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const studentAuthMiddleware = require('../middleware/studentAuth');
 const adminAuth = require('../middleware/adminAuth');
-const { authenticate, authorize } = require('../middleware/auth');
 const Student = require('../models/Student');
 
 // Multer setup for photo uploads
