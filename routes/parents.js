@@ -3,12 +3,11 @@ const router = express.Router();
 const Parent = require('../models/Parent');
 const Student = require('../models/Student');
 const bcrypt = require('bcryptjs');
-const { authenticate, authorize } = require('../middleware/auth');
 
 /**
  * GET all parents (Admin only)
  */
-router.get('/', authenticate, authorize(['admin']), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 20, search } = req.query;
     const skip = (page - 1) * limit;
@@ -47,7 +46,7 @@ router.get('/', authenticate, authorize(['admin']), async (req, res) => {
 /**
  * GET parent by ID
  */
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const parent = await Parent.findById(req.params.id)
       .select('-password -temporaryPassword')
@@ -63,7 +62,7 @@ router.get('/:id', authenticate, async (req, res) => {
 /**
  * GET logged-in parent profile
  */
-router.get('/me/profile', authenticate, async (req, res) => {
+router.get('/me/profile', async (req, res) => {
   try {
     const parent = await Parent.findById(req.user.id)
       .select('-password -temporaryPassword')
@@ -79,7 +78,7 @@ router.get('/me/profile', authenticate, async (req, res) => {
 /**
  * GET parent's assigned students
  */
-router.get('/me/students', authenticate, async (req, res) => {
+router.get('/me/students', async (req, res) => {
   try {
     const parent = await Parent.findById(req.user.id).populate('studentIds');
     
@@ -94,7 +93,7 @@ router.get('/me/students', authenticate, async (req, res) => {
 /**
  * CREATE parent (Admin only)
  */
-router.post('/', authenticate, authorize(['admin']), async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, email, phone, address, occupation, emergencyContactName, emergencyContactPhone, families, studentIds } = req.body;
 
@@ -144,7 +143,7 @@ router.post('/', authenticate, authorize(['admin']), async (req, res) => {
 /**
  * UPDATE parent (Admin or self)
  */
-router.patch('/:id', authenticate, async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
     const { name, phone, address, occupation, emergencyContactName, emergencyContactPhone, families, studentIds, status } = req.body;
 
@@ -184,7 +183,7 @@ router.patch('/:id', authenticate, async (req, res) => {
 /**
  * UPDATE parent profile (Self only)
  */
-router.patch('/me/profile', authenticate, async (req, res) => {
+router.patch('/me/profile', async (req, res) => {
   try {
     const { name, phone, address, occupation, emergencyContactName, emergencyContactPhone, profilePhoto } = req.body;
 
@@ -213,7 +212,7 @@ router.patch('/me/profile', authenticate, async (req, res) => {
 /**
  * ASSIGN students to parent
  */
-router.post('/:id/assign-students', authenticate, authorize(['admin']), async (req, res) => {
+router.post('/:id/assign-students', async (req, res) => {
   try {
     const { studentIds } = req.body;
 
@@ -244,7 +243,7 @@ router.post('/:id/assign-students', authenticate, authorize(['admin']), async (r
 /**
  * CHANGE parent password
  */
-router.post('/:id/change-password', authenticate, async (req, res) => {
+router.post('/:id/change-password', async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
@@ -279,7 +278,7 @@ router.post('/:id/change-password', authenticate, async (req, res) => {
 /**
  * RESET parent password (Admin only)
  */
-router.post('/:id/reset-password', authenticate, authorize(['admin']), async (req, res) => {
+router.post('/:id/reset-password', async (req, res) => {
   try {
     const { newPassword } = req.body;
 
@@ -309,7 +308,7 @@ router.post('/:id/reset-password', authenticate, authorize(['admin']), async (re
 /**
  * DELETE parent (Admin only)
  */
-router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const parent = await Parent.findByIdAndDelete(req.params.id);
     
@@ -324,7 +323,7 @@ router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
 /**
  * GET parent by student ID (Find parent(s) of a student)
  */
-router.get('/student/:studentId', authenticate, async (req, res) => {
+router.get('/student/:studentId', async (req, res) => {
   try {
     const parents = await Parent.find({ studentIds: req.params.studentId })
       .select('-password -temporaryPassword')
@@ -339,7 +338,7 @@ router.get('/student/:studentId', authenticate, async (req, res) => {
 /**
  * UPDATE notification preferences
  */
-router.patch('/:id/notifications', authenticate, async (req, res) => {
+router.patch('/:id/notifications', async (req, res) => {
   try {
     const { email, sms, inApp } = req.body;
 
