@@ -13,7 +13,7 @@ export function authenticate(req, res, next) {
   }
 }
 
-export function authorizeRole(...roles) {
+export function authorize(...roles) {
   return (req, res, next) => {
     // Defensive: check req.user exists
     if (!req.user || !req.user.role) {
