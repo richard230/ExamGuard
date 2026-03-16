@@ -333,7 +333,7 @@ router.get('/', async (req, res) => {
  * GET /api/students/:id
  * Get student by ID
  */
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     let student = await Student.findById(req.params.id);
     
@@ -361,7 +361,7 @@ router.get('/:id', authenticate, async (req, res) => {
  * GET /api/students/:id/grades
  * Get student grades
  */
-router.get('/:id/grades', authenticate, async (req, res) => {
+router.get('/:id/grades', async (req, res) => {
   try {
     let student = await Student.findById(req.params.id);
     
@@ -389,7 +389,7 @@ router.get('/:id/grades', authenticate, async (req, res) => {
  * GET /api/students/:id/attendance
  * Get student attendance
  */
-router.get('/:id/attendance', authenticate, async (req, res) => {
+router.get('/:id/attendance', async (req, res) => {
   try {
     let student = await Student.findById(req.params.id);
     
@@ -435,7 +435,7 @@ router.get('/:id/attendance', authenticate, async (req, res) => {
  * GET /api/students/:id/fees
  * Get student fees
  */
-router.get('/:id/fees', authenticate, async (req, res) => {
+router.get('/:id/fees', async (req, res) => {
   try {
     let student = await Student.findById(req.params.id);
     
@@ -521,7 +521,7 @@ router.get('/alumni/list', async (req, res) => {
  * PATCH /api/students/:studentId/promote
  * Promote or demote student
  */
-router.patch('/:studentId/promote', authenticate, authorize(['admin']), async (req, res) => {
+router.patch('/:studentId/promote', async (req, res) => {
   try {
     const { action } = req.body;
     const studentId = req.params.studentId;
@@ -579,7 +579,7 @@ router.patch('/:studentId/promote', authenticate, authorize(['admin']), async (r
  * PATCH /api/students/bulk/promote
  * Bulk promote or demote students
  */
-router.patch('/bulk/promote', authenticate, authorize(['admin']), async (req, res) => {
+router.patch('/bulk/promote', async (req, res) => {
   try {
     const { studentIds, action } = req.body;
     
@@ -646,7 +646,7 @@ router.patch('/bulk/promote', authenticate, authorize(['admin']), async (req, re
  * POST /api/students/:regNo/academic
  * Add academic record for a student
  */
-router.post('/:regNo/academic', authenticate, authorize(['admin', 'teacher']), async (req, res) => {
+router.post('/:regNo/academic', async (req, res) => {
   try {
     const regNo = req.params.regNo;
     const academicEntry = req.body;
@@ -675,7 +675,7 @@ router.post('/:regNo/academic', authenticate, authorize(['admin', 'teacher']), a
  * POST /api/students/:regNo/attendance
  * Add attendance record
  */
-router.post('/:regNo/attendance', authenticate, authorize(['admin', 'teacher']), async (req, res) => {
+router.post('/:regNo/attendance', async (req, res) => {
   try {
     const regNo = req.params.regNo;
     const attendanceEntry = req.body;
@@ -704,7 +704,7 @@ router.post('/:regNo/attendance', authenticate, authorize(['admin', 'teacher']),
  * POST /api/students/:regNo/fees
  * Add fee record
  */
-router.post('/:regNo/fees', authenticate, authorize(['admin']), async (req, res) => {
+router.post('/:regNo/fees', async (req, res) => {
   try {
     const regNo = req.params.regNo;
     const feeEntry = req.body;
@@ -742,7 +742,7 @@ router.post('/:regNo/fees', authenticate, authorize(['admin']), async (req, res)
  * POST /api/students/:regNo/skills-report
  * Add or update skills report
  */
-router.post('/:regNo/skills-report', authenticate, authorize(['admin', 'teacher']), async (req, res) => {
+router.post('/:regNo/skills-report', async (req, res) => {
   try {
     const regNo = req.params.regNo;
     const { session, term, skills, attendance, comment } = req.body;
@@ -786,7 +786,7 @@ router.post('/:regNo/skills-report', authenticate, authorize(['admin', 'teacher'
  * GET /api/students/:regNo/skills-report
  * Get skills report for a student
  */
-router.get('/:regNo/skills-report', authenticate, async (req, res) => {
+router.get('/:regNo/skills-report', async (req, res) => {
   try {
     const regNo = req.params.regNo;
     const student = await Student.findOne({ regNo });
@@ -979,7 +979,7 @@ router.post('/me/change-password', studentAuthMiddleware, async (req, res) => {
  * PUT /api/students/:studentId
  * Update student profile (admin only)
  */
-router.put('/:studentId', authenticate, authorize(['admin']), upload.single('photo'), async (req, res) => {
+router.put('/:studentId', upload.single('photo'), async (req, res) => {
   try {
     const { studentId } = req.params;
     
@@ -1023,7 +1023,7 @@ router.put('/:studentId', authenticate, authorize(['admin']), upload.single('pho
  * DELETE /api/students/:studentId
  * Delete student (admin only)
  */
-router.delete('/:studentId', authenticate, authorize(['admin']), async (req, res) => {
+router.delete('/:studentId', async (req, res) => {
   try {
     const { studentId } = req.params;
     
