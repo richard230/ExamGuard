@@ -6,13 +6,13 @@ const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const studentAuthMiddleware = require('../middleware/studentAuth');
 const adminAuth = require('../middleware/adminAuth');
-const Student = require('../models/Student');
+const Student = require('../models/Student'); // Mongoose model
 
-// Multer setup for photo uploads
+// Multer setup for photo uploads (limit size to 2MB, accept only images/docs)
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   fileFilter: (req, file, cb) => {
     if (
       file.mimetype.startsWith('image/') ||
@@ -42,75 +42,13 @@ function generateScratchCard() {
   return card;
 }
 
-// Helper function to format student data with both naming conventions
-function formatStudentData(student) {
-  const fullName = `${student.firstname || ''} ${student.surname || ''}`.trim();
-  
-  return {
-    _id: student._id,
-    student_id: student.student_id,
-    // Both naming conventions
-    firstName: student.firstname || '',
-    firstname: student.firstname || '',
-    lastName: student.surname || '',
-    surname: student.surname || '',
-    name: fullName,
-    fullName: fullName,
-    // Registration
-    regNo: student.regNo,
-    admissionNo: student.regNo,
-    scratchCard: student.scratchCard,
-    // Class info
-    className: student.class || '',
-    class: student.class || '',
-    classArm: student.classArm || '',
-    // Personal info
-    gender: student.gender || '',
-    dob: student.dob || '',
-    dateOfBirth: student.dob || '',
-    othernames: student.othernames || '',
-    nationality: student.nationality || '',
-    state: student.state || '',
-    lga: student.lga || '',
-    address: student.address || '',
-    religion: student.religion || '',
-    bloodGroup: student.bloodGroup || '',
-    genotype: student.genotype || '',
-    medical: student.medical || '',
-    // Contact info
-    email: student.studentEmail || '',
-    studentEmail: student.studentEmail || '',
-    phone: student.studentPhone || '',
-    studentPhone: student.studentPhone || '',
-    // Parent info
-    parentName: student.parentName || '',
-    parentPhone: student.parentPhone || '',
-    parentRelationship: student.parentRelationship || '',
-    parentEmail: student.parentEmail || '',
-    parentAddress: student.parentAddress || '',
-    parentOccupation: student.parentOccupation || '',
-    // School info
-    previousSchool: student.previousSchool || '',
-    admissionDate: student.admissionDate || '',
-    academicSession: student.academicSession || '',
-    // Photo
-    photoBase64: student.photoBase64 || '',
-    profilePhoto: student.photoBase64 || '',
-    // Status
-    status: student.status || 'active',
-    // Timestamps
-    createdAt: student.createdAt,
-    updatedAt: student.updatedAt
-  };
-}
-
-// Joi validation schema for enrollment
+// --- Joi validation schema for enrollment ---
 const studentSchema = Joi.object({
   surname: Joi.string().required(),
   firstname: Joi.string().required(),
   dob: Joi.string().required(),
   gender: Joi.string().required(),
-  scratchCard: Joi.string().length(8).alphanum().allow(''),
+  scratchCard: Joi.string().length(8).alphanum().required(),
   class: Joi.string().required(),
   parentName: Joi.string().required(),
   parentRelationship: Joi.string().required(),
@@ -136,31 +74,7 @@ const studentSchema = Joi.object({
   medical: Joi.string().allow('')
 });
 
-// Joi validation schema for updates
-const updateSchema = Joi.object({
-  surname: Joi.string(),
-  firstname: Joi.string(),
-  othernames: Joi.string().allow(''),
-  dob: Joi.string(),
-  gender: Joi.string(),
-  nationality: Joi.string().allow(''),
-  state: Joi.string().allow(''),
-  lga: Joi.string().allow(''),
-  address: Joi.string().allow(''),
-  class: Joi.string(),
-  classArm: Joi.string().allow(''),
-  studentEmail: Joi.string().allow(''),
-  studentPhone: Joi.string().allow(''),
-  religion: Joi.string().allow(''),
-  bloodGroup: Joi.string().allow(''),
-  genotype: Joi.string().allow(''),
-  medical: Joi.string().allow('')
-});
-
-/**
- * POST /api/students
- * Enroll a new student
- */
+// --- Enroll a new student ---
 router.post('/', upload.single('photo'), async (req, res) => {
   try {
     if (!req.body.scratchCard || req.body.scratchCard.length !== 8) {
@@ -172,6 +86,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
     if (error) return res.status(400).json({ error: error.details[0].message });
 
     const year = new Date().getFullYear();
+    // Get highest regNo for this year
     const lastStudent = await Student.findOne({ regNo: { $regex: `^${year}/` } })
       .sort({ regNo: -1 })
       .exec();
@@ -185,10 +100,12 @@ router.post('/', upload.single('photo'), async (req, res) => {
     }
     const regNo = `${year}/${String(nextSerial).padStart(4, '0')}`;
 
+    // Ensure regNo and student_id are unique
     if (await Student.exists({ regNo })) {
-      return res.status(400).json({ error: 'A student with that registration number already exists.' });
+      return res.status(400).json({ error: 'A student with that registration number already exists. Please try again.' });
     }
 
+    // Ensure scratchCard is unique
     let scratchCard = data.scratchCard;
     let tries = 0;
     while (await Student.exists({ scratchCard }) && tries < 5) {
@@ -196,15 +113,15 @@ router.post('/', upload.single('photo'), async (req, res) => {
       tries++;
     }
     if (tries === 5 && await Student.exists({ scratchCard })) {
-      return res.status(400).json({ error: 'Could not generate a unique scratch card.' });
+      return res.status(400).json({ error: 'Could not generate a unique scratch card. Please try again.' });
     }
 
     let student_id = data.student_id || generateStudentId();
     if (await Student.exists({ student_id })) {
       return res.status(400).json({ error: 'A student with that student ID already exists.' });
     }
-
     const hashedPassword = await bcrypt.hash(data.password, 10);
+
     const admissionDate = data.admissionDate ? new Date(data.admissionDate) : undefined;
 
     let photoBase64 = '';
@@ -244,7 +161,6 @@ router.post('/', upload.single('photo'), async (req, res) => {
       genotype: data.genotype || '',
       medical: data.medical || '',
       password: hashedPassword,
-      status: 'active',
       academic: [],
       attendance: [],
       guardians: [],
@@ -252,27 +168,129 @@ router.post('/', upload.single('photo'), async (req, res) => {
       transport: {},
       fees: [],
       docs: [],
-      skillsReports: [],
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
-    const createdStudent = await Student.create(studentDoc);
-    res.status(201).json({
-      message: 'Student enrolled successfully!',
-      regNo,
-      student: formatStudentData(createdStudent)
-    });
+    await Student.create(studentDoc);
+    res.status(201).json({ message: 'Student enrolled successfully!', regNo });
   } catch (error) {
     console.error('[ENROLL ERROR]', error);
     res.status(500).json({ error: error.message || 'Unknown server error.' });
   }
 });
+// --- Get logged-in student's hostel info ---
+router.get('/me/hostel', studentAuthMiddleware, async (req, res) => {
+  try {
+    const student = req.student;
+    res.json(student.hostel || {});
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
 
-/**
- * GET /api/students
- * Get students with filtering and pagination
- */
+// PATCH /api/students/:studentId/promote
+router.patch('/:studentId/promote', async (req, res) => {
+  try {
+    const { action } = req.body; // 'promote', 'demote', 'graduate'
+    const studentId = req.params.studentId;
+    let student = await Student.findOne({ student_id: studentId }) || await Student.findOne({ regNo: studentId });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Classes order - update this list as per your school's structure
+    const classesOrder = ["Creche", "Nursery 1", "Nursery 2", "Nursery 3", "Primary 1", "Primary 2","Primary 3", "Primary 4", "Primary 5", "JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
+    let newStatus;
+
+    if (action === 'promote') {
+      // Find current class index
+      let idx = classesOrder.indexOf(student.class);
+      if (idx >= 0 && idx < classesOrder.length - 1) {
+        student.class = classesOrder[idx + 1]; // Move to next class
+        newStatus = 'Promoted';
+      } else if (idx === classesOrder.length - 1) {
+        // Last class, promote means graduate
+        newStatus = 'Graduated';
+      } else {
+        return res.status(400).json({ error: 'Cannot promote: class not recognized.' });
+      }
+    } else if (action === 'demote') {
+      let idx = classesOrder.indexOf(student.class);
+      if (idx > 0) {
+        student.class = classesOrder[idx - 1]; // Move to previous class
+        newStatus = 'Pending';
+      } else if (idx === 0) {
+        // Already at lowest, can't demote further
+        newStatus = 'Pending';
+      } else {
+        return res.status(400).json({ error: 'Cannot demote: class not recognized.' });
+      }
+    } else if (action === 'graduate') {
+      newStatus = 'Graduated';
+      // Optionally set class to null or a graduated value
+      student.class = "Graduated";
+    } else {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    student.status = newStatus;
+    await student.save();
+    res.json({ message: `Student ${action}d successfully!`, status: newStatus, class: student.class });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Optionally for bulk actions
+router.patch('/bulk/promote', async (req, res) => {
+  try {
+    const { studentIds, action } = req.body; // array of ids, action
+    if (!Array.isArray(studentIds) || !action) return res.status(400).json({ error: 'studentIds and action required' });
+
+    // Classes order - update this list as per your school's structure
+    const classesOrder = ["JSS 1", "JSS 2", "JSS 3", "SSS 1", "SSS 2", "SSS 3"];
+    let newStatus;
+
+    let bulkUpdates = [];
+    for (const studentId of studentIds) {
+      let student = await Student.findOne({ student_id: studentId }) || await Student.findOne({ regNo: studentId });
+      if (!student) continue;
+      if (action === 'promote') {
+        let idx = classesOrder.indexOf(student.class);
+        if (idx >= 0 && idx < classesOrder.length - 1) {
+          student.class = classesOrder[idx + 1];
+          newStatus = 'Promoted';
+        } else if (idx === classesOrder.length - 1) {
+          newStatus = 'Graduated';
+        } else {
+          continue;
+        }
+      } else if (action === 'demote') {
+        let idx = classesOrder.indexOf(student.class);
+        if (idx > 0) {
+          student.class = classesOrder[idx - 1];
+          newStatus = 'Pending';
+        } else if (idx === 0) {
+          newStatus = 'Pending';
+        } else {
+          continue;
+        }
+      } else if (action === 'graduate') {
+        newStatus = 'Graduated';
+        student.class = "Graduated";
+      } else {
+        continue;
+      }
+      student.status = newStatus;
+      await student.save();
+      bulkUpdates.push(student.student_id);
+    }
+
+    res.json({ message: `Bulk ${action} completed!`, updatedCount: bulkUpdates.length, updated: bulkUpdates });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// --- Get students (with filtering, pagination) ---
 router.get('/', async (req, res) => {
   try {
     let query = {};
@@ -288,39 +306,50 @@ router.get('/', async (req, res) => {
       if (req.query.class) query.class = req.query.class;
       if (req.query.classArm) query.classArm = req.query.classArm;
       if (req.query.academicSession) query.academicSession = req.query.academicSession;
-      if (req.query.search) {
-        const search = req.query.search.trim();
-        query.$or = [
-          { firstname: { $regex: search, $options: 'i' } },
-          { surname: { $regex: search, $options: 'i' } },
-          { regNo: { $regex: search, $options: 'i' } },
-          { studentEmail: { $regex: search, $options: 'i' } }
-        ];
-      }
     }
 
     let students;
     if (directLookup) {
       students = await Student.find(query).limit(1);
     } else {
-      const pageSize = parseInt(req.query.pageSize) || 100;
-      const page = parseInt(req.query.page) || 1;
-      const skip = (page - 1) * pageSize;
-      const sort = { surname: 1, firstname: 1 };
-
-      students = await Student.find(query)
-        .sort(sort)
-        .skip(skip)
-        .limit(pageSize);
+      const pageSize = parseInt(req.query.pageSize) || 20000;
+      const sort = { surname: 1 };
+      if (req.query.startAfter) {
+        students = await Student.find({ ...query, surname: { $gt: req.query.startAfter } }).sort(sort).limit(pageSize);
+      } else {
+        students = await Student.find(query).sort(sort).limit(pageSize);
+      }
     }
 
-    const total = await Student.countDocuments(query);
-
     res.json({
-      data: students.map(formatStudentData),
-      total,
-      page: req.query.page || 1,
-      pageSize: req.query.pageSize || 100
+      students: students.map(d => ({
+        student_id: d.student_id,
+        surname: d.surname,
+        firstname: d.firstname,
+        othernames: d.othernames || '',
+        regNo: d.regNo,
+        scratchCard: d.scratchCard,
+        class: d.class,
+        classArm: d.classArm,
+        gender: d.gender,
+        dob: d.dob,
+        parentName: d.parentName,
+        parentPhone: d.parentPhone,
+        parentRelationship: d.parentRelationship,
+        parentEmail: d.parentEmail,
+        parentAddress: d.parentAddress,
+        parentOccupation: d.parentOccupation,
+        studentEmail: d.studentEmail,
+        studentPhone: d.studentPhone,
+        nationality: d.nationality,
+        state: d.state,
+        lga: d.lga,
+        previousSchool: d.previousSchool,
+        admissionDate: d.admissionDate,
+        academicSession: d.academicSession,
+        photoBase64: d.photoBase64 || '',
+      })),
+      lastVisible: students.length ? students[students.length - 1].surname : null
     });
   } catch (error) {
     console.error('[GET STUDENTS ERROR]', error);
@@ -328,174 +357,21 @@ router.get('/', async (req, res) => {
   }
 });
 
-/**
- * GET /api/students/:id
- * Get student by ID
- */
-router.get('/:id', async (req, res) => {
-  try {
-    let student = await Student.findById(req.params.id);
-    
-    if (!student) {
-      student = await Student.findOne({ 
-        $or: [
-          { student_id: req.params.id },
-          { regNo: req.params.id }
-        ]
-      });
-    }
-
-    if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-
-    res.json(formatStudentData(student));
-  } catch (error) {
-    console.error('[GET STUDENT ERROR]', error);
-    res.status(500).json({ error: error.message });
-  }
+// --- Get logged-in student profile ---
+router.get('/me', studentAuthMiddleware, async (req, res) => {
+  const student = req.student;
+  const { password, ...safeProfile } = student.toObject ? student.toObject() : student;
+  res.json({
+    ...safeProfile,
+    name: `${student.firstname} ${student.surname}`,
+    photo_url: student.photoBase64 || ''
+  });
 });
-
-/**
- * GET /api/students/:id/grades
- * Get student grades
- */
-router.get('/:id/grades', async (req, res) => {
+// GET /api/alumni - Return only alumni (students with status and class as Graduated)
+router.get('/alumni', async (req, res) => {
   try {
-    let student = await Student.findById(req.params.id);
-    
-    if (!student) {
-      student = await Student.findOne({
-        $or: [
-          { student_id: req.params.id },
-          { regNo: req.params.id }
-        ]
-      });
-    }
-
-    if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-
-    res.json(student.academic || []);
-  } catch (error) {
-    console.error('[GET GRADES ERROR]', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/students/:id/attendance
- * Get student attendance
- */
-router.get('/:id/attendance', async (req, res) => {
-  try {
-    let student = await Student.findById(req.params.id);
-    
-    if (!student) {
-      student = await Student.findOne({
-        $or: [
-          { student_id: req.params.id },
-          { regNo: req.params.id }
-        ]
-      });
-    }
-
-    if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-
-    const attendance = student.attendance || [];
-    
-    // Calculate summary
-    let totalPresent = 0;
-    let totalAbsent = 0;
-    let totalLate = 0;
-
-    attendance.forEach(record => {
-      totalPresent += record.present || 0;
-      totalAbsent += record.absent || 0;
-      totalLate += record.late || 0;
-    });
-
-    res.json({
-      present: totalPresent,
-      absent: totalAbsent,
-      late: totalLate,
-      records: attendance
-    });
-  } catch (error) {
-    console.error('[GET ATTENDANCE ERROR]', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/students/:id/fees
- * Get student fees
- */
-router.get('/:id/fees', async (req, res) => {
-  try {
-    let student = await Student.findById(req.params.id);
-    
-    if (!student) {
-      student = await Student.findOne({
-        $or: [
-          { student_id: req.params.id },
-          { regNo: req.params.id }
-        ]
-      });
-    }
-
-    if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-
-    res.json(student.fees || []);
-  } catch (error) {
-    console.error('[GET FEES ERROR]', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/students/me/profile
- * Get logged-in student profile
- */
-router.get('/me/profile', studentAuthMiddleware, async (req, res) => {
-  try {
-    const student = req.student;
-    res.json(formatStudentData(student));
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/students/me/hostel
- * Get logged-in student's hostel info
- */
-router.get('/me/hostel', studentAuthMiddleware, async (req, res) => {
-  try {
-    const student = req.student;
-    res.json(student.hostel || {});
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Server error.' });
-  }
-});
-
-/**
- * GET /api/students/alumni
- * Get all alumni (graduated students)
- */
-router.get('/alumni/list', async (req, res) => {
-  try {
-    let query = { status: "Graduated", class: "Graduated" };
-    
-    if (req.query.year) {
-      query.academicSession = req.query.year;
-    }
-    
+    let query = { status: "Pending", class: "Graduated" };
+    if (req.query.year) query.graduationYear = req.query.year;
     if (req.query.search) {
       const search = req.query.search.trim();
       query.$or = [
@@ -504,369 +380,178 @@ router.get('/alumni/list', async (req, res) => {
         { regNo: { $regex: search, $options: "i" } }
       ];
     }
+    const alumni = await Student.find(query).sort({ graduationYear: -1, surname: 1 });
+    res.json({
+      students: alumni.map(stu => ({
+        student_id: stu.student_id,
+        regNo: stu.regNo,
+        firstname: stu.firstname,
+        surname: stu.surname,
+        name: `${stu.firstname} ${stu.surname}`,
+        class: stu.class,
+        graduationYear: stu.graduationYear || stu.academicSession,
+        achievement: stu.achievement || "",
+        remark: stu.remark || "",
+        report: stu.report || "",
+        photoBase64: stu.photoBase64 || "",
+        photo_url: stu.photo_url || "",
+        academicSession: stu.academicSession || ""
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// GET /api/alumni - Get only graduated students
+router.get('/mni', async (req, res) => {
+  try {
+    const { search, graduationYear } = req.query;
+    let query = { status: "Graduated" };
+    if (search) {
+      query.$or = [
+        { surname: { $regex: search, $options: "i" } },
+        { firstname: { $regex: search, $options: "i" } },
+        { regNo: { $regex: search, $options: "i" } }
+      ];
+    }
+    if (graduationYear) query.academicSession = graduationYear;
 
     const students = await Student.find(query).sort({ academicSession: -1, surname: 1 });
-
     res.json({
-      data: students.map(formatStudentData),
-      total: students.length
+      students: students.map(d => ({
+        student_id: d.student_id,
+        regNo: d.regNo,
+        surname: d.surname,
+        firstname: d.firstname,
+        othernames: d.othernames || '',
+        class: d.class,
+        academicSession: d.academicSession,
+        graduationYear: d.academicSession,
+        achievement: d.achievement || '',
+        remark: d.remark || '',
+        report: d.report || '',
+        photoBase64: d.photoBase64 || '',
+        photo_url: d.photoBase64 || '',
+        status: d.status
+      }))
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
-/**
- * PATCH /api/students/:studentId/promote
- * Promote or demote student
- */
-router.patch('/:studentId/promote', async (req, res) => {
-  try {
-    const { action } = req.body;
-    const studentId = req.params.studentId;
-    
-    let student = await Student.findOne({ student_id: studentId });
-    if (!student) {
-      student = await Student.findOne({ regNo: studentId });
-    }
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-
-    const classesOrder = ["Creche", "Nursery 1", "Nursery 2", "Nursery 3", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
-    let newStatus;
-
-    if (action === 'promote') {
-      let idx = classesOrder.indexOf(student.class);
-      if (idx >= 0 && idx < classesOrder.length - 1) {
-        student.class = classesOrder[idx + 1];
-        newStatus = 'Promoted';
-      } else if (idx === classesOrder.length - 1) {
-        student.status = 'Graduated';
-        student.class = "Graduated";
-        newStatus = 'Graduated';
-      } else {
-        return res.status(400).json({ error: 'Cannot promote: class not recognized.' });
-      }
-    } else if (action === 'demote') {
-      let idx = classesOrder.indexOf(student.class);
-      if (idx > 0) {
-        student.class = classesOrder[idx - 1];
-        newStatus = 'Demoted';
-      } else {
-        return res.status(400).json({ error: 'Cannot demote: student already in lowest class.' });
-      }
-    } else if (action === 'graduate') {
-      student.status = 'Graduated';
-      student.class = "Graduated";
-      newStatus = 'Graduated';
-    } else {
-      return res.status(400).json({ error: 'Invalid action' });
-    }
-
-    await student.save();
-    res.json({
-      message: `Student ${action}d successfully!`,
-      status: newStatus,
-      class: student.class,
-      student: formatStudentData(student)
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * PATCH /api/students/bulk/promote
- * Bulk promote or demote students
- */
-router.patch('/bulk/promote', async (req, res) => {
-  try {
-    const { studentIds, action } = req.body;
-    
-    if (!Array.isArray(studentIds) || !action) {
-      return res.status(400).json({ error: 'studentIds and action required' });
-    }
-
-    const classesOrder = ["Creche", "Nursery 1", "Nursery 2", "Nursery 3", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
-    let bulkUpdates = [];
-
-    for (const studentId of studentIds) {
-      let student = await Student.findOne({ student_id: studentId });
-      if (!student) {
-        student = await Student.findOne({ regNo: studentId });
-      }
-      if (!student) continue;
-
-      let newStatus;
-
-      if (action === 'promote') {
-        let idx = classesOrder.indexOf(student.class);
-        if (idx >= 0 && idx < classesOrder.length - 1) {
-          student.class = classesOrder[idx + 1];
-          newStatus = 'Promoted';
-        } else if (idx === classesOrder.length - 1) {
-          student.status = 'Graduated';
-          student.class = "Graduated";
-          newStatus = 'Graduated';
-        } else {
-          continue;
-        }
-      } else if (action === 'demote') {
-        let idx = classesOrder.indexOf(student.class);
-        if (idx > 0) {
-          student.class = classesOrder[idx - 1];
-          newStatus = 'Demoted';
-        } else {
-          continue;
-        }
-      } else if (action === 'graduate') {
-        student.status = 'Graduated';
-        student.class = "Graduated";
-        newStatus = 'Graduated';
-      } else {
-        continue;
-      }
-
-      student.status = newStatus;
-      await student.save();
-      bulkUpdates.push(student.student_id);
-    }
-
-    res.json({
-      message: `Bulk ${action} completed!`,
-      updatedCount: bulkUpdates.length,
-      updated: bulkUpdates
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/students/:regNo/academic
- * Add academic record for a student
- */
-router.post('/:regNo/academic', async (req, res) => {
+// --- Get a student profile by regNo (admin only) ---
+router.get('/:regNo', adminAuth, async (req, res) => {
   try {
     const regNo = req.params.regNo;
-    const academicEntry = req.body;
-    
-    if (!academicEntry.subject || !academicEntry.ca1 === undefined || academicEntry.ca2 === undefined || academicEntry.exam === undefined) {
-      return res.status(400).json({ error: 'Subject, CA1, CA2, and Exam scores are required.' });
-    }
+    const profile = await Student.findOne({ regNo });
+    if (!profile) return res.status(404).json({ error: 'Student not found' });
 
-    await Student.updateOne(
-      { regNo },
-      { $push: { academic: academicEntry }, $set: { updatedAt: new Date() } }
+    const { password, ...safeProfile } = profile.toObject();
+    res.json(safeProfile);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Student login ---
+router.post('/login', async (req, res) => {
+  const { regNo, studentEmail, password } = req.body;
+  if ((!regNo && !studentEmail) || !password) {
+    return res.status(400).json({ error: 'Registration number or email and password are required.' });
+  }
+  try {
+    const query = regNo ? { regNo } : { studentEmail };
+    const student = await Student.findOne(query);
+    if (!student) return res.status(401).json({ error: 'Invalid credentials.' });
+
+    const isMatch = await bcrypt.compare(password, student.password);
+    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials.' });
+
+    const token = jwt.sign(
+      { id: student._id, regNo: student.regNo, role: 'student' },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
     );
 
-    const student = await Student.findOne({ regNo });
     res.json({
-      message: 'Academic record updated!',
-      academic: student.academic
+      token,
+      user: {
+        id: student._id,
+        name: `${student.firstname} ${student.surname}`,
+        regNo: student.regNo,
+        role: 'student',
+        class: student.class,
+        photo_url: student.photoBase64 || ''
+      }
     });
   } catch (err) {
-    console.error('[ACADEMIC UPDATE ERROR]', err);
-    res.status(500).json({ error: err.message || 'Server error.' });
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 
-/**
- * POST /api/students/:regNo/attendance
- * Add attendance record
- */
-router.post('/:regNo/attendance', async (req, res) => {
+// --- Update student profile (student only) ---
+const updateSchema = Joi.object({
+  surname: Joi.string(),
+  firstname: Joi.string(),
+  othernames: Joi.string().allow(''),
+  dob: Joi.string(),
+  gender: Joi.string(),
+  nationality: Joi.string().allow(''),
+  state: Joi.string().allow(''),
+  lga: Joi.string().allow(''),
+  address: Joi.string().allow(''),
+  class: Joi.string(),
+  classArm: Joi.string().allow(''),
+  studentEmail: Joi.string().allow(''),
+  studentPhone: Joi.string().allow(''),
+  religion: Joi.string().allow(''),
+  bloodGroup: Joi.string().allow(''),
+  genotype: Joi.string().allow(''),
+  medical: Joi.string().allow('')
+});
+
+router.put('/me', studentAuthMiddleware, upload.single('photo'), async (req, res) => {
   try {
-    const regNo = req.params.regNo;
-    const attendanceEntry = req.body;
-    
-    if (attendanceEntry.present === undefined || attendanceEntry.absent === undefined || attendanceEntry.late === undefined) {
-      return res.status(400).json({ error: 'Present, absent, and late counts are required.' });
+    const { error, value: data } = updateSchema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    const student = req.student;
+    let updates = { ...data };
+
+    if (req.file) {
+      updates.photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     }
 
-    await Student.updateOne(
-      { regNo },
-      { $push: { attendance: attendanceEntry }, $set: { updatedAt: new Date() } }
-    );
+    updates.updatedAt = new Date();
 
-    const student = await Student.findOne({ regNo });
-    res.json({
-      message: 'Attendance record updated!',
-      attendance: student.attendance
-    });
+    await Student.updateOne({ regNo: student.regNo }, { $set: updates });
+
+    res.json({ message: 'Profile updated successfully!' });
   } catch (err) {
-    console.error('[ATTENDANCE UPDATE ERROR]', err);
+    console.error('[UPDATE PROFILE ERROR]', err);
     res.status(500).json({ error: err.message || 'Server error.' });
   }
 });
 
-/**
- * POST /api/students/:regNo/fees
- * Add fee record
- */
-router.post('/:regNo/fees', async (req, res) => {
-  try {
-    const regNo = req.params.regNo;
-    const feeEntry = req.body;
-    
-    if (!feeEntry.description || feeEntry.amount === undefined) {
-      return res.status(400).json({ error: 'Description and amount are required.' });
-    }
-
-    const feeData = {
-      description: feeEntry.description,
-      amount: feeEntry.amount,
-      amountPaid: feeEntry.amountPaid || 0,
-      status: feeEntry.status || 'unpaid',
-      dueDate: feeEntry.dueDate || new Date(),
-      createdAt: new Date()
-    };
-
-    await Student.updateOne(
-      { regNo },
-      { $push: { fees: feeData }, $set: { updatedAt: new Date() } }
-    );
-
-    const student = await Student.findOne({ regNo });
-    res.json({
-      message: 'Fee record updated!',
-      fees: student.fees
-    });
-  } catch (err) {
-    console.error('[FEES UPDATE ERROR]', err);
-    res.status(500).json({ error: err.message || 'Server error.' });
-  }
-});
-
-/**
- * POST /api/students/:regNo/skills-report
- * Add or update skills report
- */
-router.post('/:regNo/skills-report', async (req, res) => {
-  try {
-    const regNo = req.params.regNo;
-    const { session, term, skills, attendance, comment } = req.body;
-    
-    if (!session || !term || !skills) {
-      return res.status(400).json({ error: 'session, term, and skills are required.' });
-    }
-
-    const student = await Student.findOne({ regNo });
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-
-    const reportEntry = {
-      session,
-      term,
-      skills,
-      attendance,
-      comment,
-      updatedAt: new Date()
-    };
-
-    let skillsReports = student.skillsReports || [];
-    const idx = skillsReports.findIndex(r => r.session === session && r.term === term);
-    if (idx >= 0) {
-      skillsReports[idx] = reportEntry;
-    } else {
-      skillsReports.push(reportEntry);
-    }
-
-    await Student.updateOne({ regNo }, { $set: { skillsReports, updatedAt: new Date() } });
-
-    res.json({
-      message: 'Skills report saved!',
-      skillsReports
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Server error.' });
-  }
-});
-
-/**
- * GET /api/students/:regNo/skills-report
- * Get skills report for a student
- */
-router.get('/:regNo/skills-report', async (req, res) => {
-  try {
-    const regNo = req.params.regNo;
-    const student = await Student.findOne({ regNo });
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-
-    res.json({ skillsReports: student.skillsReports || [] });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Server error.' });
-  }
-});
-
-/**
- * POST /api/students/me/guardians
- * Add or update guardian info (student only)
- */
-router.post('/me/guardians', studentAuthMiddleware, async (req, res) => {
+// --- Change password (student only) ---
+router.post('/change-password', studentAuthMiddleware, async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword)
+    return res.status(400).json({ error: 'Old and new password are required.' });
   try {
     const student = req.student;
-    const guardians = req.body.guardians;
-    
-    if (!Array.isArray(guardians)) {
-      return res.status(400).json({ error: 'Guardians must be array.' });
-    }
+    const isMatch = await bcrypt.compare(oldPassword, student.password);
+    if (!isMatch) return res.status(400).json({ error: 'Old password incorrect.' });
 
-    await Student.updateOne({ regNo: student.regNo }, { $set: { guardians: guardians, updatedAt: new Date() } });
-
-    res.json({ message: 'Guardians info updated!' });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await Student.updateOne({ regNo: student.regNo }, { $set: { password: hashed, updatedAt: new Date() } });
+    res.json({ message: 'Password changed successfully!' });
   } catch (err) {
-    console.error('[GUARDIAN UPDATE ERROR]', err);
     res.status(500).json({ error: err.message || 'Server error.' });
   }
 });
 
-/**
- * POST /api/students/me/hostel
- * Add or update hostel info (student only)
- */
-router.post('/me/hostel', studentAuthMiddleware, async (req, res) => {
-  try {
-    const student = req.student;
-    const hostel = req.body.hostel;
-    
-    if (typeof hostel !== 'object') {
-      return res.status(400).json({ error: 'Hostel must be an object.' });
-    }
-
-    await Student.updateOne({ regNo: student.regNo }, { $set: { hostel: hostel, updatedAt: new Date() } });
-
-    res.json({ message: 'Hostel info updated!' });
-  } catch (err) {
-    console.error('[HOSTEL UPDATE ERROR]', err);
-    res.status(500).json({ error: err.message || 'Server error.' });
-  }
-});
-
-/**
- * POST /api/students/me/transport
- * Add or update transport info (student only)
- */
-router.post('/me/transport', studentAuthMiddleware, async (req, res) => {
-  try {
-    const student = req.student;
-    const transport = req.body.transport;
-    
-    if (typeof transport !== 'object') {
-      return res.status(400).json({ error: 'Transport must be an object.' });
-    }
-
-    await Student.updateOne({ regNo: student.regNo }, { $set: { transport: transport, updatedAt: new Date() } });
-
-    res.json({ message: 'Transport info updated!' });
-  } catch (err) {
-    console.error('[TRANSPORT UPDATE ERROR]', err);
-    res.status(500).json({ error: err.message || 'Server error.' });
-  }
-});
-
-/**
- * POST /api/students/me/docs
- * Upload a document (student only)
- */
+// --- Upload a document for a student (student only) ---
 router.post('/me/docs', studentAuthMiddleware, upload.single('document'), async (req, res) => {
   try {
     const student = req.student;
@@ -892,96 +577,171 @@ router.post('/me/docs', studentAuthMiddleware, upload.single('document'), async 
   }
 });
 
-/**
- * POST /api/students/login
- * Student login
- */
-router.post('/login', async (req, res) => {
-  const { regNo, studentEmail, password } = req.body;
-  if ((!regNo && !studentEmail) || !password) {
-    return res.status(400).json({ error: 'Registration number or email and password are required.' });
-  }
+// --- Update academic record for a student (admin only) ---
+router.post('/:regNo/academic', adminAuth, async (req, res) => {
   try {
-    const query = regNo ? { regNo } : { studentEmail };
-    const student = await Student.findOne(query);
-    if (!student) return res.status(401).json({ error: 'Invalid credentials.' });
-
-    const isMatch = await bcrypt.compare(password, student.password);
-    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials.' });
-
-    const token = jwt.sign(
-      { id: student._id, regNo: student.regNo, role: 'student' },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      token,
-      user: formatStudentData(student)
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-/**
- * PUT /api/students/me
- * Update student profile (student only)
- */
-router.put('/me', studentAuthMiddleware, upload.single('photo'), async (req, res) => {
-  try {
-    const { error, value: data } = updateSchema.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
-
-    const student = req.student;
-    let updates = { ...data };
-
-    if (req.file) {
-      updates.photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const regNo = req.params.regNo;
+    const academicEntry = req.body;
+    if (!academicEntry.session || !academicEntry.term || !academicEntry.class || !academicEntry.subject) {
+      return res.status(400).json({ error: 'Missing required academic fields.' });
     }
 
-    updates.updatedAt = new Date();
+    await Student.updateOne(
+      { regNo },
+      { $push: { academic: academicEntry }, $set: { updatedAt: new Date() } }
+    );
 
-    await Student.updateOne({ regNo: student.regNo }, { $set: updates });
-
-    res.json({ message: 'Profile updated successfully!' });
+    const student = await Student.findOne({ regNo });
+    res.json({ message: 'Academic record updated!', academic: student.academic });
   } catch (err) {
-    console.error('[UPDATE PROFILE ERROR]', err);
+    console.error('[ACADEMIC UPDATE ERROR]', err);
     res.status(500).json({ error: err.message || 'Server error.' });
   }
 });
 
-/**
- * POST /api/students/me/change-password
- * Change password (student only)
- */
-router.post('/me/change-password', studentAuthMiddleware, async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-  if (!oldPassword || !newPassword) {
-    return res.status(400).json({ error: 'Old and new password are required.' });
+// --- Add attendance record (admin only) ---
+router.post('/:regNo/attendance', adminAuth, async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const attendanceEntry = req.body;
+    if (!attendanceEntry.session || !attendanceEntry.term || !attendanceEntry.present || !attendanceEntry.total) {
+      return res.status(400).json({ error: 'Missing required attendance fields.' });
+    }
+
+    await Student.updateOne(
+      { regNo },
+      { $push: { attendance: attendanceEntry }, $set: { updatedAt: new Date() } }
+    );
+
+    const student = await Student.findOne({ regNo });
+    res.json({ message: 'Attendance record updated!', attendance: student.attendance });
+  } catch (err) {
+    console.error('[ATTENDANCE UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
   }
+});
+
+// --- Add/update guardian info (student only) ---
+router.post('/me/guardians', studentAuthMiddleware, async (req, res) => {
   try {
     const student = req.student;
-    const isMatch = await bcrypt.compare(oldPassword, student.password);
-    if (!isMatch) return res.status(400).json({ error: 'Old password incorrect.' });
+    const guardians = req.body.guardians;
+    if (!Array.isArray(guardians)) return res.status(400).json({ error: 'Guardians must be array.' });
 
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await Student.updateOne({ regNo: student.regNo }, { $set: { password: hashed, updatedAt: new Date() } });
-    
-    res.json({ message: 'Password changed successfully!' });
+    await Student.updateOne({ regNo: student.regNo }, { $set: { guardians: guardians, updatedAt: new Date() } });
+
+    res.json({ message: 'Guardians info updated!' });
+  } catch (err) {
+    console.error('[GUARDIAN UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add/update hostel info (student only) ---
+router.post('/me/hostel', studentAuthMiddleware, async (req, res) => {
+  try {
+    const student = req.student;
+    const hostel = req.body.hostel;
+    if (typeof hostel !== 'object') return res.status(400).json({ error: 'Hostel must be an object.' });
+
+    await Student.updateOne({ regNo: student.regNo }, { $set: { hostel: hostel, updatedAt: new Date() } });
+
+    res.json({ message: 'Hostel info updated!' });
+  } catch (err) {
+    console.error('[HOSTEL UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add/update transport info (student only) ---
+router.post('/me/transport', studentAuthMiddleware, async (req, res) => {
+  try {
+    const student = req.student;
+    const transport = req.body.transport;
+    if (typeof transport !== 'object') return res.status(400).json({ error: 'Transport must be an object.' });
+
+    await Student.updateOne({ regNo: student.regNo }, { $set: { transport: transport, updatedAt: new Date() } });
+
+    res.json({ message: 'Transport info updated!' });
+  } catch (err) {
+    console.error('[TRANSPORT UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add/update fees info (admin only) ---
+router.post('/:regNo/fees', adminAuth, async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const feeEntry = req.body;
+    if (!feeEntry.session || !feeEntry.term || !feeEntry.type || !feeEntry.amount || !feeEntry.status) {
+      return res.status(400).json({ error: 'Missing required fee fields.' });
+    }
+
+    await Student.updateOne(
+      { regNo },
+      { $push: { fees: feeEntry }, $set: { updatedAt: new Date() } }
+    );
+
+    const student = await Student.findOne({ regNo });
+    res.json({ message: 'Fee record updated!', fees: student.fees });
+  } catch (err) {
+    console.error('[FEES UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// Add or update skills & reports for a student (admin only)
+router.post('/:regNo/skills-report', async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const { session, term, skills, attendance, comment } = req.body;
+    if (!session || !term || !skills) {
+      return res.status(400).json({ error: 'session, term, and skills are required.' });
+    }
+
+    const student = await Student.findOne({ regNo });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const reportEntry = {
+      session,
+      term,
+      skills,
+      attendance,
+      comment,
+      updatedAt: new Date()
+    };
+
+    let skillsReports = student.skillsReports || [];
+    const idx = skillsReports.findIndex(r => r.session === session && r.term === term);
+    if (idx >= 0) skillsReports[idx] = reportEntry;
+    else skillsReports.push(reportEntry);
+
+    await Student.updateOne({ regNo }, { $set: { skillsReports, updatedAt: new Date() } });
+
+    res.json({ message: 'Skills report saved!', skillsReports });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Server error.' });
   }
 });
 
-/**
- * PUT /api/students/:studentId
- * Update student profile (admin only)
- */
+// Get all skills & reports for a student (admin or student)
+router.get('/:regNo/skills-report', async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const student = await Student.findOne({ regNo });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    res.json({ skillsReports: student.skillsReports || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Update student by student_id or regNo (admin only) ---
 router.put('/:studentId', upload.single('photo'), async (req, res) => {
   try {
     const { studentId } = req.params;
-    
     let student = await Student.findOne({ student_id: studentId });
     if (!student) {
       student = await Student.findOne({ regNo: studentId });
@@ -994,7 +754,6 @@ router.put('/:studentId', upload.single('photo'), async (req, res) => {
       "parentName", "parentRelationship", "parentPhone", "parentEmail", "parentAddress", "parentOccupation",
       "studentEmail", "studentPhone", "religion", "bloodGroup", "genotype", "medical"
     ];
-    
     const updates = {};
     for (const key of allowedFields) {
       if (key in req.body) updates[key] = req.body[key];
@@ -1003,35 +762,24 @@ router.put('/:studentId', upload.single('photo'), async (req, res) => {
     if (req.file) {
       updates.photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     }
-    
     updates.updatedAt = new Date();
 
     await Student.updateOne({ _id: student._id }, { $set: updates });
-    const updatedStudent = await Student.findById(student._id);
-    
-    res.json({
-      message: "Student updated successfully!",
-      student: formatStudentData(updatedStudent)
-    });
+    res.json({ message: "Student updated successfully!" });
   } catch (err) {
     res.status(500).json({ error: err.message || "Unknown server error." });
   }
 });
 
-/**
- * DELETE /api/students/:studentId
- * Delete student (admin only)
- */
+// --- DELETE student by student_id or regNo (NO AUTH) ---
 router.delete('/:studentId', async (req, res) => {
   try {
     const { studentId } = req.params;
-    
     let student = await Student.findOne({ student_id: studentId });
     if (!student) {
       student = await Student.findOne({ regNo: studentId });
     }
     if (!student) return res.status(404).json({ error: 'Student not found' });
-    
     await Student.deleteOne({ _id: student._id });
     res.json({ message: "Student deleted successfully!" });
   } catch (err) {
