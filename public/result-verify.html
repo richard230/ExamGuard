@@ -1,0 +1,1989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Verify & Publish Results | ExamGuard International School</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    :root {
+      --bg-0: #f6f8ff;
+      --bg-1: #eef2ff;
+      --accent: #3b82f6;
+      --accent-2: #1e40af;
+      --accent-light: #dbeafe;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      --sidebar-w: 300px;
+      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
+      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
+      --text-main: #0b2a44;
+      --text-muted: #7a90b3;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #0ea5e9;
+      --primary: #2647a6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Inter', system-ui, Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+      color: var(--text-main);
+      width: 100vw;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* App layout */
+    .app {
+      display: flex;
+      min-height: 100vh;
+      align-items: stretch;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      z-index: 50;
+      display: none;
+    }
+
+    .overlay.visible {
+      display: block;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
+      color: #fff;
+      padding: 20px 16px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform;
+    }
+
+    .sidebar.hidden {
+      transform: translateX(-110%);
+      transition: transform 0.28s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+      transition: transform 0.28s ease;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 3px solid rgba(255, 224, 102, 0.12);
+      background: #fff;
+    }
+
+    .brand .title {
+      font-weight: 700;
+      font-size: 1.18rem;
+      color: #ffe066;
+    }
+
+    .brand .subtitle {
+      font-size: 0.96rem;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #e6eefc;
+      background: transparent;
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    .nav a.active,
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffe066;
+      transform: translateX(3px);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .profile img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ffe066;
+    }
+
+    .profile .name {
+      font-weight: 700;
+      font-size: 1.02rem;
+      color: #ffe066;
+    }
+
+    .profile .muted {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      position: fixed;
+      left: var(--sidebar-w);
+      top: 0;
+      width: calc(100vw - var(--sidebar-w));
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.86);
+      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
+      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
+      min-height: 64px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .topbar .hamburger {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+
+    .topbar .page-title {
+      font-weight: 800;
+      font-size: 1.18rem;
+      color: var(--accent-2);
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 20px;
+      flex: 1;
+      transition: margin-left 0.28s;
+      min-height: 100vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-width: calc(100vw - var(--sidebar-w));
+      box-sizing: border-box;
+      overflow-x: hidden;
+      padding-top: 90px;
+    }
+
+    .main.full {
+      margin-left: 0;
+      max-width: 100vw;
+    }
+
+    /* SECTIONS */
+    .verify-section {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+    }
+
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent-2);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title i {
+      color: var(--accent);
+      font-size: 1.4rem;
+    }
+
+    /* FILTER FORM */
+    .verify-filter-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-label {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    .form-input,
+    .form-select {
+      padding: 12px 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: 'Inter', Arial, sans-serif;
+      transition: all 0.12s ease;
+      background: #fff;
+      color: var(--text-main);
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-input:disabled {
+      background: #f3f6fb;
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    /* BUTTONS */
+    .verify-btn {
+      padding: 12px 24px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.95rem;
+    }
+
+    .verify-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .verify-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ALERT MESSAGES */
+    .alert {
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: none;
+      border: 1px solid;
+      font-weight: 600;
+      animation: slideInDown 0.3s ease;
+    }
+
+    @keyframes slideInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .alert.show {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .alert-error {
+      background: #fee2e2;
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+
+    .alert-error i {
+      color: #dc2626;
+    }
+
+    .alert-success {
+      background: #dcfce7;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+
+    .alert-success i {
+      color: #16a34a;
+    }
+
+    .alert-warning {
+      background: #fef3c7;
+      border-color: #fde68a;
+      color: #92400e;
+    }
+
+    .alert-warning i {
+      color: #f59e0b;
+    }
+
+    /* STUDENT RESULT CARD */
+    .student-result-card {
+      background: linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%);
+      border: 2px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      transition: all 0.12s ease;
+    }
+
+    .student-result-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--accent);
+    }
+
+    .student-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .student-card-info {
+      flex: 1;
+    }
+
+    .student-name {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--accent-2);
+      margin: 0 0 4px 0;
+    }
+
+    .student-meta {
+      font-size: 0.9rem;
+      color: var(--muted);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .cloud-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    .cloud-uploaded {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    .cloud-uploaded i {
+      color: #16a34a;
+    }
+
+    .cloud-pending {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
+
+    .cloud-pending i {
+      color: #f59e0b;
+    }
+
+    .cloud-not-uploaded {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .cloud-not-uploaded i {
+      color: #dc2626;
+    }
+
+    .student-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .stat-item {
+      background: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #bfdbfe;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent-2);
+      margin-top: 4px;
+    }
+
+    .subjects-preview {
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid #bfdbfe;
+    }
+
+    .subjects-preview-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--accent-2);
+      margin-bottom: 8px;
+    }
+
+    .subjects-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .subject-tag {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .student-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-top: 2px solid #bfdbfe;
+      padding-top: 12px;
+    }
+
+    .action-btn {
+      padding: 10px 16px;
+      border: 1.5px solid;
+      background: #fff;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .action-btn.upload-cloud {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .action-btn.upload-cloud:hover:not(:disabled) {
+      background: rgba(16, 185, 129, 0.1);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .action-btn.remove-cloud {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .action-btn.remove-cloud:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .action-btn.view-details {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .action-btn.view-details:hover:not(:disabled) {
+      background: rgba(59, 130, 246, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .action-btn.edit {
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .action-btn.edit:hover:not(:disabled) {
+      background: rgba(245, 158, 11, 0.1);
+      transform: translateY(-2px);
+    }
+
+    /* STATS CARDS */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(11, 42, 60, 0.03);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .stat-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .stat-icon.blue {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--accent);
+    }
+
+    .stat-icon.green {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+
+    .stat-icon.orange {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--warning);
+    }
+
+    .stat-icon.red {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+    }
+
+    .stat-content {
+      flex: 1;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--accent-2);
+      margin-top: 2px;
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state i {
+      font-size: 3.5rem;
+      color: #dbeafe;
+      margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0 0 8px 0;
+    }
+
+    .empty-state p {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+
+    /* LOADING SPINNER */
+    .spinner-small {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(59, 130, 246, 0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* MODAL */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.5);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 28px;
+      max-width: 700px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent-2);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.12s;
+    }
+
+    .modal-close:hover {
+      color: var(--text-main);
+    }
+
+    .modal-body {
+      margin-bottom: 20px;
+    }
+
+    .info-section {
+      background: #f8faff;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #bfdbfe;
+      margin-bottom: 16px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .info-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .info-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      border-top: 2px solid #bfdbfe;
+      padding-top: 16px;
+    }
+
+    .modal-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-btn-primary {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #fff;
+    }
+
+    .modal-btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .modal-btn-secondary {
+      background: #f8faff;
+      color: var(--accent-2);
+      border: 1px solid #bfdbfe;
+    }
+
+    .modal-btn-secondary:hover:not(:disabled) {
+      background: #ecf0ff;
+    }
+
+    .modal-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 1100px) {
+      .main {
+        padding: 20px 13px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .topbar .hamburger {
+        display: inline-flex;
+      }
+    }
+
+    @media (max-width: 720px) {
+      :root {
+        --sidebar-w: 86vw;
+      }
+
+      .sidebar {
+        transform: translateX(-110%);
+        position: fixed;
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
+      }
+
+      .sidebar.hidden {
+        transform: translateX(-110%);
+      }
+
+      .overlay {
+        display: none;
+      }
+
+      .overlay.visible {
+        display: block;
+      }
+
+      body.no-scroll {
+        overflow: hidden;
+        height: 100vh;
+        touch-action: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 20px 14px;
+        padding-top: 20px;
+        max-width: 100vw;
+      }
+
+      .main.full {
+        margin-left: 0;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100vw;
+        padding: 10px 12px;
+        min-height: 56px;
+      }
+
+      .topbar .page-title {
+        font-size: 1.05rem;
+      }
+
+      .verify-filter-form {
+        grid-template-columns: 1fr;
+      }
+
+      .section-title {
+        font-size: 1.15rem;
+      }
+
+      .student-card-actions {
+        flex-direction: column;
+      }
+
+      .action-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .modal-content {
+        max-width: 95vw;
+        padding: 20px;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .student-meta {
+        flex-direction: column;
+        gap: 4px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .main {
+        padding: 20px 2vw;
+        padding-top: 80px;
+      }
+
+      .topbar {
+        padding: 10px 2vw;
+      }
+
+      .verify-section {
+        padding: 16px;
+      }
+
+      .section-title {
+        font-size: 1rem;
+        gap: 8px;
+      }
+
+      .section-title i {
+        font-size: 1.2rem;
+      }
+
+      .verify-filter-form {
+        gap: 12px;
+      }
+
+      .student-result-card {
+        padding: 14px;
+      }
+
+      .student-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stat-card {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .stat-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 1.8rem;
+      }
+
+      .student-card-header {
+        flex-direction: column;
+      }
+
+      .cloud-status-badge {
+        align-self: flex-start;
+      }
+
+      .student-name {
+        font-size: 1rem;
+      }
+
+      .modal-actions {
+        flex-direction: column;
+      }
+
+      .modal-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media print {
+      .sidebar, .topbar, .verify-filter-form, .student-card-actions, .stats-grid {
+        display: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 0;
+      }
+
+      .verify-section {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+      }
+
+      .student-result-card {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
+      <div class="brand" aria-hidden="false">
+        <img src="mainlogo.png" alt="ExamGuard Logo">
+        <div>
+          <div class="title">ExamGuard International School</div>
+          <div class="subtitle" id="schoolSubtitle">Verification Portal</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav" aria-label="Primary">
+        <a href="student-dashboard.html" data-section="home" onclick="navClick(event)">🏠 Home</a>
+        <a href="student-dashboard.html">📘 My Courses</a>
+        <a href="#student-dashboard.html">📝 Assignments</a>
+        <a href="check-result.html">📊 Grades</a>
+        <a href="verify-result.html" data-section="verify" class="active" onclick="navClick(event)">✅ Verify & Publish</a>
+        <a href="student-dashboard.html">⏰ Timetable</a>
+        <a href="student-dashboard.html">✉️ Messages</a>
+        <a href="student-dashboard.html">📂 Resources</a>
+        <a href="student-dashboard.html">⚙️ Settings</a>
+      </nav>
+
+      <div class="spacer" aria-hidden="true"></div>
+
+      <div class="profile" role="region" aria-label="User profile">
+        <img src="avatar.jpg" alt="User avatar" id="userAvatar">
+        <div>
+          <div class="name" id="userName">Admin</div>
+          <div class="muted" id="userRole">School Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Fixed Topbar -->
+    <div class="topbar" id="fixedTopbar">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="toggleSidebar()">☰</button>
+        <div>
+          <div class="page-title" id="pageTitle">✅ Verify & Publish Results</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <img src="avatar.jpg" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main" id="main" role="main" tabindex="-1">
+      
+      <!-- Statistics Section -->
+      <section class="verify-section">
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-icon blue">
+              <i class="fas fa-file-check"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">Total Students</div>
+              <div class="stat-value" id="totalStudents">0</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon green">
+              <i class="fas fa-cloud-check"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">Published to Cloud</div>
+              <div class="stat-value" id="publishedCount">0</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon orange">
+              <i class="fas fa-hourglass-half"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">Pending Publication</div>
+              <div class="stat-value" id="pendingCount">0</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon red">
+              <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">Ready to Upload</div>
+              <div class="stat-value" id="readyCount">0</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Filter Section -->
+      <section class="verify-section">
+        <div class="section-title">
+          <i class="fas fa-filter"></i> Filter Results
+        </div>
+
+        <!-- Alerts -->
+        <div class="alert alert-success" id="successAlert">
+          <i class="fas fa-check-circle"></i>
+          <span id="successMessage"></span>
+        </div>
+
+        <div class="alert alert-error" id="errorAlert">
+          <i class="fas fa-exclamation-circle"></i>
+          <span id="errorMessage"></span>
+        </div>
+
+        <div class="alert alert-warning" id="warningAlert">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span id="warningMessage"></span>
+        </div>
+
+        <form class="verify-filter-form" onsubmit="handleFilterSubmit(event)">
+          <div class="form-group">
+            <label class="form-label">Academic Year</label>
+            <select class="form-select" id="filterYear" onchange="loadStudentResults()">
+              <option value="">All Years</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Term</label>
+            <select class="form-select" id="filterTerm" onchange="loadStudentResults()">
+              <option value="">All Terms</option>
+              <option value="1">First Term</option>
+              <option value="2">Second Term</option>
+              <option value="3">Third Term</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Class</label>
+            <select class="form-select" id="filterClass" onchange="loadStudentResults()">
+              <option value="">All Classes</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Cloud Status</label>
+            <select class="form-select" id="filterCloudStatus" onchange="loadStudentResults()">
+              <option value="">All Status</option>
+              <option value="uploaded">Uploaded</option>
+              <option value="pending">Pending</option>
+              <option value="not_uploaded">Not Uploaded</option>
+            </select>
+          </div>
+
+          <button type="submit" class="verify-btn">
+            <i class="fas fa-search"></i> Search
+          </button>
+        </form>
+      </section>
+
+      <!-- Results Display Section -->
+      <section class="verify-section">
+        <div class="section-title">
+          <i class="fas fa-users"></i> Student Results
+        </div>
+
+        <div id="resultsContainer">
+          <!-- Student cards will be loaded here -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- DETAIL MODAL -->
+  <div class="modal" id="detailModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-file-alt"></i> Student Result Details
+        </h3>
+        <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
+      </div>
+
+      <div class="modal-body" id="detailModalBody">
+        <!-- Details will be loaded here -->
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-secondary" onclick="closeModal('detailModal')">Close</button>
+        <button class="modal-btn modal-btn-primary" onclick="downloadStudentReport()">
+          <i class="fas fa-download"></i> Download Report
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PUBLISH CONFIRMATION MODAL -->
+  <div class="modal" id="publishModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-cloud-upload-alt"></i> Publish to Cloud
+        </h3>
+        <button class="modal-close" onclick="closeModal('publishModal')">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="info-section">
+          <div style="font-weight: 700; color: var(--accent-2); margin-bottom: 12px;">Publishing Details:</div>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">Student Name</div>
+              <div class="info-value" id="publishStudentName">-</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Registration No.</div>
+              <div class="info-value" id="publishRegNo">-</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Institution</div>
+              <div class="info-value" id="publishInstitution">ExamGuard International School</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Academic Year</div>
+              <div class="info-value" id="publishYear">-</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Class</div>
+              <div class="info-value" id="publishClass">-</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Total Score</div>
+              <div class="info-value" id="publishScore">-</div>
+            </div>
+          </div>
+
+          <div style="background: #dcfce7; border: 1px solid #86efac; border-radius: 8px; padding: 12px; margin-top: 12px; color: #166534; font-size: 0.9rem;">
+            <i class="fas fa-info-circle"></i> This report will be published to the ExamGuard Universal Cloud and can be verified by institutions worldwide.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-secondary" onclick="closeModal('publishModal')">Cancel</button>
+        <button class="modal-btn modal-btn-primary" id="confirmPublishBtn" onclick="confirmPublishToCloud()">
+          <span class="spinner-small"></span> Publishing...
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REMOVE CONFIRMATION MODAL -->
+  <div class="modal" id="removeModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-trash"></i> Remove from Cloud
+        </h3>
+        <button class="modal-close" onclick="closeModal('removeModal')">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="background: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px; padding: 12px; color: #991b1b; font-size: 0.9rem;">
+          <i class="fas fa-exclamation-circle"></i> <strong>Warning:</strong> This will remove the student's report from the ExamGuard Universal Cloud. Institutions will no longer be able to verify this record.
+        </div>
+
+        <div class="info-section" style="margin-top: 16px;">
+          <div style="font-weight: 700; color: var(--accent-2); margin-bottom: 8px;">Student:</div>
+          <div style="color: var(--text-main); font-weight: 700;" id="removeStudentName">-</div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-secondary" onclick="closeModal('removeModal')">Cancel</button>
+        <button class="modal-btn" style="background: var(--danger); color: #fff;" id="confirmRemoveBtn" onclick="confirmRemoveFromCloud()">
+          <i class="fas fa-check"></i> Confirm Remove
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ API CONFIGURATION ============
+    const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+    const SCHOOL_NAME = "ExamGuard International School";
+    const token = localStorage.getItem('authToken') || '';
+
+    // ============ STATE ============
+    let allStudentResults = [];
+    let filteredResults = [];
+    let currentSelectedStudent = null;
+    let academicYears = [];
+    let classes = [];
+
+    // ============ INITIALIZATION ============
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeApp();
+      loadInitialData();
+    });
+
+    function initializeApp() {
+      const userName = localStorage.getItem('userName') || 'Administrator';
+      const userRole = localStorage.getItem('userRole') || 'School Admin';
+
+      document.getElementById('userName').textContent = userName;
+      document.getElementById('userRole').textContent = userRole;
+
+      // Setup modal close on escape
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          closeAllModals();
+        }
+      });
+    }
+
+    // ============ LOAD INITIAL DATA ============
+    async function loadInitialData() {
+      try {
+        await loadAcademicYears();
+        await loadClasses();
+        await loadStudentResults();
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+        showAlert('error', 'Failed to load data. Please refresh the page.');
+      }
+    }
+
+    async function loadAcademicYears() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/academic-years`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) throw new Error('Failed to load academic years');
+
+        academicYears = await response.json();
+
+        const yearSelect = document.getElementById('filterYear');
+        academicYears.forEach(year => {
+          const option = document.createElement('option');
+          option.value = year.id;
+          option.textContent = year.name;
+          yearSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error loading academic years:', error);
+      }
+    }
+
+    async function loadClasses() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/classes`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) throw new Error('Failed to load classes');
+
+        classes = await response.json();
+
+        const classSelect = document.getElementById('filterClass');
+        classes.forEach(cls => {
+          const option = document.createElement('option');
+          option.value = cls.id;
+          option.textContent = cls.name;
+          classSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error loading classes:', error);
+      }
+    }
+
+    // ============ LOAD STUDENT RESULTS ============
+    async function loadStudentResults() {
+      try {
+        const yearId = document.getElementById('filterYear').value;
+        const termId = document.getElementById('filterTerm').value;
+        const classId = document.getElementById('filterClass').value;
+        const cloudStatus = document.getElementById('filterCloudStatus').value;
+
+        let url = `${API_BASE_URL}/api/results`;
+        const params = new URLSearchParams();
+
+        if (yearId) params.append('yearId', yearId);
+        if (termId) params.append('termId', termId);
+        if (classId) params.append('classId', classId);
+        if (cloudStatus) params.append('cloudStatus', cloudStatus);
+
+        if (params.toString()) {
+          url += '?' + params.toString();
+        }
+
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) throw new Error('Failed to load results');
+
+        allStudentResults = await response.json();
+        filteredResults = allStudentResults;
+        displayStudentResults();
+        updateStatistics();
+      } catch (error) {
+        console.error('Error loading results:', error);
+        showAlert('error', 'Failed to load student results');
+      }
+    }
+
+    // ============ DISPLAY RESULTS ============
+    function displayStudentResults() {
+      const container = document.getElementById('resultsContainer');
+
+      if (filteredResults.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h3>No Results Found</h3>
+            <p>No student results match your current filters</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filteredResults.map(student => {
+        const cloudStatus = student.cloudStatus || 'not_uploaded';
+        const cloudStatusBadgeClass = {
+          'uploaded': 'cloud-uploaded',
+          'pending': 'cloud-pending',
+          'not_uploaded': 'cloud-not-uploaded'
+        }[cloudStatus];
+
+        const cloudStatusIcon = {
+          'uploaded': 'fa-cloud-check',
+          'pending': 'fa-hourglass-half',
+          'not_uploaded': 'fa-cloud'
+        }[cloudStatus];
+
+        const cloudStatusText = {
+          'uploaded': 'Published',
+          'pending': 'Publishing...',
+          'not_uploaded': 'Not Published'
+        }[cloudStatus];
+
+        const subjectsHtml = student.subjects && student.subjects.length > 0
+          ? student.subjects.map(s => `<div class="subject-tag">${s.name}</div>`).join('')
+          : '<div class="subject-tag">No subjects</div>';
+
+        const totalScore = student.totalScore || 0;
+        const averageScore = student.averageScore || 0;
+        const classSize = student.classSize || 0;
+        const position = student.position || '-';
+
+        return `
+          <div class="student-result-card">
+            <div class="student-card-header">
+              <div class="student-card-info">
+                <h3 class="student-name">${student.studentName}</h3>
+                <div class="student-meta">
+                  <div class="meta-item">
+                    <i class="fas fa-id-card"></i>
+                    <span><strong>Reg:</strong> ${student.regNo}</span>
+                  </div>
+                  <div class="meta-item">
+                    <i class="fas fa-school"></i>
+                    <span>${student.className}</span>
+                  </div>
+                  <div class="meta-item">
+                    <i class="fas fa-calendar"></i>
+                    <span>${student.academicYear}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="cloud-status-badge ${cloudStatusBadgeClass}">
+                <i class="fas ${cloudStatusIcon}"></i>
+                <span>${cloudStatusText}</span>
+              </div>
+            </div>
+
+            <div class="student-stats">
+              <div class="stat-item">
+                <div class="stat-label">Total Score</div>
+                <div class="stat-value">${totalScore.toFixed(2)}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Average</div>
+                <div class="stat-value">${averageScore.toFixed(2)}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Position</div>
+                <div class="stat-value">${position}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Grade</div>
+                <div class="stat-value" style="background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; padding: 4px; border-radius: 6px; text-align: center;">${student.grade || '-'}</div>
+              </div>
+            </div>
+
+            <div class="subjects-preview">
+              <div class="subjects-preview-title">Subjects (${student.subjects ? student.subjects.length : 0})</div>
+              <div class="subjects-list">
+                ${subjectsHtml}
+              </div>
+            </div>
+
+            <div class="student-card-actions">
+              <button class="action-btn view-details" onclick="viewStudentDetails('${student.id}')">
+                <i class="fas fa-eye"></i> View Details
+              </button>
+              ${cloudStatus === 'not_uploaded' ? `
+                <button class="action-btn upload-cloud" onclick="openPublishModal('${student.id}')">
+                  <i class="fas fa-cloud-upload-alt"></i> Publish to Cloud
+                </button>
+              ` : `
+                <button class="action-btn remove-cloud" onclick="openRemoveModal('${student.id}')">
+                  <i class="fas fa-trash"></i> Remove from Cloud
+                </button>
+              `}
+              <button class="action-btn edit" onclick="editStudentResult('${student.id}')">
+                <i class="fas fa-edit"></i> Edit
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ============ STATISTICS ============
+    function updateStatistics() {
+      const total = filteredResults.length;
+      const uploaded = filteredResults.filter(s => s.cloudStatus === 'uploaded').length;
+      const pending = filteredResults.filter(s => s.cloudStatus === 'pending').length;
+      const notUploaded = filteredResults.filter(s => !s.cloudStatus || s.cloudStatus === 'not_uploaded').length;
+
+      document.getElementById('totalStudents').textContent = total;
+      document.getElementById('publishedCount').textContent = uploaded;
+      document.getElementById('pendingCount').textContent = pending;
+      document.getElementById('readyCount').textContent = notUploaded;
+    }
+
+    // ============ MODAL FUNCTIONS ============
+    async function viewStudentDetails(studentId) {
+      try {
+        const student = filteredResults.find(s => s.id === studentId);
+        if (!student) return;
+
+        const body = document.getElementById('detailModalBody');
+        
+        const subjectsHtml = student.subjects && student.subjects.length > 0
+          ? `
+            <div style="margin-top: 16px;">
+              <h4 style="color: var(--accent-2); font-weight: 800; margin: 0 0 12px 0;">Subjects Performance</h4>
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #f8faff; border-bottom: 2px solid #bfdbfe;">
+                    <th style="padding: 10px; text-align: left; font-weight: 700; color: var(--accent-2);">Subject</th>
+                    <th style="padding: 10px; text-align: center; font-weight: 700; color: var(--accent-2);">Score</th>
+                    <th style="padding: 10px; text-align: center; font-weight: 700; color: var(--accent-2);">Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${student.subjects.map(s => `
+                    <tr style="border-bottom: 1px solid #bfdbfe;">
+                      <td style="padding: 10px; color: var(--text-main);">${s.name}</td>
+                      <td style="padding: 10px; text-align: center; color: var(--accent-2); font-weight: 700;">${s.total || '-'}</td>
+                      <td style="padding: 10px; text-align: center; font-weight: 700;">
+                        <span style="background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; padding: 4px 8px; border-radius: 4px;">${s.grade || '-'}</span>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+          : '';
+
+        body.innerHTML = `
+          <div class="info-section">
+            <div class="info-grid">
+              <div class="info-item">
+                <div class="info-label">Student Name</div>
+                <div class="info-value">${student.studentName}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Registration Number</div>
+                <div class="info-value">${student.regNo}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Class</div>
+                <div class="info-value">${student.className}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Academic Year</div>
+                <div class="info-value">${student.academicYear}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Term</div>
+                <div class="info-value">${student.term || '-'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Total Score</div>
+                <div class="info-value" style="color: var(--success); font-weight: 800;">${student.totalScore.toFixed(2)}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Average Score</div>
+                <div class="info-value">${student.averageScore.toFixed(2)}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Position in Class</div>
+                <div class="info-value">${student.position || '-'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Grade</div>
+                <div class="info-value" style="background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; padding: 6px 12px; border-radius: 6px; text-align: center; font-size: 1.2rem;">${student.grade || '-'}</div>
+              </div>
+              <div class="info-item">
+                <div class="info-label">Cloud Status</div>
+                <div class="info-value">${student.cloudStatus === 'uploaded' ? '✅ Published' : student.cloudStatus === 'pending' ? '⏳ Publishing' : '❌ Not Published'}</div>
+              </div>
+            </div>
+          </div>
+
+          ${student.teacherComment ? `
+            <div class="info-section">
+              <div style="font-weight: 700; color: var(--accent-2); margin-bottom: 8px;">Teacher's Comment</div>
+              <p style="margin: 0; color: var(--text-main); font-style: italic;">"${student.teacherComment}"</p>
+              <div style="font-size: 0.85rem; color: var(--muted); margin-top: 8px;">- ${student.teacherName || 'Class Teacher'}</div>
+            </div>
+          ` : ''}
+
+          ${student.principalRemark ? `
+            <div class="info-section">
+              <div style="font-weight: 700; color: var(--accent-2); margin-bottom: 8px;">Principal's Remark</div>
+              <p style="margin: 0; color: var(--text-main); font-style: italic;">"${student.principalRemark}"</p>
+              <div style="font-size: 0.85rem; color: var(--muted); margin-top: 8px;">- ${student.principalName || 'Principal'}</div>
+            </div>
+          ` : ''}
+
+          ${subjectsHtml}
+        `;
+
+        currentSelectedStudent = student;
+        openModal('detailModal');
+      } catch (error) {
+        console.error('Error loading details:', error);
+        showAlert('error', 'Failed to load student details');
+      }
+    }
+
+    function openPublishModal(studentId) {
+      const student = filteredResults.find(s => s.id === studentId);
+      if (!student) return;
+
+      currentSelectedStudent = student;
+
+      document.getElementById('publishStudentName').textContent = student.studentName;
+      document.getElementById('publishRegNo').textContent = student.regNo;
+      document.getElementById('publishYear').textContent = student.academicYear;
+      document.getElementById('publishClass').textContent = student.className;
+      document.getElementById('publishScore').textContent = student.totalScore.toFixed(2);
+      document.getElementById('publishInstitution').textContent = SCHOOL_NAME;
+
+      openModal('publishModal');
+    }
+
+    function openRemoveModal(studentId) {
+      const student = filteredResults.find(s => s.id === studentId);
+      if (!student) return;
+
+      currentSelectedStudent = student;
+      document.getElementById('removeStudentName').textContent = student.studentName;
+
+      openModal('removeModal');
+    }
+
+    async function confirmPublishToCloud() {
+      if (!currentSelectedStudent) return;
+
+      try {
+        const publishBtn = document.getElementById('confirmPublishBtn');
+        publishBtn.disabled = true;
+
+        const response = await fetch(`${API_BASE_URL}/api/school/publish-result`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            studentId: currentSelectedStudent.id,
+            schoolName: SCHOOL_NAME,
+            institution: SCHOOL_NAME
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to publish result');
+        }
+
+        const result = await response.json();
+
+        showAlert('success', `${currentSelectedStudent.studentName}'s report has been successfully published to the cloud!`);
+        closeModal('publishModal');
+        await loadStudentResults();
+        updateStatistics();
+      } catch (error) {
+        console.error('Publish error:', error);
+        showAlert('error', error.message || 'Failed to publish result');
+      } finally {
+        const publishBtn = document.getElementById('confirmPublishBtn');
+        publishBtn.disabled = false;
+      }
+    }
+
+    async function confirmRemoveFromCloud() {
+      if (!currentSelectedStudent) return;
+
+      try {
+        const removeBtn = document.getElementById('confirmRemoveBtn');
+        removeBtn.disabled = true;
+
+        const response = await fetch(`${API_BASE_URL}/api/school/remove-result`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            studentId: currentSelectedStudent.id,
+            schoolName: SCHOOL_NAME
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to remove result');
+        }
+
+        showAlert('success', `${currentSelectedStudent.studentName}'s report has been removed from the cloud.`);
+        closeModal('removeModal');
+        await loadStudentResults();
+        updateStatistics();
+      } catch (error) {
+        console.error('Remove error:', error);
+        showAlert('error', error.message || 'Failed to remove result');
+      } finally {
+        const removeBtn = document.getElementById('confirmRemoveBtn');
+        removeBtn.disabled = false;
+      }
+    }
+
+    function editStudentResult(studentId) {
+      const student = filteredResults.find(s => s.id === studentId);
+      if (!student) return;
+
+      // Navigate to edit page or open edit modal
+      window.location.href = `/edit-result.html?studentId=${studentId}`;
+    }
+
+    function downloadStudentReport() {
+      if (!currentSelectedStudent) return;
+
+      const reportData = `
+STUDENT ACADEMIC REPORT
+=======================
+School: ${SCHOOL_NAME}
+Student: ${currentSelectedStudent.studentName}
+Registration: ${currentSelectedStudent.regNo}
+Class: ${currentSelectedStudent.className}
+Year: ${currentSelectedStudent.academicYear}
+Term: ${currentSelectedStudent.term || '-'}
+
+ACADEMIC PERFORMANCE
+====================
+Total Score: ${currentSelectedStudent.totalScore.toFixed(2)}
+Average Score: ${currentSelectedStudent.averageScore.toFixed(2)}
+Position: ${currentSelectedStudent.position || '-'}
+Grade: ${currentSelectedStudent.grade || '-'}
+
+SUBJECTS BREAKDOWN
+==================
+${currentSelectedStudent.subjects ? currentSelectedStudent.subjects.map(s => `${s.name}: ${s.total} (${s.grade})`).join('\n') : 'No subjects'}
+
+TEACHER'S COMMENT
+=================
+${currentSelectedStudent.teacherComment || 'No comment'}
+- ${currentSelectedStudent.teacherName || 'Class Teacher'}
+
+PRINCIPAL'S REMARK
+==================
+${currentSelectedStudent.principalRemark || 'No remark'}
+- ${currentSelectedStudent.principalName || 'Principal'}
+
+VERIFICATION
+=============
+Published: ${currentSelectedStudent.cloudStatus === 'uploaded' ? 'Yes' : 'No'}
+Verification Code: ${currentSelectedStudent.verificationCode || 'N/A'}
+Date Generated: ${new Date().toLocaleDateString()}
+
+This is an officially verified academic record from ${SCHOOL_NAME}.
+For inquiries, contact the school administration.
+      `;
+
+      const blob = new Blob([reportData], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Report_${currentSelectedStudent.regNo}_${Date.now()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showAlert('success', 'Report downloaded successfully!');
+      closeModal('detailModal');
+    }
+
+    // ============ UTILITY FUNCTIONS ============
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.add('active');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    function closeAllModals() {
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.remove('active');
+      });
+    }
+
+    function showAlert(type, message) {
+      const alertIds = {
+        'success': 'successAlert',
+        'error': 'errorAlert',
+        'warning': 'warningAlert'
+      };
+
+      // Hide all alerts
+      document.querySelectorAll('.alert').forEach(alert => {
+        alert.classList.remove('show');
+      });
+
+      const alertEl = document.getElementById(alertIds[type]);
+      if (alertEl) {
+        const messageEl = alertEl.querySelector('[id$="Message"]');
+        if (messageEl) {
+          messageEl.textContent = message;
+        }
+        alertEl.classList.add('show');
+
+        setTimeout(() => {
+          alertEl.classList.remove('show');
+        }, 6000);
+      }
+    }
+
+    function handleFilterSubmit(event) {
+      event.preventDefault();
+      loadStudentResults();
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('overlay');
+
+      sidebar.classList.toggle('open');
+      sidebar.classList.toggle('hidden');
+      overlay.classList.toggle('visible');
+
+      if (sidebar.classList.contains('open')) {
+        document.body.classList.add('no-scroll');
+      } else {
+        document.body.classList.remove('no-scroll');
+      }
+    }
+
+    function navClick(event) {
+      event.preventDefault();
+
+      // Remove active class from all nav items
+      document.querySelectorAll('.nav a').forEach(a => {
+        a.classList.remove('active');
+      });
+
+      // Add active class to clicked item
+      event.target.closest('a').classList.add('active');
+
+      // Close sidebar on mobile
+      if (window.innerWidth <= 720) {
+        toggleSidebar();
+      }
+    }
+
+    // Close modals when clicking outside
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', function(event) {
+        if (event.target === this) {
+          this.classList.remove('active');
+        }
+      });
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      if (window.innerWidth > 720) {
+        document.getElementById('sidebar').classList.remove('open', 'hidden');
+        document.getElementById('overlay').classList.remove('visible');
+        document.body.classList.remove('no-scroll');
+      }
+    });
+  </script>
+
+</body>
+</html>
