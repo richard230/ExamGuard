@@ -319,7 +319,80 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     dateIssued: new Date().toISOString()
   };
 }
+/**
+ * GET: Filter results with proper session/term scoping and transform data for frontend
+ */
+router.get('/try', async (req, res) => {
+  try {
+    const query = {};
+    if (req.query.session) {
+      const sess = await Session.findOne({ name: req.query.session });
+      if (!sess) {
+        return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      }
+      query.session = sess._id;
+    }
+    if (req.query.term) {
+      const term = await Term.findOne({ name: req.query.term });
+      if (!term) {
+        return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      }
+      query.term = term._id;
+    }
+    if (req.query.student_id) {
+      const student = await Student.findOne({ student_id: req.query.student_id });
+      if (student) query.student = student._id;
+    }
+    if (req.query.class) {
+      const klass = await Class.findOne({ name: req.query.class });
+      if (klass) query.class = klass._id;
+    }
+    if (req.query.subject) {
+      const subject = await Subject.findOne({ name: req.query.subject });
+      if (subject) query.subject = subject._id;
+    }
 
+    const results = await Result.find(query)
+      .populate('student')
+      .populate('class')
+      .populate('session')
+      .populate('term')
+      .populate('subject')
+      .sort({ _id: -1 });
+
+    if (!results.length) {
+      return res.status(404).json({ error: "Result unavailable for selected session and term." });
+    }
+
+    // Transform data for frontend
+    const transformedResults = results.map(result => {
+      const total = calculateResultTotal(result);
+      const { grade, remark } = getGradeAndRemark(total);
+
+      return {
+        id: result._id.toString(),
+        studentName: result.student?.name || `${result.student?.surname || ''} ${result.student?.firstname || ''}`.trim(),
+        regNo: result.student?.regNo,
+        classLevel: result.class?.name,
+        academicYear: result.session?.name,
+        term: result.term?.name,
+        subject: result.subject?.name,
+        totalScore: total,
+        grade: grade,
+        remarks: remark,
+        status: result.status,
+        ca1_score: result.ca1_score || 0,
+        ca2_score: result.ca2_score || 0,
+        midterm_score: result.midterm_score || 0,
+        exam_score: result.exam_score || 0
+      };
+    });
+
+    res.json(transformedResults);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // --- MAIN CHECK ROUTE (GET /check) ---
 router.get('/check', async (req, res) => {
   try {
