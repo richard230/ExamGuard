@@ -2354,15 +2354,29 @@ function displayResults(results) {
   `).join('');
 }
 
-async function viewResultDetail(resultId) {
+async function viewResultDetail(resultId, sessionId, termId) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/results/dashboard/student/${resultId}`, {
+    // Validate required parameters
+    if (!resultId || !sessionId || !termId) {
+      showAlert('error', 'Missing required parameters: resultId, sessionId, and termId are required');
+      return;
+    }
+
+    // Build URL with query parameters
+    const url = new URL(`${API_BASE_URL}/api/results/dashboard/student/${resultId}`, window.location.origin);
+    url.searchParams.append('sessionId', sessionId);
+    url.searchParams.append('termId', termId);
+
+    const response = await fetch(url.toString(), {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
 
-    if (!response.ok) throw new Error('Failed to load result');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to load result');
+    }
 
     const result = await response.json();
 
@@ -2384,6 +2398,13 @@ async function viewResultDetail(resultId) {
         <div>
           <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Academic Year</div>
           <div style="font-weight: 800; color: var(--primary);">${result.academicYear}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div>
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Term</div>
+          <div style="font-weight: 800; color: var(--primary);">${result.term || 'N/A'}</div>
         </div>
       </div>
 
@@ -2421,17 +2442,17 @@ async function viewResultDetail(resultId) {
             </tr>
           </thead>
           <tbody>
-            ${result.subjects.map(s => `
+            ${result.subjects && result.subjects.length > 0 ? result.subjects.map(s => `
               <tr>
-                <td>${s.name}</td>
-                <td>${s.ca1_score}</td>
-                <td>${s.ca2_score}</td>
-                <td>${s.midterm_score}</td>
-                <td>${s.exam_score}</td>
-                <td><strong>${s.total.toFixed(2)}</strong></td>
-                <td><span style="background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${s.grade}</span></td>
+                <td>${s.name || 'N/A'}</td>
+                <td>${s.ca1_score || '-'}</td>
+                <td>${s.ca2_score || '-'}</td>
+                <td>${s.midterm_score || '-'}</td>
+                <td>${s.exam_score || '-'}</td>
+                <td><strong>${s.total ? s.total.toFixed(2) : '0.00'}</strong></td>
+                <td><span style="background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${s.grade || 'N/A'}</span></td>
               </tr>
-            `).join('')}
+            `).join('') : '<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--text-light);">No subjects found</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -2440,7 +2461,7 @@ async function viewResultDetail(resultId) {
     showModal('detailModal');
   } catch (error) {
     console.error('Error loading result:', error);
-    showAlert('error', 'Failed to load result details');
+    showAlert('error', error.message || 'Failed to load result details');
   }
 }
 
