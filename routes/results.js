@@ -319,34 +319,31 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     dateIssued: new Date().toISOString()
   };
 }
-/**
- * GET: Filter results with proper session/term scoping and transform data for frontend
- */
-router.get('/try', async (req, res) => {
+
+router.get('/dashboard/all', async (req, res) => {
   try {
     const query = {};
+    
     if (req.query.session) {
       const sess = await Session.findOne({ name: req.query.session });
-      if (!sess) {
-        return res.status(404).json({ error: "Result unavailable for selected session and term." });
-      }
-      query.session = sess._id;
+      if (sess) query.session = sess._id;
     }
+    
     if (req.query.term) {
       const term = await Term.findOne({ name: req.query.term });
-      if (!term) {
-        return res.status(404).json({ error: "Result unavailable for selected session and term." });
-      }
-      query.term = term._id;
+      if (term) query.term = term._id;
     }
+    
     if (req.query.student_id) {
       const student = await Student.findOne({ student_id: req.query.student_id });
       if (student) query.student = student._id;
     }
+    
     if (req.query.class) {
       const klass = await Class.findOne({ name: req.query.class });
       if (klass) query.class = klass._id;
     }
+    
     if (req.query.subject) {
       const subject = await Subject.findOne({ name: req.query.subject });
       if (subject) query.subject = subject._id;
@@ -361,10 +358,10 @@ router.get('/try', async (req, res) => {
       .sort({ _id: -1 });
 
     if (!results.length) {
-      return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      return res.json([]);
     }
 
-    // Transform data for frontend
+    // Transform data for frontend dashboard
     const transformedResults = results.map(result => {
       const total = calculateResultTotal(result);
       const { grade, remark } = getGradeAndRemark(total);
