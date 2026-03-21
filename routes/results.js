@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const apiKeyAuth = require('../middleware/apiKeyAuth');
 
 const Result = require('../models/Result');
 const Student = require('../models/Student');
