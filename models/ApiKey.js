@@ -8,10 +8,10 @@ const apiKeySchema = new mongoose.Schema({
     trim: true
   },
   school: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'School',
-    required: true
-  },
+  type: String,
+  required: true,
+  index: true
+},
   key: {
     type: String,
     unique: true,
