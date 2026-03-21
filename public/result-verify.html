@@ -1524,57 +1524,73 @@
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Academic Year</label>
-                <select class="form-select" id="filterYear" onchange="loadResults()">
-                  <option value="">All Years</option>
-                </select>
-              </div>
+<!-- Add this in the filter section -->
+<div class="form-row">
+  <div class="form-group">
+    <label class="form-label">Academic Year</label>
+    <select class="form-select" id="filterYear" onchange="loadResults()">
+      <option value="">All Years</option>
+    </select>
+  </div>
 
-              <div class="form-group">
-                <label class="form-label">Class</label>
-                <select class="form-select" id="filterClass" onchange="loadResults()">
-                  <option value="">All Classes</option>
-                  <option value="P1">Primary 1</option>
-                  <option value="P2">Primary 2</option>
-                  <option value="P3">Primary 3</option>
-                  <option value="P4">Primary 4</option>
-                  <option value="P5">Primary 5</option>
-                  <option value="P6">Primary 6</option>
-                  <option value="JSS1">JSS 1</option>
-                  <option value="JSS2">JSS 2</option>
-                  <option value="JSS3">JSS 3</option>
-                  <option value="SS1">SS 1</option>
-                  <option value="SS2">SS 2</option>
-                  <option value="SS3">SS 3</option>
-                </select>
-              </div>
-            </div>
+  <div class="form-group">
+    <label class="form-label">Term</label>
+    <select class="form-select" id="filterTerm" onchange="loadResults()">
+      <option value="">All Terms</option>
+    </select>
+  </div>
+</div>
 
-            <div class="table-container">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Student Name</th>
-                    <th>Reg. No</th>
-                    <th>Class</th>
-                    <th>Year</th>
-                    <th>Total Score</th>
-                    <th>Grade</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody id="resultsTableBody">
-                  <tr>
-                    <td colspan="8" style="text-align: center; padding: 40px;">No results found</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+<div class="form-row">
+  <div class="form-group">
+    <label class="form-label">Class</label>
+    <select class="form-select" id="filterClass" onchange="loadResults()">
+      <option value="">All Classes</option>
+      <option value="P1">Primary 1</option>
+      <option value="P2">Primary 2</option>
+      <option value="P3">Primary 3</option>
+      <option value="P4">Primary 4</option>
+      <option value="P5">Primary 5</option>
+      <option value="P6">Primary 6</option>
+      <option value="JSS1">JSS 1</option>
+      <option value="JSS2">JSS 2</option>
+      <option value="JSS3">JSS 3</option>
+      <option value="SS1">SS 1</option>
+      <option value="SS2">SS 2</option>
+      <option value="SS3">SS 3</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Refresh</label>
+    <button class="btn btn-secondary" onclick="loadResults()" style="margin-top: 6px;">
+      <i class="fas fa-sync-alt"></i> Load Results
+    </button>
+  </div>
+</div>
+
+<div class="table-container">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Student Name</th>
+        <th>Reg. No</th>
+        <th>Class</th>
+        <th>Year</th>
+        <th>Total Score</th>
+        <th>Grade</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="resultsTableBody">
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 40px;">No results found</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 
         <!-- HISTORY PAGE -->
         <div id="historyPage" style="display: none;">
@@ -2298,37 +2314,62 @@ async function populateResultsFilters() {
     }
 
     // ============ RESULTS MANAGEMENT ============
-async function loadResults() {
+// Load results with filters
+    // Populate the Academic Year dropdown
+async function populateYearDropdown() {
   try {
-    const yearId = document.getElementById('filterYear').value;
-    const classLevel = document.getElementById('filterClass').value;
-
-    let url = `${API_BASE_URL}/api/results/dashboard/all`;
-    const params = new URLSearchParams();
-    if (yearId) params.append('session', yearId);
-    if (classLevel) params.append('class', classLevel);
-
-    if (params.toString()) {
-      url += '?' + params.toString();
-    }
-
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    const response = await fetch(`${API_BASE_URL}/api/academics/sessions`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-
-    if (!response.ok) throw new Error('Failed to load results');
-
-    const results = await response.json();
-    displayResults(results);
+    
+    if (!response.ok) return;
+    
+    const sessions = await response.json();
+    const yearSelect = document.getElementById('filterYear');
+    
+    sessions.forEach(session => {
+      const option = document.createElement('option');
+      option.value = session._id;
+      option.textContent = session.name;
+      yearSelect.appendChild(option);
+    });
   } catch (error) {
-    console.error('Error loading results:', error);
-    showAlert('error', 'Failed to load results');
+    console.error('Error populating year dropdown:', error);
   }
 }
 
-function displayResults(results) {
+// Populate the Term dropdown
+async function populateTermDropdown() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/academics/terms`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) return;
+    
+    const terms = await response.json();
+    const termSelect = document.getElementById('filterTerm');
+    
+    // Clear existing options except the first one
+    while (termSelect.options.length > 1) {
+      termSelect.remove(1);
+    }
+    
+    terms.forEach(term => {
+      const option = document.createElement('option');
+      option.value = term._id;
+      option.textContent = term.name;
+      termSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error populating term dropdown:', error);
+  }
+}
+
+
+
+// Display results in table with stored session/term context
+function displayResults(results, sessionId, termId) {
   const tableBody = document.getElementById('resultsTableBody');
 
   if (results.length === 0) {
@@ -2346,7 +2387,7 @@ function displayResults(results) {
       <td><span style="background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; padding: 4px 8px; border-radius: 6px; font-weight: 700;">${result.grade}</span></td>
       <td><span class="status-badge status-${result.status.toLowerCase()}">${result.status}</span></td>
       <td>
-        <button class="header-btn" style="font-size: 0.85rem; padding: 6px 12px;" onclick="viewResultDetail('${result.id}')">
+        <button class="header-btn" style="font-size: 0.85rem; padding: 6px 12px;" onclick="viewResultDetail('${result.id}', '${sessionId}', '${termId}')">
           <i class="fas fa-eye"></i> View
         </button>
       </td>
@@ -2354,11 +2395,47 @@ function displayResults(results) {
   `).join('');
 }
 
+
+async function loadResults() {
+  try {
+    const yearId = document.getElementById('filterYear').value;
+    const termId = document.getElementById('filterTerm').value;
+    const classLevel = document.getElementById('filterClass').value;
+
+    let url = `${API_BASE_URL}/api/results/dashboard/all`;
+    const params = new URLSearchParams();
+    
+    if (yearId) params.append('session', yearId);
+    if (termId) params.append('term', termId);
+    if (classLevel) params.append('class', classLevel);
+
+    if (params.toString()) {
+      url += '?' + params.toString();
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) throw new Error('Failed to load results');
+
+    const results = await response.json();
+    displayResults(results, yearId, termId);
+  } catch (error) {
+    console.error('Error loading results:', error);
+    showAlert('error', 'Failed to load results');
+  }
+}
+
+
+// View result detail modal
 async function viewResultDetail(resultId, sessionId, termId) {
   try {
     // Validate required parameters
     if (!resultId || !sessionId || !termId) {
-      showAlert('error', 'Missing required parameters: resultId, sessionId, and termId are required');
+      showAlert('error', 'Missing required parameters: Please select both Academic Year and Term before viewing results');
       return;
     }
 
@@ -2464,6 +2541,12 @@ async function viewResultDetail(resultId, sessionId, termId) {
     showAlert('error', error.message || 'Failed to load result details');
   }
 }
+
+// Initialize dropdowns when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  populateYearDropdown();
+  populateTermDropdown();
+});
 
     // ============ UTILITY FUNCTIONS ============
     function switchPage(pageName, element) {
