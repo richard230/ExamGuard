@@ -323,19 +323,27 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
 /**
  * GET: Fetch detailed results for a student (merged view)
  * Only shows Published results
+ * REQUIRED PARAMS: studentId, sessionId, termId
  */
 router.get('/dashboard/student/:studentId', async (req, res) => {
   try {
     const { studentId } = req.params;
     const { sessionId, termId } = req.query;
 
+    // CRITICAL: Require sessionId and termId for proper scoping
+    if (!sessionId || !termId) {
+      return res.status(400).json({ 
+        error: 'Missing required parameters: sessionId and termId are required',
+        message: 'Please provide sessionId and termId as query parameters'
+      });
+    }
+
     const query = {
       student: studentId,
+      session: sessionId,
+      term: termId,
       status: 'Published'  // Only published results
     };
-
-    if (sessionId) query.session = sessionId;
-    if (termId) query.term = termId;
 
     const results = await Result.find(query)
       .populate('student')
@@ -345,7 +353,7 @@ router.get('/dashboard/student/:studentId', async (req, res) => {
       .populate('subject');
 
     if (!results.length) {
-      return res.status(404).json({ error: 'No results found for this student' });
+      return res.status(404).json({ error: 'No results found for this student in the selected session and term' });
     }
 
     // Merge all results for this student
@@ -392,6 +400,7 @@ router.get('/dashboard/student/:studentId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 /**
  * GET: Fetch results for admin/teacher dashboard with transformed data
  * Groups results by student (merged subjects) and only shows Published results
@@ -511,6 +520,7 @@ router.get('/dashboard/all', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 // --- MAIN CHECK ROUTE (GET /check) ---
 router.get('/check', async (req, res) => {
   try {
