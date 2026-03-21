@@ -1802,6 +1802,7 @@
     }
 
     // ===== FETCH FROM BACKEND =====
+// ===== FETCH FROM BACKEND =====
 async function fetchFromBackend() {
   const backendUrl = document.getElementById('backendUrlInput').value.trim();
   const apiKey = document.getElementById('apiKeyInput').value.trim();
@@ -1831,15 +1832,30 @@ async function fetchFromBackend() {
   fetchBtn.innerHTML = '<span class="spinner"></span><span>Syncing...</span>';
 
   try {
+    // Ensure URL ends with /api/results (adjust if needed)
+    let endpoint = validUrl.pathname.endsWith('/') ? validUrl.pathname : validUrl.pathname + '/';
+    if (!endpoint.includes('/api/results')) {
+      endpoint += 'api/results';
+    }
+    
+    // Use the /dashboard/all endpoint for fetching (GET method)
+    const fetchUrl = new URL(validUrl.origin + endpoint + '/dashboard/all');
+    
     // Add query parameters
-    if (session) validUrl.searchParams.set('session', session);
-    if (term) validUrl.searchParams.set('term', term);
-    if (className) validUrl.searchParams.set('class', className);
+    if (session) fetchUrl.searchParams.set('session', session);
+    if (term) fetchUrl.searchParams.set('term', term);
+    if (className) fetchUrl.searchParams.set('class', className);
 
     const headers = { 'Content-Type': 'application/json' };
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-    const response = await fetch(validUrl.toString(), { headers, mode: 'cors' });
+    // GET request to /dashboard/all endpoint
+    const response = await fetch(fetchUrl.toString(), { 
+      method: 'GET',  // ← Explicitly specify GET
+      headers, 
+      mode: 'cors' 
+    });
+    
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
