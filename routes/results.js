@@ -322,6 +322,78 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
 }
 
 /**
+ * MERGE DUPLICATES UTILITY
+ */
+async function mergeDuplicateResults() {
+  try {
+    console.log('Starting duplicate merge process...');
+    
+    const duplicateGroups = await Result.aggregate([
+      {
+        $group: {
+          _id: {
+            student: '$student',
+            subject: '$subject',
+            session: '$session',
+            term: '$term'
+          },
+          count: { $sum: 1 },
+          ids: { $push: '$_id' },
+          results: { $push: '$$ROOT' }
+        }
+      },
+      {
+        $match: { count: { $gt: 1 } }
+      }
+    ]);
+
+    console.log(`Found ${duplicateGroups.length} duplicate groups`);
+
+    let mergedCount = 0;
+
+    for (const group of duplicateGroups) {
+      const results = group.results;
+      const primaryResult = results[0];
+      const othersToDelete = results.slice(1);
+
+      const mergedData = {
+        ca1_score: primaryResult.ca1_score,
+        ca2_score: primaryResult.ca2_score,
+        midterm_score: primaryResult.midterm_score,
+        exam_score: primaryResult.exam_score,
+        score: primaryResult.score,
+        grade: primaryResult.grade,
+        remarks: primaryResult.remarks
+      };
+
+      for (const other of othersToDelete) {
+        if (other.ca1_score && !mergedData.ca1_score) mergedData.ca1_score = other.ca1_score;
+        if (other.ca2_score && !mergedData.ca2_score) mergedData.ca2_score = other.ca2_score;
+        if (other.midterm_score && !mergedData.midterm_score) mergedData.midterm_score = other.midterm_score;
+        if (other.exam_score && !mergedData.exam_score) mergedData.exam_score = other.exam_score;
+        if (other.score && !mergedData.score) mergedData.score = other.score;
+      }
+
+      await Result.findByIdAndUpdate(primaryResult._id, mergedData);
+
+      for (const other of othersToDelete) {
+        await Result.findByIdAndDelete(other._id);
+      }
+
+      mergedCount++;
+    }
+
+    console.log(`Merged ${mergedCount} duplicate groups`);
+    return { mergedCount, duplicateGroupsFound: duplicateGroups.length };
+  } catch (err) {
+    console.error('Error in mergeDuplicateResults:', err);
+    throw err;
+  }
+}
+
+/* ========== STATIC ROUTES (BEFORE PARAMETERIZED ROUTES) ========== */
+
+/**
  * GET: Fetch detailed results for a student (merged view)
  * Only shows Published results
  * REQUIRED PARAMS: studentId, sessionId, termId
@@ -522,7 +594,9 @@ router.get('/dashboard/all', async (req, res) => {
   }
 });
 
-// --- MAIN CHECK ROUTE (GET /check) ---
+/**
+ * GET: Check route (public access)
+ */
 router.get('/check', async (req, res) => {
   try {
     const { regNo, scratchCard, class: className, session, term } = req.query;
@@ -567,7 +641,7 @@ router.get('/check', async (req, res) => {
 });
 
 /**
- * GET student report by ID for admin/teacher viewing
+ * GET: Fetch results for admin/teacher viewing
  */
 router.get('/student/:studentId/report', async (req, res) => {
   try {
@@ -618,77 +692,7 @@ router.get('/student/:studentId/report', async (req, res) => {
 });
 
 /**
- * MERGE DUPLICATES UTILITY
- */
-async function mergeDuplicateResults() {
-  try {
-    console.log('Starting duplicate merge process...');
-    
-    const duplicateGroups = await Result.aggregate([
-      {
-        $group: {
-          _id: {
-            student: '$student',
-            subject: '$subject',
-            session: '$session',
-            term: '$term'
-          },
-          count: { $sum: 1 },
-          ids: { $push: '$_id' },
-          results: { $push: '$$ROOT' }
-        }
-      },
-      {
-        $match: { count: { $gt: 1 } }
-      }
-    ]);
-
-    console.log(`Found ${duplicateGroups.length} duplicate groups`);
-
-    let mergedCount = 0;
-
-    for (const group of duplicateGroups) {
-      const results = group.results;
-      const primaryResult = results[0];
-      const othersToDelete = results.slice(1);
-
-      const mergedData = {
-        ca1_score: primaryResult.ca1_score,
-        ca2_score: primaryResult.ca2_score,
-        midterm_score: primaryResult.midterm_score,
-        exam_score: primaryResult.exam_score,
-        score: primaryResult.score,
-        grade: primaryResult.grade,
-        remarks: primaryResult.remarks
-      };
-
-      for (const other of othersToDelete) {
-        if (other.ca1_score && !mergedData.ca1_score) mergedData.ca1_score = other.ca1_score;
-        if (other.ca2_score && !mergedData.ca2_score) mergedData.ca2_score = other.ca2_score;
-        if (other.midterm_score && !mergedData.midterm_score) mergedData.midterm_score = other.midterm_score;
-        if (other.exam_score && !mergedData.exam_score) mergedData.exam_score = other.exam_score;
-        if (other.score && !mergedData.score) mergedData.score = other.score;
-      }
-
-      await Result.findByIdAndUpdate(primaryResult._id, mergedData);
-
-      for (const other of othersToDelete) {
-        await Result.findByIdAndDelete(other._id);
-      }
-
-      mergedCount++;
-    }
-
-    console.log(`Merged ${mergedCount} duplicate groups`);
-    return { mergedCount, duplicateGroupsFound: duplicateGroups.length };
-  } catch (err) {
-    console.error('Error in mergeDuplicateResults:', err);
-    throw err;
-  }
-}
-
-/**
- * UPSERT BULK UPLOAD
+ * POST: UPSERT - Create or update results (STATIC ROUTE - BEFORE /:id)
  */
 router.post('/upsert', apiKeyAuth, async (req, res) => {
   try {
@@ -773,7 +777,7 @@ router.post('/upsert', apiKeyAuth, async (req, res) => {
 });
 
 /**
- * BULK UPLOAD
+ * POST: UPLOAD - Batch upload results (STATIC ROUTE - BEFORE /:id)
  */
 router.post('/upload', apiKeyAuth, async (req, res) => {
   try {
@@ -868,7 +872,7 @@ router.post('/upload', apiKeyAuth, async (req, res) => {
 });
 
 /**
- * ADMIN ROUTE: Merge all existing duplicates
+ * POST: Merge duplicates (STATIC ROUTE - BEFORE /:id)
  */
 router.post('/merge-duplicates', async (req, res) => {
   try {
@@ -885,133 +889,7 @@ router.post('/merge-duplicates', async (req, res) => {
 });
 
 /**
- * GET: Filter results with proper session/term scoping
- */
-router.get('/', async (req, res) => {
-  try {
-    const query = {};
-    if (req.query.session) {
-      const sess = await Session.findOne({ name: req.query.session });
-      if (!sess) {
-        return res.status(404).json({ error: "Result unavailable for selected session and term." });
-      }
-      query.session = sess._id;
-    }
-    if (req.query.term) {
-      const term = await Term.findOne({ name: req.query.term });
-      if (!term) {
-        return res.status(404).json({ error: "Result unavailable for selected session and term." });
-      }
-      query.term = term._id;
-    }
-    if (req.query.student_id) {
-      const student = await Student.findOne({ student_id: req.query.student_id });
-      if (student) query.student = student._id;
-    }
-    if (req.query.class) {
-      const klass = await Class.findOne({ name: req.query.class });
-      if (klass) query.class = klass._id;
-    }
-    if (req.query.subject) {
-      const subject = await Subject.findOne({ name: req.query.subject });
-      if (subject) query.subject = subject._id;
-    }
-
-    const results = await Result.find(query)
-      .populate('student')
-      .populate('class')
-      .populate('session')
-      .populate('term')
-      .populate('subject')
-      .sort({ _id: -1 });
-
-    if (!results.length) {
-      return res.status(404).json({ error: "Result unavailable for selected session and term." });
-    }
-
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET: Single result
- */
-router.get('/:id', async (req, res) => {
-  try {
-    const result = await Result.findById(req.params.id)
-      .populate('student')
-      .populate('session')
-      .populate('term')
-      .populate('class')
-      .populate('subject');
-    if (!result) return res.status(404).json({ error: 'Result not found' });
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * UPDATE: Full update
- */
-router.put('/:id', async (req, res) => {
-  try {
-    const updated = await Result.findByIdAndUpdate(req.params.id, req.body, { new: true })
-      .populate('student')
-      .populate('session')
-      .populate('term')
-      .populate('class')
-      .populate('subject');
-    if (!updated) return res.status(404).json({ error: 'Result not found' });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * UPDATE: Partial update
- */
-router.patch('/:id', async (req, res) => {
-  try {
-    const updated = await Result.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ error: 'Result not found' });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * PUBLISH a result
- */
-router.post('/:id/publish', async (req, res) => {
-  try {
-    const updated = await Result.findByIdAndUpdate(req.params.id, { status: 'Published' }, { new: true });
-    if (!updated) return res.status(404).json({ error: 'Result not found' });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * DELETE: Remove a result
- */
-router.delete('/:id', async (req, res) => {
-  try {
-    const deleted = await Result.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Result not found' });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * CBT PUSH ROUTE
+ * POST: CBT Push (STATIC ROUTE - BEFORE /:id)
  */
 router.post('/push-cbt', async (req, res) => {
   try {
@@ -1067,6 +945,134 @@ router.post('/push-cbt', async (req, res) => {
     res.json({ success: true, inserted, skipped, errors });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/* ========== PARAMETERIZED ROUTES (AFTER STATIC ROUTES) ========== */
+
+/**
+ * GET: Filter results with proper session/term scoping
+ */
+router.get('/', async (req, res) => {
+  try {
+    const query = {};
+    if (req.query.session) {
+      const sess = await Session.findOne({ name: req.query.session });
+      if (!sess) {
+        return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      }
+      query.session = sess._id;
+    }
+    if (req.query.term) {
+      const term = await Term.findOne({ name: req.query.term });
+      if (!term) {
+        return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      }
+      query.term = term._id;
+    }
+    if (req.query.student_id) {
+      const student = await Student.findOne({ student_id: req.query.student_id });
+      if (student) query.student = student._id;
+    }
+    if (req.query.class) {
+      const klass = await Class.findOne({ name: req.query.class });
+      if (klass) query.class = klass._id;
+    }
+    if (req.query.subject) {
+      const subject = await Subject.findOne({ name: req.query.subject });
+      if (subject) query.subject = subject._id;
+    }
+
+    const results = await Result.find(query)
+      .populate('student')
+      .populate('class')
+      .populate('session')
+      .populate('term')
+      .populate('subject')
+      .sort({ _id: -1 });
+
+    if (!results.length) {
+      return res.status(404).json({ error: "Result unavailable for selected session and term." });
+    }
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET: Single result by ID
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const result = await Result.findById(req.params.id)
+      .populate('student')
+      .populate('session')
+      .populate('term')
+      .populate('class')
+      .populate('subject');
+    if (!result) return res.status(404).json({ error: 'Result not found' });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT: Full update
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const updated = await Result.findByIdAndUpdate(req.params.id, req.body, { new: true })
+      .populate('student')
+      .populate('session')
+      .populate('term')
+      .populate('class')
+      .populate('subject');
+    if (!updated) return res.status(404).json({ error: 'Result not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PATCH: Partial update
+ */
+router.patch('/:id', async (req, res) => {
+  try {
+    const updated = await Result.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Result not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST: Publish a result
+ */
+router.post('/:id/publish', async (req, res) => {
+  try {
+    const updated = await Result.findByIdAndUpdate(req.params.id, { status: 'Published' }, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Result not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE: Remove a result
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const deleted = await Result.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Result not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
