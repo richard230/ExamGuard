@@ -1,83 +1,96 @@
 // ===== CONFIGURATION =====
 const CONFIG = {
-  STORAGE_KEY: 'examguard_schools',
-  ID_PREFIX: 'SCH',
-  API_ENDPOINT: 'https://examguard-8rxe.onrender.com/api/schools'
+  API_ENDPOINT: 'https://examguard-8rxe.onrender.com/api/schools',
+  AUTH_TOKEN: localStorage.getItem('authToken') || '',
+  ADMIN_TOKEN: localStorage.getItem('adminToken') || ''
 };
 
 // ===== STATE MANAGEMENT =====
 const AppState = {
   schools: [],
   currentEditSchool: null,
-  importData: []
+  importData: [],
+  isLoading: false,
+  pagination: {
+    total: 0,
+    page: 1,
+    limit: 20,
+    pages: 1
+  }
 };
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('🔄 Initializing School Management...');
+  
+  // Check authentication
+  if (!CONFIG.AUTH_TOKEN) {
+    showAlert('error', 'Please log in to access school management');
+    setTimeout(() => {
+      window.location.href = '/auth/login';
+    }, 2000);
+    return;
+  }
+
   setupEventListeners();
   loadSchools();
   updateStats();
   setupImportHandling();
-  generateSchoolId();
-  console.log('✓ School Management loaded successfully');
+  console.log('✓ School Management initialized successfully');
 });
 
 function setupEventListeners() {
-  // Form input listeners for auto-ID generation
-  const schoolNameInput = document.getElementById('schoolNameInput');
-  const schoolAbbrevInput = document.getElementById('schoolAbbrevInput');
-  
-  if (schoolNameInput) schoolNameInput.addEventListener('change', generateSchoolId);
-  if (schoolAbbrevInput) schoolAbbrevInput.addEventListener('change', generateSchoolId);
-
   // Search functionality
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      filterSchools(e.target.value);
+    searchInput.addEventListener('input', debounce((e) => {
+      searchSchools(e.target.value);
+    }, 500));
+  }
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const tabName = this.textContent.toLowerCase();
+      if (tabName.includes('create')) switchTab('create');
+      else if (tabName.includes('school')) switchTab('list');
+      else if (tabName.includes('import')) switchTab('import');
     });
-  }
+  });
 }
 
-// ===== SCHOOL ID GENERATION =====
-function generateSchoolId() {
-  const nameInput = document.getElementById('schoolNameInput');
-  const abbrevInput = document.getElementById('schoolAbbrevInput');
-  const previewInput = document.getElementById('schoolIdPreview');
-
-  if (!nameInput || !abbrevInput || !previewInput) return;
-
-  const name = nameInput.value.trim();
-  const abbrev = abbrevInput.value.trim().toUpperCase();
-
-  if (!name || !abbrev) {
-    previewInput.value = '';
-    return;
-  }
-
-  // Format: SCH-ABBREV-XXXXXXX (random alphanumeric)
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const schoolId = `${CONFIG.ID_PREFIX}-${abbrev}-${random}`;
-
-  previewInput.value = schoolId;
+// ===== UTILITIES =====
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
 }
 
-function regenerateSchoolId() {
-  const nameInput = document.getElementById('schoolNameInput');
-  const abbrevInput = document.getElementById('schoolAbbrevInput');
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.toString().replace(/[&<>"']/g, m => map[m]);
+}
 
-  if (!nameInput || !abbrevInput) return;
-
-  const name = nameInput.value.trim();
-  const abbrev = abbrevInput.value.trim().toUpperCase();
-
-  if (!name || !abbrev) {
-    showAlert('error', 'Please enter school name and abbreviation first');
-    return;
-  }
-
-  generateSchoolId();
-  showAlert('success', 'School ID regenerated');
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showAlert('success', '✓ Copied to clipboard: ' + text);
+  }).catch(err => {
+    console.error('Copy failed:', err);
+    showAlert('error', 'Failed to copy to clipboard');
+  });
 }
 
 // ===== CREATE SCHOOL =====
@@ -85,37 +98,44 @@ async function createSchool(e) {
   e.preventDefault();
 
   const nameInput = document.getElementById('schoolNameInput');
-  const idInput = document.getElementById('schoolIdPreview');
+  const abbrevInput = document.getElementById('schoolAbbrevInput');
   const emailInput = document.getElementById('schoolEmailInput');
   const phoneInput = document.getElementById('schoolPhoneInput');
   const locationInput = document.getElementById('schoolLocationInput');
-  const principalInput = document.getElementById('principalNameInput');
+  const adminNameInput = document.getElementById('adminNameInput');
+  const adminEmailInput = document.getElementById('adminEmailInput');
+  const adminPhoneInput = document.getElementById('adminPhoneInput');
+  const countryInput = document.getElementById('countryInput');
   const typeInput = document.getElementById('schoolTypeInput');
-  const descInput = document.getElementById('schoolDescInput');
+  const principalInput = document.getElementById('principalNameInput');
   const createBtn = document.getElementById('createBtn');
 
-  if (!nameInput || !idInput || !emailInput || !locationInput || !typeInput) {
-    showAlert('error', 'Required form elements not found');
-    return;
-  }
+  // Validate inputs
+  const schoolName = nameInput?.value.trim();
+  const abbreviation = abbrevInput?.value.trim().toUpperCase();
+  const email = emailInput?.value.trim();
+  const phone = phoneInput?.value.trim();
+  const location = locationInput?.value.trim();
+  const adminName = adminNameInput?.value.trim();
+  const adminEmail = adminEmailInput?.value.trim();
+  const adminPhone = adminPhoneInput?.value.trim();
+  const country = countryInput?.value.trim();
+  const schoolType = typeInput?.value;
+  const principal = principalInput?.value.trim();
 
-  const schoolName = nameInput.value.trim();
-  const schoolId = idInput.value.trim();
-  const email = emailInput.value.trim();
-  const phone = phoneInput?.value.trim() || '';
-  const location = locationInput.value.trim();
-  const principal = principalInput?.value.trim() || '';
-  const type = typeInput.value;
-  const description = descInput?.value.trim() || '';
-
-  if (!schoolName || !schoolId || !email || !location || !type) {
+  if (!schoolName || !abbreviation || !email || !phone || !location || !adminName || !adminEmail || !adminPhone || !country || !schoolType) {
     showAlert('error', 'Please fill in all required fields');
     return;
   }
 
-  // Validate email
+  // Validate emails
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    showAlert('error', 'Please enter a valid email address');
+    showAlert('error', 'Please enter a valid school email address');
+    return;
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+    showAlert('error', 'Please enter a valid admin email address');
     return;
   }
 
@@ -125,40 +145,44 @@ async function createSchool(e) {
   }
 
   try {
-    // Check for duplicate ID
-    if (AppState.schools.some(s => s.id === schoolId)) {
-      showAlert('error', 'School ID already exists. Please regenerate a new one.');
-      return;
+    const response = await fetch(CONFIG.API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
+      },
+      body: JSON.stringify({
+        schoolName,
+        abbreviation,
+        email,
+        phone,
+        location,
+        adminName,
+        adminEmail,
+        adminPhone,
+        country,
+        schoolType,
+        principal: principal || undefined
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || result.message || 'Failed to create school');
     }
 
-    const newSchool = {
-      id: schoolId,
-      name: schoolName,
-      abbreviation: document.getElementById('schoolAbbrevInput')?.value.trim().toUpperCase() || '',
-      email,
-      phone,
-      location,
-      principal,
-      type,
-      description,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      lastModified: new Date().toISOString()
-    };
-
-    AppState.schools.push(newSchool);
-    saveSchools();
-
-    showAlert('success', `✓ School created successfully! ID: ${schoolId}`);
+    showAlert('success', `✓ School created successfully! ID: ${result.data.schoolId}`);
     
     // Reset form
     const form = document.getElementById('createSchoolForm');
     if (form) form.reset();
-    generateSchoolId();
     
+    // Reload schools
+    await loadSchools();
     updateStats();
 
-    // Switch to list tab after delay
+    // Switch to list tab
     setTimeout(() => {
       switchTab('list');
     }, 1500);
@@ -175,31 +199,69 @@ async function createSchool(e) {
 }
 
 // ===== LOAD SCHOOLS =====
-function loadSchools() {
+async function loadSchools() {
+  if (AppState.isLoading) return;
+  
+  AppState.isLoading = true;
+
   try {
-    const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
-    if (stored) {
-      AppState.schools = JSON.parse(stored);
-      console.log(`✓ Loaded ${AppState.schools.length} schools`);
-    } else {
-      AppState.schools = [];
+    const response = await fetch(`${CONFIG.API_ENDPOINT}/admin/all?page=${AppState.pagination.page}&limit=${AppState.pagination.limit}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch schools');
     }
-    displaySchools();
+
+    const result = await response.json();
+
+    if (result.success) {
+      AppState.schools = result.data || [];
+      AppState.pagination = result.pagination || AppState.pagination;
+      
+      console.log(`✓ Loaded ${AppState.schools.length} schools`);
+      displaySchools();
+    } else {
+      throw new Error(result.message || 'Failed to load schools');
+    }
   } catch (err) {
     console.error('Error loading schools:', err);
+    showAlert('error', `Failed to load schools: ${err.message}`);
     AppState.schools = [];
-    showAlert('error', 'Failed to load schools from storage');
+    displaySchools();
+  } finally {
+    AppState.isLoading = false;
   }
 }
 
-// ===== SAVE SCHOOLS =====
-function saveSchools() {
+// ===== SEARCH SCHOOLS =====
+async function searchSchools(query) {
+  if (!query || query.trim().length < 2) {
+    loadSchools();
+    return;
+  }
+
   try {
-    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(AppState.schools));
-    console.log('✓ Schools saved to storage');
+    const response = await fetch(`${CONFIG.API_ENDPOINT}?search=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Search failed');
+    }
+
+    const result = await response.json();
+    AppState.schools = result.data || [];
+    displaySchools();
   } catch (err) {
-    console.error('Error saving schools:', err);
-    showAlert('error', 'Failed to save schools to storage');
+    console.error('Error searching schools:', err);
+    showAlert('error', `Search failed: ${err.message}`);
   }
 }
 
@@ -221,22 +283,26 @@ function displaySchools(schools = AppState.schools) {
   schoolsList.innerHTML = schools.map(school => `
     <div class="school-card">
       <div class="school-info">
-        <h3 class="school-name">${escapeHtml(school.name)}</h3>
+        <h3 class="school-name">${escapeHtml(school.schoolName)}</h3>
         <p class="school-id">
-          <i class="fas fa-key"></i> ID: <strong>${escapeHtml(school.id)}</strong>
-          <button class="btn btn-small" style="margin-left: 8px; padding: 4px 8px;" onclick="copyToClipboard('${school.id}')">
-            <i class="fas fa-copy"></i>
-          </button>
+          <i class="fas fa-key"></i> ID: <strong>${escapeHtml(school.schoolId || 'N/A')}</strong>
+          ${school.schoolId ? `
+            <button class="btn btn-small" style="margin-left: 8px; padding: 4px 8px;" onclick="copyToClipboard('${school.schoolId}')">
+              <i class="fas fa-copy"></i>
+            </button>
+          ` : ''}
         </p>
         <div class="school-meta">
           <div style="margin-bottom: 4px;">
-            <strong style="text-transform: capitalize;">${escapeHtml(school.type)}</strong> • <i class="fas fa-map-marker-alt"></i> ${escapeHtml(school.location)}
+            <strong style="text-transform: capitalize;">${escapeHtml(school.schoolType)}</strong> 
+            • <i class="fas fa-map-marker-alt"></i> ${escapeHtml(school.city || school.state || school.country)}
           </div>
           <div>
             <i class="fas fa-envelope"></i> ${escapeHtml(school.email)} 
             ${school.phone ? `• <i class="fas fa-phone"></i> ${escapeHtml(school.phone)}` : ''}
           </div>
           ${school.principal ? `<div><i class="fas fa-user-tie"></i> ${escapeHtml(school.principal)}</div>` : ''}
+          ${school.adminName ? `<div><i class="fas fa-user"></i> Admin: ${escapeHtml(school.adminName)}</div>` : ''}
           <div style="margin-top: 8px;">
             <i class="fas fa-calendar"></i> Created: ${new Date(school.createdAt).toLocaleDateString()}
             <span class="status-badge ${school.status === 'active' ? 'status-active' : 'status-inactive'}" style="margin-left: 12px;">
@@ -247,10 +313,10 @@ function displaySchools(schools = AppState.schools) {
         </div>
       </div>
       <div class="school-actions">
-        <button class="btn btn-icon edit" onclick="editSchool('${school.id}')" title="Edit">
+        <button class="btn btn-icon edit" onclick="editSchool('${school._id}')" title="Edit">
           <i class="fas fa-edit"></i>
         </button>
-        <button class="btn btn-icon delete" onclick="deleteSchool('${school.id}')" title="Delete">
+        <button class="btn btn-icon delete" onclick="deleteSchool('${school._id}', '${escapeHtml(school.schoolName)}')" title="Delete">
           <i class="fas fa-trash"></i>
         </button>
       </div>
@@ -266,49 +332,61 @@ function filterSchools(query) {
   }
 
   const filtered = AppState.schools.filter(school =>
-    school.name.toLowerCase().includes(query.toLowerCase()) ||
-    school.id.toLowerCase().includes(query.toLowerCase()) ||
+    school.schoolName.toLowerCase().includes(query.toLowerCase()) ||
+    (school.schoolId && school.schoolId.toLowerCase().includes(query.toLowerCase())) ||
     school.email.toLowerCase().includes(query.toLowerCase()) ||
-    school.location.toLowerCase().includes(query.toLowerCase())
+    (school.city && school.city.toLowerCase().includes(query.toLowerCase()))
   );
 
   displaySchools(filtered);
 }
 
 // ===== EDIT SCHOOL =====
-function editSchool(schoolId) {
-  const school = AppState.schools.find(s => s.id === schoolId);
-  if (!school) {
-    showAlert('error', 'School not found');
-    return;
+async function editSchool(schoolId) {
+  try {
+    const response = await fetch(`${CONFIG.API_ENDPOINT}/${schoolId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch school');
+    }
+
+    const result = await response.json();
+    const school = result.data;
+
+    AppState.currentEditSchool = school;
+
+    // Populate form
+    const editNameInput = document.getElementById('editSchoolName');
+    const editEmailInput = document.getElementById('editSchoolEmail');
+    const editPhoneInput = document.getElementById('editSchoolPhone');
+    const editLocationInput = document.getElementById('editSchoolLocation');
+    const editStatusInput = document.getElementById('editSchoolStatus');
+
+    if (editNameInput) editNameInput.value = school.schoolName || '';
+    if (editEmailInput) editEmailInput.value = school.email || '';
+    if (editPhoneInput) editPhoneInput.value = school.phone || '';
+    if (editLocationInput) editLocationInput.value = school.city || '';
+    if (editStatusInput) editStatusInput.value = school.status || 'active';
+
+    const editModal = document.getElementById('editModal');
+    if (editModal) editModal.classList.add('active');
+  } catch (err) {
+    console.error('Error fetching school:', err);
+    showAlert('error', `Failed to load school: ${err.message}`);
   }
-
-  AppState.currentEditSchool = school;
-
-  const editNameInput = document.getElementById('editSchoolName');
-  const editIdInput = document.getElementById('editSchoolId');
-  const editEmailInput = document.getElementById('editSchoolEmail');
-  const editPhoneInput = document.getElementById('editSchoolPhone');
-  const editLocationInput = document.getElementById('editSchoolLocation');
-  const editStatusInput = document.getElementById('editSchoolStatus');
-
-  if (editNameInput) editNameInput.value = school.name;
-  if (editIdInput) editIdInput.value = school.id;
-  if (editEmailInput) editEmailInput.value = school.email;
-  if (editPhoneInput) editPhoneInput.value = school.phone || '';
-  if (editLocationInput) editLocationInput.value = school.location;
-  if (editStatusInput) editStatusInput.value = school.status;
-
-  const editModal = document.getElementById('editModal');
-  if (editModal) editModal.classList.add('active');
 }
 
 // ===== UPDATE SCHOOL =====
-function updateSchool(e) {
+async function updateSchool(e) {
   e.preventDefault();
 
   if (!AppState.currentEditSchool) {
-    showAlert('error', 'No school selected for editing');
+    showAlert('error', 'No school selected');
     return;
   }
 
@@ -318,60 +396,82 @@ function updateSchool(e) {
   const editLocationInput = document.getElementById('editSchoolLocation');
   const editStatusInput = document.getElementById('editSchoolStatus');
 
-  if (!editNameInput || !editEmailInput || !editLocationInput) {
-    showAlert('error', 'Required form elements not found');
+  const schoolName = editNameInput?.value.trim();
+  const email = editEmailInput?.value.trim();
+  const phone = editPhoneInput?.value.trim();
+  const location = editLocationInput?.value.trim();
+  const status = editStatusInput?.value;
+
+  if (!schoolName || !email || !phone || !location) {
+    showAlert('error', 'Please fill in all required fields');
     return;
   }
 
-  const updatedData = {
-    name: editNameInput.value.trim(),
-    email: editEmailInput.value.trim(),
-    phone: editPhoneInput?.value.trim() || '',
-    location: editLocationInput.value.trim(),
-    status: editStatusInput?.value || 'active',
-    lastModified: new Date().toISOString()
-  };
-
-  // Validate email
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updatedData.email)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     showAlert('error', 'Please enter a valid email address');
     return;
   }
 
-  const index = AppState.schools.findIndex(s => s.id === AppState.currentEditSchool.id);
-  if (index !== -1) {
-    AppState.schools[index] = { ...AppState.schools[index], ...updatedData };
-    saveSchools();
-    displaySchools();
-    updateStats();
+  try {
+    const response = await fetch(`${CONFIG.API_ENDPOINT}/${AppState.currentEditSchool._id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
+      },
+      body: JSON.stringify({
+        schoolName,
+        email,
+        phone,
+        city: location,
+        status
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || result.message);
+    }
+
     showAlert('success', '✓ School updated successfully');
     closeModal('editModal');
     AppState.currentEditSchool = null;
-  } else {
-    showAlert('error', 'School not found');
+
+    await loadSchools();
+    updateStats();
+  } catch (err) {
+    console.error('Error updating school:', err);
+    showAlert('error', `Failed to update school: ${err.message}`);
   }
 }
 
 // ===== DELETE SCHOOL =====
-function deleteSchool(schoolId) {
-  const school = AppState.schools.find(s => s.id === schoolId);
-  if (!school) {
-    showAlert('error', 'School not found');
+async function deleteSchool(schoolId, schoolName = 'School') {
+  if (!confirm(`Are you sure you want to delete "${schoolName}"? This action cannot be undone.`)) {
     return;
   }
 
-  if (!confirm(`Are you sure you want to delete "${school.name}"? This action cannot be undone.`)) {
-    return;
-  }
+  try {
+    const response = await fetch(`${CONFIG.API_ENDPOINT}/${schoolId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
+      }
+    });
 
-  const index = AppState.schools.findIndex(s => s.id === schoolId);
-  if (index !== -1) {
-    const schoolName = AppState.schools[index].name;
-    AppState.schools.splice(index, 1);
-    saveSchools();
-    displaySchools();
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || result.message);
+    }
+
+    showAlert('success', `✓ School deleted successfully`);
+    await loadSchools();
     updateStats();
-    showAlert('success', `✓ School "${schoolName}" deleted`);
+  } catch (err) {
+    console.error('Error deleting school:', err);
+    showAlert('error', `Failed to delete school: ${err.message}`);
   }
 }
 
@@ -482,7 +582,7 @@ function previewImportData(data) {
               <th>#</th>
               <th>School Name</th>
               <th>Email</th>
-              <th>Location</th>
+              <th>Country</th>
               <th>Type</th>
             </tr>
           </thead>
@@ -490,10 +590,10 @@ function previewImportData(data) {
             ${data.slice(0, 5).map((school, idx) => `
               <tr>
                 <td>${idx + 1}</td>
-                <td>${escapeHtml(school.school_name || school.name || '-')}</td>
+                <td>${escapeHtml(school.schoolName || school.name || '-')}</td>
                 <td>${escapeHtml(school.email || '-')}</td>
-                <td>${escapeHtml(school.location || '-')}</td>
-                <td><span style="text-transform: capitalize;">${escapeHtml(school.type || '-')}</span></td>
+                <td>${escapeHtml(school.country || '-')}</td>
+                <td><span style="text-transform: capitalize;">${escapeHtml(school.schoolType || school.type || '-')}</span></td>
               </tr>
             `).join('')}
             ${data.length > 5 ? `<tr><td colspan="5" style="text-align: center; color: var(--text-light); font-weight: 700;">... and ${data.length - 5} more schools</td></tr>` : ''}
@@ -510,78 +610,56 @@ function previewImportData(data) {
   if (resetBtn) resetBtn.style.display = 'inline-flex';
 }
 
-function importSchools() {
+async function importSchools() {
   if (AppState.importData.length === 0) {
     showAlert('error', 'No data to import');
     return;
   }
 
-  let imported = 0;
-  const errors = [];
-
-  AppState.importData.forEach((item, idx) => {
-    try {
-      const schoolName = item.school_name || item.name;
-      const abbrev = (item.abbreviation || item.abbrev || (schoolName || 'SCH').substring(0, 3)).toUpperCase();
-
-      if (!schoolName || !item.email || !item.location) {
-        errors.push(`Row ${idx + 2}: Missing required fields (name, email, location)`);
-        return;
-      }
-
-      // Validate email
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email)) {
-        errors.push(`Row ${idx + 2}: Invalid email address`);
-        return;
-      }
-
-      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const schoolId = `${CONFIG.ID_PREFIX}-${abbrev}-${random}`;
-
-      // Check for duplicate ID
-      if (AppState.schools.some(s => s.id === schoolId)) {
-        // Regenerate if duplicate
-        const random2 = Math.random().toString(36).substring(2, 8).toUpperCase();
-        schoolId = `${CONFIG.ID_PREFIX}-${abbrev}-${random2}`;
-      }
-
-      const newSchool = {
-        id: schoolId,
-        name: schoolName.trim(),
-        abbreviation: abbrev,
-        email: item.email.trim(),
-        phone: (item.phone || '').trim(),
-        location: item.location.trim(),
-        principal: (item.principal || '').trim(),
-        type: (item.type || 'secondary').toLowerCase(),
-        description: (item.description || '').trim(),
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString()
-      };
-
-      AppState.schools.push(newSchool);
-      imported++;
-    } catch (err) {
-      errors.push(`Row ${idx + 2}: ${err.message}`);
-    }
-  });
-
-  if (imported > 0) {
-    saveSchools();
-    displaySchools();
-    updateStats();
-    showAlert('success', `✓ Successfully imported ${imported} schools`);
-
-    if (errors.length > 0) {
-      console.warn('Import errors:', errors);
-      showAlert('warning', `${imported} schools imported, but ${errors.length} rows had errors. Check console for details.`);
-    }
-  } else {
-    showAlert('error', 'Failed to import any schools. Please check the file format.');
+  const importBtn = document.getElementById('importBtn');
+  if (importBtn) {
+    importBtn.disabled = true;
+    importBtn.innerHTML = '<span class="spinner"></span><span>Importing...</span>';
   }
 
-  resetImport();
+  try {
+    const response = await fetch(`${CONFIG.API_ENDPOINT}/bulk-import`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
+      },
+      body: JSON.stringify({
+        schools: AppState.importData
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || result.message);
+    }
+
+    const { data } = result;
+    showAlert('success', `✓ Imported ${data.successful} schools successfully`);
+
+    if (data.failed > 0) {
+      console.warn('Import errors:', data.errors);
+      showAlert('warning', `${data.successful} imported, ${data.failed} failed`);
+    }
+
+    await loadSchools();
+    updateStats();
+    resetImport();
+  } catch (err) {
+    console.error('Error importing schools:', err);
+    showAlert('error', `Import failed: ${err.message}`);
+  } finally {
+    if (importBtn) {
+      importBtn.disabled = false;
+      importBtn.innerHTML = '<i class="fas fa-upload"></i><span>Import Schools</span>';
+    }
+  }
 }
 
 function resetImport() {
@@ -604,7 +682,7 @@ function updateStats() {
   const total = AppState.schools.length;
   const active = AppState.schools.filter(s => s.status === 'active').length;
   const lastCreated = AppState.schools.length > 0
-    ? new Date(AppState.schools[AppState.schools.length - 1].createdAt).toLocaleDateString()
+    ? new Date(AppState.schools[0].createdAt).toLocaleDateString()
     : '-';
 
   const totalEl = document.getElementById('totalSchools');
@@ -634,7 +712,7 @@ function switchTab(tabName) {
     tab.classList.add('active');
   }
 
-  // Activate corresponding button - find button with matching text
+  // Activate corresponding button
   document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.textContent.toLowerCase().includes(tabName.toLowerCase())) {
       btn.classList.add('active');
@@ -685,27 +763,6 @@ function showAlert(type, message, duration = 4000) {
   }, duration);
 }
 
-// ===== UTILITIES =====
-function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showAlert('success', '✓ Copied to clipboard: ' + text);
-  }).catch(err => {
-    console.error('Copy failed:', err);
-    showAlert('error', 'Failed to copy to clipboard');
-  });
-}
-
 // ===== SIDEBAR TOGGLE =====
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
@@ -738,9 +795,12 @@ function exportSchools(format = 'json') {
     filename = `schools-export-${new Date().getTime()}.json`;
     type = 'application/json';
   } else if (format === 'csv') {
-    const headers = ['id', 'name', 'abbreviation', 'email', 'phone', 'location', 'principal', 'type', 'status', 'createdAt'];
+    const headers = ['schoolId', 'schoolName', 'abbreviation', 'email', 'phone', 'city', 'country', 'schoolType', 'status', 'createdAt'];
     const rows = AppState.schools.map(school =>
-      headers.map(h => `"${(school[h] || '').toString().replace(/"/g, '""')}"`).join(',')
+      headers.map(h => {
+        const value = school[h] || '';
+        return `"${value.toString().replace(/"/g, '""')}"`;
+      }).join(',')
     );
     content = [headers.join(','), ...rows].join('\n');
     filename = `schools-export-${new Date().getTime()}.csv`;
