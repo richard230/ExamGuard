@@ -1597,8 +1597,7 @@
 
   <script>
     // ===== CONFIGURATION =====
-    const BASE_URL = process.env.API_URL || 'https://examguard-8rxe.onrender.com';
-    const url = new URL('/api/sync', BASE_URL);
+    const API_BASE_URL = 'https://examguard-8rxe.onrender.com';
     const CONFIG = {
       SCHOOL_BACKEND_URL: 'https://examguard-8rxe.onrender.com',
       UNIVERSAL_SERVER_URL: 'https://examguard-8rxe.onrender.com',
@@ -1803,46 +1802,57 @@
     }
 
     // ===== FETCH FROM BACKEND =====
-    async function fetchFromBackend() {
-      const backendUrl = document.getElementById('backendUrlInput').value;
-      const apiKey = document.getElementById('apiKeyInput').value;
-      const session = document.getElementById('sessionInput').value;
-      const term = document.getElementById('termInput').value;
-      const className = document.getElementById('classInput').value;
+async function fetchFromBackend() {
+  const backendUrl = document.getElementById('backendUrlInput').value.trim();
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  const session = document.getElementById('sessionInput').value;
+  const term = document.getElementById('termInput').value;
+  const className = document.getElementById('classInput').value;
 
-      if (!backendUrl) {
-        showAlert('error', 'Please enter backend URL');
-        return;
-      }
+  if (!backendUrl) {
+    showAlert('error', 'Please enter backend URL');
+    return;
+  }
 
-      const fetchBtn = event.target;
-      const originalText = fetchBtn.innerHTML;
-      fetchBtn.disabled = true;
-      fetchBtn.innerHTML = '<span class="spinner"></span><span>Syncing...</span>';
+  // Validate and normalize the URL
+  let validUrl;
+  try {
+    // If URL doesn't start with http/https, add https://
+    const urlToTest = backendUrl.startsWith('http') ? backendUrl : `https://${backendUrl}`;
+    validUrl = new URL(urlToTest);
+  } catch (err) {
+    showAlert('error', 'Invalid backend URL format. Use: https://example.com/api');
+    return;
+  }
 
-      try {
-        const url = new URL(backendUrl);
-        if (session) url.searchParams.set('session', session);
-        if (term) url.searchParams.set('term', term);
-        if (className) url.searchParams.set('class', className);
+  const fetchBtn = event.target;
+  const originalText = fetchBtn.innerHTML;
+  fetchBtn.disabled = true;
+  fetchBtn.innerHTML = '<span class="spinner"></span><span>Syncing...</span>';
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+  try {
+    // Add query parameters
+    if (session) validUrl.searchParams.set('session', session);
+    if (term) validUrl.searchParams.set('term', term);
+    if (className) validUrl.searchParams.set('class', className);
 
-        const response = await fetch(url, { headers, mode: 'cors' });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-        const data = await response.json();
-        AppState.data = Array.isArray(data) ? data : [data];
-        updatePreview();
-        showAlert('success', `Synced ${AppState.data.length} records from backend`);
-      } catch (err) {
-        showAlert('error', `Sync failed: ${err.message}`);
-      } finally {
-        fetchBtn.disabled = false;
-        fetchBtn.innerHTML = originalText;
-      }
-    }
+    const response = await fetch(validUrl.toString(), { headers, mode: 'cors' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    AppState.data = Array.isArray(data) ? data : [data];
+    updatePreview();
+    showAlert('success', `Synced ${AppState.data.length} records from backend`);
+  } catch (err) {
+    showAlert('error', `Sync failed: ${err.message}`);
+  } finally {
+    fetchBtn.disabled = false;
+    fetchBtn.innerHTML = originalText;
+  }
+}
 
     // ===== UPLOAD =====
     document.addEventListener('DOMContentLoaded', () => {
