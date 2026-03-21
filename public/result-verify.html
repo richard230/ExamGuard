@@ -1524,6 +1524,7 @@
               </div>
             </div>
 
+            <!-- FILTERS -->
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Academic Year</label>
@@ -1552,6 +1553,19 @@
               </div>
             </div>
 
+            <!-- SEARCH INPUT -->
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label class="form-label">Search Student</label>
+              <input 
+                type="text" 
+                class="form-input" 
+                id="searchStudentInput" 
+                placeholder="Search by student name or ID..." 
+                onkeyup="loadResults()"
+              >
+            </div>
+
+            <!-- RESULTS TABLE -->
             <div class="table-container">
               <table class="data-table">
                 <thead>
@@ -1560,6 +1574,10 @@
                     <th>Reg. No</th>
                     <th>Class</th>
                     <th>Year</th>
+                    <th>CA1</th>
+                    <th>CA2</th>
+                    <th>Midterm</th>
+                    <th>Exam</th>
                     <th>Total Score</th>
                     <th>Grade</th>
                     <th>Status</th>
@@ -1568,11 +1586,19 @@
                 </thead>
                 <tbody id="resultsTableBody">
                   <tr>
-                    <td colspan="8" style="text-align: center; padding: 40px;">No results found</td>
+                    <td colspan="12" style="text-align: center; padding: 40px;">
+                      <div style="color: var(--muted);">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 12px; display: block; color: var(--accent-light);"></i>
+                        <p>Loading student results...</p>
+                      </div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            <!-- STATUS MESSAGE -->
+            <div id="resultsStatus" style="margin-top: 16px;"></div>
           </div>
         </div>
 
@@ -2591,6 +2617,289 @@ REG-2024-003,Michael Johnson,2008-06-10,M,Primary 5,2024`;
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
+            // ============ RESULTS PAGE - API CONFIGURATION ============
+        const RESULTS_API_BASE_URL = "https://examguard-8rxe.onrender.com";
+        const RESULTS_TOKEN = localStorage.getItem('adminToken') || localStorage.getItem('token') || "";
+
+        // ============ STATE MANAGEMENT ============
+        let allStudentResults = [];
+        let filteredStudentResults = [];
+
+        // ============ AUTH HEADERS ============
+        function getResultsAuthHeaders() {
+            return RESULTS_TOKEN
+                ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + RESULTS_TOKEN }
+                : { 'Content-Type': 'application/json' };
+        }
+
+        // ============ GRADE CALCULATION ============
+        function calculateGrade(totalScore) {
+            if (totalScore >= 70) return { grade: 'A', remark: 'Excellent' };
+            if (totalScore >= 60) return { grade: 'B', remark: 'Very Good' };
+            if (totalScore >= 50) return { grade: 'C', remark: 'Good' };
+            if (totalScore >= 45) return { grade: 'D', remark: 'Pass' };
+            if (totalScore >= 40) return { grade: 'E', remark: 'Poor' };
+            return { grade: 'F', remark: 'Fail' };
+        }
+
+        // ============ SCORE CALCULATION ============
+        function getResultTotal(result) {
+            let total = 0;
+            if (result.ca1_score) total += parseFloat(result.ca1_score) || 0;
+            if (result.ca2_score) total += parseFloat(result.ca2_score) || 0;
+            if (result.midterm_score) total += parseFloat(result.midterm_score) || 0;
+            if (result.exam_score) total += parseFloat(result.exam_score) || 0;
+            // Fallback to score field if individual scores not available
+            if (!result.ca1_score && !result.ca2_score && !result.midterm_score && !result.exam_score && result.score) {
+                total = parseFloat(result.score) || 0;
+            }
+            return total;
+        }
+
+        // ============ FETCH RESULTS FROM API ============
+        async function fetchStudentResults() {
+            try {
+                const response = await fetch(`${RESULTS_API_BASE_URL}/api/results`, {
+                    headers: getResultsAuthHeaders()
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+                
+                allStudentResults = await response.json();
+                console.log('Fetched student results:', allStudentResults);
+                
+                // Populate year filter
+                populateYearFilter();
+                
+                // Initial load
+                loadResults();
+                
+                return allStudentResults;
+            } catch (err) {
+                console.error('Error fetching results:', err);
+                showResultsStatus('Error loading results: ' + err.message, 'error');
+                document.getElementById('resultsTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="12" style="text-align: center; padding: 40px;">
+                            <div style="color: var(--danger);">
+                                <i class="fas fa-exclamation-circle" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
+                                <p>Error loading student results</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return [];
+            }
+        }
+
+        // ============ POPULATE YEAR FILTER ============
+        function populateYearFilter() {
+            const years = [...new Set(allStudentResults
+                .map(r => r.session?.name)
+                .filter(Boolean)
+            )];
+            
+            const yearSelect = document.getElementById('filterYear');
+            
+            // Clear existing options except first
+            while (yearSelect.options.length > 1) {
+                yearSelect.remove(1);
+            }
+            
+            // Add fetched years
+            years.sort().reverse().forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            });
+        }
+
+        // ============ LOAD AND FILTER RESULTS ============
+        function loadResults() {
+            const yearValue = document.getElementById('filterYear').value;
+            const classValue = document.getElementById('filterClass').value;
+            const searchValue = document.getElementById('searchStudentInput').value.toLowerCase();
+
+            filteredStudentResults = allStudentResults.filter(result => {
+                // Year/Session filter
+                const yearMatch = !yearValue || (result.session && result.session.name === yearValue);
+                
+                // Class filter - check against class name
+                const classMatch = !classValue || (result.class && result.class.name === classValue);
+                
+                // Search filter - search by student name or ID
+                const searchMatch = !searchValue || 
+                    (result.student && result.student.name && 
+                     result.student.name.toLowerCase().includes(searchValue)) ||
+                    (result.student && result.student.student_id && 
+                     result.student.student_id.toLowerCase().includes(searchValue));
+
+                return yearMatch && classMatch && searchMatch;
+            });
+
+            renderResultsTable();
+        }
+
+        // ============ RENDER RESULTS TABLE ============
+        function renderResultsTable() {
+            const tbody = document.getElementById('resultsTableBody');
+
+            if (filteredStudentResults.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="12" style="text-align: center; padding: 40px;">
+                            <div style="color: var(--muted);">
+                                <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 12px; display: block; color: var(--accent-light);"></i>
+                                <p>No results found</p>
+                                <p style="font-size: 0.9rem; margin-top: 8px;">Try adjusting your filters</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            let rowNum = 1;
+
+            filteredStudentResults.forEach(result => {
+                const total = getResultTotal(result);
+                const { grade, remark } = calculateGrade(total);
+                
+                const studentName = (result.student && result.student.name) || 'Unknown';
+                const studentRegNo = (result.student && result.student.student_id) || '—';
+                const className = (result.class && result.class.name) || '—';
+                const yearName = (result.session && result.session.name) || '—';
+                const status = result.status === 'Published' ? 'Published' : 'Draft';
+                const statusBadgeClass = status === 'Published' ? 'status-uploaded' : 'status-pending';
+                
+                const ca1 = result.ca1_score ? parseFloat(result.ca1_score).toFixed(2) : '—';
+                const ca2 = result.ca2_score ? parseFloat(result.ca2_score).toFixed(2) : '—';
+                const midterm = result.midterm_score ? parseFloat(result.midterm_score).toFixed(2) : '—';
+                const exam = result.exam_score ? parseFloat(result.exam_score).toFixed(2) : '—';
+
+                html += `
+                    <tr>
+                        <td><strong>${studentName}</strong></td>
+                        <td>${studentRegNo}</td>
+                        <td>${className}</td>
+                        <td>${yearName}</td>
+                        <td>${ca1}</td>
+                        <td>${ca2}</td>
+                        <td>${midterm}</td>
+                        <td>${exam}</td>
+                        <td><strong>${total.toFixed(2)}</strong></td>
+                        <td>
+                            <span style="
+                                display: inline-flex;
+                                align-items: center;
+                                justify-content: center;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 6px;
+                                font-weight: 800;
+                                font-size: 0.9rem;
+                                background: ${grade === 'A' ? '#dcfce7' : grade === 'B' ? '#dbeafe' : grade === 'C' ? '#fef3c7' : grade === 'D' ? '#fed7aa' : '#fee2e2'};
+                                color: ${grade === 'A' ? '#166534' : grade === 'B' ? '#0c4a6e' : grade === 'C' ? '#92400e' : grade === 'D' ? '#92400e' : '#991b1b'};
+                            ">${grade}</span>
+                        </td>
+                        <td>
+                            <span class="status-badge ${statusBadgeClass}">
+                                ${status}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="action-btn" onclick="viewResultDetails('${result._id}')" title="View Details" style="color: var(--accent); background: none; border: none; cursor: pointer; font-size: 1.1rem;">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                rowNum++;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // ============ VIEW RESULT DETAILS ============
+        function viewResultDetails(resultId) {
+            const result = allStudentResults.find(r => r._id === resultId);
+            if (!result) {
+                showResultsStatus('Result not found', 'error');
+                return;
+            }
+
+            const total = getResultTotal(result);
+            const { grade, remark } = calculateGrade(total);
+            const studentName = (result.student && result.student.name) || 'Unknown';
+            const subjectName = (result.subject && result.subject.name) || 'Unknown';
+
+            const details = `
+📊 RESULT DETAILS
+
+Student: ${studentName}
+Subject: ${subjectName}
+
+SCORES:
+  CA1 (20): ${result.ca1_score || '—'}
+  CA2 (20): ${result.ca2_score || '—'}
+  Midterm (20): ${result.midterm_score || '—'}
+  Exam (60): ${result.exam_score || '—'}
+
+COMPUTED:
+  Total: ${total.toFixed(2)}/120
+  Grade: ${grade}
+  Remark: ${remark}
+  Status: ${result.status}
+            `;
+
+            alert(details);
+        }
+
+        // ============ STATUS MESSAGE ============
+        function showResultsStatus(message, type) {
+            const el = document.getElementById('resultsStatus');
+            if (el) {
+                const bgColor = type === 'success' ? '#d4edda' : '#f8d7da';
+                const textColor = type === 'success' ? '#155724' : '#721c24';
+                
+                el.innerHTML = `
+                    <div style="
+                        background: ${bgColor};
+                        color: ${textColor};
+                        padding: 12px;
+                        border-radius: 6px;
+                        font-weight: 600;
+                    ">
+                        ${message}
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    el.innerHTML = '';
+                }, 5000);
+            }
+        }
+
+        // ============ INITIALIZE ON PAGE LOAD ============
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if we're showing results page
+            if (document.getElementById('resultsPage') && document.getElementById('resultsPage').style.display !== 'none') {
+                fetchStudentResults();
+            }
+        });
+
+        // Override showPage to load results when navigating
+        const originalShowPage = window.showPage || function() {};
+        window.showPage = function(pageId) {
+            if (pageId === 'resultsPage' && allStudentResults.length === 0) {
+                fetchStudentResults();
+            }
+            originalShowPage(pageId);
+        };
   </script>
 
 </body>
