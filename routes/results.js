@@ -689,8 +689,9 @@ async function mergeDuplicateResults() {
 /**
  * UPSERT BULK UPLOAD
  */
-router.post('/upsert', async (req, res) => {
+router.post('/upsert', apiKeyAuth, async (req, res) => {
   try {
+    req.requiredPermission = 'results.upload';
     const { session, term, class: className, subject, resultType, results } = req.body;
     
     if (!results || results.length === 0) {
@@ -773,8 +774,9 @@ router.post('/upsert', async (req, res) => {
 /**
  * BULK UPLOAD
  */
-router.post('/upload', async (req, res) => {
+router.post('/upload', apiKeyAuth, async (req, res) => {
   try {
+    req.requiredPermission = 'results.upload';
     const { session, term, class: className, subject, resultType, results, upsert } = req.body;
     
     if (!results || results.length === 0) {
