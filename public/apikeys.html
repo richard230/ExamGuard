@@ -278,6 +278,12 @@
             box-shadow: 0 12px 32px rgba(59, 130, 246, 0.3);
         }
 
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .btn-secondary {
             background: #fff;
             color: var(--primary);
@@ -300,6 +306,20 @@
 
         .btn-danger:hover {
             background: #dc2626;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* FORM */
@@ -679,6 +699,24 @@
             background: var(--primary);
         }
 
+        .permission-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--bg-lighter);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .permission-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .permission-item:hover {
+            background: var(--accent-light);
+        }
+
         /* RESPONSIVE */
         @media (max-width: 1024px) {
             .form-row {
@@ -693,7 +731,7 @@
         @media (max-width: 768px) {
             .sidebar {
                 width: 0;
-                left: -280px;
+                left: -300px;
                 transition: left 0.3s;
             }
 
@@ -755,7 +793,7 @@
                 <div class="brand-icon">🔑</div>
                 <div class="brand-text">
                     <h3>ExamGuard</h3>
-                    <p>API Management</p>
+                    <p>API Keys</p>
                 </div>
             </div>
 
@@ -765,9 +803,6 @@
                 </div>
                 <div class="nav-item" onclick="navigateTo('usage')">
                     <i class="fas fa-chart-line"></i> Usage & Analytics
-                </div>
-                <div class="nav-item" onclick="navigateTo('settings')">
-                    <i class="fas fa-cog"></i> Settings
                 </div>
                 <div class="nav-item" onclick="navigateTo('documentation')">
                     <i class="fas fa-book"></i> Documentation
@@ -783,13 +818,11 @@
         <header class="topbar">
             <div class="topbar-left">
                 <h1 class="topbar-title">API Key Management</h1>
+                <p class="topbar-subtitle">ExamGuard International School</p>
             </div>
             <div class="topbar-right">
-                <button class="icon-btn" title="Help" onclick="alert('API Documentation: https://docs.examguard.com')">
+                <button class="icon-btn" title="Help" onclick="showHelp()">
                     <i class="fas fa-question-circle"></i>
-                </button>
-                <button class="icon-btn" title="Settings">
-                    <i class="fas fa-cog"></i>
                 </button>
                 <button class="icon-btn" title="Profile">
                     <i class="fas fa-user-circle"></i>
@@ -855,8 +888,8 @@
                     <div id="keysTableContainer">
                         <div class="empty-state">
                             <div class="empty-state-icon"><i class="fas fa-key"></i></div>
-                            <h3>No API Keys Yet</h3>
-                            <p>Create your first API key to get started with bulk uploads</p>
+                            <h3>Loading API Keys...</h3>
+                            <p>Please wait while we fetch your API keys</p>
                         </div>
                     </div>
                 </section>
@@ -944,7 +977,7 @@
                     <div class="form-group">
                         <label class="form-label">Description</label>
                         <textarea class="form-textarea" id="keyDescription" placeholder="What is this key used for?"></textarea>
-                        <span class="form-hint">Optional notes about this key</span>
+                        <span class="form-hint">Optional notes about this key's purpose</span>
                     </div>
 
                     <div class="form-row">
@@ -963,7 +996,7 @@
 
                         <div class="form-group">
                             <label class="form-label">Requests per Hour</label>
-                            <input type="number" class="form-input" id="rateHour" value="1000" min="1">
+                            <input type="number" class="form-input" id="rateHour" value="1000" min="1" max="10000">
                             <span class="form-hint">Maximum requests per hour</span>
                         </div>
                     </div>
@@ -971,21 +1004,25 @@
                     <div class="form-group">
                         <label class="form-label">Permissions <span class="required">*</span></label>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <label class="permission-item">
                                 <input type="checkbox" class="permission-check" value="results.upload" checked>
-                                <span style="font-size: 0.95rem;">Upload student results</span>
+                                <span style="font-size: 0.95rem; flex: 1;">Upload student results</span>
+                                <i class="fas fa-arrow-up" style="color: var(--text-light); font-size: 0.8rem;"></i>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <label class="permission-item">
                                 <input type="checkbox" class="permission-check" value="results.read" checked>
-                                <span style="font-size: 0.95rem;">Read result data</span>
+                                <span style="font-size: 0.95rem; flex: 1;">Read result data</span>
+                                <i class="fas fa-eye" style="color: var(--text-light); font-size: 0.8rem;"></i>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <label class="permission-item">
                                 <input type="checkbox" class="permission-check" value="bulk.operations">
-                                <span style="font-size: 0.95rem;">Perform bulk operations</span>
+                                <span style="font-size: 0.95rem; flex: 1;">Perform bulk operations</span>
+                                <i class="fas fa-cogs" style="color: var(--text-light); font-size: 0.8rem;"></i>
                             </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <label class="permission-item">
                                 <input type="checkbox" class="permission-check" value="results.delete">
-                                <span style="font-size: 0.95rem;">Delete results</span>
+                                <span style="font-size: 0.95rem; flex: 1;">Delete results</span>
+                                <i class="fas fa-trash" style="color: var(--text-light); font-size: 0.8rem;"></i>
                             </label>
                         </div>
                         <span class="form-hint">Select which actions this key can perform</span>
@@ -994,7 +1031,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('createKeyModal')">Cancel</button>
-                <button class="btn btn-primary" onclick="submitCreateKeyForm()">Generate Key</button>
+                <button class="btn btn-primary" id="submitCreateBtn" onclick="submitCreateKeyForm()">Generate Key</button>
             </div>
         </div>
     </div>
@@ -1003,7 +1040,7 @@
     <div class="modal" id="keyDetailsModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title" id="keyDetailsTitle">API Key Details</h2>
+                <h2 class="modal-title">API Key Details</h2>
                 <button class="modal-close" onclick="closeModal('keyDetailsModal')">
                     <i class="fas fa-times"></i>
                 </button>
@@ -1027,7 +1064,7 @@
             <div class="modal-body">
                 <div style="background: #fef3c7; padding: 16px; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 16px;">
                     <p style="margin: 0; color: #92400e; font-size: 0.9rem;">
-                        <strong>Warning:</strong> Rotating this key will generate a new key and the old key will become invalid. Any applications using the old key will stop working.
+                        <strong>Warning:</strong> Rotating this key will generate a new key and the old key will become invalid. Any applications using the old key will stop working immediately.
                     </p>
                 </div>
                 <p id="rotateKeyName" style="font-weight: 700; color: var(--primary); margin-bottom: 16px;"></p>
@@ -1070,7 +1107,11 @@
     </div>
 
     <script>
+        // ===== CONFIGURATION =====
         const API_BASE_URL = 'https://examguard-8rxe.onrender.com/api';
+        const SCHOOL_ID = 'examguard-international-school'; // Hardcoded school ID
+        const SCHOOL_NAME = 'ExamGuard International School'; // Hardcoded school name
+
         let currentKeyId = null;
         let allKeys = [];
 
@@ -1096,13 +1137,19 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
                 const result = await response.json();
                 allKeys = result.data || [];
                 renderKeysTable();
                 updateStatistics();
             } catch (err) {
+                console.error('Error loading API keys:', err);
                 showAlert('error', `Failed to load API keys: ${err.message}`);
+                renderKeysTableError();
             }
         }
 
@@ -1126,15 +1173,25 @@
                     return;
                 }
 
+                // Disable button and show loading state
+                const submitBtn = document.getElementById('submitCreateBtn');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner"></span> Creating...';
+
                 const token = localStorage.getItem('token');
                 const expiresAt = expiresIn ? new Date(Date.now() + parseInt(expiresIn) * 24 * 60 * 60 * 1000) : null;
 
                 const payload = {
                     name,
                     description,
+                    schoolId: SCHOOL_ID,
                     permissions,
                     expiresAt,
-                    rateLimit: { requestsPerHour: rateHour, requestsPerDay: rateHour * 24 }
+                    rateLimit: { 
+                        requestsPerHour: rateHour, 
+                        requestsPerDay: rateHour * 24 
+                    }
                 };
 
                 const response = await fetch(`${API_BASE_URL}/api-keys`, {
@@ -1146,16 +1203,26 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
                 const result = await response.json();
 
                 showAlert('success', 'API key generated successfully!');
                 showKeyDetails(result.data);
                 closeModal('createKeyModal');
                 document.getElementById('createKeyForm').reset();
-                loadApiKeys();
+                
+                // Reload keys
+                setTimeout(() => loadApiKeys(), 500);
             } catch (err) {
                 showAlert('error', `Failed to create key: ${err.message}`);
+            } finally {
+                const submitBtn = document.getElementById('submitCreateBtn');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-plus"></i> Generate Key';
             }
         }
 
@@ -1167,13 +1234,19 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
                 const result = await response.json();
 
                 showAlert('success', 'API key rotated successfully!');
                 showKeyDetails(result.data);
                 closeModal('rotateKeyModal');
-                loadApiKeys();
+                
+                // Reload keys
+                setTimeout(() => loadApiKeys(), 500);
             } catch (err) {
                 showAlert('error', `Failed to rotate key: ${err.message}`);
             }
@@ -1187,11 +1260,16 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
 
                 showAlert('success', 'API key deactivated');
                 closeModal('deactivateKeyModal');
-                loadApiKeys();
+                
+                // Reload keys
+                setTimeout(() => loadApiKeys(), 500);
             } catch (err) {
                 showAlert('error', `Failed to deactivate key: ${err.message}`);
             }
@@ -1207,7 +1285,10 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
 
                 showAlert('success', 'API key deleted');
                 loadApiKeys();
@@ -1225,7 +1306,7 @@
                     <div class="empty-state">
                         <div class="empty-state-icon"><i class="fas fa-key"></i></div>
                         <h3>No API Keys Yet</h3>
-                        <p>Create your first API key to get started with bulk uploads</p>
+                        <p>Create your first API key to get started with bulk uploads and data synchronization</p>
                     </div>
                 `;
                 return;
@@ -1242,7 +1323,7 @@
                                 <th>Last Used</th>
                                 <th>Created</th>
                                 <th>Expires</th>
-                                <th>Actions</th>
+                                <th style="text-align: center;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1251,27 +1332,27 @@
                                     <td><strong>${escapeHtml(key.name)}</strong></td>
                                     <td>
                                         <span class="badge badge-${key.status === 'active' ? 'active' : key.status === 'inactive' ? 'inactive' : 'revoked'}">
-                                            ${key.status}
+                                            <i class="fas fa-circle" style="font-size: 0.5rem;"></i> ${key.status}
                                         </span>
                                     </td>
-                                    <td style="font-size: 0.8rem;">${key.permissions.join(', ')}</td>
+                                    <td style="font-size: 0.8rem; color: var(--text-light);">${(key.permissions || []).slice(0, 2).join(', ')}${(key.permissions || []).length > 2 ? '...' : ''}</td>
                                     <td style="color: var(--text-light);">${formatDate(key.usage?.lastUsedAt) || '—'}</td>
                                     <td style="color: var(--text-light);">${formatDate(key.createdAt)}</td>
                                     <td style="color: var(--text-light);">${key.expiresAt ? formatDate(key.expiresAt) : '—'}</td>
-                                    <td>
-                                        <div style="display: flex; gap: 6px;">
-                                            <button class="btn btn-secondary btn-small" onclick="openKeyDetails('${key._id}')">
+                                    <td style="text-align: center;">
+                                        <div style="display: flex; gap: 6px; justify-content: center;">
+                                            <button class="btn btn-secondary btn-small" onclick="openKeyDetails('${key._id}')" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </button>
                                             ${key.status === 'active' ? `
-                                                <button class="btn btn-secondary btn-small" onclick="openRotateKeyModal('${key._id}')">
+                                                <button class="btn btn-secondary btn-small" onclick="openRotateKeyModal('${key._id}')" title="Rotate Key">
                                                     <i class="fas fa-sync"></i>
                                                 </button>
-                                                <button class="btn btn-secondary btn-small" onclick="openDeactivateKeyModal('${key._id}')">
+                                                <button class="btn btn-secondary btn-small" onclick="openDeactivateKeyModal('${key._id}')" title="Deactivate">
                                                     <i class="fas fa-ban"></i>
                                                 </button>
                                             ` : ''}
-                                            <button class="btn btn-danger btn-small" onclick="deleteKey('${key._id}')">
+                                            <button class="btn btn-danger btn-small" onclick="deleteKey('${key._id}')" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -1286,17 +1367,33 @@
             container.innerHTML = tableHTML;
         }
 
+        function renderKeysTableError() {
+            const container = document.getElementById('keysTableContainer');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i></div>
+                    <h3>Failed to Load API Keys</h3>
+                    <p>There was an error loading your API keys. Please try again.</p>
+                    <button class="btn btn-primary" onclick="loadApiKeys()" style="margin-top: 16px;">
+                        <i class="fas fa-sync"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+
         function showKeyDetails(keyData) {
             const content = `
                 <div style="margin-bottom: 20px;">
                     <p style="margin: 0 0 8px 0; font-weight: 700; color: var(--text-light); font-size: 0.85rem; text-transform: uppercase;">Your API Key</p>
                     <div class="key-display">
-                        <span class="key-value" id="keyValueDisplay">${keyData.key}</span>
-                        <button class="key-copy-btn" onclick="copyToClipboard('${keyData.key}')">Copy</button>
+                        <span class="key-value" id="keyValueDisplay">${escapeHtml(keyData.key)}</span>
+                        <button class="key-copy-btn" onclick="copyToClipboard('${keyData.key}')">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
                     </div>
                     <div style="background: #fee2e2; padding: 12px; border-radius: 8px; border-left: 4px solid #ef4444;">
                         <p style="margin: 0; color: #991b1b; font-size: 0.85rem;">
-                            <strong>Important:</strong> This is the only time you'll see this key. Store it securely and never share it.
+                            <strong>Important:</strong> This is the only time you'll see this key. Store it securely in your backend and never share it publicly.
                         </p>
                     </div>
                 </div>
@@ -1315,9 +1412,9 @@
                     ` : ''}
 
                     <div>
-                        <p style="margin: 0 0 4px 0; font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; font-weight: 700;">Permissions</p>
+                        <p style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; font-weight: 700;">Permissions</p>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            ${keyData.permissions.map(p => `<span style="background: var(--accent-light); color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">${p}</span>`).join('')}
+                            ${(keyData.permissions || []).map(p => `<span style="background: var(--accent-light); color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">${escapeHtml(p)}</span>`).join('')}
                         </div>
                     </div>
                 </div>
@@ -1325,11 +1422,11 @@
                 <div class="grid">
                     <div class="stat-card">
                         <div class="stat-label">Total Requests</div>
-                        <div class="stat-value" style="font-size: 1.3rem;">${keyData.usage?.totalRequests || 0}</div>
+                        <div class="stat-value" style="font-size: 1.3rem;">${(keyData.usage?.totalRequests || 0).toLocaleString()}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Requests/Hour</div>
-                        <div class="stat-value" style="font-size: 1.3rem;">${keyData.rateLimit?.requestsPerHour || 1000}</div>
+                        <div class="stat-label">Rate Limit/Hr</div>
+                        <div class="stat-value" style="font-size: 1.3rem;">${(keyData.rateLimit?.requestsPerHour || 1000).toLocaleString()}</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Created</div>
@@ -1354,11 +1451,12 @@
             document.getElementById('activeKeysCount').textContent = activeCount;
             document.getElementById('inactiveKeysCount').textContent = inactiveCount;
             document.getElementById('totalRequests').textContent = totalRequests.toLocaleString();
-            document.getElementById('requestsToday').textContent = '0'; // Would be calculated from real data
+            document.getElementById('requestsToday').textContent = '0';
         }
 
         // ===== MODALS =====
         function openCreateKeyModal() {
+            document.getElementById('createKeyForm').reset();
             openModal('createKeyModal');
         }
 
@@ -1410,19 +1508,25 @@
         // ===== UTILITIES =====
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                showAlert('success', 'API key copied to clipboard!');
+                showAlert('success', '✓ API key copied to clipboard!');
+            }).catch(() => {
+                showAlert('error', 'Failed to copy to clipboard');
             });
         }
 
         function formatDate(dateString) {
             if (!dateString) return null;
-            return new Date(dateString).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            try {
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return dateString;
+            }
         }
 
         function escapeHtml(text) {
@@ -1433,7 +1537,20 @@
 
         function navigateTo(section) {
             console.log('Navigate to:', section);
-            // Implement navigation logic
+            // Implement navigation logic as needed
+        }
+
+        function showHelp() {
+            alert(`API Key Management Help:
+
+1. Generate New Key: Click "Generate New Key" button
+2. Copy Key: Click "Copy" button in key details (only shown once)
+3. Rotate Key: Generate a new key for an existing key
+4. Deactivate: Disable a key without deleting it
+5. Delete: Permanently remove a key
+
+API Documentation: https://docs.examguard.com
+Contact Support: support@examguard.com`);
         }
     </script>
 </body>
