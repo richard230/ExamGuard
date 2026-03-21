@@ -320,9 +320,13 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
   };
 }
 
+/**
+ * GET: Fetch results for admin/teacher dashboard with transformed data
+ * Groups results by student (merged subjects) and only shows Published results
+ */
 router.get('/dashboard/all', async (req, res) => {
   try {
-    const query = {};
+    const query = { status: 'Published' }; // CRITICAL: Only published results
     
     if (req.query.session) {
       const sess = await Session.findOne({ name: req.query.session });
@@ -361,31 +365,148 @@ router.get('/dashboard/all', async (req, res) => {
       return res.json([]);
     }
 
-    // Transform data for frontend dashboard
-    const transformedResults = results.map(result => {
+    // Group results by student and merge subjects
+    const studentMap = {};
+    
+    results.forEach(result => {
+      const studentId = result.student?._id.toString();
+      if (!studentId) return;
+      
+      const key = `${studentId}-${result.class?._id}-${result.session?._id}-${result.term?._id}`;
+      
+      if (!studentMap[key]) {
+        studentMap[key] = {
+          studentId,
+          studentName: result.student?.name || `${result.student?.surname || ''} ${result.student?.firstname || ''}`.trim(),
+          regNo: result.student?.regNo,
+          classLevel: result.class?.name,
+          academicYear: result.session?.name,
+          term: result.term?.name,
+          subjects: [],
+          totalScore: 0,
+          grade: '',
+          remarks: '',
+          status: result.status,
+          resultIds: [] // Store all result IDs for this student group
+        };
+      }
+      
       const total = calculateResultTotal(result);
       const { grade, remark } = getGradeAndRemark(total);
-
-      return {
-        id: result._id.toString(),
-        studentName: result.student?.name || `${result.student?.surname || ''} ${result.student?.firstname || ''}`.trim(),
-        regNo: result.student?.regNo,
-        classLevel: result.class?.name,
-        academicYear: result.session?.name,
-        term: result.term?.name,
-        subject: result.subject?.name,
-        totalScore: total,
-        grade: grade,
-        remarks: remark,
-        status: result.status,
+      
+      studentMap[key].subjects.push({
+        name: result.subject?.name,
         ca1_score: result.ca1_score || 0,
         ca2_score: result.ca2_score || 0,
         midterm_score: result.midterm_score || 0,
-        exam_score: result.exam_score || 0
+        exam_score: result.exam_score || 0,
+        total: total,
+        grade: grade,
+        remarks: remark
+      });
+      
+      studentMap[key].totalScore += total;
+      studentMap[key].resultIds.push(result._id.toString());
+    });
+
+    // Transform to array and calculate final grades
+    const transformedResults = Object.values(studentMap).map(student => {
+      const numSubjects = student.subjects.length;
+      const avgScore = numSubjects > 0 ? student.totalScore / numSubjects : 0;
+      const { grade, remark } = getGradeAndRemark(avgScore);
+      
+      return {
+        id: student.resultIds[0], // Use first result ID for view details
+        allResultIds: student.resultIds, // Store all IDs
+        studentId: student.studentId,
+        studentName: student.studentName,
+        regNo: student.regNo,
+        classLevel: student.classLevel,
+        academicYear: student.academicYear,
+        term: student.term,
+        totalScore: numSubjects > 0 ? (student.totalScore / numSubjects).toFixed(2) : '0.00',
+        totalSubjectScore: student.totalScore.toFixed(2),
+        numSubjects: numSubjects,
+        grade: grade,
+        remarks: remark,
+        status: student.status,
+        subjects: student.subjects
       };
     });
 
     res.json(transformedResults);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET: Fetch detailed results for a student (merged view)
+ */
+router.get('/dashboard/student/:studentId', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { sessionId, termId } = req.query;
+
+    const query = {
+      student: studentId,
+      status: 'Published'
+    };
+
+    if (sessionId) query.session = sessionId;
+    if (termId) query.term = termId;
+
+    const results = await Result.find(query)
+      .populate('student')
+      .populate('class')
+      .populate('session')
+      .populate('term')
+      .populate('subject');
+
+    if (!results.length) {
+      return res.status(404).json({ error: 'No results found for this student' });
+    }
+
+    // Merge all results for this student
+    const firstResult = results[0];
+    let totalScore = 0;
+    const subjects = [];
+
+    results.forEach(result => {
+      const total = calculateResultTotal(result);
+      const { grade, remark } = getGradeAndRemark(total);
+      
+      totalScore += total;
+      subjects.push({
+        name: result.subject?.name,
+        ca1_score: result.ca1_score || 0,
+        ca2_score: result.ca2_score || 0,
+        midterm_score: result.midterm_score || 0,
+        exam_score: result.exam_score || 0,
+        total: total,
+        grade: grade,
+        remarks: remark
+      });
+    });
+
+    const avgScore = results.length > 0 ? totalScore / results.length : 0;
+    const { grade, remark } = getGradeAndRemark(avgScore);
+
+    res.json({
+      id: firstResult._id.toString(),
+      studentName: firstResult.student?.name || `${firstResult.student?.surname || ''} ${firstResult.student?.firstname || ''}`.trim(),
+      regNo: firstResult.student?.regNo,
+      classLevel: firstResult.class?.name,
+      academicYear: firstResult.session?.name,
+      term: firstResult.term?.name,
+      totalScore: avgScore.toFixed(2),
+      totalSubjectScore: totalScore.toFixed(2),
+      numSubjects: results.length,
+      grade: grade,
+      remarks: remark,
+      status: firstResult.status,
+      subjects: subjects
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
