@@ -1912,26 +1912,58 @@
     }
 
     // ============ LOAD INITIAL DATA ============
-    async function loadInitialData() {
-      try {
-        showLoading(true);
+async function loadInitialData() {
+  try {
+    showLoading(true);
+    await loadAcademicYears();
+    await loadDashboardStats();
+    await loadUploadHistory();
+    await populateResultsFilters();  // Add this line
+    showLoading(false);
+  } catch (error) {
+    console.error('Error loading initial data:', error);
+    showLoading(false);
+    showAlert('error', 'Failed to load initial data');
+  }
+}
+// After the loadInitialData() function, add this:
+async function populateResultsFilters() {
+  try {
+    // Populate year dropdown
+    const yearSelect = document.getElementById('filterYear');
+    academicYears.forEach(year => {
+      const option = document.createElement('option');
+      option.value = year.id;
+      option.textContent = year.name;
+      yearSelect.appendChild(option);
+    });
 
-        // Load academic years
-        await loadAcademicYears();
-
-        // Load dashboard stats
-        await loadDashboardStats();
-
-        // Load upload history
-        await loadUploadHistory();
-
-        showLoading(false);
-      } catch (error) {
-        console.error('Error loading initial data:', error);
-        showLoading(false);
-        showAlert('error', 'Failed to load initial data');
-      }
+    // Load classes from API
+    const classResponse = await fetch(`${API_BASE_URL}/api/classes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (classResponse.ok) {
+      const classes = await classResponse.json();
+      const classSelect = document.getElementById('filterClass');
+      classes.forEach(classItem => {
+        const option = document.createElement('option');
+        option.value = classItem.name;
+        option.textContent = classItem.name;
+        classSelect.appendChild(option);
+      });
     }
+
+    // Add event listeners for filters
+    document.getElementById('filterYear').addEventListener('change', loadResults);
+    document.getElementById('filterClass').addEventListener('change', loadResults);
+
+    // Load results initially
+    await loadResults();
+  } catch (error) {
+    console.error('Error populating filters:', error);
+  }
+}
 
     async function loadAcademicYears() {
       try {
@@ -2388,18 +2420,21 @@
     // ============ UTILITY FUNCTIONS ============
     function switchPage(pageName, element) {
       // Hide all pages
-      document.querySelectorAll('[id$="Page"]').forEach(page => {
-        page.style.display = 'none';
-      });
+        document.querySelectorAll('[id$="Page"]').forEach(page => {
+    page.style.display = 'none';
+  });
 
-      // Show selected page
-      document.getElementById(pageName + 'Page').style.display = 'block';
+  document.getElementById(pageName + 'Page').style.display = 'block';
 
-      // Update active nav item
-      document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-      });
-      element.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  element.classList.add('active');
+
+  // Load results when switching to results page
+  if (pageName === 'results') {
+    loadResults();
+  }
 
       // Update header
       const titles = {
