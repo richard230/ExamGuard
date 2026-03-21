@@ -73,7 +73,11 @@ const applicationRoute = require('./routes/application');
 // Add after the existing route imports
 const demoRequestsRoute = require('./routes/demoRequests');
 const schoolsRoute = require('./routes/schools');
+// Add after other route imports
+const apiKeysRoute = require('./routes/apiKeys');
 
+// Add in route mounting section
+app.use('/api/api-keys', apiKeysRoute);
 // Add after other route mounting
 app.use('/api/demo-requests', demoRequestsRoute);
 app.use('/api/schools', schoolsRoute);
