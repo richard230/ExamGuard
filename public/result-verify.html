@@ -2368,15 +2368,15 @@ function displayResults(results, sessionId, termId) {
 
   tableBody.innerHTML = results.map(result => `
     <tr>
-      <td>${result.studentName}</td>
-      <td><strong>${result.regNo}</strong></td>
-      <td>${result.classLevel}</td>
-      <td>${result.academicYear}</td>
-      <td>${parseFloat(result.totalScore).toFixed(2)}</td>
-      <td><span style="background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; padding: 4px 8px; border-radius: 6px; font-weight: 700;">${result.grade}</span></td>
-      <td><span class="status-badge status-${result.status.toLowerCase()}">${result.status}</span></td>
+      <td>${result.studentName || 'Unknown'}</td>
+      <td><strong>${result.regNo || '—'}</strong></td>
+      <td>${result.classLevel || '—'}</td>
+      <td>${result.academicYear || '—'}</td>
+      <td>${parseFloat(result.totalScore || 0).toFixed(2)}</td>
+      <td><span style="background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; padding: 4px 8px; border-radius: 6px; font-weight: 700;">${result.grade || 'N/A'}</span></td>
+      <td><span class="status-badge status-${(result.status || 'pending').toLowerCase()}">${result.status || 'Pending'}</span></td>
       <td>
-        <button class="header-btn" style="font-size: 0.85rem; padding: 6px 12px;" onclick="viewResultDetail('${result.id}', '${sessionId}', '${termId}')">
+        <button class="header-btn" style="font-size: 0.85rem; padding: 6px 12px;" onclick="viewResultDetail('${result._id || result.id}', '${sessionId}', '${termId}')">
           <i class="fas fa-eye"></i> View
         </button>
       </td>
@@ -2384,12 +2384,19 @@ function displayResults(results, sessionId, termId) {
   `).join('');
 }
 
-
 async function loadResults() {
   try {
-    const yearId = document.getElementById('filterYear').value;
-    const termId = document.getElementById('filterTerm').value;
-    const classLevel = document.getElementById('filterClass').value;
+    const yearSelect = document.getElementById('filterYear');
+    const termSelect = document.getElementById('filterTerm');
+    const classSelect = document.getElementById('filterClass');
+
+    const yearId = yearSelect.value;
+    const termId = termSelect.value;
+    const classLevel = classSelect.value;
+
+    // Store IDs for View button
+    const selectedYearId = yearId;
+    const selectedTermId = termId;
 
     let url = `${API_BASE_URL}/api/results/dashboard/all`;
     const params = new URLSearchParams();
@@ -2411,7 +2418,9 @@ async function loadResults() {
     if (!response.ok) throw new Error('Failed to load results');
 
     const results = await response.json();
-    displayResults(results, yearId, termId);
+    
+    // Pass the actual IDs to displayResults
+    displayResults(results, selectedYearId, selectedTermId);
   } catch (error) {
     console.error('Error loading results:', error);
     showAlert('error', 'Failed to load results');
