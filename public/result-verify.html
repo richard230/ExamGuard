@@ -2354,68 +2354,95 @@ async function loadResults() {
       `).join('');
     }
 
-    async function viewResultDetail(resultId) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/results/${resultId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) throw new Error('Failed to load result');
-
-        const result = await response.json();
-
-        const body = document.getElementById('detailModalBody');
-        body.innerHTML = `
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-            <div>
-              <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Student Name</div>
-              <div style="font-weight: 800; color: var(--primary);">${result.studentName}</div>
-            </div>
-            <div>
-              <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Registration Number</div>
-              <div style="font-weight: 800; color: var(--primary);">${result.regNo}</div>
-            </div>
-            <div>
-              <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Class</div>
-              <div style="font-weight: 800; color: var(--primary);">${result.classLevel}</div>
-            </div>
-            <div>
-              <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Total Score</div>
-              <div style="font-weight: 800; color: var(--primary);">${result.totalScore.toFixed(2)}</div>
-            </div>
-          </div>
-
-          <h4 style="margin: 0 0 12px 0; color: var(--primary);">Subject Scores</h4>
-          <div style="overflow-x: auto;">
-            <table class="data-table" style="margin: 0;">
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Score</th>
-                  <th>Grade</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${result.subjects.map(s => `
-                  <tr>
-                    <td>${s.name}</td>
-                    <td>${s.score}</td>
-                    <td><span style="background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${s.grade}</span></td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-
-        showModal('detailModal');
-      } catch (error) {
-        console.error('Error loading result:', error);
-        showAlert('error', 'Failed to load result details');
+async function viewResultDetail(resultId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/results/dashboard/student/${resultId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
-    }
+    });
+
+    if (!response.ok) throw new Error('Failed to load result');
+
+    const result = await response.json();
+
+    const body = document.getElementById('detailModalBody');
+    body.innerHTML = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div>
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Student Name</div>
+          <div style="font-weight: 800; color: var(--primary);">${result.studentName}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Registration Number</div>
+          <div style="font-weight: 800; color: var(--primary);">${result.regNo}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Class</div>
+          <div style="font-weight: 800; color: var(--primary);">${result.classLevel}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Academic Year</div>
+          <div style="font-weight: 800; color: var(--primary);">${result.academicYear}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+        <div style="background: var(--bg-lighter); padding: 12px; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Average Score</div>
+          <div style="font-weight: 800; color: var(--primary);">${parseFloat(result.totalScore).toFixed(2)}</div>
+        </div>
+        <div style="background: var(--bg-lighter); padding: 12px; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Total Score</div>
+          <div style="font-weight: 800; color: var(--primary);">${parseFloat(result.totalSubjectScore).toFixed(2)}</div>
+        </div>
+        <div style="background: var(--bg-lighter); padding: 12px; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Subjects</div>
+          <div style="font-weight: 800; color: var(--primary);">${result.numSubjects}</div>
+        </div>
+        <div style="background: var(--bg-lighter); padding: 12px; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 4px;">Grade</div>
+          <div style="font-weight: 800; color: var(--primary);">${result.grade}</div>
+        </div>
+      </div>
+
+      <h4 style="margin: 0 0 12px 0; color: var(--primary);">Subject Breakdown</h4>
+      <div style="overflow-x: auto;">
+        <table class="data-table" style="margin: 0;">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>CA1</th>
+              <th>CA2</th>
+              <th>Midterm</th>
+              <th>Exam</th>
+              <th>Total</th>
+              <th>Grade</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${result.subjects.map(s => `
+              <tr>
+                <td>${s.name}</td>
+                <td>${s.ca1_score}</td>
+                <td>${s.ca2_score}</td>
+                <td>${s.midterm_score}</td>
+                <td>${s.exam_score}</td>
+                <td><strong>${s.total.toFixed(2)}</strong></td>
+                <td><span style="background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${s.grade}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    showModal('detailModal');
+  } catch (error) {
+    console.error('Error loading result:', error);
+    showAlert('error', 'Failed to load result details');
+  }
+}
 
     // ============ UTILITY FUNCTIONS ============
     function switchPage(pageName, element) {
