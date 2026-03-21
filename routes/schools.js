@@ -4,11 +4,148 @@ const School = require('../models/School');
 const DemoRequest = require('../models/DemoRequest');
 const { authMiddleware } = require('./auth');
 const adminAuth = require('../middleware/adminAuth');
+const crypto = require('crypto');
 
-/* ================= ADMIN ROUTES ================= */
+// ===== VALIDATION MIDDLEWARE =====
+const validateSchool = (req, res, next) => {
+  const { schoolName, email, phone, adminName, adminEmail, adminPhone, country } = req.body;
 
-// Get all schools (Admin)
-router.get('/', authMiddleware, adminAuth, async (req, res) => {
+  if (!schoolName || !email || !phone || !adminName || !adminEmail || !adminPhone || !country) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required fields: schoolName, email, phone, adminName, adminEmail, adminPhone, country'
+    });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ success: false, error: 'Invalid email format' });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+    return res.status(400).json({ success: false, error: 'Invalid admin email format' });
+  }
+
+  next();
+};
+
+// ===== PUBLIC ENDPOINTS =====
+
+/**
+ * GET /api/schools
+ * Get all active schools (public - limited info)
+ */
+router.get('/', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const schools = await School.find({ status: 'active' })
+      .select('schoolId schoolName abbreviation city state country email phone status')
+      .limit(limit)
+      .skip(skip)
+      .sort({ createdAt: -1 });
+
+    const total = await School.countDocuments({ status: 'active' });
+
+    res.json({
+      success: true,
+      data: schools,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching schools:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching schools',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/schools/by-id/:schoolId
+ * Get school by schoolId
+ */
+router.get('/by-id/:schoolId', async (req, res) => {
+  try {
+    const school = await School.findOne({
+      schoolId: req.params.schoolId,
+      status: 'active'
+    }).select('schoolId schoolName abbreviation email phone location principal');
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: school
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching school',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/schools/search/:query
+ * Search schools
+ */
+router.get('/search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+
+    if (!query || query.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query must be at least 2 characters'
+      });
+    }
+
+    const schools = await School.find({
+      $or: [
+        { schoolName: { $regex: query, $options: 'i' } },
+        { schoolId: { $regex: query, $options: 'i' } },
+        { city: { $regex: query, $options: 'i' } }
+      ],
+      status: 'active'
+    })
+      .select('schoolId schoolName abbreviation location city state')
+      .limit(10);
+
+    res.json({
+      success: true,
+      data: schools,
+      count: schools.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error searching schools',
+      error: error.message
+    });
+  }
+});
+
+// ===== AUTHENTICATED ADMIN ENDPOINTS =====
+
+/**
+ * GET /api/schools/admin/all
+ * Get all schools (Admin)
+ */
+router.get('/admin/all', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { status, subscriptionStatus, search, page = 1, limit = 10 } = req.query;
 
@@ -25,6 +162,7 @@ router.get('/', authMiddleware, adminAuth, async (req, res) => {
     if (search) {
       query.$or = [
         { schoolName: { $regex: search, $options: 'i' } },
+        { schoolId: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { city: { $regex: search, $options: 'i' } }
       ];
@@ -33,7 +171,7 @@ router.get('/', authMiddleware, adminAuth, async (req, res) => {
     const skip = (page - 1) * limit;
 
     const schools = await School.find(query)
-      .populate('accountManager', 'fullName email')
+      .populate('accountManager', 'name email')
       .populate('demoRequestId')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -51,22 +189,113 @@ router.get('/', authMiddleware, adminAuth, async (req, res) => {
         limit: parseInt(limit)
       }
     });
-
   } catch (error) {
     console.error('Error fetching schools:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching schools'
+      message: 'Error fetching schools',
+      error: error.message
     });
   }
 });
 
-// Get single school details (Admin)
+/**
+ * POST /api/schools
+ * Create new school (Admin)
+ */
+router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => {
+  try {
+    const {
+      schoolName,
+      schoolType,
+      studentCount,
+      staffCount,
+      country,
+      state,
+      city,
+      address,
+      email,
+      phone,
+      website,
+      adminName,
+      adminEmail,
+      adminPhone,
+      principal,
+      abbreviation,
+      subscriptionPlan,
+      subscriptionStatus
+    } = req.body;
+
+    // Check if email already exists
+    const existingEmail = await School.findOne({ email: email.toLowerCase() });
+    if (existingEmail) {
+      return res.status(409).json({
+        success: false,
+        error: 'Email already registered'
+      });
+    }
+
+    // Create new school
+    const newSchool = new School({
+      schoolName: schoolName.trim(),
+      schoolType: schoolType || 'secondary',
+      studentCount: parseInt(studentCount) || 0,
+      staffCount: parseInt(staffCount) || 0,
+      country: country.trim(),
+      state: state?.trim() || null,
+      city: city?.trim() || null,
+      address: address?.trim() || null,
+      email: email.toLowerCase().trim(),
+      phone: phone.trim(),
+      website: website?.trim() || null,
+      adminName: adminName.trim(),
+      adminEmail: adminEmail.toLowerCase().trim(),
+      adminPhone: adminPhone.trim(),
+      principal: principal?.trim() || null,
+      abbreviation: (abbreviation || schoolName.substring(0, 3)).trim().toUpperCase(),
+      subscriptionPlan: subscriptionPlan || 'starter',
+      subscriptionStatus: subscriptionStatus || 'trial',
+      createdBy: req.user._id,
+      status: 'active'
+    });
+
+    // Generate schoolId
+    newSchool.generateSchoolId();
+
+    await newSchool.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'School created successfully',
+      data: newSchool
+    });
+  } catch (err) {
+    console.error('Error creating school:', err);
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      return res.status(409).json({
+        success: false,
+        error: `${field} already exists`
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Error creating school',
+      error: err.message
+    });
+  }
+});
+
+/**
+ * GET /api/schools/:id
+ * Get single school details (Admin)
+ */
 router.get('/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await School.findById(req.params.id)
-      .populate('accountManager', 'fullName email')
-      .populate('demoRequestId');
+      .populate('accountManager', 'name email')
+      .populate('demoRequestId')
+      .populate('createdBy', 'name email');
 
     if (!school) {
       return res.status(404).json({
@@ -79,16 +308,162 @@ router.get('/:id', authMiddleware, adminAuth, async (req, res) => {
       success: true,
       data: school
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching school details'
+      message: 'Error fetching school details',
+      error: error.message
     });
   }
 });
 
-// Create new school from approved demo request (Admin)
+/**
+ * PUT /api/schools/:id
+ * Update school details (Admin)
+ */
+router.put('/:id', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const updates = req.body;
+
+    // Remove fields that shouldn't be updated
+    delete updates.schoolId;
+    delete updates.apiKey;
+    delete updates.createdBy;
+    delete updates.createdAt;
+    delete updates.isDeleted;
+    delete updates.deletedAt;
+    delete updates.deletedBy;
+
+    // Validate email if provided
+    if (updates.email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.email)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid email format'
+        });
+      }
+      updates.email = updates.email.toLowerCase();
+
+      // Check if email is already used
+      const existing = await School.findOne({
+        email: updates.email,
+        _id: { $ne: req.params.id }
+      });
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          error: 'Email already in use'
+        });
+      }
+    }
+
+    updates.lastModifiedBy = req.user._id;
+
+    const school = await School.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    ).populate('accountManager', 'name email');
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'School updated successfully',
+      data: school
+    });
+  } catch (err) {
+    console.error('Error updating school:', err);
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      return res.status(409).json({
+        success: false,
+        error: `${field} already exists`
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Error updating school',
+      error: err.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/schools/:id
+ * Soft delete a school (Admin)
+ */
+router.delete('/:id', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await School.findById(req.params.id);
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School not found'
+      });
+    }
+
+    await school.softDelete(req.user._id);
+
+    res.json({
+      success: true,
+      message: 'School deleted successfully'
+    });
+  } catch (err) {
+    console.error('Error deleting school:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting school',
+      error: err.message
+    });
+  }
+});
+
+/**
+ * POST /api/schools/:id/generate-api-key
+ * Generate API key for a school (Admin)
+ */
+router.post('/:id/generate-api-key', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await School.findById(req.params.id);
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School not found'
+      });
+    }
+
+    const apiKey = school.generateApiKey();
+    await school.save();
+
+    res.json({
+      success: true,
+      message: 'API key generated successfully',
+      data: {
+        schoolId: school.schoolId,
+        apiKey,
+        isApiEnabled: true
+      }
+    });
+  } catch (err) {
+    console.error('Error generating API key:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating API key',
+      error: err.message
+    });
+  }
+});
+
+/**
+ * POST /api/schools/from-request/:requestId
+ * Create new school from approved demo request (Admin)
+ */
 router.post('/from-request/:requestId', authMiddleware, adminAuth, async (req, res) => {
   try {
     const demoRequest = await DemoRequest.findById(req.params.requestId);
@@ -114,217 +489,130 @@ router.post('/from-request/:requestId', authMiddleware, adminAuth, async (req, r
       schoolType: demoRequest.schoolType,
       studentCount: parseInt(demoRequest.studentCount.split('-')[0]) || 0,
       country: demoRequest.country,
+      state: demoRequest.state || null,
+      city: demoRequest.city || null,
       email: demoRequest.email,
       phone: demoRequest.phone,
-      website: demoRequest.schoolWebsite,
-      adminName: demoRequest.fullName,
+      website: demoRequest.schoolWebsite || null,
+      adminName: demoRequest.contactPerson,
       adminEmail: demoRequest.email,
       adminPhone: demoRequest.phone,
-      demoRequestId: demoRequest._id,
-      accountManager: req.user._id,
+      subscriptionPlan: 'starter',
       subscriptionStatus: 'trial',
-      featuresEnabled: {
-        studentManagement: demoRequest.needs.includes('student-management'),
-        grading: demoRequest.needs.includes('grading'),
-        feeManagement: demoRequest.needs.includes('fee-management'),
-        attendance: demoRequest.needs.includes('attendance'),
-        parentPortal: demoRequest.needs.includes('parent-portal'),
-        staffManagement: demoRequest.needs.includes('staff-management'),
-        analytics: demoRequest.needs.includes('analytics'),
-        mobileApps: demoRequest.needs.includes('mobile-apps')
-      }
+      demoRequestId: demoRequest._id,
+      createdBy: req.user._id,
+      status: 'active'
     });
 
+    // Generate schoolId
+    newSchool.generateSchoolId();
+
     await newSchool.save();
+
+    // Update demo request
+    demoRequest.status = 'school_created';
+    demoRequest.schoolId = newSchool._id;
+    await demoRequest.save();
 
     res.status(201).json({
       success: true,
       message: 'School created successfully from demo request',
       data: newSchool
     });
-
-  } catch (error) {
-    console.error('Error creating school:', error);
+  } catch (err) {
+    console.error('Error creating school from request:', err);
     res.status(500).json({
       success: false,
-      message: 'Error creating school'
+      message: 'Error creating school',
+      error: err.message
     });
   }
 });
 
-// Update school details (Admin)
-router.patch('/:id', authMiddleware, adminAuth, async (req, res) => {
+/**
+ * POST /api/schools/bulk-import
+ * Bulk import schools (Admin)
+ */
+router.post('/bulk-import', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const { schoolName, studentCount, staffCount, status, subscriptionPlan, subscriptionStatus, internalNotes } = req.body;
+    const { schools } = req.body;
 
-    const updateData = {};
-    if (schoolName) updateData.schoolName = schoolName;
-    if (studentCount) updateData.studentCount = studentCount;
-    if (staffCount) updateData.staffCount = staffCount;
-    if (status) updateData.status = status;
-    if (subscriptionPlan) updateData.subscriptionPlan = subscriptionPlan;
-    if (subscriptionStatus) updateData.subscriptionStatus = subscriptionStatus;
-    if (internalNotes) updateData.internalNotes = internalNotes;
-
-    const school = await School.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!school) {
-      return res.status(404).json({
+    if (!Array.isArray(schools) || schools.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: 'School not found'
+        error: 'Invalid or empty schools array'
       });
     }
 
-    res.json({
-      success: true,
-      message: 'School updated successfully',
-      data: school
-    });
-
-  } catch (error) {
-    console.error('Error updating school:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating school'
-    });
-  }
-});
-
-// Update school subscription (Admin)
-router.patch('/:id/subscription', authMiddleware, adminAuth, async (req, res) => {
-  try {
-    const { subscriptionPlan, subscriptionStatus, subscriptionEndDate } = req.body;
-
-    const school = await School.findByIdAndUpdate(
-      req.params.id,
-      {
-        subscriptionPlan,
-        subscriptionStatus,
-        subscriptionEndDate: subscriptionEndDate ? new Date(subscriptionEndDate) : undefined
-      },
-      { new: true }
-    );
-
-    if (!school) {
-      return res.status(404).json({
-        success: false,
-        message: 'School not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Subscription updated successfully',
-      data: school
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error updating subscription'
-    });
-  }
-});
-
-// Update school features (Admin)
-router.patch('/:id/features', authMiddleware, adminAuth, async (req, res) => {
-  try {
-    const { features } = req.body;
-
-    const school = await School.findByIdAndUpdate(
-      req.params.id,
-      { featuresEnabled: features },
-      { new: true }
-    );
-
-    if (!school) {
-      return res.status(404).json({
-        success: false,
-        message: 'School not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Features updated successfully',
-      data: school
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error updating features'
-    });
-  }
-});
-
-// Suspend/Unsuspend school (Admin)
-router.patch('/:id/suspend', authMiddleware, adminAuth, async (req, res) => {
-  try {
-    const { suspend, reason } = req.body;
-
-    const school = await School.findByIdAndUpdate(
-      req.params.id,
-      {
-        status: suspend ? 'suspended' : 'active',
-        suspensionReason: suspend ? reason : null
-      },
-      { new: true }
-    );
-
-    if (!school) {
-      return res.status(404).json({
-        success: false,
-        message: 'School not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: `School ${suspend ? 'suspended' : 'unsuspended'} successfully`,
-      data: school
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error updating school status'
-    });
-  }
-});
-
-// Get school statistics (Admin)
-router.get('/admin/stats', authMiddleware, adminAuth, async (req, res) => {
-  try {
-    const stats = {
-      totalSchools: await School.countDocuments(),
-      activeSchools: await School.countDocuments({ status: 'active' }),
-      inactiveSchools: await School.countDocuments({ status: 'inactive' }),
-      suspendedSchools: await School.countDocuments({ status: 'suspended' }),
-      trialSchools: await School.countDocuments({ subscriptionStatus: 'trial' }),
-      activeSubscriptions: await School.countDocuments({ subscriptionStatus: 'active' }),
-      totalStudents: 0,
-      totalStaff: 0
+    const results = {
+      successful: 0,
+      failed: 0,
+      errors: []
     };
 
-    // Calculate totals
-    const schools = await School.find();
-    stats.totalStudents = schools.reduce((sum, s) => sum + s.studentCount, 0);
-    stats.totalStaff = schools.reduce((sum, s) => sum + s.staffCount, 0);
+    for (let i = 0; i < schools.length; i++) {
+      try {
+        const schoolData = schools[i];
+
+        if (!schoolData.schoolName || !schoolData.email || !schoolData.adminName || !schoolData.country) {
+          results.errors.push({
+            row: i + 1,
+            error: 'Missing required fields'
+          });
+          results.failed++;
+          continue;
+        }
+
+        // Check if email exists
+        const existing = await School.findOne({ email: schoolData.email.toLowerCase() });
+        if (existing) {
+          results.errors.push({
+            row: i + 1,
+            error: 'Email already exists'
+          });
+          results.failed++;
+          continue;
+        }
+
+        const newSchool = new School({
+          schoolName: schoolData.schoolName.trim(),
+          schoolType: schoolData.schoolType || 'secondary',
+          studentCount: parseInt(schoolData.studentCount) || 0,
+          country: schoolData.country.trim(),
+          state: schoolData.state?.trim() || null,
+          city: schoolData.city?.trim() || null,
+          email: schoolData.email.toLowerCase().trim(),
+          phone: schoolData.phone?.trim() || '',
+          adminName: schoolData.adminName.trim(),
+          adminEmail: schoolData.adminEmail?.trim() || schoolData.email.toLowerCase().trim(),
+          adminPhone: schoolData.adminPhone?.trim() || schoolData.phone?.trim() || '',
+          createdBy: req.user._id,
+          status: 'active'
+        });
+
+        newSchool.generateSchoolId();
+        await newSchool.save();
+        results.successful++;
+      } catch (err) {
+        results.errors.push({
+          row: i + 1,
+          error: err.message
+        });
+        results.failed++;
+      }
+    }
 
     res.json({
       success: true,
-      data: stats
+      message: `Import completed: ${results.successful} successful, ${results.failed} failed`,
+      data: results
     });
-
-  } catch (error) {
+  } catch (err) {
+    console.error('Error in bulk import:', err);
     res.status(500).json({
       success: false,
-      message: 'Error fetching statistics'
+      message: 'Error in bulk import',
+      error: err.message
     });
   }
 });
