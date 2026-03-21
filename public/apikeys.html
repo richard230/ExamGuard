@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Key Management | ExamGuard Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-dark: #1e3a8a;
+            --primary-light: #3b82f6;
+            --accent: #3b82f6;
+            --accent-light: #dbeafe;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --muted: #6b7280;
+            --text-main: #0b2a44;
+            --text-light: #7a90b3;
+            --bg-light: #f8faff;
+            --bg-lighter: #f0f4ff;
+            --card-bg: #ffffff;
+            --border: #e5e7eb;
+            --shadow-sm: 0 4px 12px rgba(11, 42, 60, 0.04);
+            --shadow-md: 0 8px 20px rgba(11, 42, 60, 0.08);
+            --sidebar-width: 300px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--bg-light), var(--bg-lighter));
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { color: inherit; text-decoration: none; }
+
+        .app {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            color: #fff;
+            padding: 20px 16px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            z-index: 100;
+            overflow-y: auto;
+            box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .brand {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .brand-text h3 {
+            margin: 0;
+            font-size: 1rem;
+            color: #fff;
+            font-weight: 800;
+        }
+
+        .brand-text p {
+            margin: 2px 0 0 0;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffe066;
+            border-left-color: #ffe066;
+        }
+
+        /* HEADER */
+        .topbar {
+            position: fixed;
+            left: var(--sidebar-width);
+            top: 0;
+            width: calc(100% - var(--sidebar-width));
+            height: 70px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            z-index: 90;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .topbar-title {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .topbar-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            color: var(--text-light);
+            transition: all 0.3s;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-lighter);
+            color: var(--primary);
+        }
+
+        /* MAIN CONTENT */
+        .main {
+            margin-left: var(--sidebar-width);
+            padding: 28px;
+            margin-top: 70px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* SECTIONS */
+        .section {
+            background: var(--card-bg);
+            border-radius: 14px;
+            padding: 28px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            margin-bottom: 28px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--accent-light);
+        }
+
+        .section-icon {
+            font-size: 2rem;
+            width: 50px;
+            height: 50px;
+            background: var(--bg-lighter);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+        }
+
+        .section-title {
+            flex: 1;
+        }
+
+        .section-title h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .section-title p {
+            margin: 4px 0 0 0;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            color: #fff;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: var(--primary);
+            border: 2px solid var(--accent);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-lighter);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* FORM */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .form-label {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .form-label .required {
+            color: var(--danger);
+            margin-left: 4px;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            background: #fff;
+            color: var(--text-main);
+            transition: all 0.3s;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            background: #fafcff;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-hint {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 6px;
+        }
+
+        /* GRID */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-lighter);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--accent-light);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        /* TABLE */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .table thead {
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            color: #fff;
+        }
+
+        .table th {
+            padding: 14px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .table td {
+            padding: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table tbody tr:hover {
+            background: var(--bg-lighter);
+        }
+
+        .table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* BADGES */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-revoked {
+            background: #e5e7eb;
+            color: #4b5563;
+        }
+
+        /* ALERTS */
+        .alert {
+            padding: 16px;
+            border-radius: 10px;
+            border-left: 4px solid;
+            margin-bottom: 16px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .alert.show {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .alert-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .alert-message {
+            font-size: 0.9rem;
+        }
+
+        .alert-success {
+            background: #dcfce7;
+            border-color: var(--success);
+            color: #166534;
+        }
+
+        .alert-success .alert-icon {
+            color: var(--success);
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            border-color: var(--danger);
+            color: #991b1b;
+        }
+
+        .alert-error .alert-icon {
+            color: var(--danger);
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            border-color: var(--warning);
+            color: #92400e;
+        }
+
+        .alert-warning .alert-icon {
+            color: var(--warning);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 8px;
+            transition: all 0.3s;
+        }
+
+        .modal-close:hover {
+            color: var(--text-main);
+            transform: scale(1.1);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            color: var(--accent-light);
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.3rem;
+            color: var(--primary);
+            font-weight: 800;
+        }
+
+        .empty-state p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        /* KEY DISPLAY */
+        .key-display {
+            background: var(--bg-lighter);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--accent-light);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .key-value {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            word-break: break-all;
+            flex: 1;
+        }
+
+        .key-copy-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+
+        .key-copy-btn:hover {
+            background: var(--primary);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1024px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                left: -280px;
+                transition: left 0.3s;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .topbar {
+                left: 0;
+                width: 100%;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 16px;
+                margin-top: 70px;
+            }
+
+            .section {
+                padding: 16px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .section-actions {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .table {
+                font-size: 0.8rem;
+            }
+
+            .table th,
+            .table td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">🔑</div>
+                <div class="brand-text">
+                    <h3>ExamGuard</h3>
+                    <p>API Management</p>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-item active" onclick="navigateTo('keys')">
+                    <i class="fas fa-key"></i> API Keys
+                </div>
+                <div class="nav-item" onclick="navigateTo('usage')">
+                    <i class="fas fa-chart-line"></i> Usage & Analytics
+                </div>
+                <div class="nav-item" onclick="navigateTo('settings')">
+                    <i class="fas fa-cog"></i> Settings
+                </div>
+                <div class="nav-item" onclick="navigateTo('documentation')">
+                    <i class="fas fa-book"></i> Documentation
+                </div>
+                <div style="flex: 1;"></div>
+                <div class="nav-item" onclick="window.location.href='admin.html'">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </div>
+            </nav>
+        </aside>
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1 class="topbar-title">API Key Management</h1>
+            </div>
+            <div class="topbar-right">
+                <button class="icon-btn" title="Help" onclick="alert('API Documentation: https://docs.examguard.com')">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+                <button class="icon-btn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="icon-btn" title="Profile">
+                    <i class="fas fa-user-circle"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT -->
+        <main class="main">
+            <div class="main-content">
+                <!-- ALERTS -->
+                <div class="alert alert-success" id="successAlert">
+                    <div class="alert-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="alert-content">
+                        <div class="alert-title">Success</div>
+                        <div class="alert-message" id="successMessage">Operation completed successfully</div>
+                    </div>
+                </div>
+
+                <div class="alert alert-error" id="errorAlert">
+                    <div class="alert-icon"><i class="fas fa-exclamation-circle"></i></div>
+                    <div class="alert-content">
+                        <div class="alert-title">Error</div>
+                        <div class="alert-message" id="errorMessage">An error occurred</div>
+                    </div>
+                </div>
+
+                <!-- STATISTICS -->
+                <div class="grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Active Keys</div>
+                        <div class="stat-value" id="activeKeysCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Requests</div>
+                        <div class="stat-value" id="totalRequests">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Requests Today</div>
+                        <div class="stat-value" id="requestsToday">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Inactive Keys</div>
+                        <div class="stat-value" id="inactiveKeysCount">0</div>
+                    </div>
+                </div>
+
+                <!-- API KEYS SECTION -->
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-icon"><i class="fas fa-key"></i></div>
+                        <div class="section-title">
+                            <h2>API Keys</h2>
+                            <p>Manage and monitor your API keys for data uploads and integrations</p>
+                        </div>
+                        <div class="section-actions">
+                            <button class="btn btn-primary" onclick="openCreateKeyModal()">
+                                <i class="fas fa-plus"></i> Generate New Key
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="keysTableContainer">
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><i class="fas fa-key"></i></div>
+                            <h3>No API Keys Yet</h3>
+                            <p>Create your first API key to get started with bulk uploads</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PERMISSIONS SECTION -->
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div class="section-title">
+                            <h2>Available Permissions</h2>
+                            <p>Control what each API key can access</p>
+                        </div>
+                    </div>
+
+                    <div class="grid">
+                        <div class="stat-card">
+                            <div class="stat-label">results.upload</div>
+                            <p style="margin: 8px 0 0 0; color: var(--text-light); font-size: 0.9rem;">Upload student results</p>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">results.read</div>
+                            <p style="margin: 8px 0 0 0; color: var(--text-light); font-size: 0.9rem;">Read result data</p>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">results.delete</div>
+                            <p style="margin: 8px 0 0 0; color: var(--text-light); font-size: 0.9rem;">Delete results</p>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">bulk.operations</div>
+                            <p style="margin: 8px 0 0 0; color: var(--text-light); font-size: 0.9rem;">Perform bulk operations</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- RATE LIMITS SECTION -->
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-icon"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="section-title">
+                            <h2>Rate Limiting</h2>
+                            <p>Default rate limits for API keys</p>
+                        </div>
+                    </div>
+
+                    <div class="grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Requests per Hour</div>
+                            <div class="stat-value" style="font-size: 1.5rem;">1,000</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Requests per Day</div>
+                            <div class="stat-value" style="font-size: 1.5rem;">10,000</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Concurrent Requests</div>
+                            <div class="stat-value" style="font-size: 1.5rem;">10</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Max Request Size</div>
+                            <div class="stat-value" style="font-size: 1.5rem;">50MB</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- CREATE KEY MODAL -->
+    <div class="modal" id="createKeyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Generate New API Key</h2>
+                <button class="modal-close" onclick="closeModal('createKeyModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="createKeyForm">
+                    <div class="form-group">
+                        <label class="form-label">Key Name <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="keyName" placeholder="e.g., Production Upload Key" required>
+                        <span class="form-hint">A descriptive name for this key</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-textarea" id="keyDescription" placeholder="What is this key used for?"></textarea>
+                        <span class="form-hint">Optional notes about this key</span>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Expires In</label>
+                            <select class="form-select" id="expiresIn">
+                                <option value="">Never expires</option>
+                                <option value="7">7 days</option>
+                                <option value="30">30 days</option>
+                                <option value="90">90 days</option>
+                                <option value="180">6 months</option>
+                                <option value="365">1 year</option>
+                            </select>
+                            <span class="form-hint">Auto-expire this key after a period</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Requests per Hour</label>
+                            <input type="number" class="form-input" id="rateHour" value="1000" min="1">
+                            <span class="form-hint">Maximum requests per hour</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Permissions <span class="required">*</span></label>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="permission-check" value="results.upload" checked>
+                                <span style="font-size: 0.95rem;">Upload student results</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="permission-check" value="results.read" checked>
+                                <span style="font-size: 0.95rem;">Read result data</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="permission-check" value="bulk.operations">
+                                <span style="font-size: 0.95rem;">Perform bulk operations</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="permission-check" value="results.delete">
+                                <span style="font-size: 0.95rem;">Delete results</span>
+                            </label>
+                        </div>
+                        <span class="form-hint">Select which actions this key can perform</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('createKeyModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitCreateKeyForm()">Generate Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KEY DETAILS MODAL -->
+    <div class="modal" id="keyDetailsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="keyDetailsTitle">API Key Details</h2>
+                <button class="modal-close" onclick="closeModal('keyDetailsModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="keyDetailsContent"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('keyDetailsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROTATE KEY MODAL -->
+    <div class="modal" id="rotateKeyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Rotate API Key</h2>
+                <button class="modal-close" onclick="closeModal('rotateKeyModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fef3c7; padding: 16px; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 16px;">
+                    <p style="margin: 0; color: #92400e; font-size: 0.9rem;">
+                        <strong>Warning:</strong> Rotating this key will generate a new key and the old key will become invalid. Any applications using the old key will stop working.
+                    </p>
+                </div>
+                <p id="rotateKeyName" style="font-weight: 700; color: var(--primary); margin-bottom: 16px;"></p>
+                <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 16px;">
+                    Are you sure you want to rotate this API key? This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('rotateKeyModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitRotateKey()">Rotate Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEACTIVATE KEY MODAL -->
+    <div class="modal" id="deactivateKeyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Deactivate API Key</h2>
+                <button class="modal-close" onclick="closeModal('deactivateKeyModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fee2e2; padding: 16px; border-radius: 10px; border-left: 4px solid #ef4444; margin-bottom: 16px;">
+                    <p style="margin: 0; color: #991b1b; font-size: 0.9rem;">
+                        <strong>Warning:</strong> Deactivating this key will immediately prevent it from being used for any requests.
+                    </p>
+                </div>
+                <p id="deactivateKeyName" style="font-weight: 700; color: var(--primary); margin-bottom: 16px;"></p>
+                <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 16px;">
+                    Are you sure you want to deactivate this API key?
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('deactivateKeyModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="submitDeactivateKey()">Deactivate Key</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+        let currentKeyId = null;
+        let allKeys = [];
+
+        // ===== INITIALIZATION =====
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            loadApiKeys();
+        });
+
+        // ===== AUTHENTICATION =====
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+            }
+        }
+
+        // ===== API CALLS =====
+        async function loadApiKeys() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE_URL}/api-keys`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                allKeys = result.data || [];
+                renderKeysTable();
+                updateStatistics();
+            } catch (err) {
+                showAlert('error', `Failed to load API keys: ${err.message}`);
+            }
+        }
+
+        async function submitCreateKeyForm() {
+            try {
+                const name = document.getElementById('keyName').value;
+                const description = document.getElementById('keyDescription').value;
+                const expiresIn = document.getElementById('expiresIn').value;
+                const rateHour = parseInt(document.getElementById('rateHour').value);
+
+                const permissions = Array.from(document.querySelectorAll('.permission-check:checked'))
+                    .map(el => el.value);
+
+                if (!name) {
+                    showAlert('error', 'Please enter a key name');
+                    return;
+                }
+
+                if (permissions.length === 0) {
+                    showAlert('error', 'Please select at least one permission');
+                    return;
+                }
+
+                const token = localStorage.getItem('token');
+                const expiresAt = expiresIn ? new Date(Date.now() + parseInt(expiresIn) * 24 * 60 * 60 * 1000) : null;
+
+                const payload = {
+                    name,
+                    description,
+                    permissions,
+                    expiresAt,
+                    rateLimit: { requestsPerHour: rateHour, requestsPerDay: rateHour * 24 }
+                };
+
+                const response = await fetch(`${API_BASE_URL}/api-keys`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+
+                showAlert('success', 'API key generated successfully!');
+                showKeyDetails(result.data);
+                closeModal('createKeyModal');
+                document.getElementById('createKeyForm').reset();
+                loadApiKeys();
+            } catch (err) {
+                showAlert('error', `Failed to create key: ${err.message}`);
+            }
+        }
+
+        async function submitRotateKey() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE_URL}/api-keys/${currentKeyId}/rotate`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+
+                showAlert('success', 'API key rotated successfully!');
+                showKeyDetails(result.data);
+                closeModal('rotateKeyModal');
+                loadApiKeys();
+            } catch (err) {
+                showAlert('error', `Failed to rotate key: ${err.message}`);
+            }
+        }
+
+        async function submitDeactivateKey() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE_URL}/api-keys/${currentKeyId}/deactivate`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                showAlert('success', 'API key deactivated');
+                closeModal('deactivateKeyModal');
+                loadApiKeys();
+            } catch (err) {
+                showAlert('error', `Failed to deactivate key: ${err.message}`);
+            }
+        }
+
+        async function deleteKey(keyId) {
+            if (!confirm('Are you sure you want to delete this API key? This cannot be undone.')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE_URL}/api-keys/${keyId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                showAlert('success', 'API key deleted');
+                loadApiKeys();
+            } catch (err) {
+                showAlert('error', `Failed to delete key: ${err.message}`);
+            }
+        }
+
+        // ===== UI FUNCTIONS =====
+        function renderKeysTable() {
+            const container = document.getElementById('keysTableContainer');
+
+            if (allKeys.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon"><i class="fas fa-key"></i></div>
+                        <h3>No API Keys Yet</h3>
+                        <p>Create your first API key to get started with bulk uploads</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const tableHTML = `
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Permissions</th>
+                                <th>Last Used</th>
+                                <th>Created</th>
+                                <th>Expires</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${allKeys.map(key => `
+                                <tr>
+                                    <td><strong>${escapeHtml(key.name)}</strong></td>
+                                    <td>
+                                        <span class="badge badge-${key.status === 'active' ? 'active' : key.status === 'inactive' ? 'inactive' : 'revoked'}">
+                                            ${key.status}
+                                        </span>
+                                    </td>
+                                    <td style="font-size: 0.8rem;">${key.permissions.join(', ')}</td>
+                                    <td style="color: var(--text-light);">${formatDate(key.usage?.lastUsedAt) || '—'}</td>
+                                    <td style="color: var(--text-light);">${formatDate(key.createdAt)}</td>
+                                    <td style="color: var(--text-light);">${key.expiresAt ? formatDate(key.expiresAt) : '—'}</td>
+                                    <td>
+                                        <div style="display: flex; gap: 6px;">
+                                            <button class="btn btn-secondary btn-small" onclick="openKeyDetails('${key._id}')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            ${key.status === 'active' ? `
+                                                <button class="btn btn-secondary btn-small" onclick="openRotateKeyModal('${key._id}')">
+                                                    <i class="fas fa-sync"></i>
+                                                </button>
+                                                <button class="btn btn-secondary btn-small" onclick="openDeactivateKeyModal('${key._id}')">
+                                                    <i class="fas fa-ban"></i>
+                                                </button>
+                                            ` : ''}
+                                            <button class="btn btn-danger btn-small" onclick="deleteKey('${key._id}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = tableHTML;
+        }
+
+        function showKeyDetails(keyData) {
+            const content = `
+                <div style="margin-bottom: 20px;">
+                    <p style="margin: 0 0 8px 0; font-weight: 700; color: var(--text-light); font-size: 0.85rem; text-transform: uppercase;">Your API Key</p>
+                    <div class="key-display">
+                        <span class="key-value" id="keyValueDisplay">${keyData.key}</span>
+                        <button class="key-copy-btn" onclick="copyToClipboard('${keyData.key}')">Copy</button>
+                    </div>
+                    <div style="background: #fee2e2; padding: 12px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                        <p style="margin: 0; color: #991b1b; font-size: 0.85rem;">
+                            <strong>Important:</strong> This is the only time you'll see this key. Store it securely and never share it.
+                        </p>
+                    </div>
+                </div>
+
+                <div style="background: var(--bg-lighter); padding: 16px; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="margin-bottom: 12px;">
+                        <p style="margin: 0 0 4px 0; font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; font-weight: 700;">Name</p>
+                        <p style="margin: 0; font-weight: 700;">${escapeHtml(keyData.name)}</p>
+                    </div>
+
+                    ${keyData.description ? `
+                        <div style="margin-bottom: 12px;">
+                            <p style="margin: 0 0 4px 0; font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; font-weight: 700;">Description</p>
+                            <p style="margin: 0;">${escapeHtml(keyData.description)}</p>
+                        </div>
+                    ` : ''}
+
+                    <div>
+                        <p style="margin: 0 0 4px 0; font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; font-weight: 700;">Permissions</p>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${keyData.permissions.map(p => `<span style="background: var(--accent-light); color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">${p}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Requests</div>
+                        <div class="stat-value" style="font-size: 1.3rem;">${keyData.usage?.totalRequests || 0}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Requests/Hour</div>
+                        <div class="stat-value" style="font-size: 1.3rem;">${keyData.rateLimit?.requestsPerHour || 1000}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Created</div>
+                        <div style="font-size: 0.9rem; color: var(--text-main);">${formatDate(keyData.createdAt)}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Expires</div>
+                        <div style="font-size: 0.9rem; color: var(--text-main);">${keyData.expiresAt ? formatDate(keyData.expiresAt) : 'Never'}</div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('keyDetailsContent').innerHTML = content;
+            openModal('keyDetailsModal');
+        }
+
+        function updateStatistics() {
+            const activeCount = allKeys.filter(k => k.status === 'active').length;
+            const inactiveCount = allKeys.filter(k => k.status !== 'active').length;
+            const totalRequests = allKeys.reduce((sum, k) => sum + (k.usage?.totalRequests || 0), 0);
+
+            document.getElementById('activeKeysCount').textContent = activeCount;
+            document.getElementById('inactiveKeysCount').textContent = inactiveCount;
+            document.getElementById('totalRequests').textContent = totalRequests.toLocaleString();
+            document.getElementById('requestsToday').textContent = '0'; // Would be calculated from real data
+        }
+
+        // ===== MODALS =====
+        function openCreateKeyModal() {
+            openModal('createKeyModal');
+        }
+
+        function openKeyDetails(keyId) {
+            const key = allKeys.find(k => k._id === keyId);
+            if (key) showKeyDetails(key);
+        }
+
+        function openRotateKeyModal(keyId) {
+            currentKeyId = keyId;
+            const key = allKeys.find(k => k._id === keyId);
+            if (key) {
+                document.getElementById('rotateKeyName').textContent = `Key: ${escapeHtml(key.name)}`;
+                openModal('rotateKeyModal');
+            }
+        }
+
+        function openDeactivateKeyModal(keyId) {
+            currentKeyId = keyId;
+            const key = allKeys.find(k => k._id === keyId);
+            if (key) {
+                document.getElementById('deactivateKeyName').textContent = `Key: ${escapeHtml(key.name)}`;
+                openModal('deactivateKeyModal');
+            }
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // ===== ALERTS =====
+        function showAlert(type, message) {
+            const alertId = type === 'success' ? 'successAlert' : 'errorAlert';
+            const messageEl = document.getElementById(type === 'success' ? 'successMessage' : 'errorMessage');
+
+            messageEl.textContent = message;
+            const alert = document.getElementById(alertId);
+            alert.classList.add('show');
+
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        // ===== UTILITIES =====
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('success', 'API key copied to clipboard!');
+            });
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return null;
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function navigateTo(section) {
+            console.log('Navigate to:', section);
+            // Implement navigation logic
+        }
+    </script>
+</body>
+</html>
