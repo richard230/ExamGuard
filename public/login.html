@@ -439,7 +439,7 @@
       </div>
     </div>
   </div>
-  <script>
+<script>
     // Password toggle
     window.togglePw = function() {
       const pwInput = document.getElementById('password');
@@ -510,12 +510,20 @@
           }
 
           if (res.ok && data?.token) {
-            // Store JWT token
+            // Store JWT token in multiple keys for compatibility
             localStorage.setItem('token', data.token);
+            localStorage.setItem('authToken', data.token);           // ← Add this
             localStorage.setItem('adminToken', data.token);
             localStorage.setItem('superadmin_token', data.token);
-            localStorage.setItem('student_token', data.token); // Add this line
+            localStorage.setItem('student_token', data.token);
+            
+            // Also store user info if needed
+            if (data.user) {
+              localStorage.setItem('user', JSON.stringify(data.user));
+              localStorage.setItem('userRole', data.user.role);
+            }
 
+            console.log('✓ Login successful for role:', data.user?.role);
 
             // Role-based redirect (robust and extensible)
             const role = data.user?.role?.toLowerCase();
@@ -529,18 +537,21 @@
             else if (role === 'staff') {
               window.location.href = 'gen-sec.html';
             }
+              else if (role === 'parent') {
+              window.location.href = 'parent-dashboard.html';
+            }
             else if (role === 'student') {
               window.location.href = 'student-dashboard.html';
             } else {
               // Fallback: redirect to a general dashboard or error page
-              window.location.href = 'index.html';
+              window.location.href = '/';
             }
           } else {
             alert(data?.error || 'Invalid login credentials');
           }
         } catch (err) {
           console.error('[Login Error]', err);
-          alert('Network or server error');
+          alert('Network or server error: ' + err.message);
         } finally {
           if (spinner) spinner.style.display = 'none';
           if (submitBtn) {
