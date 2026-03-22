@@ -74,7 +74,9 @@ const demoRequestsRoute = require('./routes/demoRequests');
 const schoolsRoute = require('./routes/schools');
 const apiKeysRoute = require('./routes/apiKeys');
 const universalUploadRoute = require('./routes/universalUpload');
-
+// Add this after the authentication route
+const verificationRoute = require('./routes/verification');
+app.use('/api', verificationRoute);
 /* ================= Route Mounting ================= */
 
 // API Keys Management
