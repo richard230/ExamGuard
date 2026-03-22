@@ -320,13 +320,17 @@ function saveApiKeyToStorage(apiKey) {
   }
 }
 
-// ===== SHOW CLOUD PUSH OPTION (Dynamic UI) =====
+// ===== SHOW CLOUD PUSH OPTION (Dynamic UI) - UPDATED =====
 function showCloudPushOption() {
   let cloudPushSection = document.getElementById('cloudPushSection');
   
   if (!cloudPushSection) {
     const formContainer = document.querySelector('.button-group');
     if (!formContainer) return;
+    
+    // Check if data has metadata
+    const hasMetadataInData = AppState.data[0] && 
+      (AppState.data[0].session || AppState.data[0].term || AppState.data[0].class);
     
     cloudPushSection = document.createElement('div');
     cloudPushSection.id = 'cloudPushSection';
@@ -361,6 +365,57 @@ function showCloudPushOption() {
           <span id="verificationMessage">School verified successfully</span>
         </p>
       </div>
+
+      ${!hasMetadataInData ? `
+      <div style="padding: 15px; background: var(--bg-lighter); border-radius: 6px; border-left: 4px solid var(--primary); margin-bottom: 20px;">
+        <p style="margin: 0 0 15px 0; font-weight: 600; color: var(--primary);">Fill Academic Details</p>
+        <div class="form-row three">
+          <div class="form-group">
+            <label class="form-label">Academic Session <span class="required">*</span></label>
+            <input type="text" class="form-input" id="sessionInput" placeholder="e.g., 2024/2025" required>
+            <span class="form-hint">School academic session</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Term <span class="required">*</span></label>
+            <select class="form-select" id="termInput" required>
+              <option value="">Select Term</option>
+              <option value="First Term">First Term</option>
+              <option value="Second Term">Second Term</option>
+              <option value="Third Term">Third Term</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Class/Grade <span class="required">*</span></label>
+            <input type="text" class="form-input" id="classInput" placeholder="e.g., JSS1A" required>
+            <span class="form-hint">Class or grade level</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Subject <span class="required">*</span></label>
+            <input type="text" class="form-input" id="subjectInput" placeholder="e.g., Mathematics" required>
+            <span class="form-hint">Subject name</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Score Type <span class="required">*</span></label>
+            <select class="form-select" id="scoreTypeInput" required>
+              <option value="">Select Score Type</option>
+              <option value="ca1_score">Continuous Assessment 1</option>
+              <option value="ca2_score">Continuous Assessment 2</option>
+              <option value="midterm_score">Midterm Exam</option>
+              <option value="exam_score">Final Exam</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      ` : `
+      <div style="padding: 12px; background: var(--accent-light); border-radius: 6px; margin-bottom: 20px;">
+        <p style="margin: 0; font-size: 0.9rem; color: var(--primary);">
+          <i class="fas fa-check-circle" style="margin-right: 6px;"></i>
+          Academic details detected in synced data
+        </p>
+      </div>
+      `}
       
       <div class="button-group" style="margin-top: 20px; border-top: none; padding-top: 0;">
         <button type="button" class="btn btn-primary" onclick="pushToUniversalCloud(event)">
@@ -464,17 +519,54 @@ async function pushToUniversalCloud(e) {
     return;
   }
 
+  // Get school identification
   const schoolId = document.getElementById('schoolIdInput')?.value.trim();
   const schoolName = document.getElementById('schoolNameInput')?.value.trim();
 
-  if (!schoolId || !schoolName || !AppState.schoolMetadata.verified) {
+  if (!schoolId || !schoolName) {
+    showAlert('error', 'Please enter and verify School ID');
+    return;
+  }
+
+  if (!AppState.schoolMetadata.verified) {
     showAlert('error', 'Please verify School ID before pushing');
     return;
   }
 
+  // ✅ CHECK FOR METADATA IN RECORDS - Extract from first record if not in form
+  let session = document.getElementById('sessionInput')?.value;
+  let term = document.getElementById('termInput')?.value;
+  let className = document.getElementById('classInput')?.value;
+  let subject = document.getElementById('subjectInput')?.value;
+  let scoreType = document.getElementById('scoreTypeInput')?.value;
+
+  // If not filled in form, try to extract from first record
+  if (!session && AppState.data[0]?.session) {
+    session = AppState.data[0].session;
+  }
+  if (!term && AppState.data[0]?.term) {
+    term = AppState.data[0].term;
+  }
+  if (!className && AppState.data[0]?.class) {
+    className = AppState.data[0].class;
+  }
+  if (!subject && AppState.data[0]?.subject) {
+    subject = AppState.data[0].subject;
+  }
+  if (!scoreType && AppState.data[0]?.resultType) {
+    scoreType = AppState.data[0].resultType;
+  }
+
+  // ✅ VALIDATE REQUIRED FIELDS
+  if (!session || !term || !className || !subject || !scoreType) {
+    showAlert('error', 'Missing required fields: Session, Term, Class, Subject, Score Type. Please fill in the form or ensure data contains these fields.');
+    return;
+  }
+
+  // Check if API key exists
   let apiKey = CONFIG.API_KEY || localStorage.getItem('apiKey');
   if (!apiKey) {
-    showAlert('error', 'API key not found');
+    showAlert('error', 'API key not found. Please sync from backend with API key first, or configure API key in settings.');
     return;
   }
 
@@ -487,11 +579,26 @@ async function pushToUniversalCloud(e) {
   }
 
   try {
-    // ✅ NEW ENDPOINT: /api/cloud/sync
+    // Enrich data with school identification
+    const enrichedData = AppState.data.map(record => ({
+      ...record,
+      schoolId: schoolId,
+      schoolName: schoolName,
+      cloudSyncedAt: new Date().toISOString(),
+      sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
+      sourceType: 'school_backend'
+    }));
+
+    // ✅ CORRECTED PAYLOAD WITH ALL REQUIRED FIELDS
     const payload = {
-      schoolId,
-      schoolName,
-      results: AppState.data,
+      schoolId,           // ✅ Required
+      schoolName,         // ✅ Required
+      session,            // ✅ Required
+      term,               // ✅ Required
+      class: className,   // ✅ Required
+      subject,            // ✅ Required
+      resultType: scoreType, // ✅ Required
+      results: enrichedData,  // ✅ Required
       sourceType: 'school_backend',
       upsert: true,
       metadata: {
@@ -500,12 +607,25 @@ async function pushToUniversalCloud(e) {
       }
     };
 
+    console.log('Pushing to cloud:', {
+      recordCount: enrichedData.length,
+      schoolId,
+      schoolName,
+      session,
+      term,
+      class: className,
+      subject,
+      resultType: scoreType,
+      endpoint: CONFIG.UPLOAD_ENDPOINT,
+      hasApiKey: !!apiKey
+    });
+
+    // ✅ Include API key in headers
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     };
 
-    // ✅ Changed endpoint from /api/results/upsert to /api/cloud/sync
     const response = await fetch(`${CONFIG.UNIVERSAL_SERVER_URL}/api/cloud/sync`, {
       method: 'POST',
       headers: headers,
@@ -513,11 +633,30 @@ async function pushToUniversalCloud(e) {
       mode: 'cors'
     });
 
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Cloud push error response:', errorData);
+      
+      // Try to parse as JSON for better error message
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const jsonError = JSON.parse(errorData);
+        errorMessage = jsonError.error || jsonError.message || errorMessage;
+      } catch (e) {
+        // If not JSON, use the text as-is
+        errorMessage = errorData || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
+    }
+
     const result = await response.json();
 
     if (result.success) {
-      showAlert('success', `✓ Upload received (ID: ${result.uploadId}). Processing in background...`);
+      const successCount = result.totalRecords || AppState.data.length;
+      showAlert('success', `✓ Upload received (ID: ${result.uploadId}). Processing ${successCount} records in background...`);
       
+      // Log the cloud sync
       logCloudSync({
         uploadId: result.uploadId,
         schoolId,
@@ -527,13 +666,35 @@ async function pushToUniversalCloud(e) {
         timestamp: new Date().toISOString()
       });
 
-      setTimeout(() => resetForm(), 2000);
+      // Clear data after successful push
+      setTimeout(() => {
+        resetForm();
+      }, 2000);
     } else {
-      showAlert('error', `Upload failed: ${result.error}`);
+      showAlert('error', `Cloud push failed: ${result.error || 'Unknown error'}`);
+      logCloudSync({
+        uploadId: null,
+        schoolId,
+        schoolName,
+        recordsCount: AppState.data.length,
+        status: 'failed',
+        error: result.error || 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
     }
   } catch (err) {
     console.error('Cloud push error:', err);
     showAlert('error', `Cloud push failed: ${err.message}`);
+    
+    logCloudSync({
+      uploadId: null,
+      schoolId,
+      schoolName,
+      recordsCount: AppState.data.length,
+      status: 'error',
+      error: err.message,
+      timestamp: new Date().toISOString()
+    });
   } finally {
     if (pushBtn) {
       pushBtn.disabled = false;
