@@ -6,6 +6,20 @@ const Result = require('../models/Result');
 const { authMiddleware } = require('./auth');
 const crypto = require('crypto');
 
+// ===== HELPER: NORMALIZE TERM VALUE =====
+function normalizeTerm(term) {
+  const termMap = {
+    'FIRST TERM': 'First Term',
+    'SECOND TERM': 'Second Term',
+    'THIRD TERM': 'Third Term',
+    'first term': 'First Term',
+    'second term': 'Second Term',
+    'third term': 'Third Term'
+  };
+  
+  return termMap[term] || term;
+}
+
 // ===== VALIDATION MIDDLEWARE =====
 const validateUniversalUpload = (req, res, next) => {
   const { schoolId, schoolName, session, term, class: className, subject, resultType, results } = req.body;
@@ -70,14 +84,17 @@ router.post('/sync', validateUniversalUpload, async (req, res) => {
       });
     }
 
-    // ===== STEP 2: CREATE UNIVERSAL UPLOAD DOCUMENT =====
+    // ===== STEP 2: NORMALIZE TERM =====
+    const normalizedTerm = normalizeTerm(term);
+
+    // ===== STEP 3: CREATE UNIVERSAL UPLOAD DOCUMENT =====
     const uploadDoc = new UniversalUpload({
       sourceType,
       schoolId,
       schoolName,
       schoolRef: school._id,
       session,
-      term,
+      term: normalizedTerm,
       class: className,
       subject,
       resultType,
@@ -90,6 +107,7 @@ router.post('/sync', validateUniversalUpload, async (req, res) => {
         exam_score: r.exam_score || null,
         grade: r.grade || null,
         remarks: r.remarks || null,
+        subject: r.subject || null,
         recordStatus: 'valid'
       })),
       status: 'processing',
@@ -114,14 +132,15 @@ router.post('/sync', validateUniversalUpload, async (req, res) => {
 
     await uploadDoc.save();
 
-    // ===== STEP 3: PROCESS RESULTS IN BACKGROUND =====
+    console.log('✓ Universal upload created:', uploadDoc.uploadId);
+
+    // ===== STEP 4: PROCESS RESULTS IN BACKGROUND =====
     processUploadAsync(uploadDoc._id, school, results).catch(err => {
       console.error('Error processing upload:', err);
-      // Update upload status to failed
       UniversalUpload.findByIdAndUpdate(uploadDoc._id, { status: 'failed' });
     });
 
-    // ===== STEP 4: RETURN RESPONSE =====
+    // ===== STEP 5: RETURN RESPONSE =====
     res.status(202).json({
       success: true,
       message: 'Upload received and queued for processing',
@@ -150,7 +169,7 @@ router.get('/sync/:uploadId', async (req, res) => {
   try {
     const upload = await UniversalUpload.findOne({ uploadId: req.params.uploadId })
       .populate('schoolRef', 'schoolName schoolId')
-      .select('-results'); // Exclude large results array for status check
+      .select('-results');
 
     if (!upload) {
       return res.status(404).json({
@@ -168,6 +187,8 @@ router.get('/sync/:uploadId', async (req, res) => {
         schoolName: upload.schoolName,
         session: upload.session,
         term: upload.term,
+        class: upload.class,
+        subject: upload.subject,
         uploadTimestamp: upload.uploadTimestamp,
         processingStats: upload.processingStats,
         errorCount: upload.errors.length
@@ -252,8 +273,8 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
     upload.processingStats.processingStartedAt = new Date();
     await upload.save();
 
-    // Retry processing
-    processUploadAsync(upload._id, await School.findById(upload.schoolRef), upload.results);
+    const school = await School.findById(upload.schoolRef);
+    processUploadAsync(upload._id, school, upload.results);
 
     res.json({
       success: true,
@@ -322,7 +343,7 @@ async function processUploadAsync(uploadId, school, results) {
         failureCount++;
         errors.push({
           recordIndex: i,
-          studentId: results[i].student_id,
+          studentId: results[i]?.student_id,
           error: err.message
         });
         upload.results[i].recordStatus = 'invalid';
