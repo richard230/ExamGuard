@@ -515,6 +515,27 @@ async function verifySchoolId() {
 }
 
 // ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - FULLY REFACTORED =====
+// ===== HELPER: NORMALIZE FIELD NAMES =====
+function normalizeFieldNames(record) {
+  // Try to map various possible field names to our standard names
+  return {
+    student_id: record.student_id || record.studentId || record.id || '',
+    student_name: record.student_name || record.studentName || record.name || '',
+    session: record.session || record.examSession || record.academicSession || '',
+    term: record.term || record.examTerm || record.trimester || '',
+    class: record.class || record.className || record.grade || record.classLevel || '',
+    subject: record.subject || record.subjectName || record.subjectTitle || '',
+    resultType: record.resultType || record.scoreType || record.assessmentType || '',
+    ca1_score: record.ca1_score || record.ca1Score || record.assessment1 || 0,
+    ca2_score: record.ca2_score || record.ca2Score || record.assessment2 || 0,
+    midterm_score: record.midterm_score || record.midtermScore || record.midTerm || 0,
+    exam_score: record.exam_score || record.examScore || record.finalExam || 0,
+    grade: record.grade || record.letterGrade || '',
+    remarks: record.remarks || record.comment || record.notes || ''
+  };
+}
+
+// ===== PUSH TO UNIVERSAL CLOUD (FLEXIBLE VERSION) =====
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
   
@@ -537,40 +558,35 @@ async function pushToUniversalCloud(e) {
     return;
   }
 
-  // ✅ CHECK FOR METADATA IN RECORDS - Extract from first record if not in form
-  let session = document.getElementById('sessionInput')?.value;
-  let term = document.getElementById('termInput')?.value;
-  let className = document.getElementById('classInput')?.value;
-  let subject = document.getElementById('subjectInput')?.value;
-  let scoreType = document.getElementById('scoreTypeInput')?.value;
+  // ✅ NORMALIZE FIRST RECORD TO DETECT FIELD NAMES
+  const normalizedFirstRecord = normalizeFieldNames(AppState.data[0]);
 
-  // If not filled in form, try to extract from first record
-  if (!session && AppState.data[0]?.session) {
-    session = AppState.data[0].session;
-  }
-  if (!term && AppState.data[0]?.term) {
-    term = AppState.data[0].term;
-  }
-  if (!className && AppState.data[0]?.class) {
-    className = AppState.data[0].class;
-  }
-  if (!subject && AppState.data[0]?.subject) {
-    subject = AppState.data[0].subject;
-  }
-  if (!scoreType && AppState.data[0]?.resultType) {
-    scoreType = AppState.data[0].resultType;
-  }
+  // Get fields from form or from normalized record
+  let session = document.getElementById('sessionInput')?.value || normalizedFirstRecord.session;
+  let term = document.getElementById('termInput')?.value || normalizedFirstRecord.term;
+  let className = document.getElementById('classInput')?.value || normalizedFirstRecord.class;
+  let subject = document.getElementById('subjectInput')?.value || normalizedFirstRecord.subject;
+  let scoreType = document.getElementById('scoreTypeInput')?.value || normalizedFirstRecord.resultType;
+
+  console.log('Detected Fields:', { session, term, className, subject, scoreType });
 
   // ✅ VALIDATE REQUIRED FIELDS
   if (!session || !term || !className || !subject || !scoreType) {
-    showAlert('error', 'Missing required fields: Session, Term, Class, Subject, Score Type. Please fill in the form or ensure data contains these fields.');
+    showAlert('error', `Missing required fields: 
+      Session: ${session ? '✓' : '✗'} 
+      Term: ${term ? '✓' : '✗'} 
+      Class: ${className ? '✓' : '✗'} 
+      Subject: ${subject ? '✓' : '✗'} 
+      Score Type: ${scoreType ? '✓' : '✗'}
+      
+      Please fill in the form or ensure your data contains these fields.`);
     return;
   }
 
   // Check if API key exists
   let apiKey = CONFIG.API_KEY || localStorage.getItem('apiKey');
   if (!apiKey) {
-    showAlert('error', 'API key not found. Please sync from backend with API key first, or configure API key in settings.');
+    showAlert('error', 'API key not found. Please sync from backend with API key first.');
     return;
   }
 
@@ -583,26 +599,29 @@ async function pushToUniversalCloud(e) {
   }
 
   try {
-    // Enrich data with school identification
-    const enrichedData = AppState.data.map(record => ({
-      ...record,
-      schoolId: schoolId,
-      schoolName: schoolName,
-      cloudSyncedAt: new Date().toISOString(),
-      sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
-      sourceType: 'school_backend'
-    }));
+    // ✅ NORMALIZE ALL RECORDS
+    const enrichedData = AppState.data.map(record => {
+      const normalized = normalizeFieldNames(record);
+      return {
+        ...normalized,
+        schoolId: schoolId,
+        schoolName: schoolName,
+        cloudSyncedAt: new Date().toISOString(),
+        sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
+        sourceType: 'school_backend'
+      };
+    });
 
-    // ✅ CORRECTED PAYLOAD WITH ALL REQUIRED FIELDS
+    // ✅ CORRECT PAYLOAD WITH ALL REQUIRED FIELDS
     const payload = {
-      schoolId,           // ✅ Required
-      schoolName,         // ✅ Required
-      session,            // ✅ Required
-      term,               // ✅ Required
-      class: className,   // ✅ Required
-      subject,            // ✅ Required
-      resultType: scoreType, // ✅ Required
-      results: enrichedData,  // ✅ Required
+      schoolId,
+      schoolName,
+      session,
+      term,
+      class: className,
+      subject,
+      resultType: scoreType,
+      results: enrichedData,
       sourceType: 'school_backend',
       upsert: true,
       metadata: {
@@ -611,20 +630,8 @@ async function pushToUniversalCloud(e) {
       }
     };
 
-    console.log('Pushing to cloud:', {
-      recordCount: enrichedData.length,
-      schoolId,
-      schoolName,
-      session,
-      term,
-      class: className,
-      subject,
-      resultType: scoreType,
-      endpoint: CONFIG.CLOUD_SYNC_ENDPOINT,
-      hasApiKey: !!apiKey
-    });
+    console.log('Payload to send:', payload);
 
-    // ✅ Include API key in headers
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
@@ -641,13 +648,11 @@ async function pushToUniversalCloud(e) {
       const errorData = await response.text();
       console.error('Cloud push error response:', errorData);
       
-      // Try to parse as JSON for better error message
       let errorMessage = `HTTP ${response.status}`;
       try {
         const jsonError = JSON.parse(errorData);
         errorMessage = jsonError.error || jsonError.message || errorMessage;
       } catch (e) {
-        // If not JSON, use the text as-is
         errorMessage = errorData || errorMessage;
       }
       
@@ -658,9 +663,8 @@ async function pushToUniversalCloud(e) {
 
     if (result.success) {
       const successCount = result.totalRecords || AppState.data.length;
-      showAlert('success', `✓ Upload received (ID: ${result.uploadId}). Processing ${successCount} records in background...`);
+      showAlert('success', `✓ Upload received (ID: ${result.uploadId}). Processing ${successCount} records...`);
       
-      // Log the cloud sync
       logCloudSync({
         uploadId: result.uploadId,
         schoolId,
@@ -675,35 +679,15 @@ async function pushToUniversalCloud(e) {
         timestamp: new Date().toISOString()
       });
 
-      // Clear data after successful push
       setTimeout(() => {
         resetForm();
       }, 2000);
     } else {
       showAlert('error', `Cloud push failed: ${result.error || 'Unknown error'}`);
-      logCloudSync({
-        uploadId: null,
-        schoolId,
-        schoolName,
-        recordsCount: AppState.data.length,
-        status: 'failed',
-        error: result.error || 'Unknown error',
-        timestamp: new Date().toISOString()
-      });
     }
   } catch (err) {
     console.error('Cloud push error:', err);
     showAlert('error', `Cloud push failed: ${err.message}`);
-    
-    logCloudSync({
-      uploadId: null,
-      schoolId,
-      schoolName,
-      recordsCount: AppState.data.length,
-      status: 'error',
-      error: err.message,
-      timestamp: new Date().toISOString()
-    });
   } finally {
     if (pushBtn) {
       pushBtn.disabled = false;
