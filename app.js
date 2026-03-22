@@ -128,7 +128,7 @@ app.use('/api/parents', parentsRoute);
 app.use('/api/auth', authRoute);
 
 // ✅ NEW: Verification & Reports
-app.use('/api', verificationRoute);
+app.use('/api/res', verificationRoute);
 
 // Staff Management
 app.use('/api/staff', staffRoute);
