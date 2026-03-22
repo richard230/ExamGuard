@@ -464,24 +464,17 @@ async function pushToUniversalCloud(e) {
     return;
   }
 
-  // Get school identification
   const schoolId = document.getElementById('schoolIdInput')?.value.trim();
   const schoolName = document.getElementById('schoolNameInput')?.value.trim();
 
-  if (!schoolId || !schoolName) {
-    showAlert('error', 'Please enter and verify School ID');
-    return;
-  }
-
-  if (!AppState.schoolMetadata.verified) {
+  if (!schoolId || !schoolName || !AppState.schoolMetadata.verified) {
     showAlert('error', 'Please verify School ID before pushing');
     return;
   }
 
-  // Check if API key exists
   let apiKey = CONFIG.API_KEY || localStorage.getItem('apiKey');
   if (!apiKey) {
-    showAlert('error', 'API key not found. Please sync from backend with API key first, or configure API key in settings.');
+    showAlert('error', 'API key not found');
     return;
   }
 
@@ -494,111 +487,53 @@ async function pushToUniversalCloud(e) {
   }
 
   try {
-    // Enrich data with school identification
-    const enrichedData = AppState.data.map(record => ({
-      ...record,
-      schoolId: schoolId,
-      schoolName: schoolName,
-      cloudSyncedAt: new Date().toISOString(),
-      sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
-      sourceType: 'school_backend'
-    }));
-
-    // Prepare payload WITHOUT requiring global session/term/class/subject/scoreType
-    // These should be in each record from the backend sync
+    // ✅ NEW ENDPOINT: /api/cloud/sync
     const payload = {
-      results: enrichedData,
-      upsert: true,
-      schoolId: schoolId,
-      schoolName: schoolName,
-      sourceType: 'school_backend',
-      syncTimestamp: new Date().toISOString(),
-      // If records lack metadata, attempt to extract from first record
-      ...(AppState.data[0] && {
-        session: AppState.data[0].session || null,
-        term: AppState.data[0].term || null,
-        class: AppState.data[0].class || null,
-        subject: AppState.data[0].subject || null,
-        resultType: AppState.data[0].resultType || null
-      })
-    };
-
-    console.log('Pushing to cloud:', {
-      recordCount: enrichedData.length,
       schoolId,
       schoolName,
-      endpoint: CONFIG.UPLOAD_ENDPOINT,
-      hasRecordMetadata: !!AppState.data[0]?.session,
-      hasApiKey: !!apiKey
-    });
+      results: AppState.data,
+      sourceType: 'school_backend',
+      upsert: true,
+      metadata: {
+        backendUrl: AppState.schoolMetadata?.backendUrl || null,
+        syncedAt: new Date().toISOString()
+      }
+    };
 
-    // ✅ Include API key in headers
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     };
 
-    const response = await fetch(`${CONFIG.UPLOAD_ENDPOINT}`, {
+    // ✅ Changed endpoint from /api/results/upsert to /api/cloud/sync
+    const response = await fetch(`${CONFIG.UNIVERSAL_SERVER_URL}/api/cloud/sync`, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(payload),
       mode: 'cors'
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Cloud push error:', errorData);
-      throw new Error(`HTTP ${response.status}: ${errorData}`);
-    }
-
     const result = await response.json();
 
     if (result.success) {
-      const successCount = (result.inserted || 0) + (result.updated || 0);
-      showAlert('success', `✓ Successfully pushed ${successCount}/${AppState.data.length} records to cloud (School: ${schoolName})`);
+      showAlert('success', `✓ Upload received (ID: ${result.uploadId}). Processing in background...`);
       
-      // Log the cloud sync
       logCloudSync({
+        uploadId: result.uploadId,
         schoolId,
         schoolName,
         recordsCount: AppState.data.length,
-        successCount: successCount,
-        failedCount: result.errors?.length || 0,
-        timestamp: new Date().toISOString(),
-        status: 'success'
+        status: result.status,
+        timestamp: new Date().toISOString()
       });
 
-      // Clear data after successful push
-      setTimeout(() => {
-        resetForm();
-      }, 2000);
+      setTimeout(() => resetForm(), 2000);
     } else {
-      showAlert('error', `Cloud push completed with errors: ${result.error || 'Unknown error'}`);
-      logCloudSync({
-        schoolId,
-        schoolName,
-        recordsCount: AppState.data.length,
-        successCount: 0,
-        failedCount: AppState.data.length,
-        timestamp: new Date().toISOString(),
-        status: 'failed',
-        error: result.error
-      });
+      showAlert('error', `Upload failed: ${result.error}`);
     }
   } catch (err) {
     console.error('Cloud push error:', err);
     showAlert('error', `Cloud push failed: ${err.message}`);
-    
-    logCloudSync({
-      schoolId,
-      schoolName,
-      recordsCount: AppState.data.length,
-      successCount: 0,
-      failedCount: AppState.data.length,
-      timestamp: new Date().toISOString(),
-      status: 'error',
-      error: err.message
-    });
   } finally {
     if (pushBtn) {
       pushBtn.disabled = false;
