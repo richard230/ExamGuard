@@ -66,8 +66,8 @@
         // Load schools
         await loadSchools();
         
-        // Load academic years
-        await loadAcademicYears();
+        // Load sessions
+        await loadSessions();
         
         // Load verification history
         await loadVerificationHistory();
@@ -118,30 +118,30 @@
       });
     }
 
-    async function loadAcademicYears() {
+    async function loadSessions() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/academic-years`, {
+        const response = await fetch(`${API_BASE_URL}/api/sessions`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        if (!response.ok) throw new Error('Failed to load years');
+        if (!response.ok) throw new Error('Failed to load sessions');
         
         const responseData = await response.json();
         
-        // Extract academic years array from the response wrapper
-        const years = responseData.data || responseData.years || [];
-        const yearSelect = document.getElementById('academicYear');
+        // Extract sessions array from the response wrapper
+        const sessions = responseData.data || responseData.sessions || [];
+        const sessionSelect = document.getElementById('session');
         
-        years.forEach(year => {
+        sessions.forEach(session => {
           const option = document.createElement('option');
-          option.value = year._id || year.id;
-          option.textContent = year.name;
-          yearSelect.appendChild(option);
+          option.value = session._id || session.id;
+          option.textContent = session.name;
+          sessionSelect.appendChild(option);
         });
       } catch (error) {
-        console.error('Error loading academic years:', error);
+        console.error('Error loading sessions:', error);
       }
     }
 
@@ -183,7 +183,7 @@
       const schoolId = document.getElementById('schoolName').value;
       const regNo = document.getElementById('regNo').value.trim();
       const scratchCard = document.getElementById('scratchCard').value.trim();
-      const academicYearId = document.getElementById('academicYear').value;
+      const sessionId = document.getElementById('session').value;
       const termId = document.getElementById('term').value;
       const classLevelId = document.getElementById('classLevel').value;
       const verificationPurpose = document.getElementById('verificationPurpose').value;
@@ -204,7 +204,7 @@
             schoolId,
             regNo,
             scratchCard,
-            academicYearId,
+            sessionId,
             termId,
             classLevelId,
             verificationPurpose,
@@ -241,7 +241,7 @@
 
     function validateForm() {
       let isValid = true;
-      const fields = ['schoolName', 'regNo', 'scratchCard', 'academicYear', 'term', 'classLevel', 'verificationPurpose', 'institutionName'];
+      const fields = ['schoolName', 'regNo', 'scratchCard', 'session', 'term', 'classLevel', 'verificationPurpose', 'institutionName'];
 
       fields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
@@ -269,7 +269,7 @@
       document.getElementById('reportStudentName').textContent = data.studentName;
       document.getElementById('reportRegNo').textContent = `REG: ${data.regNo}`;
       document.getElementById('reportSchoolName').textContent = `School: ${data.school.name}`;
-      document.getElementById('reportYear').textContent = `Year: ${data.academicYear.name}`;
+      document.getElementById('reportYear').textContent = `Session: ${data.session.name}`;
 
       // Summary
       document.getElementById('reportTerm').textContent = data.term.name;
@@ -683,7 +683,7 @@ STUDENT ACADEMIC REPORT - VERIFICATION CERTIFICATE
 School: ${currentReport.school.name}
 Student: ${currentReport.studentName}
 Registration: ${currentReport.regNo}
-Year: ${currentReport.academicYear.name}
+Session: ${currentReport.session.name}
 Term: ${currentReport.term.name}
 Class: ${currentReport.classLevel.name}
 
