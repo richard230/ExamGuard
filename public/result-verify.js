@@ -439,6 +439,7 @@ async function verifySchoolId() {
 }
 
 // ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - REFACTORED =====
+// ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - REFACTORED =====
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
   
@@ -458,6 +459,13 @@ async function pushToUniversalCloud(e) {
 
   if (!AppState.schoolMetadata.verified) {
     showAlert('error', 'Please verify School ID before pushing');
+    return;
+  }
+
+  // Check if API key exists
+  const apiKey = CONFIG.API_KEY || localStorage.getItem('apiKey');
+  if (!apiKey) {
+    showAlert('error', 'API key not found. Please configure your API key in settings.');
     return;
   }
 
@@ -481,7 +489,6 @@ async function pushToUniversalCloud(e) {
     }));
 
     // Prepare payload WITHOUT requiring global session/term/class/subject/scoreType
-    // These should be in each record from the backend sync
     const payload = {
       results: enrichedData,
       upsert: true,
@@ -489,7 +496,6 @@ async function pushToUniversalCloud(e) {
       schoolName: schoolName,
       sourceType: 'school_backend',
       syncTimestamp: new Date().toISOString(),
-      // If records lack metadata, attempt to extract from first record
       ...(AppState.data[0] && {
         session: AppState.data[0].session || null,
         term: AppState.data[0].term || null,
@@ -507,9 +513,15 @@ async function pushToUniversalCloud(e) {
       hasRecordMetadata: !!AppState.data[0]?.session
     });
 
+    // ✅ FIXED: Include API key in headers
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    };
+
     const response = await fetch(`${CONFIG.UPLOAD_ENDPOINT}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,  // ✅ Now includes API key
       body: JSON.stringify(payload),
       mode: 'cors'
     });
@@ -526,7 +538,6 @@ async function pushToUniversalCloud(e) {
       const successCount = (result.inserted || 0) + (result.updated || 0);
       showAlert('success', `✓ Successfully pushed ${successCount}/${AppState.data.length} records to cloud (School: ${schoolName})`);
       
-      // Log the cloud sync
       logCloudSync({
         schoolId,
         schoolName,
@@ -537,7 +548,6 @@ async function pushToUniversalCloud(e) {
         status: 'success'
       });
 
-      // Clear data after successful push
       setTimeout(() => {
         resetForm();
       }, 2000);
