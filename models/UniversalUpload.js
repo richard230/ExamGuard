@@ -5,7 +5,7 @@ const universalUploadSchema = new mongoose.Schema({
   uploadId: {
     type: String,
     unique: true,
-    required: true,
+    sparse: true,
     index: true
   },
   uploadTimestamp: {
@@ -45,9 +45,16 @@ const universalUploadSchema = new mongoose.Schema({
   },
   term: {
     type: String,
-    enum: ['First Term', 'Second Term', 'Third Term'],
+    enum: ['First Term', 'Second Term', 'Third Term', 'FIRST TERM', 'SECOND TERM', 'THIRD TERM'],
     required: true,
-    index: true
+    index: true,
+    set: function(value) {
+      // Normalize term values
+      if (value === 'FIRST TERM') return 'First Term';
+      if (value === 'SECOND TERM') return 'Second Term';
+      if (value === 'THIRD TERM') return 'Third Term';
+      return value;
+    }
   },
   class: {
     type: String,
@@ -75,6 +82,7 @@ const universalUploadSchema = new mongoose.Schema({
     exam_score: { type: Number, default: null },
     grade: { type: String, default: null },
     remarks: { type: String, default: null },
+    subject: { type: String, default: null },
     recordStatus: {
       type: String,
       enum: ['valid', 'invalid', 'duplicate', 'processed'],
@@ -152,13 +160,25 @@ universalUploadSchema.index({ schoolId: 1, session: 1, term: 1 });
 universalUploadSchema.index({ status: 1, uploadTimestamp: -1 });
 universalUploadSchema.index({ createdAt: -1 });
 
-// Generate Upload ID
+// Generate Upload ID before saving
 universalUploadSchema.pre('save', function(next) {
   if (!this.uploadId) {
+    // Generate unique uploadId
     this.uploadId = `UPL-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
   }
+  
+  // Set total records count
   this.processingStats.totalRecords = this.results.length;
+  
   next();
 });
+
+// Instance methods
+universalUploadSchema.methods.softDelete = function(userId) {
+  this.isDeleted = true;
+  this.deletedAt = new Date();
+  this.deletedBy = userId;
+  return this.save();
+};
 
 module.exports = mongoose.model('UniversalUpload', universalUploadSchema);
