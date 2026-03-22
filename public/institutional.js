@@ -231,7 +231,7 @@ async function handleVerification(event) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner"></span> Verifying...';
 
-    const response = await fetch(`${API_BASE_URL}/api/verify-student-report`, {
+    const response = await fetch(`${API_BASE_URL}/api/res/verify-student-report`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
