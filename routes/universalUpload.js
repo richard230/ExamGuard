@@ -335,9 +335,7 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
     });
   }
 });
-
-// ===== ASYNC PROCESSING FUNCTION - FULLY REFACTORED =====
-// ===== ASYNC PROCESSING FUNCTION - FULLY CORRECTED =====
+// ===== ASYNC PROCESSING FUNCTION - WITH PROPER AWAIT =====
 async function processUploadAsync(uploadId, school, results) {
   try {
     const upload = await UniversalUpload.findById(uploadId);
@@ -346,132 +344,177 @@ async function processUploadAsync(uploadId, school, results) {
     let failureCount = 0;
     const errors = [];
 
-    // ✅ PRE-FETCH/CREATE ALL LOOKUPS TO AVOID N+1 QUERIES
-    console.log('Pre-fetching/creating reference documents...');
-    
-    // ✅ STEP 1: Get or create Session FIRST
-    let sessionDoc = await Session.findOne({ name: upload.session });
-    if (!sessionDoc) {
-      sessionDoc = await Session.create({ 
-        name: upload.session,
-        is_active: true 
-      });
-      console.log(`Created new session: ${upload.session}`);
-    }
-    console.log(`Using session ID: ${sessionDoc._id}`);
-    
-    // ✅ STEP 2: Get or create Term (with session reference)
-    let termDoc = await Term.findOne({ name: upload.term });
-    if (!termDoc) {
-      termDoc = await Term.create({ 
-        name: upload.term,
-        session: sessionDoc._id, // ✅ REFERENCE TO SESSION
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days from now
-      });
-      console.log(`Created new term: ${upload.term} (with session: ${sessionDoc._id})`);
-    }
-    console.log(`Using term ID: ${termDoc._id}`);
-    
-    // ✅ STEP 3: Get or create Class
-    let classDoc = await Class.findOne({ name: upload.class });
-    if (!classDoc) {
-      classDoc = await Class.create({ 
-        name: upload.class,
-        arms: [],
-        teachers: [],
-        subjects: []
-      });
-      console.log(`Created new class: ${upload.class}`);
-    }
-    console.log(`Using class ID: ${classDoc._id}`);
+    try {
+      console.log('=== Starting Upload Processing ===');
+      console.log('Upload ID:', upload.uploadId);
+      console.log('Session:', upload.session);
+      console.log('Term:', upload.term);
+      console.log('Class:', upload.class);
 
-    // ✅ STEP 4: Process each result record
-    for (let i = 0; i < results.length; i++) {
-      try {
-        const record = results[i];
-        const studentId = record.student_id;
-        const studentName = record.student_name;
-        const subjectName = record.subject || upload.subject;
-
-        console.log(`Processing ${i + 1}/${results.length}: ${studentName} - ${subjectName}`);
-
-        // ✅ GET OR CREATE STUDENT
-        let studentDoc = await Student.findOne({ 
-          $or: [
-            { _id: studentId }, // If it's already an ObjectId
-            { regNo: studentId }  // Or if it's a registration number
-          ]
+      // ✅ STEP 1: Get or create Session FIRST
+      console.log('Step 1: Creating/fetching Session...');
+      let sessionDoc = await Session.findOne({ name: upload.session });
+      if (!sessionDoc) {
+        console.log('Session not found, creating:', upload.session);
+        sessionDoc = await Session.create({ 
+          name: upload.session,
+          is_active: true 
         });
-        
-        if (!studentDoc) {
-          // Create student if doesn't exist
-          studentDoc = await Student.create({
-            name: studentName,
-            regNo: studentId,
-            school: school._id
-          });
-          console.log(`Created new student: ${studentName}`);
-        }
+        console.log('✓ Created session:', sessionDoc._id);
+      } else {
+        console.log('✓ Found existing session:', sessionDoc._id);
+      }
+      
+      if (!sessionDoc || !sessionDoc._id) {
+        throw new Error('Failed to create/fetch Session');
+      }
 
-        // ✅ GET OR CREATE SUBJECT
-        let subjectDoc = await Subject.findOne({ name: subjectName });
-        if (!subjectDoc) {
-          subjectDoc = await Subject.create({ name: subjectName });
-          console.log(`Created new subject: ${subjectName}`);
-        }
-
-        // ✅ UPSERT RESULT WITH ALL REQUIRED OBJECTIDS
-        const updateData = {
-          student: studentDoc._id,
+      // ✅ STEP 2: Get or create Term (with session reference)
+      console.log('Step 2: Creating/fetching Term...');
+      let termDoc = await Term.findOne({ name: upload.term, session: sessionDoc._id });
+      if (!termDoc) {
+        console.log('Term not found, creating:', upload.term);
+        const termPayload = {
+          name: upload.term,
           session: sessionDoc._id,
-          term: termDoc._id,
-          class: classDoc._id,
-          subject: subjectDoc._id,
-          ca1_score: parseFloat(record.ca1_score) || 0,
-          ca2_score: parseFloat(record.ca2_score) || 0,
-          midterm_score: parseFloat(record.midterm_score) || 0,
-          exam_score: parseFloat(record.exam_score) || 0,
-          score: (parseFloat(record.ca1_score) || 0) + (parseFloat(record.ca2_score) || 0) + (parseFloat(record.midterm_score) || 0) + (parseFloat(record.exam_score) || 0),
-          grade: record.grade || '',
-          remarks: record.remarks || '',
-          status: 'Published'
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
         };
+        console.log('Term payload:', JSON.stringify(termPayload));
+        termDoc = await Term.create(termPayload);
+        console.log('✓ Created term:', termDoc._id);
+      } else {
+        console.log('✓ Found existing term:', termDoc._id);
+      }
 
-        const upsertedResult = await Result.findOneAndUpdate(
-          {
+      if (!termDoc || !termDoc._id) {
+        throw new Error('Failed to create/fetch Term');
+      }
+
+      // ✅ STEP 3: Get or create Class
+      console.log('Step 3: Creating/fetching Class...');
+      let classDoc = await Class.findOne({ name: upload.class });
+      if (!classDoc) {
+        console.log('Class not found, creating:', upload.class);
+        classDoc = await Class.create({ 
+          name: upload.class,
+          arms: [],
+          teachers: [],
+          subjects: []
+        });
+        console.log('✓ Created class:', classDoc._id);
+      } else {
+        console.log('✓ Found existing class:', classDoc._id);
+      }
+
+      if (!classDoc || !classDoc._id) {
+        throw new Error('Failed to create/fetch Class');
+      }
+
+      // ✅ STEP 4: Process each result record
+      console.log(`Step 4: Processing ${results.length} records...`);
+      
+      for (let i = 0; i < results.length; i++) {
+        try {
+          const record = results[i];
+          const studentId = record.student_id;
+          const studentName = record.student_name;
+          const subjectName = record.subject || upload.subject;
+
+          console.log(`  [${i + 1}/${results.length}] Processing: ${studentName} - ${subjectName}`);
+
+          // ✅ GET OR CREATE STUDENT
+          let studentDoc = await Student.findOne({ 
+            $or: [
+              { _id: studentId },
+              { regNo: studentId }
+            ]
+          });
+          
+          if (!studentDoc) {
+            studentDoc = await Student.create({
+              name: studentName,
+              regNo: studentId,
+              school: school._id
+            });
+          }
+
+          // ✅ GET OR CREATE SUBJECT
+          let subjectDoc = await Subject.findOne({ name: subjectName });
+          if (!subjectDoc) {
+            subjectDoc = await Subject.create({ name: subjectName });
+          }
+
+          // ✅ UPSERT RESULT
+          const updateData = {
             student: studentDoc._id,
             session: sessionDoc._id,
             term: termDoc._id,
             class: classDoc._id,
-            subject: subjectDoc._id
-          },
-          updateData,
-          { 
-            upsert: true,
-            new: true,
-            runValidators: true
-          }
-        );
+            subject: subjectDoc._id,
+            ca1_score: parseFloat(record.ca1_score) || 0,
+            ca2_score: parseFloat(record.ca2_score) || 0,
+            midterm_score: parseFloat(record.midterm_score) || 0,
+            exam_score: parseFloat(record.exam_score) || 0,
+            score: (parseFloat(record.ca1_score) || 0) + (parseFloat(record.ca2_score) || 0) + (parseFloat(record.midterm_score) || 0) + (parseFloat(record.exam_score) || 0),
+            grade: record.grade || '',
+            remarks: record.remarks || '',
+            status: 'Published'
+          };
 
-        console.log(`✓ Result upserted for ${studentName} in ${subjectName}`);
-        upload.results[i].recordStatus = 'processed';
-        successCount++;
-      } catch (err) {
-        failureCount++;
-        console.error(`✗ Record ${i} failed:`, err.message);
-        
-        errors.push({
-          recordIndex: i,
-          studentId: results[i]?.student_id,
-          error: err.message
-        });
-        upload.results[i].recordStatus = 'invalid';
-        upload.results[i].errorMessage = err.message;
+          await Result.findOneAndUpdate(
+            {
+              student: studentDoc._id,
+              session: sessionDoc._id,
+              term: termDoc._id,
+              class: classDoc._id,
+              subject: subjectDoc._id
+            },
+            updateData,
+            { 
+              upsert: true,
+              new: true,
+              runValidators: false // Disable validators for upsert
+            }
+          );
+
+          upload.results[i].recordStatus = 'processed';
+          successCount++;
+          console.log(`    ✓ Success`);
+          
+        } catch (recordErr) {
+          failureCount++;
+          console.error(`    ✗ Error:`, recordErr.message);
+          
+          errors.push({
+            recordIndex: i,
+            studentId: results[i]?.student_id,
+            error: recordErr.message
+          });
+          
+          if (upload.results[i]) {
+            upload.results[i].recordStatus = 'invalid';
+            upload.results[i].errorMessage = recordErr.message;
+          }
+        }
       }
+
+      console.log(`\n=== Processing Complete ===`);
+      console.log(`Success: ${successCount}, Failed: ${failureCount}`);
+
+    } catch (setupErr) {
+      // Error during setup phase
+      console.error('ERROR DURING SETUP:', setupErr.message);
+      console.error('Stack:', setupErr.stack);
+      
+      failureCount = results.length;
+      errors.push({
+        error: `Setup error: ${setupErr.message}`,
+        stack: setupErr.stack
+      });
     }
 
-    // ✅ UPDATE UPLOAD DOCUMENT WITH RESULTS
+    // ✅ UPDATE UPLOAD DOCUMENT
     upload.status = failureCount === 0 ? 'completed' : failureCount === results.length ? 'failed' : 'partially_failed';
     upload.processingStats.successCount = successCount;
     upload.processingStats.failureCount = failureCount;
@@ -482,13 +525,26 @@ async function processUploadAsync(uploadId, school, results) {
 
     await upload.save();
 
-    console.log(`✓✓✓ Upload ${upload.uploadId} COMPLETED: ${successCount} success, ${failureCount} failed`);
-  } catch (err) {
-    console.error('FATAL Error in processUploadAsync:', err);
-    await UniversalUpload.findByIdAndUpdate(uploadId, { 
-      status: 'failed',
-      errors: [{ error: err.message }]
-    });
+    console.log(`\n✓✓✓ UPLOAD COMPLETE: ${upload.uploadId}`);
+    console.log(`Status: ${upload.status}`);
+    console.log(`Success: ${successCount}/${results.length}`);
+
+  } catch (fatalErr) {
+    console.error('\n!!! FATAL ERROR !!!');
+    console.error('Error:', fatalErr.message);
+    console.error('Stack:', fatalErr.stack);
+    
+    try {
+      await UniversalUpload.findByIdAndUpdate(uploadId, { 
+        status: 'failed',
+        errors: [{
+          error: `Fatal error: ${fatalErr.message}`,
+          stack: fatalErr.stack
+        }]
+      });
+    } catch (updateErr) {
+      console.error('Failed to update upload status:', updateErr.message);
+    }
   }
 }
 
