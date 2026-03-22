@@ -256,7 +256,11 @@ async function fetchFromBackend() {
     if (className) fetchUrl.searchParams.set('class', className);
 
     const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      // ✅ AUTO-SAVE API KEY TO LOCALSTORAGE ON SUCCESSFUL SYNC
+      saveApiKeyToStorage(apiKey);
+    }
 
     console.log('Fetching from:', fetchUrl.toString());
 
@@ -300,6 +304,19 @@ async function fetchFromBackend() {
   } finally {
     fetchBtn.disabled = false;
     fetchBtn.innerHTML = originalText;
+  }
+}
+
+// ===== AUTO-SAVE API KEY TO STORAGE =====
+function saveApiKeyToStorage(apiKey) {
+  try {
+    if (apiKey && apiKey.trim().length > 0) {
+      localStorage.setItem('apiKey', apiKey.trim());
+      CONFIG.API_KEY = apiKey.trim();
+      console.log('✓ API key saved to localStorage');
+    }
+  } catch (err) {
+    console.error('Error saving API key:', err);
   }
 }
 
@@ -439,7 +456,6 @@ async function verifySchoolId() {
 }
 
 // ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - REFACTORED =====
-// ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - REFACTORED =====
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
   
@@ -463,9 +479,9 @@ async function pushToUniversalCloud(e) {
   }
 
   // Check if API key exists
-  const apiKey = CONFIG.API_KEY || localStorage.getItem('apiKey');
+  let apiKey = CONFIG.API_KEY || localStorage.getItem('apiKey');
   if (!apiKey) {
-    showAlert('error', 'API key not found. Please configure your API key in settings.');
+    showAlert('error', 'API key not found. Please sync from backend with API key first, or configure API key in settings.');
     return;
   }
 
@@ -489,6 +505,7 @@ async function pushToUniversalCloud(e) {
     }));
 
     // Prepare payload WITHOUT requiring global session/term/class/subject/scoreType
+    // These should be in each record from the backend sync
     const payload = {
       results: enrichedData,
       upsert: true,
@@ -496,6 +513,7 @@ async function pushToUniversalCloud(e) {
       schoolName: schoolName,
       sourceType: 'school_backend',
       syncTimestamp: new Date().toISOString(),
+      // If records lack metadata, attempt to extract from first record
       ...(AppState.data[0] && {
         session: AppState.data[0].session || null,
         term: AppState.data[0].term || null,
@@ -510,10 +528,11 @@ async function pushToUniversalCloud(e) {
       schoolId,
       schoolName,
       endpoint: CONFIG.UPLOAD_ENDPOINT,
-      hasRecordMetadata: !!AppState.data[0]?.session
+      hasRecordMetadata: !!AppState.data[0]?.session,
+      hasApiKey: !!apiKey
     });
 
-    // ✅ FIXED: Include API key in headers
+    // ✅ Include API key in headers
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
@@ -521,7 +540,7 @@ async function pushToUniversalCloud(e) {
 
     const response = await fetch(`${CONFIG.UPLOAD_ENDPOINT}`, {
       method: 'POST',
-      headers: headers,  // ✅ Now includes API key
+      headers: headers,
       body: JSON.stringify(payload),
       mode: 'cors'
     });
@@ -529,7 +548,7 @@ async function pushToUniversalCloud(e) {
     if (!response.ok) {
       const errorData = await response.text();
       console.error('Cloud push error:', errorData);
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
     }
 
     const result = await response.json();
@@ -538,6 +557,7 @@ async function pushToUniversalCloud(e) {
       const successCount = (result.inserted || 0) + (result.updated || 0);
       showAlert('success', `✓ Successfully pushed ${successCount}/${AppState.data.length} records to cloud (School: ${schoolName})`);
       
+      // Log the cloud sync
       logCloudSync({
         schoolId,
         schoolName,
@@ -548,6 +568,7 @@ async function pushToUniversalCloud(e) {
         status: 'success'
       });
 
+      // Clear data after successful push
       setTimeout(() => {
         resetForm();
       }, 2000);
@@ -1158,6 +1179,13 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
   setupFileUpload();
+
+  // Load API key from localStorage on page load
+  const storedApiKey = localStorage.getItem('apiKey');
+  if (storedApiKey) {
+    CONFIG.API_KEY = storedApiKey;
+    console.log('✓ API key loaded from localStorage');
+  }
 
   // Set today's date in header
   const today = new Date().toLocaleDateString('en-US', {
