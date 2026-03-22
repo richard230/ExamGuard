@@ -118,32 +118,69 @@
       });
     }
 
-    async function loadSessions() {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/sessions`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) throw new Error('Failed to load sessions');
-        
-        const responseData = await response.json();
-        
-        // Extract sessions array from the response wrapper
-        const sessions = responseData.data || responseData.sessions || [];
-        const sessionSelect = document.getElementById('session');
-        
-        sessions.forEach(session => {
-          const option = document.createElement('option');
-          option.value = session._id || session.id;
-          option.textContent = session.name;
-          sessionSelect.appendChild(option);
-        });
-      } catch (error) {
-        console.error('Error loading sessions:', error);
+async function loadSessions() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/academics/sessions`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
+    });
+
+    if (!response.ok) {
+      console.error('Sessions API Response:', response.status, response.statusText);
+      throw new Error(`Failed to load sessions: ${response.status}`);
     }
+    
+    const responseData = await response.json();
+    console.log('Sessions Response:', responseData);
+    
+    // Extract sessions array from the response
+    let sessions = [];
+    
+    if (Array.isArray(responseData)) {
+      // Direct array response
+      sessions = responseData;
+    } else if (responseData.data && Array.isArray(responseData.data)) {
+      // Wrapped in data property
+      sessions = responseData.data;
+    } else if (responseData.sessions && Array.isArray(responseData.sessions)) {
+      // Wrapped in sessions property
+      sessions = responseData.sessions;
+    }
+    
+    console.log('Parsed Sessions:', sessions);
+    
+    const sessionSelect = document.getElementById('session');
+    
+    if (!sessionSelect) {
+      console.error('Session select element not found');
+      return;
+    }
+    
+    // Clear existing options (keep the default)
+    while (sessionSelect.options.length > 1) {
+      sessionSelect.remove(1);
+    }
+    
+    if (sessions.length === 0) {
+      console.warn('No sessions returned from API');
+      return;
+    }
+    
+    sessions.forEach(session => {
+      const option = document.createElement('option');
+      option.value = session._id || session.id;
+      option.textContent = session.name;
+      sessionSelect.appendChild(option);
+      console.log('Added session option:', session.name);
+    });
+    
+  } catch (error) {
+    console.error('Error loading sessions:', error);
+    showAlert('warning', 'Could not load sessions. Please contact support.');
+  }
+}
 
     async function loadVerificationHistory() {
       try {
