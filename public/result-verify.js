@@ -16,12 +16,14 @@ const AppState = {
   uploadProgress: { total: 0, success: 0, failed: 0 },
   isUploading: false,
   isValidating: false,
+  isSyncedFromBackend: false,
   schoolMetadata: {
     schoolId: '',
     schoolName: '',
     backendUrl: '',
     syncedAt: null,
-    recordCount: 0
+    recordCount: 0,
+    verified: false
   }
 };
 
@@ -78,6 +80,7 @@ function handleFiles(files) {
 
   if (validFiles.length > 0) {
     AppState.files = validFiles;
+    AppState.isSyncedFromBackend = false;
     displayFiles();
     parseAndValidateFiles(validFiles);
   }
@@ -106,6 +109,7 @@ function displayFiles() {
 function removeFile(idx) {
   AppState.files.splice(idx, 1);
   AppState.data = [];
+  AppState.isSyncedFromBackend = false;
   displayFiles();
   document.getElementById('previewContent').style.display = 'block';
   document.getElementById('previewTable').style.display = 'none';
@@ -246,7 +250,7 @@ async function fetchFromBackend() {
     
     const fetchUrl = new URL(validUrl.origin + endpoint + 'dashboard/all');
     
-    // Add query parameters for filtering
+    // Add query parameters for filtering (optional)
     if (session) fetchUrl.searchParams.set('session', session);
     if (term) fetchUrl.searchParams.set('term', term);
     if (className) fetchUrl.searchParams.set('class', className);
@@ -271,13 +275,17 @@ async function fetchFromBackend() {
     const data = await response.json();
     AppState.data = Array.isArray(data) ? data : [data];
     
+    // Mark as synced from backend
+    AppState.isSyncedFromBackend = true;
+    
     // Store school metadata for cloud push
     AppState.schoolMetadata = {
       schoolId: '',
       schoolName: '',
       backendUrl: backendUrl,
       syncedAt: new Date().toISOString(),
-      recordCount: AppState.data.length
+      recordCount: AppState.data.length,
+      verified: false
     };
     
     updatePreview();
@@ -318,16 +326,23 @@ function showCloudPushOption() {
             School ID <span class="required">*</span>
           </label>
           <input type="text" class="form-input" id="schoolIdInput" placeholder="e.g., SCH-2024-001" required>
-          <span class="form-hint">Unique identifier for your school (used to track uploads)</span>
+          <span class="form-hint">Unique identifier for your school (will be verified)</span>
         </div>
         
         <div class="form-group">
           <label class="form-label">
             School Name <span class="required">*</span>
           </label>
-          <input type="text" class="form-input" id="schoolNameInput" placeholder="e.g., Central High School" required>
-          <span class="form-hint">Official name of your school</span>
+          <input type="text" class="form-input" id="schoolNameInput" placeholder="e.g., Central High School" readonly>
+          <span class="form-hint">Auto-populated after School ID verification</span>
         </div>
+      </div>
+
+      <div style="padding: 12px; background: var(--accent-light); border-radius: 6px; margin-bottom: 20px; display: none;" id="schoolVerificationInfo">
+        <p style="margin: 0; font-size: 0.9rem; color: var(--primary);">
+          <i class="fas fa-check-circle" style="margin-right: 6px;"></i>
+          <span id="verificationMessage">School verified successfully</span>
+        </p>
       </div>
       
       <div class="button-group" style="margin-top: 20px; border-top: none; padding-top: 0;">
@@ -347,6 +362,13 @@ function showCloudPushOption() {
     `;
     
     formContainer.parentNode.insertBefore(cloudPushSection, formContainer.nextSibling);
+
+    // Add event listener for School ID input to auto-verify
+    const schoolIdInput = document.getElementById('schoolIdInput');
+    if (schoolIdInput) {
+      schoolIdInput.addEventListener('change', verifySchoolId);
+      schoolIdInput.addEventListener('blur', verifySchoolId);
+    }
   } else {
     cloudPushSection.style.display = 'block';
   }
@@ -360,7 +382,63 @@ function hideCloudPushOption() {
   }
 }
 
-// ===== PUSH TO UNIVERSAL CLOUD (STEP 2) =====
+// ===== VERIFY SCHOOL ID =====
+async function verifySchoolId() {
+  const schoolIdInput = document.getElementById('schoolIdInput');
+  const schoolNameInput = document.getElementById('schoolNameInput');
+  const verificationInfo = document.getElementById('schoolVerificationInfo');
+  const verificationMessage = document.getElementById('verificationMessage');
+
+  const schoolId = schoolIdInput?.value.trim();
+
+  if (!schoolId) {
+    verificationInfo.style.display = 'none';
+    schoolNameInput.value = '';
+    AppState.schoolMetadata.verified = false;
+    return;
+  }
+
+  try {
+    console.log('Verifying School ID:', schoolId);
+
+    const response = await fetch(`${CONFIG.SCHOOL_BACKEND_URL}/api/schools/by-id/${encodeURIComponent(schoolId)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      mode: 'cors'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success && result.data) {
+      const school = result.data;
+      schoolNameInput.value = school.schoolName || '';
+      AppState.schoolMetadata.verified = true;
+      AppState.schoolMetadata.schoolId = schoolId;
+      AppState.schoolMetadata.schoolName = school.schoolName || '';
+
+      if (verificationMessage) {
+        verificationMessage.textContent = `✓ School verified: ${school.schoolName}`;
+      }
+      verificationInfo.style.display = 'block';
+      
+      showAlert('success', `✓ School ID verified: ${school.schoolName}`);
+    } else {
+      throw new Error('School not found');
+    }
+  } catch (err) {
+    console.error('School verification error:', err);
+    schoolNameInput.value = '';
+    AppState.schoolMetadata.verified = false;
+    verificationInfo.style.display = 'none';
+    showAlert('error', `School ID verification failed: ${err.message}`);
+  }
+}
+
+// ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - REFACTORED =====
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
   
@@ -374,19 +452,12 @@ async function pushToUniversalCloud(e) {
   const schoolName = document.getElementById('schoolNameInput')?.value.trim();
 
   if (!schoolId || !schoolName) {
-    showAlert('error', 'Please enter both School ID and School Name');
+    showAlert('error', 'Please enter and verify School ID');
     return;
   }
 
-  // Validate form fields
-  const session = document.getElementById('sessionInput')?.value;
-  const term = document.getElementById('termInput')?.value;
-  const className = document.getElementById('classInput')?.value;
-  const subject = document.getElementById('subjectInput')?.value;
-  const scoreType = document.getElementById('scoreTypeInput')?.value;
-
-  if (!session || !term || !className || !subject || !scoreType) {
-    showAlert('error', 'Please fill in all required fields (Session, Term, Class, Subject, Score Type)');
+  if (!AppState.schoolMetadata.verified) {
+    showAlert('error', 'Please verify School ID before pushing');
     return;
   }
 
@@ -405,30 +476,35 @@ async function pushToUniversalCloud(e) {
       schoolId: schoolId,
       schoolName: schoolName,
       cloudSyncedAt: new Date().toISOString(),
-      sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown'
+      sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
+      sourceType: 'school_backend'
     }));
 
-    // Prepare payload
+    // Prepare payload WITHOUT requiring global session/term/class/subject/scoreType
+    // These should be in each record from the backend sync
     const payload = {
-      session,
-      term,
-      class: className,
-      subject,
-      resultType: scoreType,
       results: enrichedData,
       upsert: true,
-      // Cloud-specific metadata
       schoolId: schoolId,
       schoolName: schoolName,
       sourceType: 'school_backend',
-      syncTimestamp: new Date().toISOString()
+      syncTimestamp: new Date().toISOString(),
+      // If records lack metadata, attempt to extract from first record
+      ...(AppState.data[0] && {
+        session: AppState.data[0].session || null,
+        term: AppState.data[0].term || null,
+        class: AppState.data[0].class || null,
+        subject: AppState.data[0].subject || null,
+        resultType: AppState.data[0].resultType || null
+      })
     };
 
     console.log('Pushing to cloud:', {
       recordCount: enrichedData.length,
       schoolId,
       schoolName,
-      endpoint: CONFIG.UPLOAD_ENDPOINT
+      endpoint: CONFIG.UPLOAD_ENDPOINT,
+      hasRecordMetadata: !!AppState.data[0]?.session
     });
 
     const response = await fetch(`${CONFIG.UPLOAD_ENDPOINT}`, {
@@ -593,7 +669,7 @@ function viewSyncHistory() {
   }
 }
 
-// ===== UPLOAD =====
+// ===== UPLOAD (FOR FILE-BASED UPLOADS) =====
 document.addEventListener('DOMContentLoaded', () => {
   setupFileUpload();
   const uploadForm = document.getElementById('uploadForm');
@@ -873,12 +949,14 @@ function resetForm() {
 
   AppState.files = [];
   AppState.data = [];
+  AppState.isSyncedFromBackend = false;
   AppState.schoolMetadata = {
     schoolId: '',
     schoolName: '',
     backendUrl: '',
     syncedAt: null,
-    recordCount: 0
+    recordCount: 0,
+    verified: false
   };
 
   const fileList = document.getElementById('fileList');
@@ -936,6 +1014,10 @@ function downloadTemplate() {
       {
         student_id: 'STU001',
         student_name: 'John Adeyemi',
+        session: '2024/2025',
+        term: 'First Term',
+        class: 'JSS1A',
+        subject: 'Mathematics',
         ca1_score: '12',
         ca2_score: '14',
         midterm_score: '35',
@@ -946,6 +1028,10 @@ function downloadTemplate() {
       {
         student_id: 'STU002',
         student_name: 'Jane Smith',
+        session: '2024/2025',
+        term: 'First Term',
+        class: 'JSS1A',
+        subject: 'Mathematics',
         ca1_score: '10',
         ca2_score: '11',
         midterm_score: '28',
@@ -972,6 +1058,10 @@ function showTemplateModal() {
   const template = {
     student_id: 'STU001',
     student_name: 'Student Name',
+    session: '2024/2025',
+    term: 'First Term',
+    class: 'JSS1A',
+    subject: 'Mathematics',
     ca1_score: '12',
     ca2_score: '14',
     midterm_score: '35',
