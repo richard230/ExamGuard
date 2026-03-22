@@ -5,6 +5,7 @@ const CONFIG = {
   UNIVERSAL_SERVER_URL: 'https://examguard-8rxe.onrender.com',
   FETCH_ENDPOINT: 'https://examguard-8rxe.onrender.com/api/results',
   UPLOAD_ENDPOINT: 'https://examguard-8rxe.onrender.com/api/results/upsert',
+  CLOUD_SYNC_ENDPOINT: 'https://examguard-8rxe.onrender.com/api/cloud/sync',
   API_KEY: localStorage.getItem('apiKey') || '',
   MAX_FILE_SIZE: 50 * 1024 * 1024,
 };
@@ -368,7 +369,10 @@ function showCloudPushOption() {
 
       ${!hasMetadataInData ? `
       <div style="padding: 15px; background: var(--bg-lighter); border-radius: 6px; border-left: 4px solid var(--primary); margin-bottom: 20px;">
-        <p style="margin: 0 0 15px 0; font-weight: 600; color: var(--primary);">Fill Academic Details</p>
+        <p style="margin: 0 0 15px 0; font-weight: 600; color: var(--primary);">
+          <i class="fas fa-info-circle" style="margin-right: 6px;"></i>
+          Fill Academic Details
+        </p>
         <div class="form-row three">
           <div class="form-group">
             <label class="form-label">Academic Session <span class="required">*</span></label>
@@ -412,7 +416,7 @@ function showCloudPushOption() {
       <div style="padding: 12px; background: var(--accent-light); border-radius: 6px; margin-bottom: 20px;">
         <p style="margin: 0; font-size: 0.9rem; color: var(--primary);">
           <i class="fas fa-check-circle" style="margin-right: 6px;"></i>
-          Academic details detected in synced data
+          Academic details detected in synced data - Form fields optional
         </p>
       </div>
       `}
@@ -510,7 +514,7 @@ async function verifySchoolId() {
   }
 }
 
-// ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - REFACTORED =====
+// ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - FULLY REFACTORED =====
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
   
@@ -616,7 +620,7 @@ async function pushToUniversalCloud(e) {
       class: className,
       subject,
       resultType: scoreType,
-      endpoint: CONFIG.UPLOAD_ENDPOINT,
+      endpoint: CONFIG.CLOUD_SYNC_ENDPOINT,
       hasApiKey: !!apiKey
     });
 
@@ -626,7 +630,7 @@ async function pushToUniversalCloud(e) {
       'Authorization': `Bearer ${apiKey}`
     };
 
-    const response = await fetch(`${CONFIG.UNIVERSAL_SERVER_URL}/api/cloud/sync`, {
+    const response = await fetch(CONFIG.CLOUD_SYNC_ENDPOINT, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(payload),
@@ -661,6 +665,11 @@ async function pushToUniversalCloud(e) {
         uploadId: result.uploadId,
         schoolId,
         schoolName,
+        session,
+        term,
+        class: className,
+        subject,
+        resultType: scoreType,
         recordsCount: AppState.data.length,
         status: result.status,
         timestamp: new Date().toISOString()
@@ -742,11 +751,11 @@ function viewSyncHistory() {
           <table class="table" style="font-size: 0.85rem;">
             <thead>
               <tr>
+                <th>Upload ID</th>
                 <th>School ID</th>
                 <th>School Name</th>
+                <th>Session/Term</th>
                 <th>Records</th>
-                <th>Success</th>
-                <th>Failed</th>
                 <th>Status</th>
                 <th>Timestamp</th>
               </tr>
@@ -759,15 +768,20 @@ function viewSyncHistory() {
         ? '<span class="status-badge status-success"><i class="fas fa-check"></i> Success</span>'
         : log.status === 'error'
         ? '<span class="status-badge status-error"><i class="fas fa-times"></i> Error</span>'
-        : '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>';
+        : log.status === 'failed'
+        ? '<span class="status-badge status-error"><i class="fas fa-times"></i> Failed</span>'
+        : '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Processing</span>';
+      
+      const uploadId = log.uploadId || 'N/A';
+      const sessionTerm = log.session && log.term ? `${log.session} / ${log.term}` : 'N/A';
       
       historyHTML += `
         <tr>
+          <td style="font-family: monospace; font-size: 0.8rem;">${uploadId}</td>
           <td>${log.schoolId}</td>
           <td>${log.schoolName}</td>
+          <td>${sessionTerm}</td>
           <td>${log.recordsCount}</td>
-          <td>${log.successCount}</td>
-          <td>${log.failedCount}</td>
           <td>${statusBadge}</td>
           <td>${new Date(log.timestamp).toLocaleString()}</td>
         </tr>
@@ -841,7 +855,7 @@ async function uploadToUniversalServer(e) {
   try {
     await uploadBatch(session, term, className, subject, scoreType);
     updateStats();
-    showAlert('success', `✓ Successfully uploaded ${AppState.uploadProgress.success}/${AppState.uploadProgress.total} records`);
+    showAlert('success', `��� Successfully uploaded ${AppState.uploadProgress.success}/${AppState.uploadProgress.total} records`);
   } catch (err) {
     showAlert('error', `Upload failed: ${err.message}`);
   } finally {
