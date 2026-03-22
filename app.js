@@ -69,20 +69,25 @@ const financeRoute = require('./routes/finance');
 const sessionSettingsRoute = require('./routes/sessionSettings');
 const applicationRoute = require('./routes/application');
 
-/* ================= Route Mounting ================= */
-// Add after the existing route imports
+/* ================= Route Imports for New Features ================= */
 const demoRequestsRoute = require('./routes/demoRequests');
 const schoolsRoute = require('./routes/schools');
-// Add after other route imports
 const apiKeysRoute = require('./routes/apiKeys');
+const universalUploadRoute = require('./routes/universalUpload');
 
-// Add in route mounting section
+/* ================= Route Mounting ================= */
+
+// API Keys Management
 app.use('/api/api-keys', apiKeysRoute);
-// Add after other route mounting
+
+// Demo Requests & Schools Management
 app.use('/api/demo-requests', demoRequestsRoute);
 app.use('/api/schools', schoolsRoute);
 
-// Also add static page routes for the new pages
+// ✅ NEW: Universal Cloud Sync & Upload
+app.use('/api/cloud', universalUploadRoute);
+
+// Static page routes
 app.get('/demo-request', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'demo-request.html'));
 });
@@ -90,36 +95,60 @@ app.get('/demo-request', (req, res) => {
 app.get('/admin-dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'administrator.html'));
 });
+
+// Exam & Results
 app.use('/api/exam', examRoute);
 app.use('/api/result', resultscbtRoute);
 app.use('/api/activity', activityRoute);
 app.use('/api/upload', uploadRoute);
+
+// Teachers
 app.use('/api/teachers', teacherResultsRoute);
 app.use('/api/teachers', teachersRoute);
+
+// School Management
 app.use('/api/assignments', assignmentsRoute);
 app.use('/api/hostel', hostelRoute);
 app.use('/api/subjects', subjectsRoute);
 app.use('/api/transport', transportRoute);
 app.use('/api', schoolAdminRoute);
 app.use('/api', schoolAdminsRoute);
+
+// Finances & Academics
 app.use('/api/fees', feesRoute);
 app.use('/api/academics', academicsRoute);
+app.use('/api/finance', financeRoute);
+
+// Families & Parents
 app.use('/api/families', familiesRoute);
 app.use('/api/parents', parentsRoute);
+
+// Authentication
 app.use('/api/auth', authRoute);
+
+// Staff Management
 app.use('/api/staff', staffRoute);
 app.use('/api/staffs', staffsRoute);
+
+// Dashboard & Admin
 app.use('/api', dashboardRoute);
 app.use('/api/results', resultsRoute);
 app.use('/api/classes', authMiddleware, adminAuth, classesRoute);
+
+// Students
 app.use('/api/student', studentsRoute);
 app.use('/api/students', studentsRoute);
+
+// Admin & Admissions
 app.use('/api/admin', adminRoute);
+app.use('/api/admission', admissionRoute);
+
+// Report & Settings
 app.use('/api/report/preferences', require('./routes/reportPreferences'));
 app.use('/api/report/session', sessionSettingsRoute);
-app.use('/api/admission', admissionRoute);
+
+// Payments & Applications
 app.use('/api/payments', paymentsRoute);
-app.use('/api/finance', financeRoute);
 app.use('/api/application', applicationRoute);
 
 /* ================= Static Page Routes ================= */
@@ -225,6 +254,7 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/myschoolap
       console.log(`📍 API Base URL: http://localhost:${PORT}/api`);
       console.log(`🌐 Platform: http://localhost:${PORT}/platform`);
       console.log(`📝 Application Form: http://localhost:${PORT}/application`);
+      console.log(`☁️  Cloud Sync: http://localhost:${PORT}/api/cloud/sync`);
     });
 
   } catch (err) {
