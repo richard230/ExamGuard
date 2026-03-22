@@ -337,6 +337,7 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
 });
 
 // ===== ASYNC PROCESSING FUNCTION - FULLY REFACTORED =====
+// ===== ASYNC PROCESSING FUNCTION - FULLY CORRECTED =====
 async function processUploadAsync(uploadId, school, results) {
   try {
     const upload = await UniversalUpload.findById(uploadId);
@@ -345,30 +346,47 @@ async function processUploadAsync(uploadId, school, results) {
     let failureCount = 0;
     const errors = [];
 
-    // ✅ PRE-FETCH ALL LOOKUPS TO AVOID N+1 QUERIES
-    console.log('Pre-fetching reference documents...');
+    // ✅ PRE-FETCH/CREATE ALL LOOKUPS TO AVOID N+1 QUERIES
+    console.log('Pre-fetching/creating reference documents...');
     
-    // Get or create Session
+    // ✅ STEP 1: Get or create Session FIRST
     let sessionDoc = await Session.findOne({ name: upload.session });
     if (!sessionDoc) {
-      sessionDoc = await Session.create({ name: upload.session });
+      sessionDoc = await Session.create({ 
+        name: upload.session,
+        is_active: true 
+      });
       console.log(`Created new session: ${upload.session}`);
     }
+    console.log(`Using session ID: ${sessionDoc._id}`);
     
-    // Get or create Term
+    // ✅ STEP 2: Get or create Term (with session reference)
     let termDoc = await Term.findOne({ name: upload.term });
     if (!termDoc) {
-      termDoc = await Term.create({ name: upload.term });
-      console.log(`Created new term: ${upload.term}`);
+      termDoc = await Term.create({ 
+        name: upload.term,
+        session: sessionDoc._id, // ✅ REFERENCE TO SESSION
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days from now
+      });
+      console.log(`Created new term: ${upload.term} (with session: ${sessionDoc._id})`);
     }
+    console.log(`Using term ID: ${termDoc._id}`);
     
-    // Get or create Class
+    // ✅ STEP 3: Get or create Class
     let classDoc = await Class.findOne({ name: upload.class });
     if (!classDoc) {
-      classDoc = await Class.create({ name: upload.class });
+      classDoc = await Class.create({ 
+        name: upload.class,
+        arms: [],
+        teachers: [],
+        subjects: []
+      });
       console.log(`Created new class: ${upload.class}`);
     }
+    console.log(`Using class ID: ${classDoc._id}`);
 
+    // ✅ STEP 4: Process each result record
     for (let i = 0; i < results.length; i++) {
       try {
         const record = results[i];
@@ -410,11 +428,11 @@ async function processUploadAsync(uploadId, school, results) {
           term: termDoc._id,
           class: classDoc._id,
           subject: subjectDoc._id,
-          ca1_score: record.ca1_score || 0,
-          ca2_score: record.ca2_score || 0,
-          midterm_score: record.midterm_score || 0,
-          exam_score: record.exam_score || 0,
-          score: (record.ca1_score || 0) + (record.ca2_score || 0) + (record.midterm_score || 0) + (record.exam_score || 0),
+          ca1_score: parseFloat(record.ca1_score) || 0,
+          ca2_score: parseFloat(record.ca2_score) || 0,
+          midterm_score: parseFloat(record.midterm_score) || 0,
+          exam_score: parseFloat(record.exam_score) || 0,
+          score: (parseFloat(record.ca1_score) || 0) + (parseFloat(record.ca2_score) || 0) + (parseFloat(record.midterm_score) || 0) + (parseFloat(record.exam_score) || 0),
           grade: record.grade || '',
           remarks: record.remarks || '',
           status: 'Published'
@@ -436,7 +454,7 @@ async function processUploadAsync(uploadId, school, results) {
           }
         );
 
-        console.log(`✓ Result upserted for ${studentName}`);
+        console.log(`✓ Result upserted for ${studentName} in ${subjectName}`);
         upload.results[i].recordStatus = 'processed';
         successCount++;
       } catch (err) {
@@ -464,9 +482,9 @@ async function processUploadAsync(uploadId, school, results) {
 
     await upload.save();
 
-    console.log(`✓ Upload ${upload.uploadId} completed: ${successCount} success, ${failureCount} failed`);
+    console.log(`✓✓✓ Upload ${upload.uploadId} COMPLETED: ${successCount} success, ${failureCount} failed`);
   } catch (err) {
-    console.error('Error in processUploadAsync:', err);
+    console.error('FATAL Error in processUploadAsync:', err);
     await UniversalUpload.findByIdAndUpdate(uploadId, { 
       status: 'failed',
       errors: [{ error: err.message }]
