@@ -117,38 +117,59 @@ function regenerateSchoolId() {
 }
 
 // ===== CREATE SCHOOL =====
+// ===== CREATE SCHOOL =====
 async function createSchool(e) {
   e.preventDefault();
 
-  const nameInput = document.getElementById('schoolNameInput');
-  const abbrevInput = document.getElementById('schoolAbbrevInput');
-  const emailInput = document.getElementById('schoolEmailInput');
-  const phoneInput = document.getElementById('schoolPhoneInput');
-  const locationInput = document.getElementById('schoolLocationInput');
-  const principalInput = document.getElementById('principalNameInput');
-  const typeInput = document.getElementById('schoolTypeInput');
-  const createBtn = document.getElementById('createBtn');
+  // Check auth token
+  if (!CONFIG.AUTH_TOKEN) {
+    showAlert('error', 'Authentication required. Please log in.');
+    setTimeout(() => {
+      window.location.href = '/login.html';
+    }, 1500);
+    return;
+  }
 
-  const schoolName = nameInput?.value.trim();
-  const abbreviation = abbrevInput?.value.trim().toUpperCase();
-  const email = emailInput?.value.trim();
-  const phone = phoneInput?.value.trim();
-  const location = locationInput?.value.trim();
-  const principal = principalInput?.value.trim();
-  const schoolType = typeInput?.value;
+  // Get all form inputs
+  const schoolName = document.getElementById('schoolNameInput')?.value.trim();
+  const abbreviation = document.getElementById('schoolAbbrevInput')?.value.trim().toUpperCase();
+  const schoolType = document.getElementById('schoolTypeInput')?.value;
+  const email = document.getElementById('schoolEmailInput')?.value.trim();
+  const phone = document.getElementById('schoolPhoneInput')?.value.trim();
+  const location = document.getElementById('schoolLocationInput')?.value.trim();
+  const country = document.getElementById('countryInput')?.value.trim();
+  const adminName = document.getElementById('adminNameInput')?.value.trim();
+  const adminEmail = document.getElementById('adminEmailInput')?.value.trim();
+  const adminPhone = document.getElementById('adminPhoneInput')?.value.trim();
+  const principal = document.getElementById('principalNameInput')?.value.trim();
+  const state = document.getElementById('stateInput')?.value.trim();
+  const website = document.getElementById('schoolWebsiteInput')?.value.trim();
+
+  // Debug log
+  console.log('Form data collected:', {
+    schoolName, abbreviation, schoolType, email, phone, location, country,
+    adminName, adminEmail, adminPhone
+  });
 
   // Validate required fields
-  if (!schoolName || !abbreviation || !email || !phone || !location || !schoolType) {
-    showAlert('error', 'Please fill in all required fields');
+  if (!schoolName || !abbreviation || !schoolType || !email || !phone || !location || 
+      !country || !adminName || !adminEmail || !adminPhone) {
+    showAlert('error', '❌ Please fill in all required fields (marked with *)');
     return;
   }
 
-  // Validate email
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    showAlert('error', 'Please enter a valid email address');
+  // Validate emails
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showAlert('error', 'Please enter a valid school email address');
+    return;
+  }
+  if (!emailRegex.test(adminEmail)) {
+    showAlert('error', 'Please enter a valid admin email address');
     return;
   }
 
+  const createBtn = document.getElementById('createBtn');
   if (createBtn) {
     createBtn.disabled = true;
     createBtn.innerHTML = '<span class="spinner"></span><span>Creating...</span>';
@@ -159,25 +180,36 @@ async function createSchool(e) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(CONFIG.AUTH_TOKEN && { 'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}` })
+        'Authorization': `Bearer ${CONFIG.AUTH_TOKEN}`
       },
       body: JSON.stringify({
         schoolName,
         abbreviation,
+        schoolType,
         email,
         phone,
         location,
-        principal: principal || undefined,
-        schoolType,
-        country: 'Nigeria' // Default
+        country,
+        state: state || undefined,
+        website: website || undefined,
+        adminName,
+        adminEmail,
+        adminPhone,
+        principal: principal || undefined
       })
     });
 
-    const result = await response.json();
+    // Check for 401 specifically
+    if (response.status === 401) {
+      throw new Error('Authentication failed. Please log in again.');
+    }
 
     if (!response.ok) {
-      throw new Error(result.error || result.message || 'Failed to create school');
+      const errorData = await response.json();
+      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
     }
+
+    const result = await response.json();
 
     showAlert('success', `✓ School created successfully!\nID: ${result.data.schoolId}`);
     
@@ -199,7 +231,15 @@ async function createSchool(e) {
 
   } catch (err) {
     console.error('Error creating school:', err);
-    showAlert('error', `Failed to create school: ${err.message}`);
+    
+    if (err.message.includes('Authentication')) {
+      showAlert('error', '❌ Session expired. Please log in again.');
+      setTimeout(() => {
+        window.location.href = '/login.html';
+      }, 2000);
+    } else {
+      showAlert('error', `Failed to create school: ${err.message}`);
+    }
   } finally {
     if (createBtn) {
       createBtn.disabled = false;
