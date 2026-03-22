@@ -90,7 +90,10 @@
 
         if (!response.ok) throw new Error('Failed to load schools');
         
-        schools = await response.json();
+        const responseData = await response.json();
+        
+        // Extract schools array from the response wrapper
+        schools = responseData.data || [];
         populateSchoolDropdown();
       } catch (error) {
         console.error('Error loading schools:', error);
@@ -100,10 +103,17 @@
 
     function populateSchoolDropdown() {
       const schoolSelect = document.getElementById('schoolName');
+      
+      // Ensure schools is an array
+      if (!Array.isArray(schools)) {
+        console.error('Schools is not an array:', schools);
+        return;
+      }
+      
       schools.forEach(school => {
         const option = document.createElement('option');
-        option.value = school.id;
-        option.textContent = school.name;
+        option.value = school._id || school.id;
+        option.textContent = school.schoolName || school.name;
         schoolSelect.appendChild(option);
       });
     }
@@ -118,12 +128,15 @@
 
         if (!response.ok) throw new Error('Failed to load years');
         
-        const years = await response.json();
+        const responseData = await response.json();
+        
+        // Extract academic years array from the response wrapper
+        const years = responseData.data || responseData.years || [];
         const yearSelect = document.getElementById('academicYear');
         
         years.forEach(year => {
           const option = document.createElement('option');
-          option.value = year.id;
+          option.value = year._id || year.id;
           option.textContent = year.name;
           yearSelect.appendChild(option);
         });
@@ -142,7 +155,10 @@
 
         if (!response.ok) throw new Error('Failed to load history');
         
-        verificationHistory = await response.json();
+        const responseData = await response.json();
+        
+        // Extract history array from the response wrapper
+        verificationHistory = responseData.data || responseData.history || [];
         updateHistoryBadge();
       } catch (error) {
         console.error('Error loading history:', error);
@@ -199,12 +215,12 @@
         const data = await response.json();
 
         if (response.ok && data.verified) {
-          currentReport = data;
-          displayReport(data);
-          showAlert('success', `Report for ${data.studentName} verified successfully!`);
+          currentReport = data.data || data;
+          displayReport(currentReport);
+          showAlert('success', `Report for ${currentReport.studentName} verified successfully!`);
           
           // Add to history
-          addToHistory(data);
+          addToHistory(currentReport);
           
           // Scroll to report
           setTimeout(() => {
@@ -435,7 +451,10 @@
 
         if (!response.ok) throw new Error('Failed to load tickets');
 
-        const tickets = await response.json();
+        const responseData = await response.json();
+        
+        // Extract tickets array from the response wrapper
+        const tickets = responseData.data || responseData.tickets || [];
         const ticketsContainer = document.getElementById('ticketsContainer');
         
         if (tickets.length === 0) {
@@ -504,12 +523,15 @@
 
         if (!response.ok) throw new Error('Failed to load schools');
 
-        const schoolsList = await response.json();
+        const responseData = await response.json();
+        
+        // Extract schools list from the response wrapper
+        const schoolsList = responseData.data || responseData.schools || [];
         const container = document.getElementById('schoolsContactList');
 
         container.innerHTML = schoolsList.map(school => `
           <div style="background: var(--bg-lighter); padding: 16px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid var(--accent);">
-            <div style="font-weight: 800; color: var(--primary); margin-bottom: 8px;">${school.name}</div>
+            <div style="font-weight: 800; color: var(--primary); margin-bottom: 8px;">${school.schoolName || school.name}</div>
             <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 4px;">
               <i class="fas fa-phone"></i> ${school.phone}
             </div>
@@ -517,7 +539,7 @@
               <i class="fas fa-envelope"></i> ${school.email}
             </div>
             <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 12px;">
-              <i class="fas fa-map-marker-alt"></i> ${school.address}
+              <i class="fas fa-map-marker-alt"></i> ${school.address || school.city}
             </div>
             <a href="tel:${school.phone}" class="header-btn" style="font-size: 0.85rem; padding: 6px 12px;">
               <i class="fas fa-phone"></i> Call
@@ -542,7 +564,11 @@
         });
 
         if (response.ok) {
-          const settings = await response.json();
+          const responseData = await response.json();
+          
+          // Extract settings from the response wrapper
+          const settings = responseData.data || responseData.settings || responseData;
+          
           document.getElementById('settingsInstitution').value = settings.institutionName || '';
           document.getElementById('settingsEmail').value = settings.email || '';
           document.getElementById('settingsPhone').value = settings.phone || '';
@@ -616,7 +642,7 @@
 
     function updateSchoolInfo() {
       const schoolId = document.getElementById('schoolName').value;
-      const school = schools.find(s => s.id === schoolId);
+      const school = schools.find(s => (s._id || s.id) === schoolId);
       if (school) {
         console.log('Selected school:', school);
       }
@@ -633,7 +659,7 @@
           body: JSON.stringify({
             studentName: report.studentName,
             regNo: report.regNo,
-            schoolId: report.school.id,
+            schoolId: report.school._id || report.school.id,
             verificationCode: report.verificationCode
           })
         });
