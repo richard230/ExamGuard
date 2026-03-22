@@ -24,24 +24,86 @@ function normalizeTerm(term) {
   return termMap[term] || term;
 }
 
-// ===== VALIDATION MIDDLEWARE =====
+// ===== ENHANCED VALIDATION MIDDLEWARE =====
 const validateUniversalUpload = (req, res, next) => {
   const { schoolId, schoolName, session, term, class: className, subject, resultType, results } = req.body;
 
+  // ===== STEP 1: Check for missing fields =====
   if (!schoolId || !schoolName || !session || !term || !className || !subject || !resultType || !Array.isArray(results)) {
     return res.status(400).json({
       success: false,
-      error: 'Missing required fields: schoolId, schoolName, session, term, class, subject, resultType, results (array)'
+      error: 'Missing required fields: schoolId, schoolName, session, term, class, subject, resultType, results (array)',
+      code: 'MISSING_REQUIRED_FIELDS'
     });
   }
 
+  // ===== STEP 2: Check for empty strings and whitespace-only values =====
+  const emptyFields = [];
+  
+  if (typeof schoolId !== 'string' || !schoolId.trim()) {
+    emptyFields.push('schoolId');
+  }
+  if (typeof schoolName !== 'string' || !schoolName.trim()) {
+    emptyFields.push('schoolName');
+  }
+  if (typeof session !== 'string' || !session.trim()) {
+    emptyFields.push('session');
+  }
+  if (typeof term !== 'string' || !term.trim()) {
+    emptyFields.push('term');
+  }
+  if (typeof className !== 'string' || !className.trim()) {
+    emptyFields.push('class');
+  }
+  if (typeof subject !== 'string' || !subject.trim()) {
+    emptyFields.push('subject');
+  }
+  if (typeof resultType !== 'string' || !resultType.trim()) {
+    emptyFields.push('resultType');
+  }
+
+  if (emptyFields.length > 0) {
+    console.warn('Validation failed - Empty fields detected:', emptyFields);
+    return res.status(400).json({
+      success: false,
+      error: `Empty required fields detected: ${emptyFields.join(', ')}`,
+      code: 'EMPTY_REQUIRED_FIELDS',
+      emptyFields,
+      details: 'All required fields must contain non-whitespace values'
+    });
+  }
+
+  // ===== STEP 3: Validate results array =====
   if (results.length === 0) {
     return res.status(400).json({
       success: false,
-      error: 'Results array cannot be empty'
+      error: 'Results array cannot be empty',
+      code: 'EMPTY_RESULTS_ARRAY'
     });
   }
 
+  // ===== STEP 4: Validate each result object =====
+  const invalidResults = [];
+  results.forEach((result, idx) => {
+    if (!result.student_id || !result.student_name) {
+      invalidResults.push({
+        index: idx,
+        reason: 'Missing student_id or student_name'
+      });
+    }
+  });
+
+  if (invalidResults.length > 0) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid result records detected`,
+      code: 'INVALID_RESULTS',
+      invalidResults: invalidResults.slice(0, 5) // Return first 5 errors
+    });
+  }
+
+  // ===== STEP 5: All validations passed =====
+  console.log('✓ Validation passed for upload with', results.length, 'records');
   next();
 };
 
@@ -65,43 +127,61 @@ router.post('/sync', validateUniversalUpload, async (req, res) => {
       metadata = {}
     } = req.body;
 
+    console.log('=== UNIVERSAL CLOUD SYNC INITIATED ===');
+    console.log('School ID:', schoolId);
+    console.log('Session:', session);
+    console.log('Term:', term);
+    console.log('Class:', className);
+    console.log('Results count:', results.length);
+
     // ===== STEP 1: VERIFY SCHOOL =====
+    console.log('Step 1: Verifying school...');
     const school = await School.findOne({ 
       schoolId: schoolId,
       status: 'active'
     });
 
     if (!school) {
+      console.warn('School not found:', schoolId);
       return res.status(404).json({
         success: false,
         error: 'School not found or inactive',
-        code: 'SCHOOL_NOT_FOUND'
+        code: 'SCHOOL_NOT_FOUND',
+        schoolId
       });
     }
 
     // Verify school name matches
     if (school.schoolName !== schoolName) {
+      console.warn('School name mismatch:', { expected: school.schoolName, received: schoolName });
       return res.status(400).json({
         success: false,
         error: 'School name does not match registered school',
-        code: 'SCHOOL_NAME_MISMATCH'
+        code: 'SCHOOL_NAME_MISMATCH',
+        expectedName: school.schoolName,
+        receivedName: schoolName
       });
     }
 
+    console.log('✓ School verified:', school._id);
+
     // ===== STEP 2: NORMALIZE TERM =====
+    console.log('Step 2: Normalizing term...');
     const normalizedTerm = normalizeTerm(term);
+    console.log('✓ Term normalized:', { original: term, normalized: normalizedTerm });
 
     // ===== STEP 3: CREATE UNIVERSAL UPLOAD DOCUMENT =====
+    console.log('Step 3: Creating upload document...');
     const uploadDoc = new UniversalUpload({
       sourceType,
-      schoolId,
-      schoolName,
+      schoolId: schoolId.trim(),
+      schoolName: schoolName.trim(),
       schoolRef: school._id,
-      session,
-      term: normalizedTerm,
-      class: className,
-      subject,
-      resultType,
+      session: session.trim(),
+      term: normalizedTerm.trim(),
+      class: className.trim(),
+      subject: subject.trim(),
+      resultType: resultType.trim(),
       results: results.map(r => ({
         student_id: r.student_id,
         student_name: r.student_name,
@@ -112,7 +192,7 @@ router.post('/sync', validateUniversalUpload, async (req, res) => {
         grade: r.grade || null,
         remarks: r.remarks || null,
         subject: r.subject || null,
-        recordStatus: 'valid'
+        recordStatus: 'pending'
       })),
       status: 'processing',
       uploadSource: {
@@ -122,7 +202,8 @@ router.post('/sync', validateUniversalUpload, async (req, res) => {
       },
       metadata: {
         ...metadata,
-        retryCount: 0
+        retryCount: 0,
+        validationPassedAt: new Date()
       },
       upsertConfig: {
         shouldUpdate: upsert,
@@ -135,27 +216,39 @@ router.post('/sync', validateUniversalUpload, async (req, res) => {
     });
 
     await uploadDoc.save();
-
-    console.log('✓ Universal upload created:', uploadDoc.uploadId);
+    console.log('✓ Universal upload document created:', uploadDoc.uploadId);
 
     // ===== STEP 4: PROCESS RESULTS IN BACKGROUND =====
+    console.log('Step 4: Queuing async processing...');
     processUploadAsync(uploadDoc._id, school, results).catch(err => {
-      console.error('Error processing upload:', err);
-      UniversalUpload.findByIdAndUpdate(uploadDoc._id, { status: 'failed' });
+      console.error('Error in background processing:', err);
+      UniversalUpload.findByIdAndUpdate(uploadDoc._id, { 
+        status: 'failed',
+        errors: [{
+          error: 'Background processing error: ' + err.message
+        }]
+      }).catch(updateErr => console.error('Failed to update status:', updateErr));
     });
 
     // ===== STEP 5: RETURN RESPONSE =====
+    console.log('Step 5: Returning response...');
     res.status(202).json({
       success: true,
       message: 'Upload received and queued for processing',
       uploadId: uploadDoc.uploadId,
       status: 'processing',
       totalRecords: results.length,
-      estimatedProcessingTime: `${Math.ceil(results.length / 100)} seconds`
+      estimatedProcessingTime: `${Math.ceil(results.length / 100)} seconds`,
+      schoolId,
+      session,
+      term: normalizedTerm
     });
 
   } catch (err) {
-    console.error('Error in universal upload:', err);
+    console.error('=== ERROR IN UNIVERSAL UPLOAD ===');
+    console.error('Error message:', err.message);
+    console.error('Error stack:', err.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Error processing upload',
@@ -178,7 +271,8 @@ router.get('/sync/:uploadId', async (req, res) => {
     if (!upload) {
       return res.status(404).json({
         success: false,
-        error: 'Upload not found'
+        error: 'Upload not found',
+        uploadId: req.params.uploadId
       });
     }
 
@@ -195,10 +289,12 @@ router.get('/sync/:uploadId', async (req, res) => {
         subject: upload.subject,
         uploadTimestamp: upload.uploadTimestamp,
         processingStats: upload.processingStats,
-        errorCount: upload.errors.length
+        errorCount: upload.errors.length,
+        upsertConfig: upload.upsertConfig
       }
     });
   } catch (err) {
+    console.error('Error fetching upload status:', err);
     res.status(500).json({
       success: false,
       message: 'Error fetching upload status',
@@ -242,6 +338,7 @@ router.get('/sync', async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('Error fetching uploads:', err);
     res.status(500).json({
       success: false,
       message: 'Error fetching uploads',
@@ -261,7 +358,8 @@ router.get('/sync/:uploadId/errors', async (req, res) => {
     if (!upload) {
       return res.status(404).json({
         success: false,
-        error: 'Upload not found'
+        error: 'Upload not found',
+        uploadId: req.params.uploadId
       });
     }
 
@@ -271,6 +369,8 @@ router.get('/sync/:uploadId/errors', async (req, res) => {
         uploadId: upload.uploadId,
         status: upload.status,
         totalRecords: upload.processingStats.totalRecords,
+        successCount: upload.processingStats.successCount || 0,
+        failureCount: upload.processingStats.failureCount || 0,
         errors: upload.errors.slice(0, 10),
         totalErrors: upload.errors.length,
         results: upload.results.map((r, idx) => ({
@@ -279,10 +379,11 @@ router.get('/sync/:uploadId/errors', async (req, res) => {
           student_name: r.student_name,
           recordStatus: r.recordStatus,
           errorMessage: r.errorMessage
-        })).filter(r => r.errorMessage)
+        })).filter(r => r.errorMessage).slice(0, 10)
       }
     });
   } catch (err) {
+    console.error('Error fetching errors:', err);
     res.status(500).json({
       success: false,
       message: 'Error fetching errors',
@@ -302,20 +403,27 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
     if (!upload) {
       return res.status(404).json({
         success: false,
-        error: 'Upload not found'
+        error: 'Upload not found',
+        uploadId: req.params.uploadId
       });
     }
 
     if (upload.status === 'completed') {
       return res.status(400).json({
         success: false,
-        error: 'Cannot retry completed upload'
+        error: 'Cannot retry completed upload',
+        uploadId: upload.uploadId
       });
     }
+
+    console.log('Retrying upload:', upload.uploadId);
 
     upload.status = 'processing';
     upload.metadata.retryCount = (upload.metadata.retryCount || 0) + 1;
     upload.processingStats.processingStartedAt = new Date();
+    upload.processingStats.successCount = 0;
+    upload.processingStats.failureCount = 0;
+    upload.errors = [];
     await upload.save();
 
     const school = await School.findById(upload.schoolRef);
@@ -325,9 +433,11 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
       success: true,
       message: 'Upload queued for retry',
       uploadId: upload.uploadId,
-      retryCount: upload.metadata.retryCount
+      retryCount: upload.metadata.retryCount,
+      status: 'processing'
     });
   } catch (err) {
+    console.error('Error retrying upload:', err);
     res.status(500).json({
       success: false,
       message: 'Error retrying upload',
@@ -335,93 +445,135 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
     });
   }
 });
-// ===== ASYNC PROCESSING FUNCTION - WITH PROPER AWAIT =====
+
+// ===== ASYNC PROCESSING FUNCTION - WITH FULL VALIDATION & ERROR HANDLING =====
 async function processUploadAsync(uploadId, school, results) {
+  let upload;
+  
   try {
-    const upload = await UniversalUpload.findById(uploadId);
+    upload = await UniversalUpload.findById(uploadId);
     
+    if (!upload) {
+      console.error('Upload document not found for ID:', uploadId);
+      return;
+    }
+
     let successCount = 0;
     let failureCount = 0;
     const errors = [];
 
     try {
-      console.log('=== Starting Upload Processing ===');
+      console.log('\n========================================');
+      console.log('=== STARTING UPLOAD PROCESSING ===');
+      console.log('========================================');
       console.log('Upload ID:', upload.uploadId);
       console.log('Session:', upload.session);
       console.log('Term:', upload.term);
       console.log('Class:', upload.class);
+      console.log('Subject:', upload.subject);
+      console.log('Total Records:', results.length);
+      console.log('========================================\n');
+
+      // ✅ VALIDATE CRITICAL FIELDS BEFORE PROCESSING
+      console.log('Pre-processing validation...');
+      const criticalFields = {
+        session: upload.session,
+        term: upload.term,
+        class: upload.class,
+        subject: upload.subject
+      };
+
+      const missingCriticalFields = [];
+      for (const [field, value] of Object.entries(criticalFields)) {
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          missingCriticalFields.push(field);
+        }
+      }
+
+      if (missingCriticalFields.length > 0) {
+        throw new Error(`Critical fields are empty or invalid: ${missingCriticalFields.join(', ')}. This error should have been caught by validation middleware.`);
+      }
+
+      console.log('✓ Pre-processing validation passed\n');
 
       // ✅ STEP 1: Get or create Session FIRST
-      console.log('Step 1: Creating/fetching Session...');
-      let sessionDoc = await Session.findOne({ name: upload.session });
+      console.log('STEP 1: Creating/fetching Session...');
+      let sessionDoc = await Session.findOne({ name: upload.session.trim() });
+      
       if (!sessionDoc) {
-        console.log('Session not found, creating:', upload.session);
+        console.log(`  → Session "${upload.session}" not found, creating...`);
         sessionDoc = await Session.create({ 
-          name: upload.session,
+          name: upload.session.trim(),
           is_active: true 
         });
-        console.log('✓ Created session:', sessionDoc._id);
+        console.log(`  ✓ Created session with ID: ${sessionDoc._id}`);
       } else {
-        console.log('✓ Found existing session:', sessionDoc._id);
+        console.log(`  ✓ Found existing session with ID: ${sessionDoc._id}`);
       }
       
       if (!sessionDoc || !sessionDoc._id) {
-        throw new Error('Failed to create/fetch Session');
+        throw new Error('Failed to create or fetch Session document');
       }
 
       // ✅ STEP 2: Get or create Term (with session reference)
-      console.log('Step 2: Creating/fetching Term...');
-      let termDoc = await Term.findOne({ name: upload.term, session: sessionDoc._id });
+      console.log('STEP 2: Creating/fetching Term...');
+      let termDoc = await Term.findOne({ 
+        name: upload.term.trim(),
+        session: sessionDoc._id 
+      });
+
       if (!termDoc) {
-        console.log('Term not found, creating:', upload.term);
+        console.log(`  → Term "${upload.term}" not found, creating...`);
         const termPayload = {
-          name: upload.term,
+          name: upload.term.trim(),
           session: sessionDoc._id,
           startDate: new Date(),
           endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
         };
-        console.log('Term payload:', JSON.stringify(termPayload));
+        console.log(`  → Payload:`, JSON.stringify(termPayload, null, 2));
+        
         termDoc = await Term.create(termPayload);
-        console.log('✓ Created term:', termDoc._id);
+        console.log(`  ✓ Created term with ID: ${termDoc._id}`);
       } else {
-        console.log('✓ Found existing term:', termDoc._id);
+        console.log(`  ✓ Found existing term with ID: ${termDoc._id}`);
       }
 
       if (!termDoc || !termDoc._id) {
-        throw new Error('Failed to create/fetch Term');
+        throw new Error('Failed to create or fetch Term document');
       }
 
       // ✅ STEP 3: Get or create Class
-      console.log('Step 3: Creating/fetching Class...');
-      let classDoc = await Class.findOne({ name: upload.class });
+      console.log('STEP 3: Creating/fetching Class...');
+      let classDoc = await Class.findOne({ name: upload.class.trim() });
+      
       if (!classDoc) {
-        console.log('Class not found, creating:', upload.class);
+        console.log(`  → Class "${upload.class}" not found, creating...`);
         classDoc = await Class.create({ 
-          name: upload.class,
+          name: upload.class.trim(),
           arms: [],
           teachers: [],
           subjects: []
         });
-        console.log('✓ Created class:', classDoc._id);
+        console.log(`  ✓ Created class with ID: ${classDoc._id}`);
       } else {
-        console.log('✓ Found existing class:', classDoc._id);
+        console.log(`  ✓ Found existing class with ID: ${classDoc._id}`);
       }
 
       if (!classDoc || !classDoc._id) {
-        throw new Error('Failed to create/fetch Class');
+        throw new Error('Failed to create or fetch Class document');
       }
 
       // ✅ STEP 4: Process each result record
-      console.log(`Step 4: Processing ${results.length} records...`);
+      console.log(`\nSTEP 4: Processing ${results.length} student records...\n`);
       
       for (let i = 0; i < results.length; i++) {
         try {
           const record = results[i];
           const studentId = record.student_id;
           const studentName = record.student_name;
-          const subjectName = record.subject || upload.subject;
+          const subjectName = (record.subject || upload.subject).trim();
 
-          console.log(`  [${i + 1}/${results.length}] Processing: ${studentName} - ${subjectName}`);
+          console.log(`  [${i + 1}/${results.length}] ${studentName} → ${subjectName}`);
 
           // ✅ GET OR CREATE STUDENT
           let studentDoc = await Student.findOne({ 
@@ -437,32 +589,43 @@ async function processUploadAsync(uploadId, school, results) {
               regNo: studentId,
               school: school._id
             });
+            console.log(`      → Created student: ${studentDoc._id}`);
+          } else {
+            console.log(`      → Found existing student: ${studentDoc._id}`);
           }
 
           // ✅ GET OR CREATE SUBJECT
           let subjectDoc = await Subject.findOne({ name: subjectName });
           if (!subjectDoc) {
             subjectDoc = await Subject.create({ name: subjectName });
+            console.log(`      → Created subject: ${subjectDoc._id}`);
+          } else {
+            console.log(`      → Found existing subject: ${subjectDoc._id}`);
           }
 
           // ✅ UPSERT RESULT
+          const ca1 = parseFloat(record.ca1_score) || 0;
+          const ca2 = parseFloat(record.ca2_score) || 0;
+          const midterm = parseFloat(record.midterm_score) || 0;
+          const exam = parseFloat(record.exam_score) || 0;
+
           const updateData = {
             student: studentDoc._id,
             session: sessionDoc._id,
             term: termDoc._id,
             class: classDoc._id,
             subject: subjectDoc._id,
-            ca1_score: parseFloat(record.ca1_score) || 0,
-            ca2_score: parseFloat(record.ca2_score) || 0,
-            midterm_score: parseFloat(record.midterm_score) || 0,
-            exam_score: parseFloat(record.exam_score) || 0,
-            score: (parseFloat(record.ca1_score) || 0) + (parseFloat(record.ca2_score) || 0) + (parseFloat(record.midterm_score) || 0) + (parseFloat(record.exam_score) || 0),
+            ca1_score: ca1,
+            ca2_score: ca2,
+            midterm_score: midterm,
+            exam_score: exam,
+            score: ca1 + ca2 + midterm + exam,
             grade: record.grade || '',
             remarks: record.remarks || '',
             status: 'Published'
           };
 
-          await Result.findOneAndUpdate(
+          const result = await Result.findOneAndUpdate(
             {
               student: studentDoc._id,
               session: sessionDoc._id,
@@ -474,47 +637,57 @@ async function processUploadAsync(uploadId, school, results) {
             { 
               upsert: true,
               new: true,
-              runValidators: false // Disable validators for upsert
+              runValidators: false
             }
           );
 
           upload.results[i].recordStatus = 'processed';
           successCount++;
-          console.log(`    ✓ Success`);
+          console.log(`      ✓ Upserted result: ${result._id}`);
           
         } catch (recordErr) {
           failureCount++;
-          console.error(`    ✗ Error:`, recordErr.message);
+          const errorMsg = recordErr.message || 'Unknown error';
+          console.error(`      ✗ FAILED: ${errorMsg}`);
           
           errors.push({
             recordIndex: i,
             studentId: results[i]?.student_id,
-            error: recordErr.message
+            studentName: results[i]?.student_name,
+            error: errorMsg,
+            timestamp: new Date()
           });
           
           if (upload.results[i]) {
-            upload.results[i].recordStatus = 'invalid';
-            upload.results[i].errorMessage = recordErr.message;
+            upload.results[i].recordStatus = 'failed';
+            upload.results[i].errorMessage = errorMsg;
           }
         }
       }
 
-      console.log(`\n=== Processing Complete ===`);
-      console.log(`Success: ${successCount}, Failed: ${failureCount}`);
+      console.log('\n========================================');
+      console.log('=== PROCESSING COMPLETE ===');
+      console.log('========================================');
+      console.log(`Success: ${successCount}/${results.length}`);
+      console.log(`Failed: ${failureCount}/${results.length}`);
+      console.log('========================================\n');
 
     } catch (setupErr) {
-      // Error during setup phase
-      console.error('ERROR DURING SETUP:', setupErr.message);
-      console.error('Stack:', setupErr.stack);
+      // Error during setup phase (Session, Term, Class creation)
+      console.error('\n❌ ERROR DURING SETUP PHASE ❌');
+      console.error('Error message:', setupErr.message);
+      console.error('Error stack:', setupErr.stack);
       
       failureCount = results.length;
       errors.push({
+        phase: 'setup',
         error: `Setup error: ${setupErr.message}`,
-        stack: setupErr.stack
+        stack: setupErr.stack,
+        timestamp: new Date()
       });
     }
 
-    // ✅ UPDATE UPLOAD DOCUMENT
+    // ✅ UPDATE UPLOAD DOCUMENT WITH RESULTS
     upload.status = failureCount === 0 ? 'completed' : failureCount === results.length ? 'failed' : 'partially_failed';
     upload.processingStats.successCount = successCount;
     upload.processingStats.failureCount = failureCount;
@@ -525,23 +698,32 @@ async function processUploadAsync(uploadId, school, results) {
 
     await upload.save();
 
-    console.log(`\n✓✓✓ UPLOAD COMPLETE: ${upload.uploadId}`);
+    console.log('\n✓✓✓ UPLOAD FINALIZED ✓✓��');
+    console.log(`Upload ID: ${upload.uploadId}`);
     console.log(`Status: ${upload.status}`);
     console.log(`Success: ${successCount}/${results.length}`);
+    console.log(`Failed: ${failureCount}/${results.length}`);
+    console.log('✓✓✓ ═════════════════════ ✓✓✓\n');
 
   } catch (fatalErr) {
     console.error('\n!!! FATAL ERROR !!!');
-    console.error('Error:', fatalErr.message);
-    console.error('Stack:', fatalErr.stack);
+    console.error('Error message:', fatalErr.message);
+    console.error('Error stack:', fatalErr.stack);
     
     try {
-      await UniversalUpload.findByIdAndUpdate(uploadId, { 
-        status: 'failed',
-        errors: [{
-          error: `Fatal error: ${fatalErr.message}`,
-          stack: fatalErr.stack
-        }]
-      });
+      if (upload) {
+        await UniversalUpload.findByIdAndUpdate(uploadId, { 
+          status: 'failed',
+          'processingStats.processingCompletedAt': new Date(),
+          errors: [{
+            phase: 'fatal',
+            error: `Fatal error: ${fatalErr.message}`,
+            stack: fatalErr.stack,
+            timestamp: new Date()
+          }]
+        });
+        console.log('✓ Upload status updated to failed');
+      }
     } catch (updateErr) {
       console.error('Failed to update upload status:', updateErr.message);
     }
