@@ -1,7 +1,7 @@
 // ===== CONFIGURATION =====
 const CONFIG = {
   API_ENDPOINT: 'https://examguard-8rxe.onrender.com/api/schools',
-  AUTH_TOKEN: localStorage.getItem('authToken') || '',
+  AUTH_TOKEN: localStorage.getItem('adminToken') || '',
   ADMIN_TOKEN: localStorage.getItem('adminToken') || ''
 };
 
