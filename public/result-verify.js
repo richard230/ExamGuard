@@ -514,30 +514,38 @@ async function verifySchoolId() {
   }
 }
 
-// ===== PUSH TO UNIVERSAL CLOUD (STEP 2) - FULLY REFACTORED =====
-// ===== HELPER: NORMALIZE FIELD NAMES =====
+// ===== ENHANCED HELPER: NORMALIZE FIELD NAMES WITH LOGGING =====
 function normalizeFieldNames(record) {
+  // Log all available keys
+  console.log('Available keys in record:', Object.keys(record));
+  
   // Try to map various possible field names to our standard names
-  return {
+  const normalized = {
     student_id: record.student_id || record.studentId || record.id || '',
-    student_name: record.student_name || record.studentName || record.name || '',
-    session: record.session || record.examSession || record.academicSession || '',
-    term: record.term || record.examTerm || record.trimester || '',
-    class: record.class || record.className || record.grade || record.classLevel || '',
-    subject: record.subject || record.subjectName || record.subjectTitle || '',
-    resultType: record.resultType || record.scoreType || record.assessmentType || '',
-    ca1_score: record.ca1_score || record.ca1Score || record.assessment1 || 0,
-    ca2_score: record.ca2_score || record.ca2Score || record.assessment2 || 0,
-    midterm_score: record.midterm_score || record.midtermScore || record.midTerm || 0,
-    exam_score: record.exam_score || record.examScore || record.finalExam || 0,
-    grade: record.grade || record.letterGrade || '',
-    remarks: record.remarks || record.comment || record.notes || ''
+    student_name: record.student_name || record.studentName || record.name || record.fullName || '',
+    session: record.session || record.examSession || record.academicSession || record.sessionYear || '',
+    term: record.term || record.examTerm || record.trimester || record.termName || '',
+    class: record.class || record.className || record.grade || record.classLevel || record.classCode || '',
+    subject: record.subject || record.subjectName || record.subjectTitle || record.courseName || record.courseName || '',
+    resultType: record.resultType || record.scoreType || record.assessmentType || record.examType || '',
+    ca1_score: parseFloat(record.ca1_score) || parseFloat(record.ca1Score) || parseFloat(record.assessment1) || 0,
+    ca2_score: parseFloat(record.ca2_score) || parseFloat(record.ca2Score) || parseFloat(record.assessment2) || 0,
+    midterm_score: parseFloat(record.midterm_score) || parseFloat(record.midtermScore) || parseFloat(record.midTerm) || 0,
+    exam_score: parseFloat(record.exam_score) || parseFloat(record.examScore) || parseFloat(record.finalExam) || parseFloat(record.score) || 0,
+    grade: record.grade || record.letterGrade || record.gradeSymbol || '',
+    remarks: record.remarks || record.comment || record.notes || record.feedback || ''
   };
+  
+  console.log('Normalized record:', normalized);
+  return normalized;
 }
 
-// ===== PUSH TO UNIVERSAL CLOUD (FLEXIBLE VERSION) =====
+// ===== PUSH TO UNIVERSAL CLOUD (ENHANCED FLEXIBLE VERSION) =====
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
+  
+  console.log('=== PUSH TO CLOUD INITIATED ===');
+  console.log('AppState.data:', AppState.data);
   
   if (AppState.data.length === 0) {
     showAlert('error', 'No data to push. Sync from backend first.');
@@ -559,27 +567,41 @@ async function pushToUniversalCloud(e) {
   }
 
   // ✅ NORMALIZE FIRST RECORD TO DETECT FIELD NAMES
+  console.log('Normalizing first record from backend...');
   const normalizedFirstRecord = normalizeFieldNames(AppState.data[0]);
 
-  // Get fields from form or from normalized record
-  let session = document.getElementById('sessionInput')?.value || normalizedFirstRecord.session;
-  let term = document.getElementById('termInput')?.value || normalizedFirstRecord.term;
-  let className = document.getElementById('classInput')?.value || normalizedFirstRecord.class;
-  let subject = document.getElementById('subjectInput')?.value || normalizedFirstRecord.subject;
-  let scoreType = document.getElementById('scoreTypeInput')?.value || normalizedFirstRecord.resultType;
+  // Get fields from form first, then fall back to normalized data
+  let session = document.getElementById('sessionInput')?.value?.trim();
+  let term = document.getElementById('termInput')?.value?.trim();
+  let className = document.getElementById('classInput')?.value?.trim();
+  let subject = document.getElementById('subjectInput')?.value?.trim();
+  let scoreType = document.getElementById('scoreTypeInput')?.value?.trim();
 
-  console.log('Detected Fields:', { session, term, className, subject, scoreType });
+  // Fall back to normalized record values
+  if (!session) session = normalizedFirstRecord.session?.trim() || '';
+  if (!term) term = normalizedFirstRecord.term?.trim() || '';
+  if (!className) className = normalizedFirstRecord.class?.trim() || '';
+  if (!subject) subject = normalizedFirstRecord.subject?.trim() || '';
+  if (!scoreType) scoreType = normalizedFirstRecord.resultType?.trim() || '';
 
-  // ✅ VALIDATE REQUIRED FIELDS
-  if (!session || !term || !className || !subject || !scoreType) {
-    showAlert('error', `Missing required fields: 
-      Session: ${session ? '✓' : '✗'} 
-      Term: ${term ? '✓' : '✗'} 
-      Class: ${className ? '✓' : '✗'} 
-      Subject: ${subject ? '✓' : '✗'} 
-      Score Type: ${scoreType ? '✓' : '✗'}
-      
-      Please fill in the form or ensure your data contains these fields.`);
+  console.log('Final detected fields:', { 
+    session: session ? `"${session}"` : 'MISSING', 
+    term: term ? `"${term}"` : 'MISSING', 
+    className: className ? `"${className}"` : 'MISSING', 
+    subject: subject ? `"${subject}"` : 'MISSING', 
+    scoreType: scoreType ? `"${scoreType}"` : 'MISSING'
+  });
+
+  // ✅ VALIDATE REQUIRED FIELDS WITH DETAILED FEEDBACK
+  const missingFields = [];
+  if (!session) missingFields.push('Session (academicSession, examSession, sessionYear)');
+  if (!term) missingFields.push('Term (termName)');
+  if (!className) missingFields.push('Class (classLevel, classCode)');
+  if (!subject) missingFields.push('Subject (subjectName, courseName)');
+  if (!scoreType) missingFields.push('Score Type (assessmentType, examType)');
+
+  if (missingFields.length > 0) {
+    showAlert('error', `Missing required fields:\n• ${missingFields.join('\n• ')}\n\nPlease fill in the form with these values.`);
     return;
   }
 
@@ -599,11 +621,20 @@ async function pushToUniversalCloud(e) {
   }
 
   try {
+    console.log('Normalizing all records...');
+    
     // ✅ NORMALIZE ALL RECORDS
-    const enrichedData = AppState.data.map(record => {
+    const enrichedData = AppState.data.map((record, idx) => {
       const normalized = normalizeFieldNames(record);
       return {
-        ...normalized,
+        student_id: normalized.student_id,
+        student_name: normalized.student_name,
+        ca1_score: normalized.ca1_score,
+        ca2_score: normalized.ca2_score,
+        midterm_score: normalized.midterm_score,
+        exam_score: normalized.exam_score,
+        grade: normalized.grade,
+        remarks: normalized.remarks,
         schoolId: schoolId,
         schoolName: schoolName,
         cloudSyncedAt: new Date().toISOString(),
@@ -611,6 +642,8 @@ async function pushToUniversalCloud(e) {
         sourceType: 'school_backend'
       };
     });
+
+    console.log('Enriched data sample (first record):', enrichedData[0]);
 
     // ✅ CORRECT PAYLOAD WITH ALL REQUIRED FIELDS
     const payload = {
@@ -630,12 +663,14 @@ async function pushToUniversalCloud(e) {
       }
     };
 
-    console.log('Payload to send:', payload);
+    console.log('Final payload:', JSON.stringify(payload, null, 2));
 
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     };
+
+    console.log('Sending request to:', CONFIG.CLOUD_SYNC_ENDPOINT);
 
     const response = await fetch(CONFIG.CLOUD_SYNC_ENDPOINT, {
       method: 'POST',
@@ -643,6 +678,8 @@ async function pushToUniversalCloud(e) {
       body: JSON.stringify(payload),
       mode: 'cors'
     });
+
+    console.log('Response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.text();
@@ -660,6 +697,7 @@ async function pushToUniversalCloud(e) {
     }
 
     const result = await response.json();
+    console.log('Success response:', result);
 
     if (result.success) {
       const successCount = result.totalRecords || AppState.data.length;
