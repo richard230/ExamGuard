@@ -336,6 +336,7 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
   }
 });
 // ===== ASYNC PROCESSING FUNCTION - WITH PROPER AWAIT =====
+// ===== ASYNC PROCESSING FUNCTION - WITH PROPER AWAIT & ERROR HANDLING =====
 async function processUploadAsync(uploadId, school, results) {
   try {
     const upload = await UniversalUpload.findById(uploadId);
@@ -354,6 +355,7 @@ async function processUploadAsync(uploadId, school, results) {
       // ✅ STEP 1: Get or create Session FIRST
       console.log('Step 1: Creating/fetching Session...');
       let sessionDoc = await Session.findOne({ name: upload.session });
+      
       if (!sessionDoc) {
         console.log('Session not found, creating:', upload.session);
         sessionDoc = await Session.create({ 
@@ -365,35 +367,52 @@ async function processUploadAsync(uploadId, school, results) {
         console.log('✓ Found existing session:', sessionDoc._id);
       }
       
+      // ✅ VALIDATE Session document exists and has _id
       if (!sessionDoc || !sessionDoc._id) {
-        throw new Error('Failed to create/fetch Session');
+        throw new Error('Failed to create/fetch Session - no _id returned');
       }
 
       // ✅ STEP 2: Get or create Term (with session reference)
       console.log('Step 2: Creating/fetching Term...');
-      let termDoc = await Term.findOne({ name: upload.term, session: sessionDoc._id });
+      
+      // ✅ CRITICAL: Ensure sessionDoc._id is a valid ObjectId string
+      const sessionRefId = sessionDoc._id.toString();
+      console.log('Using session reference:', sessionRefId);
+      
+      let termDoc = await Term.findOne({ 
+        name: upload.term, 
+        session: sessionRefId 
+      });
+      
       if (!termDoc) {
         console.log('Term not found, creating:', upload.term);
         const termPayload = {
           name: upload.term,
-          session: sessionDoc._id,
+          session: sessionRefId, // ✅ Use explicit string reference
           startDate: new Date(),
           endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
         };
         console.log('Term payload:', JSON.stringify(termPayload));
+        
         termDoc = await Term.create(termPayload);
+        
+        if (!termDoc) {
+          throw new Error('Term.create() returned null or undefined');
+        }
         console.log('✓ Created term:', termDoc._id);
       } else {
         console.log('✓ Found existing term:', termDoc._id);
       }
 
+      // ✅ VALIDATE Term document exists and has _id
       if (!termDoc || !termDoc._id) {
-        throw new Error('Failed to create/fetch Term');
+        throw new Error('Failed to create/fetch Term - no _id returned. Session ref: ' + sessionRefId);
       }
 
       // ✅ STEP 3: Get or create Class
       console.log('Step 3: Creating/fetching Class...');
       let classDoc = await Class.findOne({ name: upload.class });
+      
       if (!classDoc) {
         console.log('Class not found, creating:', upload.class);
         classDoc = await Class.create({ 
@@ -474,7 +493,7 @@ async function processUploadAsync(uploadId, school, results) {
             { 
               upsert: true,
               new: true,
-              runValidators: false // Disable validators for upsert
+              runValidators: false
             }
           );
 
@@ -489,7 +508,8 @@ async function processUploadAsync(uploadId, school, results) {
           errors.push({
             recordIndex: i,
             studentId: results[i]?.student_id,
-            error: recordErr.message
+            error: recordErr.message,
+            timestamp: new Date()
           });
           
           if (upload.results[i]) {
@@ -510,7 +530,8 @@ async function processUploadAsync(uploadId, school, results) {
       failureCount = results.length;
       errors.push({
         error: `Setup error: ${setupErr.message}`,
-        stack: setupErr.stack
+        stack: setupErr.stack,
+        timestamp: new Date()
       });
     }
 
@@ -539,7 +560,8 @@ async function processUploadAsync(uploadId, school, results) {
         status: 'failed',
         errors: [{
           error: `Fatal error: ${fatalErr.message}`,
-          stack: fatalErr.stack
+          stack: fatalErr.stack,
+          timestamp: new Date()
         }]
       });
     } catch (updateErr) {
