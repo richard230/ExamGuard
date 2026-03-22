@@ -1,6 +1,6 @@
 
     // ============ API CONFIGURATION ============
-    const API_BASE_URL = "https://examgide.onrender.com";
+    const API_BASE_URL = "https://examguard-8rxe.onrender.com";
     const token = localStorage.getItem('adminToken') || '';
 
     // ============ STATE ============
