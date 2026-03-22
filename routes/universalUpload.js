@@ -3,8 +3,12 @@ const router = express.Router();
 const UniversalUpload = require('../models/UniversalUpload');
 const School = require('../models/School');
 const Result = require('../models/Result');
+const Student = require('../models/Student');
+const Subject = require('../models/Subject');
+const Session = require('../models/Session');
+const Term = require('../models/Term');
+const Class = require('../models/Class');
 const { authMiddleware } = require('./auth');
-const crypto = require('crypto');
 
 // ===== HELPER: NORMALIZE TERM VALUE =====
 function normalizeTerm(term) {
@@ -247,6 +251,47 @@ router.get('/sync', async (req, res) => {
 });
 
 /**
+ * GET /api/cloud/sync/:uploadId/errors
+ * Get detailed errors for an upload
+ */
+router.get('/sync/:uploadId/errors', async (req, res) => {
+  try {
+    const upload = await UniversalUpload.findOne({ uploadId: req.params.uploadId });
+
+    if (!upload) {
+      return res.status(404).json({
+        success: false,
+        error: 'Upload not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        uploadId: upload.uploadId,
+        status: upload.status,
+        totalRecords: upload.processingStats.totalRecords,
+        errors: upload.errors.slice(0, 10),
+        totalErrors: upload.errors.length,
+        results: upload.results.map((r, idx) => ({
+          index: idx,
+          student_id: r.student_id,
+          student_name: r.student_name,
+          recordStatus: r.recordStatus,
+          errorMessage: r.errorMessage
+        })).filter(r => r.errorMessage)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching errors',
+      error: err.message
+    });
+  }
+});
+
+/**
  * POST /api/cloud/sync/:uploadId/retry
  * Retry Failed Upload
  */
@@ -291,7 +336,7 @@ router.post('/sync/:uploadId/retry', async (req, res) => {
   }
 });
 
-// ===== ASYNC PROCESSING FUNCTION =====
+// ===== ASYNC PROCESSING FUNCTION - FULLY REFACTORED =====
 async function processUploadAsync(uploadId, school, results) {
   try {
     const upload = await UniversalUpload.findById(uploadId);
@@ -300,47 +345,104 @@ async function processUploadAsync(uploadId, school, results) {
     let failureCount = 0;
     const errors = [];
 
+    // ✅ PRE-FETCH ALL LOOKUPS TO AVOID N+1 QUERIES
+    console.log('Pre-fetching reference documents...');
+    
+    // Get or create Session
+    let sessionDoc = await Session.findOne({ name: upload.session });
+    if (!sessionDoc) {
+      sessionDoc = await Session.create({ name: upload.session });
+      console.log(`Created new session: ${upload.session}`);
+    }
+    
+    // Get or create Term
+    let termDoc = await Term.findOne({ name: upload.term });
+    if (!termDoc) {
+      termDoc = await Term.create({ name: upload.term });
+      console.log(`Created new term: ${upload.term}`);
+    }
+    
+    // Get or create Class
+    let classDoc = await Class.findOne({ name: upload.class });
+    if (!classDoc) {
+      classDoc = await Class.create({ name: upload.class });
+      console.log(`Created new class: ${upload.class}`);
+    }
+
     for (let i = 0; i < results.length; i++) {
       try {
         const record = results[i];
-        
-        // Upsert logic
-        const query = { 
-          student_id: record.student_id,
-          schoolId: school.schoolId,
-          session: upload.session,
-          class: upload.class,
-          subject: upload.subject
-        };
+        const studentId = record.student_id;
+        const studentName = record.student_name;
+        const subjectName = record.subject || upload.subject;
 
+        console.log(`Processing ${i + 1}/${results.length}: ${studentName} - ${subjectName}`);
+
+        // ✅ GET OR CREATE STUDENT
+        let studentDoc = await Student.findOne({ 
+          $or: [
+            { _id: studentId }, // If it's already an ObjectId
+            { regNo: studentId }  // Or if it's a registration number
+          ]
+        });
+        
+        if (!studentDoc) {
+          // Create student if doesn't exist
+          studentDoc = await Student.create({
+            name: studentName,
+            regNo: studentId,
+            school: school._id
+          });
+          console.log(`Created new student: ${studentName}`);
+        }
+
+        // ✅ GET OR CREATE SUBJECT
+        let subjectDoc = await Subject.findOne({ name: subjectName });
+        if (!subjectDoc) {
+          subjectDoc = await Subject.create({ name: subjectName });
+          console.log(`Created new subject: ${subjectName}`);
+        }
+
+        // ✅ UPSERT RESULT WITH ALL REQUIRED OBJECTIDS
         const updateData = {
-          student_id: record.student_id,
-          student_name: record.student_name,
-          schoolId: school.schoolId,
-          schoolName: school.schoolName,
-          session: upload.session,
-          term: upload.term,
-          class: upload.class,
-          subject: upload.subject,
+          student: studentDoc._id,
+          session: sessionDoc._id,
+          term: termDoc._id,
+          class: classDoc._id,
+          subject: subjectDoc._id,
           ca1_score: record.ca1_score || 0,
           ca2_score: record.ca2_score || 0,
           midterm_score: record.midterm_score || 0,
           exam_score: record.exam_score || 0,
-          grade: record.grade || 'N/A',
+          score: (record.ca1_score || 0) + (record.ca2_score || 0) + (record.midterm_score || 0) + (record.exam_score || 0),
+          grade: record.grade || '',
           remarks: record.remarks || '',
-          lastUpdated: new Date(),
-          sourceUploadId: upload.uploadId
+          status: 'Published'
         };
 
-        await Result.findOneAndUpdate(query, updateData, { 
-          upsert: true,
-          new: true 
-        });
+        const upsertedResult = await Result.findOneAndUpdate(
+          {
+            student: studentDoc._id,
+            session: sessionDoc._id,
+            term: termDoc._id,
+            class: classDoc._id,
+            subject: subjectDoc._id
+          },
+          updateData,
+          { 
+            upsert: true,
+            new: true,
+            runValidators: true
+          }
+        );
 
+        console.log(`✓ Result upserted for ${studentName}`);
         upload.results[i].recordStatus = 'processed';
         successCount++;
       } catch (err) {
         failureCount++;
+        console.error(`✗ Record ${i} failed:`, err.message);
+        
         errors.push({
           recordIndex: i,
           studentId: results[i]?.student_id,
@@ -351,8 +453,8 @@ async function processUploadAsync(uploadId, school, results) {
       }
     }
 
-    // Update upload document with results
-    upload.status = failureCount > 0 ? 'partially_failed' : 'completed';
+    // ✅ UPDATE UPLOAD DOCUMENT WITH RESULTS
+    upload.status = failureCount === 0 ? 'completed' : failureCount === results.length ? 'failed' : 'partially_failed';
     upload.processingStats.successCount = successCount;
     upload.processingStats.failureCount = failureCount;
     upload.processingStats.processingCompletedAt = new Date();
