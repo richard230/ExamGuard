@@ -210,71 +210,71 @@ async function loadSessions() {
     }
 
     // ============ VERIFICATION FUNCTION ============
-    async function handleVerification(event) {
-      event.preventDefault();
+async function handleVerification(event) {
+  event.preventDefault();
 
-      if (!validateForm()) {
-        return;
-      }
+  if (!validateForm()) {
+    return;
+  }
 
-      const schoolId = document.getElementById('schoolName').value;
-      const regNo = document.getElementById('regNo').value.trim();
-      const scratchCard = document.getElementById('scratchCard').value.trim();
-      const sessionId = document.getElementById('session').value;
-      const termId = document.getElementById('term').value;
-      const classLevelId = document.getElementById('classLevel').value;
-      const verificationPurpose = document.getElementById('verificationPurpose').value;
-      const institutionName = document.getElementById('institutionName').value.trim();
+  const schoolId = document.getElementById('schoolName').value;
+  const regNo = document.getElementById('regNo').value.trim();
+  const scratchCard = document.getElementById('scratchCard').value.trim();
+  const sessionId = document.getElementById('session').value;
+  const termId = document.getElementById('term').value;
+  const classLevelId = document.getElementById('classLevel').value;
+  const verificationPurpose = document.getElementById('verificationPurpose').value;
+  const institutionName = document.getElementById('institutionName').value.trim();
 
-      try {
-        const submitBtn = document.getElementById('submitBtn');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner"></span> Verifying...';
+  try {
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner"></span> Verifying...';
 
-        const response = await fetch(`${API_BASE_URL}/api/verify-student-report`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            schoolId,
-            regNo,
-            scratchCard,
-            sessionId,
-            termId,
-            classLevelId,
-            verificationPurpose,
-            institutionName
-          })
-        });
+    const response = await fetch(`${API_BASE_URL}/api/verify-student-report`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        schoolId,
+        regNo,
+        scratchCard,
+        sessionId,
+        termId,
+        classLevelId,
+        verificationPurpose,
+        institutionName
+      })
+    });
 
-        const data = await response.json();
+    const data = await response.json();
 
-        if (response.ok && data.verified) {
-          currentReport = data.data || data;
-          displayReport(currentReport);
-          showAlert('success', `Report for ${currentReport.studentName} verified successfully!`);
-          
-          // Add to history
-          addToHistory(currentReport);
-          
-          // Scroll to report
-          setTimeout(() => {
-            document.getElementById('reportCard').scrollIntoView({ behavior: 'smooth' });
-          }, 300);
-        } else {
-          showAlert('error', data.message || 'Verification failed. Please check your details and try again.');
-        }
-      } catch (error) {
-        console.error('Verification error:', error);
-        showAlert('error', 'An error occurred during verification. Please try again later.');
-      } finally {
-        const submitBtn = document.getElementById('submitBtn');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Report';
-      }
+    if (response.ok && data.verified) {
+      currentReport = data.data;
+      displayReport(currentReport);
+      showAlert('success', `Report for ${currentReport.studentName} verified successfully!`);
+      
+      // Add to history
+      addToHistory(currentReport);
+      
+      // Scroll to report
+      setTimeout(() => {
+        document.getElementById('reportCard').scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    } else {
+      showAlert('error', data.message || 'Verification failed. Please check your details and try again.');
     }
+  } catch (error) {
+    console.error('Verification error:', error);
+    showAlert('error', 'An error occurred during verification. Please try again later.');
+  } finally {
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Report';
+  }
+}
 
     function validateForm() {
       let isValid = true;
