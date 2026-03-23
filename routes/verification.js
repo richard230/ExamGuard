@@ -10,6 +10,46 @@ const Subject = require('../models/Subject');
 const UniversalUpload = require('../models/UniversalUpload');
 const { authMiddleware } = require('./auth');
 
+// Helper: Normalize term name for flexible matching
+function normalizeTerm(term) {
+  const termMap = {
+    'FIRST TERM': 'First Term',
+    'SECOND TERM': 'Second Term',
+    'THIRD TERM': 'Third Term',
+    'first term': 'First Term',
+    'second term': 'Second Term',
+    'third term': 'Third Term',
+    '1': 'First Term',
+    '2': 'Second Term',
+    '3': 'Third Term'
+  };
+  
+  return termMap[term] || term;
+}
+
+// Helper: Normalize class name
+function normalizeClass(className) {
+  if (!className) return className;
+  // Handle common variations
+  const classMap = {
+    'ss1': 'SS1',
+    'ss2': 'SS2',
+    'ss3': 'SS3',
+    'jss1': 'JSS1',
+    'jss2': 'JSS2',
+    'jss3': 'JSS3',
+    'primary1': 'Primary 1',
+    'primary2': 'Primary 2',
+    'primary3': 'Primary 3',
+    'primary4': 'Primary 4',
+    'primary5': 'Primary 5',
+    'primary6': 'Primary 6'
+  };
+  
+  const normalized = classMap[className.toLowerCase()];
+  return normalized || className;
+}
+
 /**
  * POST /api/res/verify-student-report
  * Verify student report from universal cloud
@@ -28,22 +68,20 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       institutionName
     } = req.body;
 
-    console.log('Request Body:', { schoolId, regNo, scratchCard, sessionId, termId, classLevelId });
+    console.log('Request Body:', { schoolId, regNo, termId, classLevelId });
 
     // Validate required fields
     if (!schoolId || !regNo || !scratchCard || !sessionId || !termId || !classLevelId) {
       return res.status(400).json({
         success: false,
         verified: false,
-        message: 'Missing required fields: schoolId, regNo, scratchCard, sessionId, termId, classLevelId'
+        message: 'Missing required fields'
       });
     }
 
-    // Step 1: Verify school exists and is active
+    // Step 1: Verify school exists
     console.log('Step 1: Verifying school...');
     const school = await School.findById(schoolId);
-    console.log('School found:', school ? school.schoolName : 'NOT FOUND');
-
     if (!school || school.status !== 'active') {
       return res.status(404).json({
         success: false,
@@ -51,8 +89,9 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
         message: 'School not found or inactive'
       });
     }
+    console.log('✓ School:', school.schoolName);
 
-    // Step 2: Find student by registration number
+    // Step 2: Find student
     console.log('Step 2: Finding student with regNo:', regNo);
     const student = await Student.findOne({
       $or: [
@@ -61,8 +100,6 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       ]
     });
 
-    console.log('Student found:', student ? student.firstname + ' ' + student.surname : 'NOT FOUND');
-
     if (!student) {
       return res.status(404).json({
         success: false,
@@ -70,6 +107,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
         message: 'Student not found in system'
       });
     }
+    console.log('✓ Student:', student.firstname, student.surname);
 
     // Step 3: Verify scratch card
     if (!scratchCard || scratchCard.length < 4) {
@@ -80,75 +118,148 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     }
 
-    // Step 4: Query UniversalUpload collection for results
-    console.log('Step 4: Querying UniversalUpload...');
-    console.log('Search criteria:', { schoolRef: schoolId, session: sessionId, term: termId, class: classLevelId });
+    // Step 4: Get Term details and normalize
+    console.log('Step 4: Fetching term details...');
+    const term = await Term.findById(termId);
+    if (!term) {
+      return res.status(404).json({
+        success: false,
+        verified: false,
+        message: 'Term not found'
+      });
+    }
+    const normalizedTerm = normalizeTerm(term.name);
+    console.log('✓ Term:', term.name, '-> Normalized:', normalizedTerm);
 
-    const universalUpload = await UniversalUpload.findOne({
+    // Step 5: Get Session details
+    console.log('Step 5: Fetching session details...');
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        verified: false,
+        message: 'Session not found'
+      });
+    }
+    console.log('✓ Session:', session.name);
+
+    // Step 6: Get Class details and normalize
+    console.log('Step 6: Fetching class details...');
+    const classLevel = await Class.findById(classLevelId);
+    let className = normalizeClass(classLevelId);
+    if (classLevel) {
+      className = normalizeClass(classLevel.name);
+      console.log('✓ Class found in DB:', classLevel.name, '-> Normalized:', className);
+    } else {
+      console.log('✓ Using class name as string:', classLevelId, '-> Normalized:', className);
+    }
+
+    // Step 7: Query UniversalUpload with flexible matching
+    console.log('Step 7: Querying UniversalUpload with flexible matching...');
+    console.log('Primary search criteria:', {
       schoolRef: schoolId,
-      session: sessionId,
-      term: termId,
-      class: classLevelId,
+      session: session.name,
+      term: normalizedTerm,
+      class: className
+    });
+
+    // Try exact match first
+    let universalUpload = await UniversalUpload.findOne({
+      schoolRef: schoolId,
+      session: session.name,
+      term: normalizedTerm,
+      class: className,
       status: 'completed'
     });
 
-    console.log('UniversalUpload found:', universalUpload ? universalUpload.uploadId : 'NOT FOUND');
+    // If not found, try case-insensitive regex match
+    if (!universalUpload) {
+      console.log('Exact match not found, trying case-insensitive...');
+      universalUpload = await UniversalUpload.findOne({
+        schoolRef: schoolId,
+        session: session.name,
+        term: { $regex: new RegExp('^' + normalizedTerm + '$', 'i') },
+        class: { $regex: new RegExp('^' + className + '$', 'i') },
+        status: 'completed'
+      });
+    }
 
-    if (!universalUpload || !universalUpload.results || universalUpload.results.length === 0) {
-      console.log('Debug: Available UniversalUploads for school:', schoolId);
-      const allUploads = await UniversalUpload.find({ schoolRef: schoolId }).select('uploadId session term class status');
-      console.log('All uploads:', allUploads);
+    // If still not found, try flexible term/class combination
+    if (!universalUpload) {
+      console.log('Trying flexible term matching...');
+      // Get all variations of the term
+      const termVariations = [normalizedTerm];
+      if (normalizedTerm.includes('First')) termVariations.push('first term', 'FIRST TERM', '1');
+      if (normalizedTerm.includes('Second')) termVariations.push('second term', 'SECOND TERM', '2');
+      if (normalizedTerm.includes('Third')) termVariations.push('third term', 'THIRD TERM', '3');
+
+      universalUpload = await UniversalUpload.findOne({
+        schoolRef: schoolId,
+        session: session.name,
+        term: { $in: termVariations },
+        class: { $regex: new RegExp('^' + className + '$', 'i') },
+        status: 'completed'
+      });
+    }
+
+    // If still not found, debug output
+    if (!universalUpload) {
+      console.log('❌ UniversalUpload not found, searching for debugging info...');
+      const debugUploads = await UniversalUpload.find({ 
+        schoolRef: schoolId,
+        status: 'completed'
+      })
+        .select('uploadId session term class status results')
+        .limit(10);
+      
+      console.log('Available uploads for this school:');
+      debugUploads.forEach(u => {
+        console.log(`  - Session: "${u.session}", Term: "${u.term}", Class: "${u.class}", Results: ${u.results.length}`);
+      });
 
       return res.status(404).json({
         success: false,
         verified: false,
-        message: 'No results found for this school/session/term/class combination'
+        message: `No results found for ${session.name} / ${normalizedTerm} / ${className}. Check server logs for available combinations.`
       });
     }
 
-    // Step 5: Find student's results within the UniversalUpload
-    console.log('Step 5: Filtering student results...');
-    console.log('Student ID:', student._id.toString());
+    console.log('✓ UniversalUpload found:', universalUpload.uploadId);
+    console.log('  Actual values: Session:', universalUpload.session, '| Term:', universalUpload.term, '| Class:', universalUpload.class);
+
+    // Step 8: Find student's results
+    console.log('Step 8: Filtering student results...');
+    const studentId = student._id.toString();
+    console.log('Student ID to match:', studentId);
     console.log('Total results in upload:', universalUpload.results.length);
 
     const studentResults = universalUpload.results.filter(r => {
-      const match = r.student_id === student._id.toString() || r.student_id === student._id;
-      if (match) {
-        console.log('  ✓ Found result:', r.student_name, '-', r.subject);
+      const rStudentId = r.student_id?.toString ? r.student_id.toString() : String(r.student_id);
+      const matches = rStudentId === studentId;
+      if (matches) {
+        console.log('  ✓ Match:', r.student_name, '-', r.subject);
       }
-      return match;
+      return matches;
     });
 
     console.log('Student results found:', studentResults.length);
 
-    if (!studentResults || studentResults.length === 0) {
+    if (studentResults.length === 0) {
+      // Debug: show what student IDs are in the upload
+      console.log('Available student IDs in upload:');
+      universalUpload.results.slice(0, 5).forEach(r => {
+        console.log(`  - ${r.student_name} (${r.student_id})`);
+      });
+
       return res.status(404).json({
         success: false,
         verified: false,
-        message: `No results found for student ${student.firstname} ${student.surname} in this session/term`
+        message: `No results found for ${student.firstname} ${student.surname} in this upload`
       });
     }
 
-    // Step 6: Get session, term, and class details
-    console.log('Step 6: Fetching session/term/class details...');
-    const session = await Session.findById(sessionId);
-    const term = await Term.findById(termId);
-    const classLevel = await Class.findById(classLevelId);
-
-    console.log('Session:', session ? session.name : 'NOT FOUND');
-    console.log('Term:', term ? term.name : 'NOT FOUND');
-    console.log('Class:', classLevel ? classLevel.name : 'NOT FOUND');
-
-    if (!session || !term || !classLevel) {
-      return res.status(404).json({
-        success: false,
-        verified: false,
-        message: 'Session, term, or class not found'
-      });
-    }
-
-    // Step 7: Calculate aggregate data from student results
-    console.log('Step 7: Calculating scores...');
+    // Step 9: Calculate aggregate data
+    console.log('Step 9: Calculating scores...');
     let totalScore = 0;
     const subjects = [];
 
@@ -172,7 +283,6 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     });
 
-    // Calculate overall grade
     const averageScore = subjects.length > 0 ? totalScore / subjects.length : 0;
     let overallGrade = 'F';
     if (averageScore >= 70) overallGrade = 'A';
@@ -181,16 +291,11 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     else if (averageScore >= 45) overallGrade = 'D';
     else if (averageScore >= 40) overallGrade = 'E';
 
-    // Step 8: Generate verification code
     const verificationCode = `VER-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-    console.log('=== VERIFICATION SUCCESS ===');
-    console.log('Total Score:', totalScore);
-    console.log('Average Score:', averageScore);
-    console.log('Overall Grade:', overallGrade);
-    console.log('Subjects:', subjects.length);
+    console.log('✅ VERIFICATION SUCCESS');
+    console.log(`Score: ${totalScore} | Grade: ${overallGrade} | Subjects: ${subjects.length}`);
 
-    // Step 9: Return verified report
     res.json({
       success: true,
       verified: true,
@@ -212,8 +317,8 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
           name: term.name
         },
         classLevel: {
-          _id: classLevel._id,
-          name: classLevel.name
+          _id: classLevel?._id || classLevelId,
+          name: className
         },
         totalScore: totalScore.toFixed(2),
         averageScore: averageScore.toFixed(2),
@@ -247,7 +352,8 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error verifying student report:', error);
+    console.error('❌ Error:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
       verified: false,
@@ -259,12 +365,9 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
 
 /**
  * GET /api/res/verification-history
- * Get verification history for current user/institution
  */
 router.get('/verification-history', authMiddleware, async (req, res) => {
   try {
-    // For now, return empty history
-    // In production, you'd track verifications per institution
     res.json({
       success: true,
       data: []
