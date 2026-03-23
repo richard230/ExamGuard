@@ -8,13 +8,15 @@ const Term = require('../models/Term');
 const Class = require('../models/Class');
 const Subject = require('../models/Subject');
 const UniversalUpload = require('../models/UniversalUpload');
+const { authMiddleware } = require('./auth');
 
 /**
  * POST /api/res/verify-student-report
  * Verify student report from universal cloud
  */
-router.post('/verify-student-report', async (req, res) => {
+router.post('/verify-student-report', authMiddleware, async (req, res) => {
   try {
+    console.log('=== VERIFICATION REQUEST ===');
     const {
       schoolId,
       regNo,
@@ -26,17 +28,22 @@ router.post('/verify-student-report', async (req, res) => {
       institutionName
     } = req.body;
 
+    console.log('Request Body:', { schoolId, regNo, scratchCard, sessionId, termId, classLevelId });
+
     // Validate required fields
     if (!schoolId || !regNo || !scratchCard || !sessionId || !termId || !classLevelId) {
       return res.status(400).json({
         success: false,
         verified: false,
-        message: 'Missing required fields'
+        message: 'Missing required fields: schoolId, regNo, scratchCard, sessionId, termId, classLevelId'
       });
     }
 
     // Step 1: Verify school exists and is active
+    console.log('Step 1: Verifying school...');
     const school = await School.findById(schoolId);
+    console.log('School found:', school ? school.schoolName : 'NOT FOUND');
+
     if (!school || school.status !== 'active') {
       return res.status(404).json({
         success: false,
@@ -46,6 +53,7 @@ router.post('/verify-student-report', async (req, res) => {
     }
 
     // Step 2: Find student by registration number
+    console.log('Step 2: Finding student with regNo:', regNo);
     const student = await Student.findOne({
       $or: [
         { regNo: regNo },
@@ -53,11 +61,13 @@ router.post('/verify-student-report', async (req, res) => {
       ]
     });
 
+    console.log('Student found:', student ? student.firstname + ' ' + student.surname : 'NOT FOUND');
+
     if (!student) {
       return res.status(404).json({
         success: false,
         verified: false,
-        message: 'Student not found'
+        message: 'Student not found in system'
       });
     }
 
@@ -70,16 +80,25 @@ router.post('/verify-student-report', async (req, res) => {
       });
     }
 
-    // Step 4: Find results in UniversalUpload collection
+    // Step 4: Query UniversalUpload collection for results
+    console.log('Step 4: Querying UniversalUpload...');
+    console.log('Search criteria:', { schoolRef: schoolId, session: sessionId, term: termId, class: classLevelId });
+
     const universalUpload = await UniversalUpload.findOne({
       schoolRef: schoolId,
       session: sessionId,
       term: termId,
       class: classLevelId,
       status: 'completed'
-    }).populate('schoolRef', 'schoolName');
+    });
+
+    console.log('UniversalUpload found:', universalUpload ? universalUpload.uploadId : 'NOT FOUND');
 
     if (!universalUpload || !universalUpload.results || universalUpload.results.length === 0) {
+      console.log('Debug: Available UniversalUploads for school:', schoolId);
+      const allUploads = await UniversalUpload.find({ schoolRef: schoolId }).select('uploadId session term class status');
+      console.log('All uploads:', allUploads);
+
       return res.status(404).json({
         success: false,
         verified: false,
@@ -88,23 +107,37 @@ router.post('/verify-student-report', async (req, res) => {
     }
 
     // Step 5: Find student's results within the UniversalUpload
-    // The student_id in results is the MongoDB ObjectId of the student
+    console.log('Step 5: Filtering student results...');
+    console.log('Student ID:', student._id.toString());
+    console.log('Total results in upload:', universalUpload.results.length);
+
     const studentResults = universalUpload.results.filter(r => {
-      return r.student_id === student._id.toString() || r.student_id === student._id;
+      const match = r.student_id === student._id.toString() || r.student_id === student._id;
+      if (match) {
+        console.log('  ✓ Found result:', r.student_name, '-', r.subject);
+      }
+      return match;
     });
+
+    console.log('Student results found:', studentResults.length);
 
     if (!studentResults || studentResults.length === 0) {
       return res.status(404).json({
         success: false,
         verified: false,
-        message: 'No published results found for this student in the selected session/term/class'
+        message: `No results found for student ${student.firstname} ${student.surname} in this session/term`
       });
     }
 
     // Step 6: Get session, term, and class details
+    console.log('Step 6: Fetching session/term/class details...');
     const session = await Session.findById(sessionId);
     const term = await Term.findById(termId);
     const classLevel = await Class.findById(classLevelId);
+
+    console.log('Session:', session ? session.name : 'NOT FOUND');
+    console.log('Term:', term ? term.name : 'NOT FOUND');
+    console.log('Class:', classLevel ? classLevel.name : 'NOT FOUND');
 
     if (!session || !term || !classLevel) {
       return res.status(404).json({
@@ -115,6 +148,7 @@ router.post('/verify-student-report', async (req, res) => {
     }
 
     // Step 7: Calculate aggregate data from student results
+    console.log('Step 7: Calculating scores...');
     let totalScore = 0;
     const subjects = [];
 
@@ -150,6 +184,12 @@ router.post('/verify-student-report', async (req, res) => {
     // Step 8: Generate verification code
     const verificationCode = `VER-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
+    console.log('=== VERIFICATION SUCCESS ===');
+    console.log('Total Score:', totalScore);
+    console.log('Average Score:', averageScore);
+    console.log('Overall Grade:', overallGrade);
+    console.log('Subjects:', subjects.length);
+
     // Step 9: Return verified report
     res.json({
       success: true,
@@ -157,7 +197,7 @@ router.post('/verify-student-report', async (req, res) => {
       message: 'Report verified successfully',
       data: {
         verificationCode,
-        studentName: student.name || student.surname + ' ' + student.firstname || 'Unknown',
+        studentName: student.firstname + ' ' + student.surname,
         regNo: student.regNo || student.student_id,
         school: {
           _id: school._id,
@@ -207,7 +247,7 @@ router.post('/verify-student-report', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error verifying student report:', error);
+    console.error('❌ Error verifying student report:', error);
     res.status(500).json({
       success: false,
       verified: false,
@@ -218,7 +258,7 @@ router.post('/verify-student-report', async (req, res) => {
 });
 
 /**
- * GET /api/verification-history
+ * GET /api/res/verification-history
  * Get verification history for current user/institution
  */
 router.get('/verification-history', authMiddleware, async (req, res) => {
