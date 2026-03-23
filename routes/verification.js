@@ -10,19 +10,10 @@ const Subject = require('../models/Subject');
 const UniversalUpload = require('../models/UniversalUpload');
 const { authMiddleware } = require('./auth');
 
+
 /**
- * POST /api/verify-student-report
+ * POST /api/res/verify-student-report
  * Verify student report from universal cloud
- * 
- * Body:
- * - schoolId: School ID
- * - regNo: Student registration number
- * - scratchCard: Verification code (scratch card)
- * - sessionId: Session ID
- * - termId: Term ID
- * - classLevelId: Class ID
- * - verificationPurpose: Purpose of verification
- * - institutionName: Requesting institution name
  */
 router.post('/verify-student-report', authMiddleware, async (req, res) => {
   try {
@@ -61,21 +52,18 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       $or: [
         { regNo: regNo },
         { student_id: regNo }
-      ],
-      school: schoolId
+      ]
     });
 
     if (!student) {
       return res.status(404).json({
         success: false,
         verified: false,
-        message: 'Student not found in this school'
+        message: 'Student not found'
       });
     }
 
-    // Step 3: Verify scratch card (simple validation - you can enhance this)
-    // In production, you might want to check against a scratch card database
-    // For now, we'll accept any non-empty scratch card
+    // Step 3: Verify scratch card
     if (!scratchCard || scratchCard.length < 4) {
       return res.status(400).json({
         success: false,
@@ -84,30 +72,38 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     }
 
-    // Step 4: Fetch results from universal cloud for this student/session/term
-    const results = await Result.find({
-      student: student._id,
+    // Step 4: Find results in UniversalUpload collection
+    const universalUpload = await UniversalUpload.findOne({
+      schoolRef: schoolId,
       session: sessionId,
       term: termId,
       class: classLevelId,
-      status: 'Published'
-    })
-      .populate('student', 'name regNo student_id')
-      .populate('session', 'name startDate endDate')
-      .populate('term', 'name')
-      .populate('class', 'name')
-      .populate('subject', 'name')
-      .sort('subject');
+      status: 'completed'
+    }).populate('schoolRef', 'schoolName');
 
-    if (!results || results.length === 0) {
+    if (!universalUpload || !universalUpload.results || universalUpload.results.length === 0) {
       return res.status(404).json({
         success: false,
         verified: false,
-        message: 'No published results found for this student in the selected session/term'
+        message: 'No results found for this school/session/term/class combination'
       });
     }
 
-    // Step 5: Get session, term, and class details
+    // Step 5: Find student's results within the UniversalUpload
+    // The student_id in results is the MongoDB ObjectId of the student
+    const studentResults = universalUpload.results.filter(r => {
+      return r.student_id === student._id.toString() || r.student_id === student._id;
+    });
+
+    if (!studentResults || studentResults.length === 0) {
+      return res.status(404).json({
+        success: false,
+        verified: false,
+        message: 'No published results found for this student in the selected session/term/class'
+      });
+    }
+
+    // Step 6: Get session, term, and class details
     const session = await Session.findById(sessionId);
     const term = await Term.findById(termId);
     const classLevel = await Class.findById(classLevelId);
@@ -120,29 +116,27 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     }
 
-    // Step 6: Calculate aggregate data
+    // Step 7: Calculate aggregate data from student results
     let totalScore = 0;
-    let totalGradePoints = 0;
     const subjects = [];
 
-    results.forEach(result => {
+    studentResults.forEach(result => {
       const subjectTotal = (parseFloat(result.ca1_score) || 0) +
         (parseFloat(result.ca2_score) || 0) +
         (parseFloat(result.midterm_score) || 0) +
         (parseFloat(result.exam_score) || 0);
 
       totalScore += subjectTotal;
-      totalGradePoints += parseFloat(result.grade) || 0;
 
       subjects.push({
-        name: result.subject?.name || 'Unknown',
+        name: result.subject || 'Unknown',
         ca1: result.ca1_score || 0,
         ca2: result.ca2_score || 0,
         midterm: result.midterm_score || 0,
         exam: result.exam_score || 0,
         total: subjectTotal,
         grade: result.grade || '-',
-        position: result.subject_position || '-'
+        position: '-'
       });
     });
 
@@ -155,26 +149,8 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     else if (averageScore >= 45) overallGrade = 'D';
     else if (averageScore >= 40) overallGrade = 'E';
 
-    // Step 7: Generate verification code
+    // Step 8: Generate verification code
     const verificationCode = `VER-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-
-    // Step 8: Log verification in universal upload (for audit trail)
-    await UniversalUpload.findOneAndUpdate(
-      { schoolRef: schoolId },
-      {
-        $push: {
-          verifications: {
-            studentId: student._id,
-            verificationCode,
-            verificationPurpose,
-            requestingInstitution: institutionName,
-            verificationTimestamp: new Date(),
-            scratcCardHash: scratchCard // Store hash in production
-          }
-        }
-      },
-      { upsert: true }
-    );
 
     // Step 9: Return verified report
     res.json({
@@ -183,7 +159,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       message: 'Report verified successfully',
       data: {
         verificationCode,
-        studentName: student.name || 'Unknown',
+        studentName: student.name || student.surname + ' ' + student.firstname || 'Unknown',
         regNo: student.regNo || student.student_id,
         school: {
           _id: school._id,
