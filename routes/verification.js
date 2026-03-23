@@ -8,14 +8,12 @@ const Term = require('../models/Term');
 const Class = require('../models/Class');
 const Subject = require('../models/Subject');
 const UniversalUpload = require('../models/UniversalUpload');
-const { authMiddleware } = require('./auth');
-
 
 /**
  * POST /api/res/verify-student-report
  * Verify student report from universal cloud
  */
-router.post('/verify-student-report', authMiddleware, async (req, res) => {
+router.post('/verify-student-report', async (req, res) => {
   try {
     const {
       schoolId,
