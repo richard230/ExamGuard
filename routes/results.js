@@ -823,15 +823,22 @@ router.get('/student/:studentId/report', async (req, res) => {
 });
 
 /**
- * POST: UPSERT - Create or update results (STATIC ROUTE - BEFORE /:id)
+ * POST: UPSERT - Create or update results
+ * NO API KEY REQUIRED - Internal school operation
  */
-router.post('/upsert', apiKeyAuth, async (req, res) => {
+router.post('/upsert', async (req, res) => {
   try {
-    req.requiredPermission = 'results.upload';
     const { session, term, class: className, subject, resultType, results } = req.body;
     
     if (!results || results.length === 0) {
       return res.status(400).json({ success: false, error: 'No results provided' });
+    }
+
+    if (!session || !term || !className || !subject) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: session, term, class, subject' 
+      });
     }
 
     const sessionObj = await findOrCreateByName(Session, session);
@@ -865,12 +872,28 @@ router.post('/upsert', apiKeyAuth, async (req, res) => {
           term: termObj._id,
           class: classObj._id,
           subject: subjectObj._id,
-          grade: row.grade,
+          grade: row.grade || '',
           remarks: row.remarks || '',
           status: row.status || 'Draft'
         };
 
-        updateData[`${resultType}_score`] = row.score;
+        // Set score field based on resultType
+        if (resultType) {
+          updateData[`${resultType}_score`] = parseFloat(row.score) || 0;
+        } else {
+          // Default: set all available scores
+          if (row.ca1_score !== undefined) updateData.ca1_score = parseFloat(row.ca1_score) || 0;
+          if (row.ca2_score !== undefined) updateData.ca2_score = parseFloat(row.ca2_score) || 0;
+          if (row.midterm_score !== undefined) updateData.midterm_score = parseFloat(row.midterm_score) || 0;
+          if (row.exam_score !== undefined) updateData.exam_score = parseFloat(row.exam_score) || 0;
+        }
+
+        // Add enriched metadata
+        if (row.skills) updateData.skills = row.skills;
+        if (row.attendance) updateData.attendance = row.attendance;
+        if (row.teacherComment) updateData.teacherComment = row.teacherComment;
+        if (row.principalRemark) updateData.principalRemark = row.principalRemark;
+        if (row.position) updateData.subject_position = row.position;
 
         // CRITICAL: Query includes session/term for proper scoping
         const existingResult = await Result.findOne({
@@ -899,7 +922,8 @@ router.post('/upsert', apiKeyAuth, async (req, res) => {
       inserted, 
       updated,
       total: inserted + updated,
-      errors: errors.length > 0 ? errors : undefined 
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Successfully processed: ${inserted} inserted, ${updated} updated`
     });
   } catch (err) {
     console.error('Upsert error:', err);
@@ -908,15 +932,22 @@ router.post('/upsert', apiKeyAuth, async (req, res) => {
 });
 
 /**
- * POST: UPLOAD - Batch upload results (STATIC ROUTE - BEFORE /:id)
+ * POST: UPLOAD - Batch upload results from universal cloud
+ * NO API KEY REQUIRED - Internal school operation
  */
-router.post('/upload', apiKeyAuth, async (req, res) => {
+router.post('/upload', async (req, res) => {
   try {
-    req.requiredPermission = 'results.upload';
-    const { session, term, class: className, subject, resultType, results, upsert } = req.body;
+    const { session, term, class: className, subject, resultType, results, upsert, schoolId } = req.body;
     
     if (!results || results.length === 0) {
       return res.status(400).json({ success: false, error: 'No results provided' });
+    }
+
+    if (!session || !term || !className || !subject) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: session, term, class, subject' 
+      });
     }
 
     const sessionObj = await findOrCreateByName(Session, session);
@@ -933,16 +964,36 @@ router.post('/upload', apiKeyAuth, async (req, res) => {
 
     let inserted = 0;
     let updated = 0;
+    let skipped = 0;
     const insertedResults = [];
     const errors = [];
 
     for (const row of results) {
       try {
-        const student = await findOrCreateStudent(row, classObj._id);
+        // Handle both object and string IDs for student_id
+        const studentId = row.student_id;
+        if (!studentId) {
+          errors.push(`${row.student_name}: Student ID is required`);
+          skipped++;
+          continue;
+        }
+
+        // Try to find student by ID or student_id field
+        let student = await Student.findById(studentId).catch(() => null);
         
         if (!student) {
-          errors.push(`${row.student_name}: Could not find or create student`);
-          continue;
+          student = await Student.findOne({ student_id: studentId });
+        }
+
+        if (!student) {
+          // Create new student if not found
+          student = new Student({
+            student_id: studentId,
+            name: row.student_name,
+            regNo: row.regNo || '',
+            class: classObj._id
+          });
+          await student.save();
         }
 
         const resultData = {
@@ -951,31 +1002,39 @@ router.post('/upload', apiKeyAuth, async (req, res) => {
           term: termObj._id,
           class: classObj._id,
           subject: subjectObj._id,
-          grade: row.grade,
+          grade: row.grade || '',
           remarks: row.remarks || '',
-          status: row.status || 'Draft',
-          subject_position: row.position || '-' // Store subject position
+          status: row.status || 'Draft'
         };
 
-        resultData[`${resultType}_score`] = row.score || row.exam_score || 0;
+        // Set the appropriate score field
+        if (resultType && row.exam_score !== undefined) {
+          resultData.exam_score = parseFloat(row.exam_score) || 0;
+        }
+        if (row.ca1_score !== undefined) resultData.ca1_score = parseFloat(row.ca1_score) || 0;
+        if (row.ca2_score !== undefined) resultData.ca2_score = parseFloat(row.ca2_score) || 0;
+        if (row.midterm_score !== undefined) resultData.midterm_score = parseFloat(row.midterm_score) || 0;
 
-        // Store enriched metadata if available
+        // Add enriched metadata if available
         if (row.skills) resultData.skills = row.skills;
         if (row.attendance) resultData.attendance = row.attendance;
         if (row.teacherComment) resultData.teacherComment = row.teacherComment;
         if (row.principalRemark) resultData.principalRemark = row.principalRemark;
         if (row.studentPosition) resultData.studentPosition = row.studentPosition;
+        if (row.position) resultData.subject_position = row.position;
 
-        if (upsert) {
-          const existingResult = await Result.findOne({
-            student: student._id,
-            session: sessionObj._id,
-            term: termObj._id,
-            class: classObj._id,
-            subject: subjectObj._id
-          });
+        // Check if result already exists
+        const existingResult = await Result.findOne({
+          student: student._id,
+          session: sessionObj._id,
+          term: termObj._id,
+          class: classObj._id,
+          subject: subjectObj._id
+        });
 
-          if (existingResult) {
+        if (existingResult) {
+          if (upsert) {
+            // Update existing result
             const updatedResult = await Result.findByIdAndUpdate(
               existingResult._id,
               resultData,
@@ -983,16 +1042,19 @@ router.post('/upload', apiKeyAuth, async (req, res) => {
             );
             updated++;
             insertedResults.push(updatedResult);
-            continue;
+          } else {
+            // Skip if upsert is false
+            skipped++;
           }
+        } else {
+          // Insert new result
+          const newResult = new Result(resultData);
+          await newResult.save();
+          inserted++;
+          insertedResults.push(newResult);
         }
-
-        const result = new Result(resultData);
-        await result.save();
-        inserted++;
-        insertedResults.push(result);
       } catch (err) {
-        errors.push(`${row.student_name}: ${err.message}`);
+        errors.push(`${row.student_name || 'Unknown'}: ${err.message}`);
       }
     }
 
@@ -1000,9 +1062,11 @@ router.post('/upload', apiKeyAuth, async (req, res) => {
       success: true, 
       inserted, 
       updated,
+      skipped,
       total: inserted + updated,
-      results: insertedResults,
-      errors: errors.length > 0 ? errors : undefined
+      results: insertedResults.length > 0 ? insertedResults : undefined,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Successfully processed: ${inserted} inserted, ${updated} updated, ${skipped} skipped`
     });
   } catch (err) {
     console.error('Upload error:', err);
