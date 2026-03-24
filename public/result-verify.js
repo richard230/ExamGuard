@@ -720,7 +720,6 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
   return enrichedRecords;
 }
 
-// ===== PUSH TO UNIVERSAL CLOUD (FINAL VERSION) =====
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
   
@@ -751,7 +750,7 @@ async function pushToUniversalCloud(e) {
   
   if (pushBtn) {
     pushBtn.disabled = true;
-    pushBtn.innerHTML = '<span class="spinner"></span><span>Pushing to Cloud...</span>';
+    pushBtn.innerHTML = '<span class="spinner"></span><span>Checking for duplicates...</span>';
   }
 
   try {
@@ -780,96 +779,329 @@ async function pushToUniversalCloud(e) {
       groupedByMetadata[key].records.push(record);
     });
 
-    console.log(`Grouped data into ${Object.keys(groupedByMetadata).length} session/term/class combinations:`);
-    Object.entries(groupedByMetadata).forEach(([key, group]) => {
-      console.log(`  ${group.session} / ${group.term} / ${group.class}: ${group.records.length} records`);
-    });
+    console.log(`Grouped data into ${Object.keys(groupedByMetadata).length} session/term/class combinations`);
 
-    // CRITICAL: Process each session/term/class group separately
-    let totalProcessed = 0;
-    const uploadResults = [];
+    // ✅ CHECK FOR DUPLICATES FOR EACH GROUP
+    const duplicateWarnings = [];
+    const groupsToProcess = [];
 
     for (const [key, group] of Object.entries(groupedByMetadata)) {
-      console.log(`\nProcessing group: ${group.session} / ${group.term} / ${group.class}`);
+      console.log(`Checking for existing upload: ${group.session} / ${group.term} / ${group.class}`);
       
-      // Validate required fields for this group
-      const missingFields = [];
-      if (!group.session) missingFields.push('Session');
-      if (!group.term) missingFields.push('Term');
-      if (!group.class) missingFields.push('Class');
+      try {
+        // Check if exact same upload exists
+        const checkResponse = await fetch(`${CONFIG.CLOUD_SYNC_ENDPOINT}/check-duplicate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${CONFIG.API_KEY || localStorage.getItem('apiKey')}`
+          },
+          body: JSON.stringify({
+            schoolId,
+            session: group.session,
+            term: group.term,
+            class: group.class,
+            subject: 'Multiple'
+          }),
+          mode: 'cors'
+        });
 
-      if (missingFields.length > 0) {
-        console.warn(`Skipping group - Missing: ${missingFields.join(', ')}`);
-        showAlert('warning', `Skipping group with missing fields: ${missingFields.join(', ')}`);
-        continue;
+        if (checkResponse.ok) {
+          const duplicateCheck = await checkResponse.json();
+          
+          if (duplicateCheck.isDuplicate) {
+            console.warn(`Duplicate found for ${group.session}/${group.term}/${group.class}:`, duplicateCheck);
+            
+            duplicateWarnings.push({
+              group: `${group.session} / ${group.term} / ${group.class}`,
+              uploadId: duplicateCheck.uploadId,
+              status: duplicateCheck.status,
+              lastUploadedAt: duplicateCheck.createdAt,
+              recordCount: duplicateCheck.recordCount,
+              message: duplicateCheck.message
+            });
+          } else {
+            groupsToProcess.push({ key, group, duplicateInfo: duplicateCheck });
+          }
+        } else {
+          // If check fails, proceed with caution
+          console.warn(`Could not check duplicates for ${group.session}/${group.term}/${group.class}`);
+          groupsToProcess.push({ key, group, duplicateInfo: null });
+        }
+      } catch (err) {
+        console.error(`Error checking duplicates for ${group.session}/${group.term}/${group.class}:`, err);
+        // Continue with other groups
       }
+    }
 
-        // Enrich records with school info and preserve metadata
-      const enrichedData = group.records.map((record, idx) => {
-        return {
-          student_id: record.student_id,
-          student_name: record.student_name,
-          regNo: record.regNo,
-          ca1_score: record.ca1_score || 0,
-          ca2_score: record.ca2_score || 0,
-          midterm_score: record.midterm_score || 0,
-          exam_score: record.exam_score || 0,
-          grade: record.grade || '',
-          remarks: record.remarks || '',
-          subject: record.subject,
-          position: record.position || '-', // Add subject position
-          schoolId: schoolId,
-          schoolName: schoolName,
-          cloudSyncedAt: new Date().toISOString(),
-          sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
-          sourceType: 'school_backend',
-          // Add enriched metadata if available
-          ...(record.skills && { skills: record.skills }),
-          ...(record.attendance && { attendance: record.attendance }),
-          ...(record.teacherComment && { teacherComment: record.teacherComment }),
-          ...(record.principalRemark && { principalRemark: record.principalRemark }),
-          ...(record.studentPosition && { studentPosition: record.studentPosition })
-        };
+    // Handle duplicate warnings
+    if (duplicateWarnings.length > 0) {
+      console.log('Duplicate uploads found:', duplicateWarnings);
+      
+      let warningMessage = `⚠️ The following data has already been uploaded:\n\n`;
+      duplicateWarnings.forEach((dup, idx) => {
+        warningMessage += `${idx + 1}. ${dup.group}\n`;
+        warningMessage += `   Upload ID: ${dup.uploadId}\n`;
+        warningMessage += `   Status: ${dup.status}\n`;
+        warningMessage += `   Uploaded: ${new Date(dup.lastUploadedAt).toLocaleString()}\n`;
+        warningMessage += `   Records: ${dup.recordCount}\n\n`;
       });
 
-      // Create payload for this specific session/term/class group
-      const payload = {
-        schoolId,
-        schoolName,
-        session: group.session,
-        term: group.term,
-        class: group.class,
-        subject: 'Multiple', // Multiple subjects per record
-        resultType: 'exam_score',
-        results: enrichedData,
+      warningMessage += `Do you want to:\n`;
+      warningMessage += `1. Skip duplicates and only upload new data\n`;
+      warningMessage += `2. Update existing uploads (replace data)\n`;
+      warningMessage += `3. Cancel and review data`;
+
+      // Show custom confirmation dialog
+      showDuplicateDialog(duplicateWarnings, groupsToProcess, schoolId, schoolName);
+      
+      if (pushBtn) {
+        pushBtn.disabled = false;
+        pushBtn.innerHTML = originalText;
+      }
+      return;
+    }
+
+    // No duplicates found, proceed with upload
+    if (groupsToProcess.length > 0) {
+      await processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn, originalText);
+    } else {
+      showAlert('warning', 'No data to push after duplicate check');
+      if (pushBtn) {
+        pushBtn.disabled = false;
+        pushBtn.innerHTML = originalText;
+      }
+    }
+
+  } catch (err) {
+    console.error('Cloud push error:', err);
+    showAlert('error', `Cloud push failed: ${err.message}`);
+    if (pushBtn) {
+      pushBtn.disabled = false;
+      pushBtn.innerHTML = originalText;
+    }
+  }
+}
+
+// ===== NEW: Handle Duplicate Dialog =====
+function showDuplicateDialog(duplicates, groupsToProcess, schoolId, schoolName) {
+  // Create modal for duplicate handling
+  const modal = document.createElement('div');
+  modal.id = 'duplicateWarningModal';
+  modal.className = 'modal active';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  `;
+
+  let duplicatesList = duplicates.map((dup, idx) => `
+    <div style="padding: 12px; background: #fff3cd; border-radius: 6px; margin-bottom: 12px; border-left: 4px solid #ffc107;">
+      <div style="font-weight: 600; color: #856404; margin-bottom: 6px;">
+        ${idx + 1}. ${dup.group}
+      </div>
+      <div style="font-size: 0.9rem; color: #856404;">
+        Upload ID: <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">${dup.uploadId}</code><br>
+        Status: <strong>${dup.status}</strong> | Records: <strong>${dup.recordCount}</strong><br>
+        Last uploaded: ${new Date(dup.lastUploadedAt).toLocaleString()}
+      </div>
+    </div>
+  `).join('');
+
+  modal.innerHTML = `
+    <div style="background: white; padding: 30px; border-radius: 10px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+      <div style="display: flex; align-items: center; margin-bottom: 20px; color: #ff9800;">
+        <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-right: 12px;"></i>
+        <h2 style="margin: 0; color: #333;">Duplicate Upload Detected</h2>
+      </div>
+
+      <p style="color: #666; margin-bottom: 20px;">
+        The following data groups have already been uploaded to the universal cloud. Uploading them again may create duplicates.
+      </p>
+
+      <div style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+        ${duplicatesList}
+      </div>
+
+      <div style="background: #f5f5f5; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+        <p style="margin: 0; font-size: 0.9rem; color: #666;">
+          <strong>What would you like to do?</strong>
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="closeDuplicateDialog()" style="flex: 1; min-width: 120px;">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+        <button class="btn btn-warning" onclick="skipDuplicatesAndUpload()" style="flex: 1; min-width: 120px;">
+          <i class="fas fa-forward"></i> Skip Duplicates
+        </button>
+        <button class="btn btn-primary" onclick="updateExistingUploads()" style="flex: 1; min-width: 120px;">
+          <i class="fas fa-sync"></i> Update Existing
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Store dialog state globally for button callbacks
+  window.duplicateDialogState = {
+    duplicates,
+    groupsToProcess,
+    schoolId,
+    schoolName,
+    modal
+  };
+}
+
+function closeDuplicateDialog() {
+  const modal = document.getElementById('duplicateWarningModal');
+  if (modal) modal.remove();
+}
+
+async function skipDuplicatesAndUpload() {
+  const state = window.duplicateDialogState;
+  if (!state) return;
+
+  console.log('Skipping duplicates and uploading only new data...');
+  
+  // Filter out duplicate groups
+  const duplicateGroupKeys = state.duplicates.map(d => {
+    // Reconstruct the key from group info
+    return `${d.group.split(' / ')[0]}||${d.group.split(' / ')[1]}||${d.group.split(' / ')[2]}`;
+  });
+
+  const newGroupsToProcess = state.groupsToProcess.filter(g => 
+    !duplicateGroupKeys.includes(g.key)
+  );
+
+  closeDuplicateDialog();
+
+  if (newGroupsToProcess.length === 0) {
+    showAlert('info', 'All data groups are duplicates. No new data to upload.');
+    return;
+  }
+
+  const pushBtn = document.querySelector('[onclick*="pushToUniversalCloud"]');
+  const originalText = pushBtn?.innerHTML;
+  
+  if (pushBtn) {
+    pushBtn.disabled = true;
+    pushBtn.innerHTML = '<span class="spinner"></span><span>Uploading new data...</span>';
+  }
+
+  await processPushGroups(newGroupsToProcess, state.schoolId, state.schoolName, pushBtn, originalText);
+}
+
+async function updateExistingUploads() {
+  const state = window.duplicateDialogState;
+  if (!state) return;
+
+  console.log('Updating existing uploads...');
+  
+  closeDuplicateDialog();
+
+  const pushBtn = document.querySelector('[onclick*="pushToUniversalCloud"]');
+  const originalText = pushBtn?.innerHTML;
+  
+  if (pushBtn) {
+    pushBtn.disabled = true;
+    pushBtn.innerHTML = '<span class="spinner"></span><span>Updating uploads...</span>';
+  }
+
+  // Process with update flag
+  await processPushGroups(state.groupsToProcess, state.schoolId, state.schoolName, pushBtn, originalText, true);
+}
+
+// ===== NEW: Process Push Groups =====
+async function processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn, originalText, shouldUpdate = false) {
+  let totalProcessed = 0;
+  const uploadResults = [];
+
+  for (const { key, group } of groupsToProcess) {
+    console.log(`\nProcessing group: ${group.session} / ${group.term} / ${group.class}`);
+    
+    const missingFields = [];
+    if (!group.session) missingFields.push('Session');
+    if (!group.term) missingFields.push('Term');
+    if (!group.class) missingFields.push('Class');
+
+    if (missingFields.length > 0) {
+      console.warn(`Skipping group - Missing: ${missingFields.join(', ')}`);
+      continue;
+    }
+
+    const enrichedData = group.records.map((record) => {
+      return {
+        student_id: record.student_id,
+        student_name: record.student_name,
+        regNo: record.regNo,
+        ca1_score: record.ca1_score || 0,
+        ca2_score: record.ca2_score || 0,
+        midterm_score: record.midterm_score || 0,
+        exam_score: record.exam_score || 0,
+        grade: record.grade || '',
+        remarks: record.remarks || '',
+        subject: record.subject,
+        position: record.position || '-',
+        schoolId: schoolId,
+        schoolName: schoolName,
+        cloudSyncedAt: new Date().toISOString(),
+        sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
         sourceType: 'school_backend',
-        upsert: true,
-        metadata: {
-          backendUrl: AppState.schoolMetadata?.backendUrl || null,
-          syncedAt: new Date().toISOString(),
-          recordType: 'flattened_subjects',
-          totalRecords: enrichedData.length,
-          groupSession: group.session,
-          groupTerm: group.term,
-          groupClass: group.class
-        }
+        ...(record.skills && { skills: record.skills }),
+        ...(record.attendance && { attendance: record.attendance }),
+        ...(record.teacherComment && { teacherComment: record.teacherComment }),
+        ...(record.principalRemark && { principalRemark: record.principalRemark }),
+        ...(record.studentPosition && { studentPosition: record.studentPosition })
       };
+    });
 
-      console.log(`Sending payload for ${group.session}/${group.term}/${group.class} with ${enrichedData.length} records`);
+    const payload = {
+      schoolId,
+      schoolName,
+      session: group.session,
+      term: group.term,
+      class: group.class,
+      subject: 'Multiple',
+      resultType: 'exam_score',
+      results: enrichedData,
+      sourceType: 'school_backend',
+      upsert: true,
+      shouldUpdate: shouldUpdate, // Flag to indicate update vs. new
+      metadata: {
+        backendUrl: AppState.schoolMetadata?.backendUrl || null,
+        syncedAt: new Date().toISOString(),
+        recordType: 'flattened_subjects',
+        totalRecords: enrichedData.length,
+        groupSession: group.session,
+        groupTerm: group.term,
+        groupClass: group.class
+      }
+    };
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CONFIG.API_KEY || localStorage.getItem('apiKey')}`
-      };
+    console.log(`Sending payload for ${group.session}/${group.term}/${group.class} with ${enrichedData.length} records`);
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${CONFIG.API_KEY || localStorage.getItem('apiKey')}`
+    };
+
+    try {
       const response = await fetch(CONFIG.CLOUD_SYNC_ENDPOINT, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify(payload),
         mode: 'cors'
       });
-
-      console.log(`Response status for ${group.session}/${group.term}/${group.class}:`, response.status);
 
       if (!response.ok) {
         const errorData = await response.text();
@@ -888,7 +1120,6 @@ async function pushToUniversalCloud(e) {
       }
 
       const result = await response.json();
-      console.log('Success response:', result);
 
       if (result.success) {
         totalProcessed += enrichedData.length;
@@ -913,37 +1144,36 @@ async function pushToUniversalCloud(e) {
           resultType: 'exam_score',
           recordsCount: enrichedData.length,
           status: result.status,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          operation: shouldUpdate ? 'update' : 'create'
         });
       } else {
         showAlert('error', `Cloud push failed for ${group.session}/${group.term}/${group.class}: ${result.error || 'Unknown error'}`);
       }
+    } catch (err) {
+      console.error(`Push error for ${group.session}/${group.term}/${group.class}:`, err);
     }
+  }
 
-    // Final summary
-    if (uploadResults.length > 0) {
-      let summaryMessage = `✓ Successfully uploaded ${totalProcessed} records across ${uploadResults.length} group(s):\n`;
-      uploadResults.forEach(r => {
-        summaryMessage += `\n• ${r.session} / ${r.term} / ${r.class}: ${r.recordsCount} records (ID: ${r.uploadId})`;
-      });
-      
-      showAlert('success', summaryMessage);
-      
-      setTimeout(() => {
-        resetForm();
-      }, 2000);
-    } else {
-      showAlert('error', 'No groups were successfully uploaded');
-    }
+  // Final summary
+  if (uploadResults.length > 0) {
+    let summaryMessage = `✓ Successfully uploaded ${totalProcessed} records across ${uploadResults.length} group(s):\n`;
+    uploadResults.forEach(r => {
+      summaryMessage += `\n• ${r.session} / ${r.term} / ${r.class}: ${r.recordsCount} records (ID: ${r.uploadId})`;
+    });
+    
+    showAlert('success', summaryMessage);
+    
+    setTimeout(() => {
+      resetForm();
+    }, 2000);
+  } else {
+    showAlert('error', 'No groups were successfully uploaded');
+  }
 
-  } catch (err) {
-    console.error('Cloud push error:', err);
-    showAlert('error', `Cloud push failed: ${err.message}`);
-  } finally {
-    if (pushBtn) {
-      pushBtn.disabled = false;
-      pushBtn.innerHTML = originalText;
-    }
+  if (pushBtn) {
+    pushBtn.disabled = false;
+    pushBtn.innerHTML = originalText;
   }
 }
 
