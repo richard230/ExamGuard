@@ -50,10 +50,6 @@ function normalizeClass(className) {
   return normalized || className;
 }
 
-/**
- * POST /api/res/verify-student-report
- * Verify student report from universal cloud
- */
 router.post('/verify-student-report', authMiddleware, async (req, res) => {
   try {
     console.log('=== VERIFICATION REQUEST ===');
@@ -62,16 +58,16 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       regNo,
       scratchCard,
       sessionId,
-      termId,
-      classLevelId,
+      termName,
+      className,
       verificationPurpose,
       institutionName
     } = req.body;
 
-    console.log('Request Body:', { schoolId, regNo, termId, classLevelId });
+    console.log('Request Body:', { schoolId, regNo, termName, className });
 
     // Validate required fields
-    if (!schoolId || !regNo || !scratchCard || !sessionId || !termId || !classLevelId) {
+    if (!schoolId || !regNo || !scratchCard || !sessionId || !termName || !className) {
       return res.status(400).json({
         success: false,
         verified: false,
@@ -120,7 +116,12 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
 
     // Step 4: Get Term details and normalize
     console.log('Step 4: Fetching term details...');
-    const term = await Term.findById(termId);
+    const normalizedTermName = normalizeTerm(termName);
+    
+    const term = await Term.findOne({ 
+      name: { $regex: new RegExp('^' + normalizedTermName + '$', 'i') } 
+    });
+    
     if (!term) {
       return res.status(404).json({
         success: false,
@@ -128,8 +129,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
         message: 'Term not found'
       });
     }
-    const normalizedTerm = normalizeTerm(term.name);
-    console.log('✓ Term:', term.name, '-> Normalized:', normalizedTerm);
+    console.log('✓ Term:', term.name, '-> Normalized:', normalizedTermName);
 
     // Step 5: Get Session details
     console.log('Step 5: Fetching session details...');
@@ -145,13 +145,18 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
 
     // Step 6: Get Class details and normalize
     console.log('Step 6: Fetching class details...');
-    const classLevel = await Class.findById(classLevelId);
-    let className = normalizeClass(classLevelId);
+    const normalizedClassName = normalizeClass(className);
+    
+    const classLevel = await Class.findOne({
+      name: { $regex: new RegExp('^' + normalizedClassName + '$', 'i') }
+    });
+    
+    const finalClassName = classLevel ? normalizeClass(classLevel.name) : normalizedClassName;
+    
     if (classLevel) {
-      className = normalizeClass(classLevel.name);
-      console.log('✓ Class found in DB:', classLevel.name, '-> Normalized:', className);
+      console.log('✓ Class found in DB:', classLevel.name, '-> Normalized:', finalClassName);
     } else {
-      console.log('✓ Using class name as string:', classLevelId, '-> Normalized:', className);
+      console.log('✓ Using class name as string:', className, '-> Normalized:', finalClassName);
     }
 
     // Step 7: Query UniversalUpload with flexible matching
@@ -159,16 +164,16 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     console.log('Primary search criteria:', {
       schoolRef: schoolId,
       session: session.name,
-      term: normalizedTerm,
-      class: className
+      term: normalizedTermName,
+      class: finalClassName
     });
 
     // Try exact match first
     let universalUpload = await UniversalUpload.findOne({
       schoolRef: schoolId,
       session: session.name,
-      term: normalizedTerm,
-      class: className,
+      term: normalizedTermName,
+      class: finalClassName,
       status: 'completed'
     });
 
@@ -178,8 +183,8 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       universalUpload = await UniversalUpload.findOne({
         schoolRef: schoolId,
         session: session.name,
-        term: { $regex: new RegExp('^' + normalizedTerm + '$', 'i') },
-        class: { $regex: new RegExp('^' + className + '$', 'i') },
+        term: { $regex: new RegExp('^' + normalizedTermName + '$', 'i') },
+        class: { $regex: new RegExp('^' + finalClassName + '$', 'i') },
         status: 'completed'
       });
     }
@@ -188,16 +193,16 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     if (!universalUpload) {
       console.log('Trying flexible term matching...');
       // Get all variations of the term
-      const termVariations = [normalizedTerm];
-      if (normalizedTerm.includes('First')) termVariations.push('first term', 'FIRST TERM', '1');
-      if (normalizedTerm.includes('Second')) termVariations.push('second term', 'SECOND TERM', '2');
-      if (normalizedTerm.includes('Third')) termVariations.push('third term', 'THIRD TERM', '3');
+      const termVariations = [normalizedTermName];
+      if (normalizedTermName.includes('First')) termVariations.push('first term', 'FIRST TERM', '1');
+      if (normalizedTermName.includes('Second')) termVariations.push('second term', 'SECOND TERM', '2');
+      if (normalizedTermName.includes('Third')) termVariations.push('third term', 'THIRD TERM', '3');
 
       universalUpload = await UniversalUpload.findOne({
         schoolRef: schoolId,
         session: session.name,
         term: { $in: termVariations },
-        class: { $regex: new RegExp('^' + className + '$', 'i') },
+        class: { $regex: new RegExp('^' + finalClassName + '$', 'i') },
         status: 'completed'
       });
     }
@@ -220,7 +225,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       return res.status(404).json({
         success: false,
         verified: false,
-        message: `No results found for ${session.name} / ${normalizedTerm} / ${className}. Check server logs for available combinations.`
+        message: `No results found for ${session.name} / ${normalizedTermName} / ${finalClassName}. Check server logs for available combinations.`
       });
     }
 
@@ -317,8 +322,8 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
           name: term.name
         },
         classLevel: {
-          _id: classLevel?._id || classLevelId,
-          name: className
+          _id: classLevel?._id || finalClassName,
+          name: finalClassName
         },
         totalScore: totalScore.toFixed(2),
         averageScore: averageScore.toFixed(2),
