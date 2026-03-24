@@ -420,8 +420,7 @@ async function verifySchoolId() {
   }
 }
 
-// ===== HELPER: FLATTEN BACKEND SUMMARY DATA =====
-// ===== HELPER: FLATTEN BACKEND SUMMARY DATA =====
+// ===== HELPER: FLATTEN BACKEND SUMMARY DATA (for file uploads) =====
 function flattenBackendData(summaryData) {
   console.log('Flattening backend summary data...');
   
@@ -452,7 +451,6 @@ function flattenBackendData(summaryData) {
     const normalizedTerm = term;
 
     console.log(`Processing student ${idx + 1}: ${normalizedStudentName} (${subjects.length} subjects)`);
-    console.log(`  Session: ${normalizedSession}, Term: ${normalizedTerm}, Class: ${normalizedClass}`);
 
     // CRITICAL: Create a record for each subject while preserving session/term/class
     subjects.forEach(subject => {
@@ -460,17 +458,18 @@ function flattenBackendData(summaryData) {
         student_id: normalizedStudentId,
         student_name: normalizedStudentName,
         regNo: normalizedRegNo,
-        session: normalizedSession || '', // Preserve session per record
-        term: normalizedTerm || '', // Preserve term per record
-        class: normalizedClass || '', // Preserve class per record
-        subject: subject.subjectName || subject.name || subject.subject || '', // Subject name
-        resultType: 'exam_score', // Or detect from subject data
+        session: normalizedSession || '',
+        term: normalizedTerm || '',
+        class: normalizedClass || '',
+        subject: subject.subjectName || subject.name || subject.subject || '',
+        resultType: 'exam_score',
         ca1_score: parseFloat(subject.ca1_score) || parseFloat(subject.assessment1) || parseFloat(subject.ca1) || 0,
         ca2_score: parseFloat(subject.ca2_score) || parseFloat(subject.assessment2) || parseFloat(subject.ca2) || 0,
         midterm_score: parseFloat(subject.midterm_score) || parseFloat(subject.midTerm) || parseFloat(subject.midterm) || 0,
         exam_score: parseFloat(subject.exam_score) || parseFloat(subject.score) || parseFloat(subject.exam) || 0,
         grade: subject.grade || '',
-        remarks: subject.remarks || ''
+        remarks: subject.remarks || '',
+        position: subject.position || subject.subject_position || '-'
       });
     });
   });
@@ -549,11 +548,13 @@ async function fetchFromBackend() {
     if (data.data && Array.isArray(data.data)) {
       data = data.data;
     }
+
+    console.log('Raw API response sample:', data[0]);
     
-    // ✅ FLATTEN THE SUMMARY DATA INTO INDIVIDUAL RECORDS
-    AppState.data = flattenBackendData(Array.isArray(data) ? data : [data]);
+    // ✅ ENRICH DATA WITH COMPLETE STUDENT REPORTS
+    AppState.data = await enrichDataWithCompleteReports(data, validUrl, headers);
     
-    console.log('Flattened data sample:', AppState.data[0]);
+    console.log('Enriched data sample:', AppState.data[0]);
     
     // Mark as synced from backend
     AppState.isSyncedFromBackend = true;
@@ -569,7 +570,7 @@ async function fetchFromBackend() {
     };
     
     updatePreview();
-    showAlert('success', `✓ Synced ${AppState.data.length} subject records from backend (from ${Array.isArray(data) ? data.length : 1} students)`);
+    showAlert('success', `✓ Synced ${AppState.data.length} enriched subject records from backend (from ${Array.isArray(data) ? data.length : 1} students)`);
     
     // Show cloud push section
     showCloudPushOption();
@@ -581,6 +582,142 @@ async function fetchFromBackend() {
     fetchBtn.disabled = false;
     fetchBtn.innerHTML = originalText;
   }
+}
+
+// ===== NEW FUNCTION: ENRICH DATA WITH COMPLETE STUDENT REPORTS =====
+async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
+  console.log('Enriching data with complete student reports...');
+  
+  const enrichedRecords = [];
+  
+  for (const studentSummary of summaryData) {
+    try {
+      const {
+        studentId,
+        student_id,
+        studentName,
+        student_name,
+        regNo,
+        reg_no,
+        classLevel,
+        class: classFromData,
+        academicYear,
+        session,
+        term,
+        allResultIds = [] // All result IDs for this student group
+      } = studentSummary;
+
+      const normalizedStudentId = studentId || student_id;
+      const normalizedStudentName = studentName || student_name;
+      const normalizedRegNo = regNo || reg_no;
+      const normalizedClass = classLevel || classFromData;
+      const normalizedSession = academicYear || session;
+      const normalizedTerm = term;
+
+      console.log(`Fetching detailed report for: ${normalizedStudentName} (${normalizedSession}/${normalizedTerm}/${normalizedClass})`);
+
+      // Fetch complete student report from backend
+      let reportData = {
+        skills: { punctuality: '-', obedience: '-', honesty: '-', cleanliness: '-', initiative: '-', cooperation: '-' },
+        attendance: { present: '-', absent: '-', rate: 0 },
+        teacherComment: { comment: 'No comment on record', teacherName: 'Unknown' },
+        principalRemark: { remark: 'No remark on record', principalName: 'Unknown' },
+        studentPosition: 0
+      };
+
+      // Try to fetch complete report if we have result IDs
+      if (allResultIds && allResultIds.length > 0) {
+        try {
+          // Try to fetch report using first result ID or student ID
+          const reportUrl = new URL(
+            `${backendUrl.origin}/api/results/student/${normalizedStudentId}/report`
+          );
+          reportUrl.searchParams.set('sessionId', normalizedSession);
+          reportUrl.searchParams.set('termId', normalizedTerm);
+          reportUrl.searchParams.set('classId', normalizedClass);
+
+          const reportResponse = await fetch(reportUrl.toString(), {
+            method: 'GET',
+            headers,
+            mode: 'cors'
+          });
+
+          if (reportResponse.ok) {
+            const report = await reportResponse.json();
+            
+            // Extract skills and attendance from report
+            if (report.skillsReport) {
+              reportData.skills = report.skillsReport.skills || reportData.skills;
+              reportData.attendance = report.skillsReport.attendance || reportData.attendance;
+              reportData.teacherComment = {
+                comment: report.skillsReport.comment || 'No comment on record',
+                teacherName: report.teacherName || 'Unknown'
+              };
+            }
+
+            if (report.principalComment) {
+              reportData.principalRemark = {
+                remark: report.principalComment,
+                principalName: report.principalName || 'Unknown'
+              };
+            }
+
+            if (report.studentPosition) {
+              reportData.studentPosition = report.studentPosition;
+            }
+
+            console.log(`✓ Fetched complete report for ${normalizedStudentName}`);
+          }
+        } catch (err) {
+          console.warn(`Could not fetch detailed report for ${normalizedStudentName}:`, err.message);
+          // Continue with basic data
+        }
+      }
+
+      // Now flatten subjects with enriched data
+      const subjects = studentSummary.subjects || [];
+      
+      subjects.forEach(subject => {
+        enrichedRecords.push({
+          // Student info
+          student_id: normalizedStudentId,
+          student_name: normalizedStudentName,
+          regNo: normalizedRegNo,
+          
+          // Metadata
+          session: normalizedSession,
+          term: normalizedTerm,
+          class: normalizedClass,
+          
+          // Subject scores
+          subject: subject.name || subject.subjectName || subject.subject || '',
+          ca1_score: parseFloat(subject.ca1_score) || parseFloat(subject.ca1) || 0,
+          ca2_score: parseFloat(subject.ca2_score) || parseFloat(subject.ca2) || 0,
+          midterm_score: parseFloat(subject.midterm_score) || parseFloat(subject.midterm) || 0,
+          exam_score: parseFloat(subject.exam_score) || parseFloat(subject.exam) || 0,
+          grade: subject.grade || '',
+          remarks: subject.remarks || '',
+          
+          // Subject-specific data
+          position: subject.position || subject.subject_position || '-', // Subject position
+          
+          // Enriched data (same for all subjects of this student)
+          skills: reportData.skills,
+          attendance: reportData.attendance,
+          teacherComment: reportData.teacherComment,
+          principalRemark: reportData.principalRemark,
+          studentPosition: reportData.studentPosition
+        });
+      });
+
+    } catch (err) {
+      console.error(`Error enriching student data:`, err);
+      // Continue with next student
+    }
+  }
+
+  console.log(`Enriched ${enrichedRecords.length} subject records with complete metadata`);
+  return enrichedRecords;
 }
 
 // ===== PUSH TO UNIVERSAL CLOUD (FINAL VERSION) =====
@@ -667,7 +804,7 @@ async function pushToUniversalCloud(e) {
         continue;
       }
 
-      // Enrich records with school info and preserve metadata
+        // Enrich records with school info and preserve metadata
       const enrichedData = group.records.map((record, idx) => {
         return {
           student_id: record.student_id,
@@ -680,11 +817,18 @@ async function pushToUniversalCloud(e) {
           grade: record.grade || '',
           remarks: record.remarks || '',
           subject: record.subject,
+          position: record.position || '-', // Add subject position
           schoolId: schoolId,
           schoolName: schoolName,
           cloudSyncedAt: new Date().toISOString(),
           sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
-          sourceType: 'school_backend'
+          sourceType: 'school_backend',
+          // Add enriched metadata if available
+          ...(record.skills && { skills: record.skills }),
+          ...(record.attendance && { attendance: record.attendance }),
+          ...(record.teacherComment && { teacherComment: record.teacherComment }),
+          ...(record.principalRemark && { principalRemark: record.principalRemark }),
+          ...(record.studentPosition && { studentPosition: record.studentPosition })
         };
       });
 
