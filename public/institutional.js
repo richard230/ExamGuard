@@ -455,9 +455,14 @@
     }
 
     // ============ DISPLAY REPORT ============
+    // ============ DISPLAY REPORT ============
     function displayReport(data) {
       document.getElementById('reportEmpty').style.display = 'none';
       document.getElementById('reportCard').style.display = 'block';
+
+      // Convert string values to numbers
+      const totalScore = parseFloat(data.totalScore) || 0;
+      const averageScore = parseFloat(data.averageScore) || 0;
 
       // Header
       document.getElementById('reportStudentName').textContent = data.studentName;
@@ -468,9 +473,15 @@
       // Summary
       document.getElementById('reportTerm').textContent = data.term.name;
       document.getElementById('reportClass').textContent = data.classLevel.name;
-      document.getElementById('reportTotalScore').textContent = data.totalScore.toFixed(2);
-      document.getElementById('reportAverageScore').textContent = (data.totalScore / data.subjects.length).toFixed(2);
-      document.getElementById('reportHighestScore').textContent = Math.max(...data.subjects.map(s => s.total));
+      document.getElementById('reportTotalScore').textContent = totalScore.toFixed(2);
+      document.getElementById('reportAverageScore').textContent = averageScore.toFixed(2);
+      
+      // Calculate highest score from subjects
+      let highestScore = 0;
+      if (data.subjects && data.subjects.length > 0) {
+        highestScore = Math.max(...data.subjects.map(s => parseFloat(s.total) || 0));
+      }
+      document.getElementById('reportHighestScore').textContent = highestScore.toFixed(2);
       
       const gradeEl = document.getElementById('reportGrade');
       gradeEl.textContent = data.overallGrade;
@@ -479,20 +490,31 @@
       // Subjects
       const tableBody = document.getElementById('subjectsTableBody');
       tableBody.innerHTML = '';
-      data.subjects.forEach(subject => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td class="subject-name">${subject.name}</td>
-          <td class="score">${subject.ca1 || '-'}</td>
-          <td class="score">${subject.ca2 || '-'}</td>
-          <td class="score">${subject.midterm || '-'}</td>
-          <td class="score">${subject.exam || '-'}</td>
-          <td class="score score-total">${subject.total.toFixed(2)}</td>
-          <td style="text-align: center;"><span class="grade-badge grade-${subject.grade.toLowerCase()}">${subject.grade}</span></td>
-          <td class="position">${subject.position}</td>
-        `;
-        tableBody.appendChild(row);
-      });
+      
+      if (!data.subjects || data.subjects.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: var(--text-light);">No subject data</td></tr>';
+      } else {
+        data.subjects.forEach(subject => {
+          const row = document.createElement('tr');
+          const total = parseFloat(subject.total) || 0;
+          const ca1 = subject.ca1 || '-';
+          const ca2 = subject.ca2 || '-';
+          const midterm = subject.midterm || '-';
+          const exam = subject.exam || '-';
+          
+          row.innerHTML = `
+            <td class="subject-name">${subject.name}</td>
+            <td class="score">${ca1}</td>
+            <td class="score">${ca2}</td>
+            <td class="score">${midterm}</td>
+            <td class="score">${exam}</td>
+            <td class="score score-total">${total.toFixed(2)}</td>
+            <td style="text-align: center;"><span class="grade-badge grade-${(subject.grade || 'f').toLowerCase()}">${subject.grade}</span></td>
+            <td class="position">${subject.position}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+      }
 
       // Skills
       if (data.skills) {
@@ -506,9 +528,10 @@
 
       // Attendance
       if (data.attendance) {
-        document.getElementById('attendancePresent').textContent = data.attendance.present;
-        document.getElementById('attendanceAbsent').textContent = data.attendance.absent;
-        document.getElementById('attendanceRate').textContent = data.attendance.rate.toFixed(1) + '%';
+        document.getElementById('attendancePresent').textContent = data.attendance.present || '-';
+        document.getElementById('attendanceAbsent').textContent = data.attendance.absent || '-';
+        const rate = parseFloat(data.attendance.rate) || 0;
+        document.getElementById('attendanceRate').textContent = rate.toFixed(1) + '%';
       }
 
       // Comments
