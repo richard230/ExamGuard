@@ -421,6 +421,7 @@ async function verifySchoolId() {
 }
 
 // ===== HELPER: FLATTEN BACKEND SUMMARY DATA =====
+// ===== HELPER: FLATTEN BACKEND SUMMARY DATA =====
 function flattenBackendData(summaryData) {
   console.log('Flattening backend summary data...');
   
@@ -429,38 +430,54 @@ function flattenBackendData(summaryData) {
   summaryData.forEach((studentSummary, idx) => {
     const {
       studentId,
+      student_id,
       studentName,
+      student_name,
       regNo,
+      reg_no,
       classLevel,
+      class: classFromData,
       term,
       academicYear,
+      session,
       subjects = []
     } = studentSummary;
 
-    console.log(`Processing student ${idx + 1}:`, studentName, `(${subjects.length} subjects)`);
+    // Normalize field names (handle both camelCase and snake_case)
+    const normalizedStudentId = studentId || student_id;
+    const normalizedStudentName = studentName || student_name;
+    const normalizedRegNo = regNo || reg_no;
+    const normalizedClass = classLevel || classFromData;
+    const normalizedSession = academicYear || session;
+    const normalizedTerm = term;
 
-    // Create a record for each subject
+    console.log(`Processing student ${idx + 1}: ${normalizedStudentName} (${subjects.length} subjects)`);
+    console.log(`  Session: ${normalizedSession}, Term: ${normalizedTerm}, Class: ${normalizedClass}`);
+
+    // CRITICAL: Create a record for each subject while preserving session/term/class
     subjects.forEach(subject => {
       flattenedRecords.push({
-        student_id: studentId,
-        student_name: studentName,
-        regNo: regNo,
-        session: academicYear || '', // Map academicYear to session
-        term: term || '', // Already has term
-        class: classLevel || '', // Map classLevel to class
-        subject: subject.subjectName || subject.name || '', // Subject name
+        student_id: normalizedStudentId,
+        student_name: normalizedStudentName,
+        regNo: normalizedRegNo,
+        session: normalizedSession || '', // Preserve session per record
+        term: normalizedTerm || '', // Preserve term per record
+        class: normalizedClass || '', // Preserve class per record
+        subject: subject.subjectName || subject.name || subject.subject || '', // Subject name
         resultType: 'exam_score', // Or detect from subject data
-        ca1_score: parseFloat(subject.ca1_score) || parseFloat(subject.assessment1) || 0,
-        ca2_score: parseFloat(subject.ca2_score) || parseFloat(subject.assessment2) || 0,
-        midterm_score: parseFloat(subject.midterm_score) || parseFloat(subject.midTerm) || 0,
-        exam_score: parseFloat(subject.exam_score) || parseFloat(subject.score) || 0,
-        grade: subject.grade || studentSummary.grade || '',
-        remarks: subject.remarks || studentSummary.remarks || ''
+        ca1_score: parseFloat(subject.ca1_score) || parseFloat(subject.assessment1) || parseFloat(subject.ca1) || 0,
+        ca2_score: parseFloat(subject.ca2_score) || parseFloat(subject.assessment2) || parseFloat(subject.ca2) || 0,
+        midterm_score: parseFloat(subject.midterm_score) || parseFloat(subject.midTerm) || parseFloat(subject.midterm) || 0,
+        exam_score: parseFloat(subject.exam_score) || parseFloat(subject.score) || parseFloat(subject.exam) || 0,
+        grade: subject.grade || '',
+        remarks: subject.remarks || ''
       });
     });
   });
 
   console.log(`Flattened ${flattenedRecords.length} individual subject records`);
+  console.log('Sample record:', flattenedRecords[0]);
+  
   return flattenedRecords;
 }
 
@@ -592,41 +609,6 @@ async function pushToUniversalCloud(e) {
     return;
   }
 
-  // Get fields from form OR from first flattened record
-  let session = document.getElementById('sessionInput')?.value?.trim();
-  let term = document.getElementById('termInput')?.value?.trim();
-  let className = document.getElementById('classInput')?.value?.trim();
-  let subject = document.getElementById('subjectInput')?.value?.trim();
-  let scoreType = document.getElementById('scoreTypeInput')?.value?.trim();
-
-  // Fall back to values from first record (already normalized by flatten function)
-  if (!session) session = AppState.data[0]?.session?.trim() || '';
-  if (!term) term = AppState.data[0]?.term?.trim() || '';
-  if (!className) className = AppState.data[0]?.class?.trim() || '';
-  // Note: subject is per-record, not global
-  if (!scoreType) scoreType = AppState.data[0]?.resultType?.trim() || 'exam_score';
-
-  console.log('Detected fields:', { session, term, className, scoreType });
-
-  // ✅ VALIDATE REQUIRED FIELDS
-  const missingFields = [];
-  if (!session) missingFields.push('Session (academicYear)');
-  if (!term) missingFields.push('Term');
-  if (!className) missingFields.push('Class (classLevel)');
-  if (!scoreType) missingFields.push('Score Type');
-
-  if (missingFields.length > 0) {
-    showAlert('error', `Missing required fields:\n• ${missingFields.join('\n• ')}\n\nPlease ensure your backend data contains these fields.`);
-    return;
-  }
-
-  // Check if API key exists
-  let apiKey = CONFIG.API_KEY || localStorage.getItem('apiKey');
-  if (!apiKey) {
-    showAlert('error', 'API key not found. Please sync from backend with API key first.');
-    return;
-  }
-
   const pushBtn = event?.target || document.querySelector('[onclick*="pushToUniversalCloud"]');
   const originalText = pushBtn?.innerHTML;
   
@@ -638,110 +620,178 @@ async function pushToUniversalCloud(e) {
   try {
     console.log('Preparing data for cloud push...');
     
-    // ✅ ENRICH ALL RECORDS WITH SCHOOL INFO
-    const enrichedData = AppState.data.map((record, idx) => {
-      // Get subject from each record (since they're flattened)
-      const recordSubject = record.subject || subject || '';
+    // CRITICAL: Group records by session/term/class combination
+    const groupedByMetadata = {};
+    
+    AppState.data.forEach((record, idx) => {
+      const session = record.session?.trim() || 'Unknown';
+      const term = record.term?.trim() || 'Unknown';
+      const className = record.class?.trim() || 'Unknown';
       
-      return {
-        student_id: record.student_id,
-        student_name: record.student_name,
-        ca1_score: record.ca1_score || 0,
-        ca2_score: record.ca2_score || 0,
-        midterm_score: record.midterm_score || 0,
-        exam_score: record.exam_score || 0,
-        grade: record.grade || '',
-        remarks: record.remarks || '',
-        // Per-record metadata
-        subject: recordSubject,
-        schoolId: schoolId,
-        schoolName: schoolName,
-        cloudSyncedAt: new Date().toISOString(),
-        sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
-        sourceType: 'school_backend'
-      };
-    });
-
-    console.log('Enriched data sample:', enrichedData[0]);
-
-    // ✅ PAYLOAD WITH GLOBAL METADATA AND ENRICHED RESULTS
-    const payload = {
-      schoolId,
-      schoolName,
-      session,
-      term,
-      class: className,
-      subject: subject || 'Multiple', // Indicate multiple subjects per record
-      resultType: scoreType,
-      results: enrichedData,
-      sourceType: 'school_backend',
-      upsert: true,
-      metadata: {
-        backendUrl: AppState.schoolMetadata?.backendUrl || null,
-        syncedAt: new Date().toISOString(),
-        recordType: 'flattened_subjects',
-        totalRecords: enrichedData.length
-      }
-    };
-
-    console.log('Sending payload with', enrichedData.length, 'records');
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    };
-
-    const response = await fetch(CONFIG.CLOUD_SYNC_ENDPOINT, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(payload),
-      mode: 'cors'
-    });
-
-    console.log('Response status:', response.status);
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Cloud push error response:', errorData);
+      // Create a unique key for this session/term/class combination
+      const key = `${session}||${term}||${className}`;
       
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const jsonError = JSON.parse(errorData);
-        errorMessage = jsonError.error || jsonError.message || errorMessage;
-      } catch (e) {
-        errorMessage = errorData || errorMessage;
+      if (!groupedByMetadata[key]) {
+        groupedByMetadata[key] = {
+          session,
+          term,
+          class: className,
+          records: []
+        };
       }
       
-      throw new Error(errorMessage);
-    }
+      groupedByMetadata[key].records.push(record);
+    });
 
-    const result = await response.json();
-    console.log('Success response:', result);
+    console.log(`Grouped data into ${Object.keys(groupedByMetadata).length} session/term/class combinations:`);
+    Object.entries(groupedByMetadata).forEach(([key, group]) => {
+      console.log(`  ${group.session} / ${group.term} / ${group.class}: ${group.records.length} records`);
+    });
 
-    if (result.success) {
-      const successCount = result.totalRecords || enrichedData.length;
-      showAlert('success', `✓ Upload received (ID: ${result.uploadId}). Processing ${successCount} subject records...`);
+    // CRITICAL: Process each session/term/class group separately
+    let totalProcessed = 0;
+    const uploadResults = [];
+
+    for (const [key, group] of Object.entries(groupedByMetadata)) {
+      console.log(`\nProcessing group: ${group.session} / ${group.term} / ${group.class}`);
       
-      logCloudSync({
-        uploadId: result.uploadId,
-        schoolId,
-        schoolName,
-        session,
-        term,
-        class: className,
-        subject: 'Multiple Subjects',
-        resultType: scoreType,
-        recordsCount: enrichedData.length,
-        status: result.status,
-        timestamp: new Date().toISOString()
+      // Validate required fields for this group
+      const missingFields = [];
+      if (!group.session) missingFields.push('Session');
+      if (!group.term) missingFields.push('Term');
+      if (!group.class) missingFields.push('Class');
+
+      if (missingFields.length > 0) {
+        console.warn(`Skipping group - Missing: ${missingFields.join(', ')}`);
+        showAlert('warning', `Skipping group with missing fields: ${missingFields.join(', ')}`);
+        continue;
+      }
+
+      // Enrich records with school info and preserve metadata
+      const enrichedData = group.records.map((record, idx) => {
+        return {
+          student_id: record.student_id,
+          student_name: record.student_name,
+          regNo: record.regNo,
+          ca1_score: record.ca1_score || 0,
+          ca2_score: record.ca2_score || 0,
+          midterm_score: record.midterm_score || 0,
+          exam_score: record.exam_score || 0,
+          grade: record.grade || '',
+          remarks: record.remarks || '',
+          subject: record.subject,
+          schoolId: schoolId,
+          schoolName: schoolName,
+          cloudSyncedAt: new Date().toISOString(),
+          sourceBackend: AppState.schoolMetadata?.backendUrl || 'Unknown',
+          sourceType: 'school_backend'
+        };
       });
 
+      // Create payload for this specific session/term/class group
+      const payload = {
+        schoolId,
+        schoolName,
+        session: group.session,
+        term: group.term,
+        class: group.class,
+        subject: 'Multiple', // Multiple subjects per record
+        resultType: 'exam_score',
+        results: enrichedData,
+        sourceType: 'school_backend',
+        upsert: true,
+        metadata: {
+          backendUrl: AppState.schoolMetadata?.backendUrl || null,
+          syncedAt: new Date().toISOString(),
+          recordType: 'flattened_subjects',
+          totalRecords: enrichedData.length,
+          groupSession: group.session,
+          groupTerm: group.term,
+          groupClass: group.class
+        }
+      };
+
+      console.log(`Sending payload for ${group.session}/${group.term}/${group.class} with ${enrichedData.length} records`);
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CONFIG.API_KEY || localStorage.getItem('apiKey')}`
+      };
+
+      const response = await fetch(CONFIG.CLOUD_SYNC_ENDPOINT, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload),
+        mode: 'cors'
+      });
+
+      console.log(`Response status for ${group.session}/${group.term}/${group.class}:`, response.status);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Cloud push error response:', errorData);
+        
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const jsonError = JSON.parse(errorData);
+          errorMessage = jsonError.error || jsonError.message || errorMessage;
+        } catch (e) {
+          errorMessage = errorData || errorMessage;
+        }
+        
+        showAlert('error', `Failed to push ${group.session}/${group.term}/${group.class}: ${errorMessage}`);
+        continue;
+      }
+
+      const result = await response.json();
+      console.log('Success response:', result);
+
+      if (result.success) {
+        totalProcessed += enrichedData.length;
+        
+        uploadResults.push({
+          session: group.session,
+          term: group.term,
+          class: group.class,
+          uploadId: result.uploadId,
+          recordsCount: enrichedData.length,
+          status: 'success'
+        });
+
+        logCloudSync({
+          uploadId: result.uploadId,
+          schoolId,
+          schoolName,
+          session: group.session,
+          term: group.term,
+          class: group.class,
+          subject: 'Multiple Subjects',
+          resultType: 'exam_score',
+          recordsCount: enrichedData.length,
+          status: result.status,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        showAlert('error', `Cloud push failed for ${group.session}/${group.term}/${group.class}: ${result.error || 'Unknown error'}`);
+      }
+    }
+
+    // Final summary
+    if (uploadResults.length > 0) {
+      let summaryMessage = `✓ Successfully uploaded ${totalProcessed} records across ${uploadResults.length} group(s):\n`;
+      uploadResults.forEach(r => {
+        summaryMessage += `\n• ${r.session} / ${r.term} / ${r.class}: ${r.recordsCount} records (ID: ${r.uploadId})`;
+      });
+      
+      showAlert('success', summaryMessage);
+      
       setTimeout(() => {
         resetForm();
       }, 2000);
     } else {
-      showAlert('error', `Cloud push failed: ${result.error || 'Unknown error'}`);
+      showAlert('error', 'No groups were successfully uploaded');
     }
+
   } catch (err) {
     console.error('Cloud push error:', err);
     showAlert('error', `Cloud push failed: ${err.message}`);
