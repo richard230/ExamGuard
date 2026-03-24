@@ -1,4 +1,3 @@
-
     // ============ API CONFIGURATION ============
     const API_BASE_URL = "https://examguard-8rxe.onrender.com";
     const token = localStorage.getItem('adminToken') || '';
@@ -7,6 +6,9 @@
     let currentReport = null;
     let verificationHistory = [];
     let schools = [];
+    let sessions = [];
+    let terms = [];
+    let classLevels = [];
     let unreadMessages = 0;
     let unreadTickets = 0;
 
@@ -44,6 +46,12 @@
             errorEl.classList.remove('show');
           }
         });
+      });
+
+      // Load terms and class levels when session is selected
+      document.getElementById('session').addEventListener('change', function() {
+        loadTerms(this.value);
+        loadClassLevels(this.value);
       });
     }
 
@@ -118,69 +126,209 @@
       });
     }
 
-async function loadSessions() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/academics/sessions`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    async function loadSessions() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/academics/sessions`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    if (!response.ok) {
-      console.error('Sessions API Response:', response.status, response.statusText);
-      throw new Error(`Failed to load sessions: ${response.status}`);
+        if (!response.ok) {
+          console.error('Sessions API Response:', response.status, response.statusText);
+          throw new Error(`Failed to load sessions: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        console.log('Sessions Response:', responseData);
+        
+        // Extract sessions array from the response
+        let sessionsList = [];
+        
+        if (Array.isArray(responseData)) {
+          // Direct array response
+          sessionsList = responseData;
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+          // Wrapped in data property
+          sessionsList = responseData.data;
+        } else if (responseData.sessions && Array.isArray(responseData.sessions)) {
+          // Wrapped in sessions property
+          sessionsList = responseData.sessions;
+        }
+        
+        console.log('Parsed Sessions:', sessionsList);
+        
+        sessions = sessionsList;
+        const sessionSelect = document.getElementById('session');
+        
+        if (!sessionSelect) {
+          console.error('Session select element not found');
+          return;
+        }
+        
+        // Clear existing options (keep the default)
+        while (sessionSelect.options.length > 1) {
+          sessionSelect.remove(1);
+        }
+        
+        if (sessionsList.length === 0) {
+          console.warn('No sessions returned from API');
+          return;
+        }
+        
+        sessionsList.forEach(session => {
+          const option = document.createElement('option');
+          option.value = session._id || session.id;
+          option.textContent = session.name;
+          sessionSelect.appendChild(option);
+          console.log('Added session option:', session.name);
+        });
+        
+      } catch (error) {
+        console.error('Error loading sessions:', error);
+        showAlert('warning', 'Could not load sessions. Please contact support.');
+      }
     }
-    
-    const responseData = await response.json();
-    console.log('Sessions Response:', responseData);
-    
-    // Extract sessions array from the response
-    let sessions = [];
-    
-    if (Array.isArray(responseData)) {
-      // Direct array response
-      sessions = responseData;
-    } else if (responseData.data && Array.isArray(responseData.data)) {
-      // Wrapped in data property
-      sessions = responseData.data;
-    } else if (responseData.sessions && Array.isArray(responseData.sessions)) {
-      // Wrapped in sessions property
-      sessions = responseData.sessions;
+
+    async function loadTerms(sessionId) {
+      try {
+        if (!sessionId) {
+          // Clear terms if no session selected
+          terms = [];
+          populateTermDropdown();
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/academics/terms?sessionId=${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.error('Terms API Response:', response.status, response.statusText);
+          throw new Error(`Failed to load terms: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        console.log('Terms Response:', responseData);
+        
+        // Extract terms array from the response
+        let termsList = [];
+        
+        if (Array.isArray(responseData)) {
+          termsList = responseData;
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+          termsList = responseData.data;
+        } else if (responseData.terms && Array.isArray(responseData.terms)) {
+          termsList = responseData.terms;
+        }
+        
+        console.log('Parsed Terms:', termsList);
+        
+        terms = termsList;
+        populateTermDropdown();
+        
+      } catch (error) {
+        console.error('Error loading terms:', error);
+        showAlert('warning', 'Could not load terms. Please contact support.');
+      }
     }
-    
-    console.log('Parsed Sessions:', sessions);
-    
-    const sessionSelect = document.getElementById('session');
-    
-    if (!sessionSelect) {
-      console.error('Session select element not found');
-      return;
+
+    function populateTermDropdown() {
+      const termSelect = document.getElementById('term');
+      
+      // Clear existing options (keep the default)
+      while (termSelect.options.length > 1) {
+        termSelect.remove(1);
+      }
+      
+      if (!Array.isArray(terms) || terms.length === 0) {
+        console.warn('No terms to populate');
+        return;
+      }
+      
+      terms.forEach(term => {
+        const option = document.createElement('option');
+        // Store the term ID as value (for reference), but we'll extract the name when submitting
+        option.value = term._id || term.id;
+        option.textContent = term.name;
+        option.dataset.termName = term.name; // Store term name in data attribute
+        termSelect.appendChild(option);
+        console.log('Added term option:', term.name);
+      });
     }
-    
-    // Clear existing options (keep the default)
-    while (sessionSelect.options.length > 1) {
-      sessionSelect.remove(1);
+
+    async function loadClassLevels(sessionId) {
+      try {
+        if (!sessionId) {
+          // Clear class levels if no session selected
+          classLevels = [];
+          populateClassLevelDropdown();
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/academics/class-levels?sessionId=${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.error('Class Levels API Response:', response.status, response.statusText);
+          throw new Error(`Failed to load class levels: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        console.log('Class Levels Response:', responseData);
+        
+        // Extract class levels array from the response
+        let classLevelsList = [];
+        
+        if (Array.isArray(responseData)) {
+          classLevelsList = responseData;
+        } else if (responseData.data && Array.isArray(responseData.data)) {
+          classLevelsList = responseData.data;
+        } else if (responseData.classLevels && Array.isArray(responseData.classLevels)) {
+          classLevelsList = responseData.classLevels;
+        }
+        
+        console.log('Parsed Class Levels:', classLevelsList);
+        
+        classLevels = classLevelsList;
+        populateClassLevelDropdown();
+        
+      } catch (error) {
+        console.error('Error loading class levels:', error);
+        showAlert('warning', 'Could not load class levels. Please contact support.');
+      }
     }
-    
-    if (sessions.length === 0) {
-      console.warn('No sessions returned from API');
-      return;
+
+    function populateClassLevelDropdown() {
+      const classSelect = document.getElementById('classLevel');
+      
+      // Clear existing options (keep the default)
+      while (classSelect.options.length > 1) {
+        classSelect.remove(1);
+      }
+      
+      if (!Array.isArray(classLevels) || classLevels.length === 0) {
+        console.warn('No class levels to populate');
+        return;
+      }
+      
+      classLevels.forEach(classLevel => {
+        const option = document.createElement('option');
+        option.value = classLevel._id || classLevel.id;
+        option.textContent = classLevel.name;
+        option.dataset.className = classLevel.name; // Store class name in data attribute
+        classSelect.appendChild(option);
+        console.log('Added class level option:', classLevel.name);
+      });
     }
-    
-    sessions.forEach(session => {
-      const option = document.createElement('option');
-      option.value = session._id || session.id;
-      option.textContent = session.name;
-      sessionSelect.appendChild(option);
-      console.log('Added session option:', session.name);
-    });
-    
-  } catch (error) {
-    console.error('Error loading sessions:', error);
-    showAlert('warning', 'Could not load sessions. Please contact support.');
-  }
-}
 
     async function loadVerificationHistory() {
       try {
@@ -210,71 +358,80 @@ async function loadSessions() {
     }
 
     // ============ VERIFICATION FUNCTION ============
-async function handleVerification(event) {
-  event.preventDefault();
+    async function handleVerification(event) {
+      event.preventDefault();
 
-  if (!validateForm()) {
-    return;
-  }
+      if (!validateForm()) {
+        return;
+      }
 
-  const schoolId = document.getElementById('schoolName').value;
-  const regNo = document.getElementById('regNo').value.trim();
-  const scratchCard = document.getElementById('scratchCard').value.trim();
-  const sessionId = document.getElementById('session').value;
-  const termId = document.getElementById('term').value;
-  const classLevelId = document.getElementById('classLevel').value;
-  const verificationPurpose = document.getElementById('verificationPurpose').value;
-  const institutionName = document.getElementById('institutionName').value.trim();
-
-  try {
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span> Verifying...';
-
-    const response = await fetch(`${API_BASE_URL}/api/res/verify-student-report`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        schoolId,
-        regNo,
-        scratchCard,
-        sessionId,
-        termId,
-        classLevelId,
-        verificationPurpose,
-        institutionName
-      })
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.verified) {
-      currentReport = data.data;
-      displayReport(currentReport);
-      showAlert('success', `Report for ${currentReport.studentName} verified successfully!`);
+      const schoolId = document.getElementById('schoolName').value;
+      const regNo = document.getElementById('regNo').value.trim();
+      const scratchCard = document.getElementById('scratchCard').value.trim();
+      const sessionId = document.getElementById('session').value;
       
-      // Add to history
-      addToHistory(currentReport);
+      // Get term name from the selected option's data attribute
+      const termSelect = document.getElementById('term');
+      const termOption = termSelect.options[termSelect.selectedIndex];
+      const termName = termOption.dataset.termName || termOption.text;
       
-      // Scroll to report
-      setTimeout(() => {
-        document.getElementById('reportCard').scrollIntoView({ behavior: 'smooth' });
-      }, 300);
-    } else {
-      showAlert('error', data.message || 'Verification failed. Please check your details and try again.');
+      // Get class name from the selected option's data attribute
+      const classSelect = document.getElementById('classLevel');
+      const classOption = classSelect.options[classSelect.selectedIndex];
+      const className = classOption.dataset.className || classOption.text;
+      
+      const verificationPurpose = document.getElementById('verificationPurpose').value;
+      const institutionName = document.getElementById('institutionName').value.trim();
+
+      try {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+        const response = await fetch(`${API_BASE_URL}/api/res/verify-student-report`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            schoolId,
+            regNo,
+            scratchCard,
+            sessionId,
+            termName, // Send term name instead of ID
+            className, // Send class name instead of ID
+            verificationPurpose,
+            institutionName
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.verified) {
+          currentReport = data.data;
+          displayReport(currentReport);
+          showAlert('success', `Report for ${currentReport.studentName} verified successfully!`);
+          
+          // Add to history
+          addToHistory(currentReport);
+          
+          // Scroll to report
+          setTimeout(() => {
+            document.getElementById('reportCard').scrollIntoView({ behavior: 'smooth' });
+          }, 300);
+        } else {
+          showAlert('error', data.message || 'Verification failed. Please check your details and try again.');
+        }
+      } catch (error) {
+        console.error('Verification error:', error);
+        showAlert('error', 'An error occurred during verification. Please try again later.');
+      } finally {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Report';
+      }
     }
-  } catch (error) {
-    console.error('Verification error:', error);
-    showAlert('error', 'An error occurred during verification. Please try again later.');
-  } finally {
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verify Report';
-  }
-}
 
     function validateForm() {
       let isValid = true;
