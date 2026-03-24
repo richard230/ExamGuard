@@ -86,8 +86,9 @@ app.use('/api/demo-requests', demoRequestsRoute);
 app.use('/api/schools', schoolsRoute);
 
 // ✅ NEW: Universal Cloud Sync & Upload
-app.use('/api/cloud/sync', universalUploadRoute);
-
+app.use('/api/cloud', universalUploadRoute);
+// Cloud/Universal Upload Routes
+app.use('/api/cloud/sync', require('./routes/cloud'));
 // Static page routes
 app.get('/demo-request', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'demo-request.html'));
