@@ -72,10 +72,14 @@ const universalUploadSchema = new mongoose.Schema({
     required: true
   },
 
-  // Upload Data
+  // Upload Data - Enhanced with enriched metadata
   results: [{
+    // Student Identification
     student_id: { type: String, required: true },
     student_name: { type: String, required: true },
+    regNo: { type: String, default: null },
+    
+    // Academic Scores
     ca1_score: { type: Number, default: null },
     ca2_score: { type: Number, default: null },
     midterm_score: { type: Number, default: null },
@@ -83,6 +87,44 @@ const universalUploadSchema = new mongoose.Schema({
     grade: { type: String, default: null },
     remarks: { type: String, default: null },
     subject: { type: String, default: null },
+    
+    // Subject Position (Where student ranked in this subject)
+    position: { type: String, default: '-' },
+    position_numeric: { type: Number, default: null },
+    
+    // Affective Skills Assessment
+    skills: {
+      punctuality: { type: String, default: '-' },
+      obedience: { type: String, default: '-' },
+      honesty: { type: String, default: '-' },
+      cleanliness: { type: String, default: '-' },
+      initiative: { type: String, default: '-' },
+      cooperation: { type: String, default: '-' }
+    },
+    
+    // Attendance Data
+    attendance: {
+      present: { type: String, default: '-' },
+      absent: { type: String, default: '-' },
+      rate: { type: Number, default: 0 }
+    },
+    
+    // Teacher Comment
+    teacherComment: {
+      comment: { type: String, default: 'No comment on record' },
+      teacherName: { type: String, default: 'Unknown' }
+    },
+    
+    // Principal Remark
+    principalRemark: {
+      remark: { type: String, default: 'No remark on record' },
+      principalName: { type: String, default: 'Unknown' }
+    },
+    
+    // Student Overall Position in Class
+    studentPosition: { type: Number, default: 0 },
+    
+    // Record Status
     recordStatus: {
       type: String,
       enum: ['valid', 'invalid', 'duplicate', 'processed'],
@@ -143,7 +185,12 @@ const universalUploadSchema = new mongoose.Schema({
     fileName: String,
     checksumHash: String,
     retryCount: { type: Number, default: 0 },
-    tags: [String]
+    tags: [String],
+    recordType: { type: String, default: 'flattened_subjects' }, // e.g., 'flattened_subjects', 'summary'
+    groupSession: String,
+    groupTerm: String,
+    groupClass: String,
+    classSize: { type: Number, default: 0 }
   },
 
   // Soft Delete
@@ -157,8 +204,11 @@ const universalUploadSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 universalUploadSchema.index({ schoolId: 1, session: 1, term: 1 });
+universalUploadSchema.index({ schoolId: 1, session: 1, term: 1, class: 1 });
 universalUploadSchema.index({ status: 1, uploadTimestamp: -1 });
 universalUploadSchema.index({ createdAt: -1 });
+universalUploadSchema.index({ 'results.student_id': 1 });
+universalUploadSchema.index({ 'results.position': 1 });
 
 // Generate Upload ID before saving
 universalUploadSchema.pre('save', function(next) {
@@ -179,6 +229,41 @@ universalUploadSchema.methods.softDelete = function(userId) {
   this.deletedAt = new Date();
   this.deletedBy = userId;
   return this.save();
+};
+
+// Method to get complete student data by student_id
+universalUploadSchema.methods.getStudentData = function(studentId) {
+  return this.results.filter(r => r.student_id === studentId);
+};
+
+// Method to get all unique students in upload
+universalUploadSchema.methods.getUniqueStudents = function() {
+  const uniqueStudents = {};
+  this.results.forEach(r => {
+    if (!uniqueStudents[r.student_id]) {
+      uniqueStudents[r.student_id] = {
+        student_id: r.student_id,
+        student_name: r.student_name,
+        regNo: r.regNo,
+        skills: r.skills,
+        attendance: r.attendance,
+        teacherComment: r.teacherComment,
+        principalRemark: r.principalRemark,
+        studentPosition: r.studentPosition,
+        subjects: []
+      };
+    }
+    uniqueStudents[r.student_id].subjects.push({
+      subject: r.subject,
+      ca1_score: r.ca1_score,
+      ca2_score: r.ca2_score,
+      midterm_score: r.midterm_score,
+      exam_score: r.exam_score,
+      grade: r.grade,
+      position: r.position
+    });
+  });
+  return Object.values(uniqueStudents);
 };
 
 module.exports = mongoose.model('UniversalUpload', universalUploadSchema);
