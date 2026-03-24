@@ -75,7 +75,7 @@ const universalUploadSchema = new mongoose.Schema({
   // Upload Data - Enhanced with enriched metadata
   results: [{
     // Student Identification
-    student_id: { type: String, required: true },
+    student_id: { type: String, required: true, index: true },
     student_name: { type: String, required: true },
     regNo: { type: String, default: null },
     
@@ -190,7 +190,8 @@ const universalUploadSchema = new mongoose.Schema({
     groupSession: String,
     groupTerm: String,
     groupClass: String,
-    classSize: { type: Number, default: 0 }
+    classSize: { type: Number, default: 0 },
+    operation: { type: String, enum: ['create', 'update'], default: 'create' } // Track if upload or update
   },
 
   // Soft Delete
@@ -202,15 +203,18 @@ const universalUploadSchema = new mongoose.Schema({
   collection: 'universal_uploads'
 });
 
-// Indexes for better query performance
+// ===== INDEXES FOR BETTER QUERY PERFORMANCE =====
 universalUploadSchema.index({ schoolId: 1, session: 1, term: 1 });
 universalUploadSchema.index({ schoolId: 1, session: 1, term: 1, class: 1 });
+universalUploadSchema.index({ schoolId: 1, session: 1, term: 1, class: 1, subject: 1 });
 universalUploadSchema.index({ status: 1, uploadTimestamp: -1 });
 universalUploadSchema.index({ createdAt: -1 });
 universalUploadSchema.index({ 'results.student_id': 1 });
 universalUploadSchema.index({ 'results.position': 1 });
+universalUploadSchema.index({ uploadId: 1 });
+universalUploadSchema.index({ isDeleted: 1, status: 1 });
 
-// Generate Upload ID before saving
+// ===== PRE-SAVE HOOKS =====
 universalUploadSchema.pre('save', function(next) {
   if (!this.uploadId) {
     // Generate unique uploadId
@@ -223,7 +227,219 @@ universalUploadSchema.pre('save', function(next) {
   next();
 });
 
-// Instance methods
+// ===== STATIC METHODS (Class-level) =====
+
+/**
+ * Check if an exact duplicate upload already exists
+ * @param {String} schoolId - School ID
+ * @param {String} session - Academic session
+ * @param {String} term - Term (normalized)
+ * @param {String} classLevel - Class/Grade level
+ * @param {String} subject - Subject name
+ * @returns {Promise<Object|null>} - Duplicate upload object or null
+ */
+universalUploadSchema.statics.checkDuplicateUpload = async function(schoolId, session, term, classLevel, subject) {
+  try {
+    const existingUpload = await this.findOne({
+      schoolId,
+      session,
+      term,
+      class: classLevel,
+      subject,
+      status: { $in: ['pending', 'processing', 'completed'] },
+      isDeleted: false
+    }).select('uploadId status processingStats createdAt results');
+    
+    return existingUpload || null;
+  } catch (err) {
+    console.error('Error checking duplicate upload:', err);
+    return null;
+  }
+};
+
+/**
+ * Check for partial duplicates (same students from same school/session/term)
+ * @param {String} schoolId - School ID
+ * @param {String} session - Academic session
+ * @param {String} term - Term
+ * @param {Array} studentIds - Array of student IDs to check
+ * @returns {Promise<Object|null>} - Overlap information or null
+ */
+universalUploadSchema.statics.checkPartialDuplicate = async function(schoolId, session, term, studentIds) {
+  try {
+    const existingUpload = await this.findOne({
+      schoolId,
+      session,
+      term,
+      status: { $in: ['pending', 'processing', 'completed'] },
+      isDeleted: false,
+      'results.student_id': { $in: studentIds }
+    }).select('uploadId results status');
+    
+    if (!existingUpload) return null;
+    
+    // Count overlapping records
+    const overlapCount = existingUpload.results.filter(r => 
+      studentIds.includes(r.student_id)
+    ).length;
+    
+    return {
+      uploadId: existingUpload.uploadId,
+      overlapCount,
+      totalInExisting: existingUpload.results.length,
+      status: existingUpload.status,
+      overlappingStudents: existingUpload.results
+        .filter(r => studentIds.includes(r.student_id))
+        .map(r => ({ id: r.student_id, name: r.student_name }))
+    };
+  } catch (err) {
+    console.error('Error checking partial duplicate:', err);
+    return null;
+  }
+};
+
+/**
+ * Get existing upload details
+ * @param {String} schoolId - School ID
+ * @param {String} session - Academic session
+ * @param {String} term - Term
+ * @param {String} classLevel - Class/Grade level
+ * @param {String} subject - Subject name
+ * @returns {Promise<Object|null>} - Upload details or null
+ */
+universalUploadSchema.statics.getExistingUpload = async function(schoolId, session, term, classLevel, subject) {
+  try {
+    return await this.findOne({
+      schoolId,
+      session,
+      term,
+      class: classLevel,
+      subject,
+      status: { $in: ['pending', 'processing', 'completed'] },
+      isDeleted: false
+    }).select('uploadId status processingStats createdAt metadata');
+  } catch (err) {
+    console.error('Error fetching existing upload:', err);
+    return null;
+  }
+};
+
+/**
+ * Get all uploads for a school
+ * @param {String} schoolId - School ID
+ * @param {Object} filters - Optional filters (session, term, status)
+ * @returns {Promise<Array>} - Array of uploads
+ */
+universalUploadSchema.statics.getSchoolUploads = async function(schoolId, filters = {}) {
+  try {
+    const query = { schoolId, isDeleted: false, ...filters };
+    return await this.find(query)
+      .select('uploadId session term class subject status processingStats createdAt metadata')
+      .sort({ createdAt: -1 });
+  } catch (err) {
+    console.error('Error fetching school uploads:', err);
+    return [];
+  }
+};
+
+/**
+ * Get upload history for a specific school/session/term
+ * @param {String} schoolId - School ID
+ * @param {String} session - Academic session
+ * @param {String} term - Term
+ * @returns {Promise<Array>} - Array of uploads
+ */
+universalUploadSchema.statics.getUploadHistory = async function(schoolId, session, term) {
+  try {
+    return await this.find({
+      schoolId,
+      session,
+      term,
+      isDeleted: false
+    })
+    .select('uploadId class subject status processingStats createdAt metadata')
+    .sort({ createdAt: -1 })
+    .limit(50);
+  } catch (err) {
+    console.error('Error fetching upload history:', err);
+    return [];
+  }
+};
+
+/**
+ * Find duplicate uploads by student and session
+ * @param {String} studentId - Student ID
+ * @param {String} session - Academic session
+ * @param {String} term - Term
+ * @returns {Promise<Array>} - Array of duplicate uploads
+ */
+universalUploadSchema.statics.findDuplicatesByStudent = async function(studentId, session, term) {
+  try {
+    return await this.find({
+      session,
+      term,
+      'results.student_id': studentId,
+      isDeleted: false
+    }).select('uploadId schoolId schoolName class subject status createdAt');
+  } catch (err) {
+    console.error('Error finding student duplicates:', err);
+    return [];
+  }
+};
+
+/**
+ * Mark records as processed
+ * @param {String} uploadId - Upload ID
+ * @param {Number} successCount - Number of successful records
+ * @param {Number} failureCount - Number of failed records
+ * @returns {Promise<Object>} - Updated upload
+ */
+universalUploadSchema.statics.markAsProcessed = async function(uploadId, successCount = 0, failureCount = 0) {
+  try {
+    const update = {
+      status: failureCount > 0 ? 'partially_failed' : 'completed',
+      'processingStats.successCount': successCount,
+      'processingStats.failureCount': failureCount,
+      'processingStats.processingCompletedAt': new Date(),
+      'processingStats.processingDurationMs': Date.now() - new Date(
+        await this.findOne({ uploadId }).select('createdAt')
+      ).getTime()
+    };
+    
+    return await this.findOneAndUpdate({ uploadId }, update, { new: true });
+  } catch (err) {
+    console.error('Error marking as processed:', err);
+    return null;
+  }
+};
+
+/**
+ * Calculate checksum for duplicate detection
+ * @param {String} schoolId - School ID
+ * @param {String} session - Academic session
+ * @param {String} term - Term
+ * @param {String} classLevel - Class/Grade level
+ * @param {Array} results - Result records
+ * @returns {String} - Checksum hash
+ */
+universalUploadSchema.statics.calculateChecksum = function(schoolId, session, term, classLevel, results) {
+  const crypto = require('crypto');
+  const data = JSON.stringify({
+    schoolId,
+    session,
+    term,
+    classLevel,
+    studentCount: results.length,
+    studentIds: results.map(r => r.student_id).sort().join(',')
+  });
+  return crypto.createHash('sha256').update(data).digest('hex');
+};
+
+// ===== INSTANCE METHODS =====
+
+/**
+ * Soft delete this upload
+ */
 universalUploadSchema.methods.softDelete = function(userId) {
   this.isDeleted = true;
   this.deletedAt = new Date();
@@ -231,12 +447,10 @@ universalUploadSchema.methods.softDelete = function(userId) {
   return this.save();
 };
 
-// Method to get complete student data by student_id
-universalUploadSchema.methods.getStudentData = function(studentId) {
-  return this.results.filter(r => r.student_id === studentId);
-};
-
-// Method to get all unique students in upload
+/**
+ * Get all unique students in this upload
+ * @returns {Array} - Array of unique students
+ */
 universalUploadSchema.methods.getUniqueStudents = function() {
   const uniqueStudents = {};
   this.results.forEach(r => {
@@ -264,6 +478,99 @@ universalUploadSchema.methods.getUniqueStudents = function() {
     });
   });
   return Object.values(uniqueStudents);
+};
+
+/**
+ * Get student data by student ID
+ * @param {String} studentId - Student ID
+ * @returns {Array} - Array of results for the student
+ */
+universalUploadSchema.methods.getStudentData = function(studentId) {
+  return this.results.filter(r => r.student_id === studentId);
+};
+
+/**
+ * Get upload summary
+ * @returns {Object} - Summary information
+ */
+universalUploadSchema.methods.getSummary = function() {
+  const uniqueStudents = new Set(this.results.map(r => r.student_id)).size;
+  const uniqueSubjects = new Set(this.results.map(r => r.subject)).size;
+  
+  return {
+    uploadId: this.uploadId,
+    schoolId: this.schoolId,
+    schoolName: this.schoolName,
+    session: this.session,
+    term: this.term,
+    class: this.class,
+    subject: this.subject,
+    status: this.status,
+    totalRecords: this.results.length,
+    uniqueStudents,
+    uniqueSubjects,
+    successCount: this.processingStats.successCount,
+    failureCount: this.processingStats.failureCount,
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt,
+    metadata: this.metadata
+  };
+};
+
+/**
+ * Update upload with new results
+ * @param {Array} newResults - New result records
+ * @returns {Promise<Object>} - Updated upload
+ */
+universalUploadSchema.methods.updateResults = async function(newResults) {
+  try {
+    this.results = newResults;
+    this.processingStats.totalRecords = newResults.length;
+    this.status = 'pending'; // Reset to pending for reprocessing
+    this.metadata.retryCount = (this.metadata.retryCount || 0) + 1;
+    this.metadata.operation = 'update';
+    
+    return await this.save();
+  } catch (err) {
+    console.error('Error updating results:', err);
+    throw err;
+  }
+};
+
+/**
+ * Mark a record as having an error
+ * @param {Number} recordIndex - Index of the record
+ * @param {String} studentId - Student ID
+ * @param {String} error - Error message
+ */
+universalUploadSchema.methods.addError = function(recordIndex, studentId, error) {
+  this.errors.push({
+    recordIndex,
+    studentId,
+    error,
+    timestamp: new Date()
+  });
+};
+
+/**
+ * Get processing progress
+ * @returns {Object} - Progress information
+ */
+universalUploadSchema.methods.getProgress = function() {
+  const total = this.processingStats.totalRecords;
+  const success = this.processingStats.successCount;
+  const failure = this.processingStats.failureCount;
+  const processed = success + failure;
+  
+  return {
+    total,
+    processed,
+    remaining: total - processed,
+    success,
+    failure,
+    percentage: total > 0 ? Math.round((processed / total) * 100) : 0,
+    status: this.status
+  };
 };
 
 module.exports = mongoose.model('UniversalUpload', universalUploadSchema);
