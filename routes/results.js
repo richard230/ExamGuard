@@ -822,10 +822,18 @@ router.post('/upload', apiKeyAuth, async (req, res) => {
           subject: subjectObj._id,
           grade: row.grade,
           remarks: row.remarks || '',
-          status: row.status || 'Draft'
+          status: row.status || 'Draft',
+          subject_position: row.position || '-' // Store subject position
         };
 
-        resultData[`${resultType}_score`] = row.score;
+        resultData[`${resultType}_score`] = row.score || row.exam_score || 0;
+
+        // Store enriched metadata if available
+        if (row.skills) resultData.skills = row.skills;
+        if (row.attendance) resultData.attendance = row.attendance;
+        if (row.teacherComment) resultData.teacherComment = row.teacherComment;
+        if (row.principalRemark) resultData.principalRemark = row.principalRemark;
+        if (row.studentPosition) resultData.studentPosition = row.studentPosition;
 
         if (upsert) {
           const existingResult = await Result.findOne({
