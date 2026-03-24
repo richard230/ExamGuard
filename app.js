@@ -102,12 +102,9 @@ app.use('/api/exam', examRoute);
 app.use('/api/result', resultscbtRoute);
 app.use('/api/activity', activityRoute);
 app.use('/api/upload', uploadRoute);
-
-// Teachers
+app.use('/api/cloud', require('./routes/cloud'));
 app.use('/api/teachers', teacherResultsRoute);
 app.use('/api/teachers', teachersRoute);
-
-// School Management
 app.use('/api/assignments', assignmentsRoute);
 app.use('/api/hostel', hostelRoute);
 app.use('/api/subjects', subjectsRoute);
