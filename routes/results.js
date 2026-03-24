@@ -199,7 +199,7 @@ async function findOrCreateStudent(row, classId) {
 
 /**
  * BUILD REPORT DATA - Helper function
- * FIXED: Properly scopes all calculations to session/term
+ * FIXED: Properly scopes all calculations to session/term and includes all enriched data
  */
 async function buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings) {
   const data = [];
@@ -208,38 +208,42 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     const total = calculateResultTotal(r);
     const { grade, remark } = getGradeAndRemark(total);
 
-    let subjectPos = '';
+    let subjectPos = '-';
+    
     if (r.subject && r.subject.name) {
-      // Compute positions ONLY for PUBLISHED results in this session/term
-      const posMap = await computeAndPersistSubjectPositions({
-        classId: classObj._id,
-        sessionId: sessionObj._id,
-        termId: termObj._id,
-        subjectId: r.subject._id
-      });
-      
-      subjectPos = posMap[r._id.toString()]?.position || '';
-      
-      // Update this result with new grade/remark/position
-      if (r.grade !== grade || r.remarks !== remark || r.subject_position !== subjectPos) {
+      // Get or compute subject position
+      if (r.subject_position) {
+        // Already has position from database
+        subjectPos = r.subject_position;
+      } else {
+        // Compute positions for this subject
+        const posMap = await computeAndPersistSubjectPositions({
+          classId: classObj._id,
+          sessionId: sessionObj._id,
+          termId: termObj._id,
+          subjectId: r.subject._id
+        });
+        
+        subjectPos = posMap[r._id.toString()]?.position || '-';
+        
+        // Update this result with new position
         await Result.findByIdAndUpdate(r._id, {
-          grade: grade,
-          remarks: remark,
-          subject_position: subjectPos
+          subject_position: subjectPos,
+          subject_position_num: posMap[r._id.toString()]?.numeric || 0
         });
       }
     }
 
     data.push({
       subject: r.subject?.name || '',
-      ca1_score: r.ca1_score || '',
-      ca2_score: r.ca2_score || '',
-      midterm_score: r.midterm_score || '',
-      exam_score: r.exam_score || '',
-      total,
-      grade,
+      ca1_score: r.ca1_score || 0,
+      ca2_score: r.ca2_score || 0,
+      midterm_score: r.midterm_score || 0,
+      exam_score: r.exam_score || 0,
+      total: total,
+      grade: grade,
       remarks: remark,
-      subject_position: subjectPos
+      position: subjectPos // Use position instead of subject_position
     });
   }
 
@@ -251,23 +255,80 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     status: 'Published'  // Only count published
   }).then(students => students.length);
 
-  let skillsReport = { skills: { affective: {}, psychomotor: {} }, attendance: {}, comment: "" };
+  // Extract skills and attendance from student or initialize defaults
+  let skillsReport = { 
+    skills: { 
+      punctuality: '-', 
+      obedience: '-', 
+      honesty: '-', 
+      cleanliness: '-', 
+      initiative: '-', 
+      cooperation: '-' 
+    }, 
+    attendance: { present: '-', absent: '-', rate: 0 }, 
+    comment: "" 
+  };
+  
+  if (Array.isArray(results) && results.length > 0) {
+    const firstResult = results[0];
+    
+    // Check if skills data is in the result
+    if (firstResult.skills && typeof firstResult.skills === 'object') {
+      skillsReport.skills = {
+        punctuality: firstResult.skills.punctuality || '-',
+        obedience: firstResult.skills.obedience || '-',
+        honesty: firstResult.skills.honesty || '-',
+        cleanliness: firstResult.skills.cleanliness || '-',
+        initiative: firstResult.skills.initiative || '-',
+        cooperation: firstResult.skills.cooperation || '-'
+      };
+    }
+    
+    if (firstResult.attendance && typeof firstResult.attendance === 'object') {
+      skillsReport.attendance = {
+        present: firstResult.attendance.present || '-',
+        absent: firstResult.attendance.absent || '-',
+        rate: parseFloat(firstResult.attendance.rate) || 0
+      };
+    }
+    
+    if (firstResult.teacherComment && typeof firstResult.teacherComment === 'object') {
+      skillsReport.comment = firstResult.teacherComment.comment || '';
+    }
+  }
+  
+  // Also check in student skills reports
   if (Array.isArray(student.skillsReports)) {
     const found = student.skillsReports.find(r =>
       r.session?.toLowerCase() === sessionObj.name.toLowerCase() &&
       r.term?.toLowerCase() === termObj.name.toLowerCase()
     );
     if (found) {
-      skillsReport = {
-        skills: found.skills || { affective: {}, psychomotor: {} },
-        attendance: found.attendance || {},
-        comment: found.comment || ""
-      };
+      if (found.skills) {
+        skillsReport.skills = {
+          punctuality: found.skills.punctuality || '-',
+          obedience: found.skills.obedience || '-',
+          honesty: found.skills.honesty || '-',
+          cleanliness: found.skills.cleanliness || '-',
+          initiative: found.skills.initiative || '-',
+          cooperation: found.skills.cooperation || '-'
+        };
+      }
+      if (found.attendance) {
+        skillsReport.attendance = {
+          present: found.attendance.present || '-',
+          absent: found.attendance.absent || '-',
+          rate: parseFloat(found.attendance.rate) || 0
+        };
+      }
+      if (found.comment) {
+        skillsReport.comment = found.comment;
+      }
     }
   }
 
   const principalComment = skillsReport.comment || "";
-  const attendance = skillsReport.attendance || {};
+  const attendance = skillsReport.attendance || { present: '-', absent: '-', rate: 0 };
 
   // Get form master
   const classId = classObj._id.toString();
@@ -317,7 +378,17 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     term: termObj.name,
     studentPosition: studentPosition,
     nextTermDate: null,
-    dateIssued: new Date().toISOString()
+    dateIssued: new Date().toISOString(),
+    // Include skills data directly too
+    skills: skillsReport.skills,
+    teacherComment: {
+      comment: skillsReport.comment || 'No comment on record',
+      teacherName: formMasterName
+    },
+    principalRemark: {
+      remark: principalComment || 'No remark on record',
+      principalName: sessionSettings?.principalName || 'Principal'
+    }
   };
 }
 
@@ -476,7 +547,8 @@ router.get('/dashboard/student/:studentId', async (req, res) => {
 
 /**
  * GET: Fetch results for admin/teacher dashboard with transformed data
- * Groups results by student (merged subjects) and only shows Published results
+ * Groups results by student (merged subjects) and includes all enriched data
+ * Only shows Published results
  */
 router.get('/dashboard/all', async (req, res) => {
   try {
@@ -536,17 +608,47 @@ router.get('/dashboard/all', async (req, res) => {
           classLevel: result.class?.name,
           academicYear: result.session?.name,
           term: result.term?.name,
+          classId: result.class?._id,
+          sessionId: result.session?._id,
+          termId: result.term?._id,
           subjects: [],
           totalScore: 0,
           grade: '',
           remarks: '',
           status: result.status,
-          resultIds: [] // Store all result IDs for this student group
+          resultIds: [], // Store all result IDs for this student group
+          // Initialize enriched data
+          skills: {
+            punctuality: '-',
+            obedience: '-',
+            honesty: '-',
+            cleanliness: '-',
+            initiative: '-',
+            cooperation: '-'
+          },
+          attendance: {
+            present: '-',
+            absent: '-',
+            rate: 0
+          },
+          teacherComment: {
+            comment: 'No comment on record',
+            teacherName: 'Unknown'
+          },
+          principalRemark: {
+            remark: 'No remark on record',
+            principalName: 'Unknown'
+          },
+          studentPosition: 0,
+          classSize: 0
         };
       }
       
       const total = calculateResultTotal(result);
       const { grade, remark } = getGradeAndRemark(total);
+      
+      // Extract subject position if available
+      const subjectPosition = result.subject_position || result.subject_position_num || '-';
       
       studentMap[key].subjects.push({
         name: result.subject?.name,
@@ -556,11 +658,29 @@ router.get('/dashboard/all', async (req, res) => {
         exam_score: result.exam_score || 0,
         total: total,
         grade: grade,
-        remarks: remark
+        remarks: remark,
+        position: subjectPosition // Add subject position
       });
       
       studentMap[key].totalScore += total;
       studentMap[key].resultIds.push(result._id.toString());
+      
+      // Extract enriched data from first result (should be same for all subjects of same student)
+      if (result.skills && Object.keys(result.skills).length > 0) {
+        studentMap[key].skills = result.skills;
+      }
+      if (result.attendance && Object.keys(result.attendance).length > 0) {
+        studentMap[key].attendance = result.attendance;
+      }
+      if (result.teacherComment && Object.keys(result.teacherComment).length > 0) {
+        studentMap[key].teacherComment = result.teacherComment;
+      }
+      if (result.principalRemark && Object.keys(result.principalRemark).length > 0) {
+        studentMap[key].principalRemark = result.principalRemark;
+      }
+      if (result.studentPosition) {
+        studentMap[key].studentPosition = result.studentPosition;
+      }
     });
 
     // Transform to array and calculate final grades
@@ -578,12 +698,23 @@ router.get('/dashboard/all', async (req, res) => {
         classLevel: student.classLevel,
         academicYear: student.academicYear,
         term: student.term,
+        classId: student.classId,
+        sessionId: student.sessionId,
+        termId: student.termId,
         totalScore: numSubjects > 0 ? (student.totalScore / numSubjects).toFixed(2) : '0.00',
         totalSubjectScore: student.totalScore.toFixed(2),
         numSubjects: numSubjects,
         grade: grade,
         remarks: remark,
         status: student.status,
+        // Include enriched data in response
+        skills: student.skills,
+        attendance: student.attendance,
+        teacherComment: student.teacherComment,
+        principalRemark: student.principalRemark,
+        studentPosition: student.studentPosition,
+        classSize: student.classSize,
+        // Include subjects with positions
         subjects: student.subjects
       };
     });
