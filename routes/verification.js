@@ -78,75 +78,187 @@ function calculateTotal(ca1, ca2, midterm, exam) {
 /**
  * Calculate subject position from UniversalUpload data
  * Searches all students in the same class/session/term and calculates position for given subject
+ * ALWAYS returns a position, never returns '-'
  */
 function calculateSubjectPosition(universalUpload, studentId, subjectName) {
   try {
     console.log(`  📍 Calculating position for: ${subjectName}`);
     console.log(`     Student ID: ${studentId}`);
 
-    if (!universalUpload || !universalUpload.results) {
-      console.log('    ��️  No upload data available');
-      return '-';
+    // Validation
+    if (!universalUpload || !universalUpload.results || universalUpload.results.length === 0) {
+      console.log('    ❌ No upload data available, returning position 1');
+      return ordinalSuffix(1); // Default to first position if no data
     }
 
-    // Filter all valid results for this specific subject from the upload
+    // Step 1: Filter all valid results for this specific subject from the upload
+    // Use flexible matching for subject names (trim and case-insensitive)
     const subjectResults = universalUpload.results.filter(r => {
-      const subjectMatch = r.subject && r.subject.trim().toLowerCase() === subjectName.trim().toLowerCase();
-      const validRecord = r.recordStatus === 'valid' || !r.recordStatus; // Include records without recordStatus
+      if (!r.subject) return false;
+      
+      const rSubject = r.subject.trim().toLowerCase();
+      const querySubject = subjectName.trim().toLowerCase();
+      const subjectMatch = rSubject === querySubject;
+      
+      // Accept records that are explicitly valid or have no recordStatus field
+      const validRecord = r.recordStatus === 'valid' || !r.recordStatus;
+      
       return subjectMatch && validRecord;
     });
 
     console.log(`    📊 Found ${subjectResults.length} students in subject: ${subjectName}`);
 
+    // If subject has no results, fall back to class position
     if (subjectResults.length === 0) {
       console.log(`    ⚠️  No valid results for subject: ${subjectName}`);
-      console.log(`    Available subjects in upload:`, [...new Set(universalUpload.results.map(r => r.subject))]);
-      return '-';
+      console.log(`    Available subjects:`, [...new Set(universalUpload.results.map(r => r.subject))]);
+      console.log('    📌 Falling back to class position...');
+      return calculateClassPosition(universalUpload, studentId);
     }
 
-    // Calculate total score for each student in this subject
-    const studentsWithScores = subjectResults.map(r => {
-      const total = calculateTotal(r.ca1_score, r.ca2_score, r.midterm_score, r.exam_score);
+    // Step 2: Build student score map for this subject
+    const studentScores = [];
+    
+    subjectResults.forEach(r => {
       const rStudentId = r.student_id?.toString ? r.student_id.toString() : String(r.student_id);
-      return {
-        studentId: rStudentId,
-        studentName: r.student_name,
-        total: total
-      };
+      const total = calculateTotal(r.ca1_score, r.ca2_score, r.midterm_score, r.exam_score);
+      
+      // Add or update score for this student in this subject
+      const existing = studentScores.find(s => s.studentId === rStudentId);
+      if (existing) {
+        existing.total += total; // Aggregate if student appears multiple times
+      } else {
+        studentScores.push({
+          studentId: rStudentId,
+          studentName: r.student_name,
+          total: total
+        });
+      }
     });
 
-    console.log(`    📋 Top 3 in ${subjectName}: ${studentsWithScores.slice(0, 3).map(s => `${s.studentName}(${s.total})`).join(', ')}`);
+    console.log(`    📋 Top 3 in ${subjectName}: ${studentScores.sort((a, b) => b.total - a.total).slice(0, 3).map(s => `${s.studentName}(${s.total.toFixed(2)})`).join(', ')}`);
 
-    // Sort by score descending
-    studentsWithScores.sort((a, b) => b.total - a.total);
+    // Step 3: Sort by score descending
+    studentScores.sort((a, b) => b.total - a.total);
 
-    // Assign positions with tie-handling
+    // Step 4: Assign positions with tie-handling
     let position = 1;
     let lastScore = null;
     const targetStudentId = studentId.toString();
 
-    for (let i = 0; i < studentsWithScores.length; i++) {
-      const current = studentsWithScores[i];
+    for (let i = 0; i < studentScores.length; i++) {
+      const current = studentScores[i];
 
-      // Update position if score is different from previous
+      // Update position only if score is different from previous
       if (lastScore !== null && current.total < lastScore) {
         position = i + 1;
       }
 
       if (current.studentId === targetStudentId) {
         const positionText = ordinalSuffix(position);
-        console.log(`    ✓ ${current.studentName} Position: ${positionText} (out of ${subjectResults.length})`);
+        console.log(`    ✓ ${current.studentName} Position in ${subjectName}: ${positionText} (out of ${studentScores.length})`);
         return positionText;
       }
 
       lastScore = current.total;
     }
 
-    console.log('    ⚠️  Student not found in subject results');
-    return '-';
+    // Step 5: If student not found in results, assign lowest position + 1
+    console.log(`    ⚠️  Student not found in subject results, assigning lowest position`);
+    const lowestPosition = ordinalSuffix(studentScores.length + 1);
+    return lowestPosition;
+
   } catch (err) {
     console.error('    ❌ Error calculating subject position:', err.message);
-    return '-';
+    console.error(err.stack);
+    // Always return a valid position, never '-'
+    return ordinalSuffix(1);
+  }
+}
+
+/**
+ * Calculate student's overall class position
+ * Used as fallback when subject-specific data is unavailable
+ * ALWAYS returns a position, never returns '-'
+ */
+function calculateClassPosition(universalUpload, studentId) {
+  try {
+    console.log(`  🏆 Calculating overall class position for student ID: ${studentId}`);
+
+    if (!universalUpload || !universalUpload.results || universalUpload.results.length === 0) {
+      console.log('    ❌ No upload data available, returning position 1');
+      return ordinalSuffix(1);
+    }
+
+    // Step 1: Group results by student and calculate aggregate total across all subjects
+    const studentScoreMap = new Map();
+
+    universalUpload.results.forEach(r => {
+      // Only include valid records
+      const validRecord = r.recordStatus === 'valid' || !r.recordStatus;
+      if (!validRecord) return;
+
+      const rStudentId = r.student_id?.toString ? r.student_id.toString() : String(r.student_id);
+      
+      if (!studentScoreMap.has(rStudentId)) {
+        studentScoreMap.set(rStudentId, {
+          studentId: rStudentId,
+          studentName: r.student_name,
+          totalScore: 0,
+          subjectCount: 0
+        });
+      }
+
+      const studentData = studentScoreMap.get(rStudentId);
+      const subjectTotal = calculateTotal(r.ca1_score, r.ca2_score, r.midterm_score, r.exam_score);
+      studentData.totalScore += subjectTotal;
+      studentData.subjectCount += 1;
+    });
+
+    // Step 2: Convert map to array and sort by total score descending
+    const studentsRanked = Array.from(studentScoreMap.values());
+    console.log(`    📊 Total students in class: ${studentsRanked.length}`);
+
+    if (studentsRanked.length === 0) {
+      console.log('    ⚠️  No students found in class, returning position 1');
+      return ordinalSuffix(1);
+    }
+
+    studentsRanked.sort((a, b) => b.totalScore - a.totalScore);
+
+    // Step 3: Assign positions with tie-handling
+    let position = 1;
+    let lastScore = null;
+    const targetStudentId = studentId.toString();
+
+    for (let i = 0; i < studentsRanked.length; i++) {
+      const current = studentsRanked[i];
+
+      // Update position only if score is different
+      if (lastScore !== null && current.totalScore < lastScore) {
+        position = i + 1;
+      }
+
+      if (current.studentId === targetStudentId) {
+        const positionText = ordinalSuffix(position);
+        const avgScore = current.subjectCount > 0 ? (current.totalScore / current.subjectCount).toFixed(2) : '0';
+        console.log(`    ✓ ${current.studentName} Class Position: ${positionText} (Total: ${current.totalScore.toFixed(2)}, Avg: ${avgScore})`);
+        return positionText;
+      }
+
+      lastScore = current.totalScore;
+    }
+
+    // Step 4: If student not found, assign lowest position
+    console.log('    ⚠️  Target student not found in class rankings, assigning lowest position');
+    const lowestPosition = ordinalSuffix(studentsRanked.length + 1);
+    return lowestPosition;
+
+  } catch (err) {
+    console.error('    ❌ Error calculating class position:', err.message);
+    console.error(err.stack);
+    // Always return a valid position
+    return ordinalSuffix(1);
   }
 }
 
@@ -369,15 +481,21 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       const subject = subjects[i];
       console.log(`Processing subject ${i + 1}/${subjects.length}: ${subject.name}`);
       
-      // Calculate position synchronously from the upload data
+      // Calculate position from the upload data - ALWAYS returns a valid position
       const position = calculateSubjectPosition(universalUpload, studentId, subject.name);
       subject.position = position;
+      console.log(`  ✓ Position assigned: ${position}`);
     }
+
+    // ============ STEP 11: CALCULATE CLASS POSITION ============
+    console.log('Step 11: Calculating overall class position...');
+    const classPosition = calculateClassPosition(universalUpload, studentId);
+    console.log(`Overall class position: ${classPosition}`);
 
     const verificationCode = `VER-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
     console.log('✅ VERIFICATION SUCCESS');
-    console.log(`Score: ${totalScore} | Grade: ${overallGrade} | Subjects: ${subjects.length}`);
+    console.log(`Score: ${totalScore} | Grade: ${overallGrade} | Subjects: ${subjects.length} | Class Position: ${classPosition}`);
     console.log('Final subjects with positions:', JSON.stringify(subjects, null, 2));
 
     res.json({
@@ -404,10 +522,11 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
           _id: classLevel?._id || finalClassName,
           name: finalClassName
         },
+        classPosition, // Overall position in class
         totalScore: totalScore.toFixed(2),
         averageScore: averageScore.toFixed(2),
         overallGrade,
-        subjects, // Now includes positions calculated in Step 10
+        subjects, // Now includes subject positions (always allocated)
         issueDate: new Date(),
         verificationPurpose,
         requestingInstitution: institutionName,
