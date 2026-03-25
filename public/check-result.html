@@ -1012,502 +1012,504 @@
       </section>
     </main>
   </div>
+<script>
+  const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+  const API_TIMEOUT = 15000; // 15 seconds timeout
 
-  <script>
-    const API_BASE_URL = "https://examguard-8rxe.onrender.com";
-    const API_TIMEOUT = 15000; // 15 seconds timeout
+  let lastStudentProfile = null;
+  let isLoadingResults = false;
+  let currentResultData = null; // Store current result for download
 
-    let lastStudentProfile = null;
-    let isLoadingResults = false;
-    let currentResultData = null; // Store current result for download
-
-    // ============================================
-    // Helper: Fetch with timeout
-    // ============================================
-    async function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      try {
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        throw error;
-      }
+  // ============================================
+  // Helper: Fetch with timeout
+  // ============================================
+  async function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
     }
+  }
 
-    // ============================================
-    // Helper: Show/Hide Messages
-    // ============================================
-    function showError(message) {
-      const errorEl = document.getElementById('searchError');
-      errorEl.textContent = message;
-      errorEl.classList.add('show');
-      document.getElementById('searchSuccess').classList.remove('show');
-    }
+  // ============================================
+  // Helper: Show/Hide Messages
+  // ============================================
+  function showError(message) {
+    const errorEl = document.getElementById('searchError');
+    errorEl.textContent = message;
+    errorEl.classList.add('show');
+    document.getElementById('searchSuccess').classList.remove('show');
+  }
 
-    function showSuccess(message) {
-      const successEl = document.getElementById('searchSuccess');
-      successEl.textContent = message;
-      successEl.classList.add('show');
-      document.getElementById('searchError').classList.remove('show');
-    }
+  function showSuccess(message) {
+    const successEl = document.getElementById('searchSuccess');
+    successEl.textContent = message;
+    successEl.classList.add('show');
+    document.getElementById('searchError').classList.remove('show');
+  }
 
-    function clearMessages() {
-      document.getElementById('searchError').classList.remove('show');
-      document.getElementById('searchSuccess').classList.remove('show');
-    }
+  function clearMessages() {
+    document.getElementById('searchError').classList.remove('show');
+    document.getElementById('searchSuccess').classList.remove('show');
+  }
 
-    // ============================================
-    // Sidebar & Navigation Functions
-    // ============================================
-    const hamburger = document.getElementById('hamburger');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
+  // ============================================
+  // Sidebar & Navigation Functions
+  // ============================================
+  const hamburger = document.getElementById('hamburger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
 
-    hamburger?.addEventListener('click', () => {
-      sidebar.classList.toggle('open');
-      overlay.classList.toggle('visible');
-      document.body.classList.toggle('no-scroll');
-    });
+  hamburger?.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('visible');
+    document.body.classList.toggle('no-scroll');
+  });
 
-    overlay?.addEventListener('click', () => {
+  overlay?.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('visible');
+    document.body.classList.remove('no-scroll');
+  });
+
+  function navClick(event) {
+    event.preventDefault();
+    const link = event.currentTarget;
+    document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+    link.classList.add('active');
+    
+    // Close sidebar on mobile
+    if (window.innerWidth <= 720) {
       sidebar.classList.remove('open');
       overlay.classList.remove('visible');
       document.body.classList.remove('no-scroll');
-    });
-
-    function navClick(event) {
-      event.preventDefault();
-      const link = event.currentTarget;
-      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-      link.classList.add('active');
-      
-      // Close sidebar on mobile
-      if (window.innerWidth <= 720) {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('visible');
-        document.body.classList.remove('no-scroll');
-      }
-
-      // Navigate if href is set
-      const href = link.getAttribute('href');
-      if (href && href !== '#') {
-        window.location.href = href;
-      }
     }
 
-    // ============================================
-    // Student Profile & Result Management
-    // ============================================
-    let affixedClass = null, affixedSession = null, affixedTerm = null;
-
-    async function autofillRegNoAndAffix() {
-      const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
-      const regNoInput = document.getElementById('regNoInput');
-      const submitBtn = document.getElementById('submitBtn');
-      
-      if (!token) {
-        regNoInput.value = '';
-        regNoInput.placeholder = 'Login required';
-        regNoInput.disabled = true;
-        regNoInput.readOnly = true;
-        submitBtn.disabled = true;
-        return;
-      }
-
-      try {
-        const res = await fetchWithTimeout(API_BASE_URL + '/api/students/me', {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-
-        if (res.ok) {
-          const student = await res.json();
-          lastStudentProfile = student;
-          const regNo = student.regNo || student.student_id || '';
-          
-          regNoInput.value = regNo;
-          regNoInput.disabled = true;
-          regNoInput.readOnly = true;
-          submitBtn.disabled = false;
-          
-          affixedClass = student.class_name || student.class || null;
-          affixedSession = student.session || null;
-          affixedTerm = student.term || null;
-
-          if (affixedClass) {
-            const classInput = document.getElementById('classInput');
-            classInput.value = affixedClass;
-            classInput.disabled = true;
-          }
-          if (affixedSession) {
-            const sessionInput = document.getElementById('sessionInput');
-            sessionInput.value = affixedSession;
-            sessionInput.disabled = true;
-          }
-          if (affixedTerm) {
-            const termInput = document.getElementById('termInput');
-            termInput.value = affixedTerm;
-            termInput.disabled = true;
-          }
-
-          // Update sidebar profile
-          document.getElementById('studentName').textContent = student.full_name || student.name || 'Student';
-          document.getElementById('studentClass').textContent = affixedClass || 'N/A';
-          if (student.avatar || student.profile_pic) {
-            document.getElementById('studentAvatar').src = student.avatar || student.profile_pic;
-            document.getElementById('topbarAvatar').src = student.avatar || student.profile_pic;
-          }
-        } else {
-          regNoInput.value = '';
-          regNoInput.placeholder = 'Login required';
-          regNoInput.disabled = true;
-          regNoInput.readOnly = true;
-          submitBtn.disabled = true;
-        }
-      } catch (error) {
-        console.error('Error autofilling student data:', error);
-        regNoInput.value = '';
-        regNoInput.placeholder = 'Login required';
-        regNoInput.disabled = true;
-        regNoInput.readOnly = true;
-        submitBtn.disabled = true;
-      }
+    // Navigate if href is set
+    const href = link.getAttribute('href');
+    if (href && href !== '#') {
+      window.location.href = href;
     }
+  }
 
-    autofillRegNoAndAffix();
+  // ============================================
+  // Student Profile & Result Management
+  // ============================================
+  let affixedClass = null, affixedSession = null, affixedTerm = null;
 
-    // ============================================
-    // Local Storage for Previously Viewed Results
-    // ============================================
-    function getViewedResults() {
-      let arr = [];
-      try {
-        arr = JSON.parse(localStorage.getItem("viewedResults")) || [];
-      } catch (e) {
-        console.error('Error parsing viewed results:', e);
-      }
-      return arr;
-    }
-
-    function saveViewedResult(entry) {
-      let arr = getViewedResults();
-      arr = arr.filter(x => !(
-        x.regNo === entry.regNo && x.session === entry.session && x.term === entry.term && x.class === entry.class
-      ));
-      arr.unshift(entry);
-      if (arr.length > 6) arr = arr.slice(0, 6);
-      localStorage.setItem("viewedResults", JSON.stringify(arr));
-    }
-
-    function renderPreviousResults() {
-      const arr = getViewedResults();
-      const el = document.getElementById("previousResultsList");
-      if (!arr.length) {
-        el.innerHTML = `<div style="color:var(--muted); padding: 12px; text-align: center; grid-column: 1/-1;">No previously viewed results.</div>`;
-        return;
-      }
-      el.innerHTML = arr.map((r, i) => `
-        <div class="previous-result-card" onclick="viewPreviousResult(${i})" role="button" tabindex="0" onkeypress="if(event.key==='Enter') viewPreviousResult(${i})">
-          <div class="previous-result-title">${r.regNo}</div>
-          <div class="previous-result-meta">${r.class} • ${r.session} • ${r.term}</div>
-        </div>
-      `).join("");
-    }
-
-    async function viewPreviousResult(index) {
-      const arr = getViewedResults();
-      const r = arr[index];
-      if (!r) return;
-
-      // Fill the form
-      document.getElementById('regNoInput').value = r.regNo;
-      document.getElementById('scratchCardInput').value = r.scratchCard || '';
-      document.getElementById('classInput').value = r.class;
-      document.getElementById('sessionInput').value = r.session;
-      document.getElementById('termInput').value = r.term;
-
-      // Trigger search
-      handleResultSearch(new Event('submit'));
-    }
-
-    // ============================================
-    // Helper: Calculate grade color class
-    // ============================================
-    function getGradeColorClass(grade) {
-      if (['A', 'B'].includes(grade)) return 'grade-high';
-      if (['C', 'D'].includes(grade)) return 'grade-mid';
-      return 'grade-low';
-    }
-
-    // ============================================
-    // Helper: Format date
-    // ============================================
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
-      try {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      } catch (e) {
-        return dateStr;
-      }
-    }
-
-    // ============================================
-    // Main Search Handler
-    // ============================================
-    async function handleResultSearch(event) {
-      event.preventDefault();
-      
-      if (isLoadingResults) return;
-      isLoadingResults = true;
-      clearMessages();
-
-      const submitBtn = document.getElementById('submitBtn');
-      const originalBtnText = submitBtn.innerHTML;
+  async function autofillRegNoAndAffix() {
+    const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
+    const regNoInput = document.getElementById('regNoInput');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (!token) {
+      regNoInput.value = '';
+      regNoInput.placeholder = 'Login required';
+      regNoInput.disabled = true;
+      regNoInput.readOnly = true;
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spinner-small"></span> Loading...';
+      return;
+    }
 
-      try {
-        const regNo = document.getElementById('regNoInput').value.trim();
-        const scratchCard = document.getElementById('scratchCardInput').value.trim();
-        const className = document.getElementById('classInput').value.trim();
-        const session = document.getElementById('sessionInput').value.trim();
-        const term = document.getElementById('termInput').value.trim();
+    try {
+      const res = await fetchWithTimeout(API_BASE_URL + '/api/students/me', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
 
-        // Validate all fields
-        if (!regNo || !scratchCard || !className || !session || !term) {
-          showError('Please fill all required fields.');
-          isLoadingResults = false;
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalBtnText;
-          return;
+      if (res.ok) {
+        const student = await res.json();
+        lastStudentProfile = student;
+        const regNo = student.regNo || student.student_id || '';
+        
+        regNoInput.value = regNo;
+        regNoInput.disabled = true;
+        regNoInput.readOnly = true;
+        submitBtn.disabled = false;
+        
+        affixedClass = student.class_name || student.class || null;
+        affixedSession = student.session || null;
+        affixedTerm = student.term || null;
+
+        if (affixedClass) {
+          const classInput = document.getElementById('classInput');
+          classInput.value = affixedClass;
+          classInput.disabled = true;
+        }
+        if (affixedSession) {
+          const sessionInput = document.getElementById('sessionInput');
+          sessionInput.value = affixedSession;
+          sessionInput.disabled = true;
+        }
+        if (affixedTerm) {
+          const termInput = document.getElementById('termInput');
+          termInput.value = affixedTerm;
+          termInput.disabled = true;
         }
 
-        // Build API URL with proper encoding
-        const url = new URL(API_BASE_URL + '/api/results/check');
-        url.searchParams.append('regNo', regNo);
-        url.searchParams.append('scratchCard', scratchCard);
-        url.searchParams.append('class', className);
-        url.searchParams.append('session', session);
-        url.searchParams.append('term', term);
-
-        const response = await fetchWithTimeout(url.toString());
-        const data = await response.json();
-
-        if (!response.ok) {
-          showError(data.error || 'Failed to retrieve results. Please try again.');
-          isLoadingResults = false;
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalBtnText;
-          return;
+        // Update sidebar profile
+        document.getElementById('studentName').textContent = student.full_name || student.name || 'Student';
+        document.getElementById('studentClass').textContent = affixedClass || 'N/A';
+        if (student.avatar || student.profile_pic) {
+          document.getElementById('studentAvatar').src = student.avatar || student.profile_pic;
+          document.getElementById('topbarAvatar').src = student.avatar || student.profile_pic;
         }
+      } else {
+        regNoInput.value = '';
+        regNoInput.placeholder = 'Login required';
+        regNoInput.disabled = true;
+        regNoInput.readOnly = true;
+        submitBtn.disabled = true;
+      }
+    } catch (error) {
+      console.error('Error autofilling student data:', error);
+      regNoInput.value = '';
+      regNoInput.placeholder = 'Login required';
+      regNoInput.disabled = true;
+      regNoInput.readOnly = true;
+      submitBtn.disabled = true;
+    }
+  }
 
-        // Store current result for download
-        currentResultData = data;
+  autofillRegNoAndAffix();
 
-        // Save to viewed results
-        saveViewedResult({
-          regNo,
-          scratchCard,
-          class: className,
-          session,
-          term
-        });
+  // ============================================
+  // Local Storage for Previously Viewed Results
+  // ============================================
+  function getViewedResults() {
+    let arr = [];
+    try {
+      arr = JSON.parse(localStorage.getItem("viewedResults")) || [];
+    } catch (e) {
+      console.error('Error parsing viewed results:', e);
+    }
+    return arr;
+  }
 
-        // Display results
-        displayResults(data, className, session, term);
-        showSuccess('Results loaded successfully!');
+  function saveViewedResult(entry) {
+    let arr = getViewedResults();
+    arr = arr.filter(x => !(
+      x.regNo === entry.regNo && x.session === entry.session && x.term === entry.term && x.class === entry.class
+    ));
+    arr.unshift(entry);
+    if (arr.length > 6) arr = arr.slice(0, 6);
+    localStorage.setItem("viewedResults", JSON.stringify(arr));
+  }
 
-        // Scroll to results
-        setTimeout(() => {
-          document.getElementById('resultsDisplaySection').scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+  function renderPreviousResults() {
+    const arr = getViewedResults();
+    const el = document.getElementById("previousResultsList");
+    if (!arr.length) {
+      el.innerHTML = `<div style="color:var(--muted); padding: 12px; text-align: center; grid-column: 1/-1;">No previously viewed results.</div>`;
+      return;
+    }
+    el.innerHTML = arr.map((r, i) => `
+      <div class="previous-result-card" onclick="viewPreviousResult(${i})" role="button" tabindex="0" onkeypress="if(event.key==='Enter') viewPreviousResult(${i})">
+        <div class="previous-result-title">${r.regNo}</div>
+        <div class="previous-result-meta">${r.class} • ${r.session} • ${r.term}</div>
+      </div>
+    `).join("");
+  }
 
-      } catch (error) {
-        console.error('Error fetching results:', error);
-        if (error.name === 'AbortError') {
-          showError('Request timeout. Please check your connection and try again.');
-        } else {
-          showError('Network error. Please try again.');
-        }
-      } finally {
+  async function viewPreviousResult(index) {
+    const arr = getViewedResults();
+    const r = arr[index];
+    if (!r) return;
+
+    // Fill the form
+    document.getElementById('regNoInput').value = r.regNo;
+    document.getElementById('scratchCardInput').value = r.scratchCard || '';
+    document.getElementById('classInput').value = r.class;
+    document.getElementById('sessionInput').value = r.session;
+    document.getElementById('termInput').value = r.term;
+
+    // Trigger search
+    handleResultSearch(new Event('submit'));
+  }
+
+  // ============================================
+  // Helper: Calculate grade color class
+  // ============================================
+  function getGradeColorClass(grade) {
+    if (['A', 'B'].includes(grade)) return 'grade-high';
+    if (['C', 'D'].includes(grade)) return 'grade-mid';
+    return 'grade-low';
+  }
+
+  // ============================================
+  // Helper: Format date
+  // ============================================
+  function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  // ============================================
+  // Main Search Handler
+  // ============================================
+  async function handleResultSearch(event) {
+    event.preventDefault();
+    
+    if (isLoadingResults) return;
+    isLoadingResults = true;
+    clearMessages();
+
+    const submitBtn = document.getElementById('submitBtn');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-small"></span> Loading...';
+
+    try {
+      const regNo = document.getElementById('regNoInput').value.trim();
+      const scratchCard = document.getElementById('scratchCardInput').value.trim();
+      const className = document.getElementById('classInput').value.trim();
+      const session = document.getElementById('sessionInput').value.trim();
+      const term = document.getElementById('termInput').value.trim();
+
+      // Validate all fields
+      if (!regNo || !scratchCard || !className || !session || !term) {
+        showError('Please fill all required fields.');
         isLoadingResults = false;
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalBtnText;
-      }
-    }
-
-    // ============================================
-    // Display Results Function
-    // ============================================
-    function displayResults(data, className, session, term) {
-      // Extract data
-      const results = data.results || [];
-      const student = data.student || {};
-      const skillsReport = data.skillsReport || {};
-      const classSize = data.classSize || 0;
-      const principalComment = data.principalComment || '';
-
-      // Display section
-      const displaySection = document.getElementById('resultsDisplaySection');
-      displaySection.style.display = 'block';
-
-      // Student Info
-      document.getElementById('resultStudentName').textContent = student.name || 'Student Name';
-      document.getElementById('resultRegNo').textContent = student.regNo || '-';
-      document.getElementById('resultGender').textContent = student.gender || '-';
-      document.getElementById('resultDOB').textContent = formatDate(student.DOB);
-      document.getElementById('resultClass').textContent = student.class?.name || className || '-';
-      document.getElementById('resultSession').textContent = session || '-';
-      document.getElementById('resultTerm').textContent = term || '-';
-      document.getElementById('resultClassSize').textContent = classSize || '-';
-
-      // Student photo
-      if (student.photoBase64) {
-        const photoEl = document.getElementById('resultStudentPhoto');
-        photoEl.src = 'data:image/jpeg;base64,' + student.photoBase64;
-        photoEl.style.display = 'block';
-      }
-
-      // Calculate statistics
-      let totalScore = 0, highestScore = 0, lowestScore = Infinity;
-      
-      // Populate results table
-      const tbody = document.querySelector('#resultsTable tbody');
-      tbody.innerHTML = '';
-
-      results.forEach(r => {
-        totalScore += r.total || 0;
-        if (r.total > highestScore) highestScore = r.total;
-        if (r.total < lowestScore) lowestScore = r.total;
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${r.subject || '-'}</td>
-          <td>${r.ca1_score || '-'}</td>
-          <td>${r.ca2_score || '-'}</td>
-          <td>${r.midterm_score || '-'}</td>
-          <td>${r.exam_score || '-'}</td>
-          <td><strong>${r.total || 0}</strong></td>
-          <td class="${getGradeColorClass(r.grade)}">${r.grade || '-'}</td>
-          <td>${r.remarks || '-'}</td>
-          <td>${r.subject_position || '-'}</td>
-        `;
-        tbody.appendChild(row);
-      });
-
-      if (lowestScore === Infinity) lowestScore = 0;
-
-      // Update statistics
-      document.getElementById('totalSubjects').textContent = results.length || 0;
-      document.getElementById('averageScore').textContent = results.length > 0 
-        ? (totalScore / results.length).toFixed(2) 
-        : '0.00';
-      document.getElementById('highestScore').textContent = highestScore || 0;
-      document.getElementById('lowestScore').textContent = lowestScore || 0;
-
-      // Display Skills & Attendance
-      const skillsContainer = document.getElementById('skillsAttendanceContainer');
-      let hasSkillsData = false;
-
-      if (skillsReport.skills) {
-        // Affective Skills
-        if (skillsReport.skills.affective && Object.keys(skillsReport.skills.affective).length > 0) {
-          hasSkillsData = true;
-          const affectiveBox = document.getElementById('affectiveSkillsBox');
-          let affectiveHTML = '<h4>🎯 Affective Skills</h4>';
-          for (const [key, value] of Object.entries(skillsReport.skills.affective)) {
-            affectiveHTML += `<div class="skill-item"><span>${key}</span><strong>${value || '-'}</strong></div>`;
-          }
-          affectiveBox.innerHTML = affectiveHTML;
-        }
-
-        // Psychomotor Skills
-        if (skillsReport.skills.psychomotor && Object.keys(skillsReport.skills.psychomotor).length > 0) {
-          hasSkillsData = true;
-          const psychomotorBox = document.getElementById('psychomotorSkillsBox');
-          let psychomotorHTML = '<h4>💪 Psychomotor Skills</h4>';
-          for (const [key, value] of Object.entries(skillsReport.skills.psychomotor)) {
-            psychomotorHTML += `<div class="skill-item"><span>${key}</span><strong>${value || '-'}</strong></div>`;
-          }
-          psychomotorBox.innerHTML = psychomotorHTML;
-        }
-      }
-
-      // Attendance
-      if (skillsReport.attendance && Object.keys(skillsReport.attendance).length > 0) {
-        hasSkillsData = true;
-        const attendanceBox = document.getElementById('attendanceBox');
-        let attendanceHTML = '<h4>📍 Attendance</h4>';
-        for (const [key, value] of Object.entries(skillsReport.attendance)) {
-          attendanceHTML += `<div class="attendance-item"><span>${key}</span><strong>${value || '-'}</strong></div>`;
-        }
-        attendanceBox.innerHTML = attendanceHTML;
-      }
-
-      if (hasSkillsData) {
-        skillsContainer.style.display = 'grid';
-      } else {
-        skillsContainer.style.display = 'none';
-      }
-
-      // Principal Comment
-      if (principalComment && principalComment.trim()) {
-        document.getElementById('principalCommentText').textContent = principalComment;
-        document.getElementById('principalCommentBox').style.display = 'block';
-      } else {
-        document.getElementById('principalCommentBox').style.display = 'none';
-      }
-
-      // Refresh previous results
-      renderPreviousResults();
-    }
-
-    // ============================================
-    // Download Result - Opens Report Page with Data
-    // ============================================
-    function downloadCurrentResult() {
-      if (!currentResultData) {
-        showError('No result data to download.');
         return;
       }
 
-      const downloadBtn = document.getElementById('downloadBtn');
-      downloadBtn.disabled = true;
-      downloadBtn.innerHTML = '<span class="spinner-small"></span> Generating...';
+      // Build API URL with proper encoding
+      const url = new URL(API_BASE_URL + '/api/results/check');
+      url.searchParams.append('regNo', regNo);
+      url.searchParams.append('scratchCard', scratchCard);
+      url.searchParams.append('class', className);
+      url.searchParams.append('session', session);
+      url.searchParams.append('term', term);
 
-      try {
-        // Store result data in sessionStorage for report page
-        sessionStorage.setItem('reportData', JSON.stringify(currentResultData));
-        
-        // Open report page in new tab
-        const reportUrl = 'report.html';
-        window.open(reportUrl, '_blank');
-        
-        setTimeout(() => {
-          downloadBtn.disabled = false;
-          downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
-        }, 500);
-      } catch (error) {
-        console.error('Error opening report:', error);
-        showError('Failed to generate report. Please try again.');
-        downloadBtn.disabled = false;
-        downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
+      const response = await fetchWithTimeout(url.toString());
+      const data = await response.json();
+
+      if (!response.ok) {
+        showError(data.error || 'Failed to retrieve results. Please try again.');
+        isLoadingResults = false;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+        return;
       }
+
+      // Store current result for download
+      currentResultData = data;
+
+      // Save to viewed results
+      saveViewedResult({
+        regNo,
+        scratchCard,
+        class: className,
+        session,
+        term
+      });
+
+      // Display results
+      displayResults(data, className, session, term);
+      showSuccess('Results loaded successfully!');
+
+      // Scroll to results
+      setTimeout(() => {
+        document.getElementById('resultsDisplaySection').scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+    } catch (error) {
+      console.error('Error fetching results:', error);
+      if (error.name === 'AbortError') {
+        showError('Request timeout. Please check your connection and try again.');
+      } else {
+        showError('Network error. Please try again.');
+      }
+    } finally {
+      isLoadingResults = false;
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+    }
+  }
+
+  // ============================================
+  // Display Results Function - FULLY CORRECTED
+  // ============================================
+  function displayResults(data, className, session, term) {
+    // Extract data from API response
+    const results = data.results || [];
+    const student = data.student || {};
+    const skills = data.skills || {};
+    const attendance = data.attendance || {};
+    const classSize = data.classSize || 0;
+    const principalComment = data.principalComment || '';
+
+    // Display section
+    const displaySection = document.getElementById('resultsDisplaySection');
+    displaySection.style.display = 'block';
+
+    // ===== Student Info Section =====
+    document.getElementById('resultStudentName').textContent = student.name || 'Student Name';
+    document.getElementById('resultRegNo').textContent = student.regNo || '-';
+    document.getElementById('resultGender').textContent = student.gender || '-';
+    document.getElementById('resultDOB').textContent = formatDate(student.DOB);
+    document.getElementById('resultClass').textContent = student.class?.name || className || '-';
+    document.getElementById('resultSession').textContent = session || '-';
+    document.getElementById('resultTerm').textContent = term || '-';
+    document.getElementById('resultClassSize').textContent = classSize || '-';
+
+    // Student photo
+    if (student.photoBase64) {
+      const photoEl = document.getElementById('resultStudentPhoto');
+      photoEl.src = 'data:image/jpeg;base64,' + student.photoBase64;
+      photoEl.style.display = 'block';
     }
 
-    // ============================================
-    // Initialize on page load
-    // ============================================
-    document.addEventListener('DOMContentLoaded', () => {
-      renderPreviousResults();
-    });
-  </script>
+    // ===== Calculate Statistics =====
+    let totalScore = 0;
+    let highestScore = 0;
+    let lowestScore = Infinity;
+    
+    // ===== Populate Results Table =====
+    const tbody = document.querySelector('#resultsTable tbody');
+    tbody.innerHTML = '';
 
+    results.forEach(r => {
+      totalScore += r.total || 0;
+      if (r.total > highestScore) highestScore = r.total;
+      if (r.total < lowestScore) lowestScore = r.total;
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${r.subject || '-'}</td>
+        <td>${r.ca1_score || '-'}</td>
+        <td>${r.ca2_score || '-'}</td>
+        <td>${r.midterm_score || '-'}</td>
+        <td>${r.exam_score || '-'}</td>
+        <td><strong>${r.total || 0}</strong></td>
+        <td class="${getGradeColorClass(r.grade)}">${r.grade || '-'}</td>
+        <td>${r.remarks || '-'}</td>
+        <td>${r.position || '-'}</td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    if (lowestScore === Infinity) lowestScore = 0;
+
+    // ===== Update Statistics Display =====
+    document.getElementById('totalSubjects').textContent = results.length || 0;
+    document.getElementById('averageScore').textContent = results.length > 0 
+      ? (totalScore / results.length).toFixed(2) 
+      : '0.00';
+    document.getElementById('highestScore').textContent = highestScore || 0;
+    document.getElementById('lowestScore').textContent = lowestScore || 0;
+
+    // ===== Display Skills & Attendance =====
+    const skillsContainer = document.getElementById('skillsAttendanceContainer');
+    let hasSkillsData = false;
+
+    // Check if we have skills data (flat structure from API)
+    if (skills && Object.keys(skills).length > 0 && 
+        (skills.punctuality !== '-' || skills.obedience !== '-' || skills.honesty !== '-' || 
+         skills.cleanliness !== '-' || skills.initiative !== '-' || skills.cooperation !== '-')) {
+      hasSkillsData = true;
+      
+      // Affective Skills Box
+      const affectiveBox = document.getElementById('affectiveSkillsBox');
+      let affectiveHTML = '<h4>🎯 Affective Skills</h4>';
+      affectiveHTML += `<div class="skill-item"><span>Punctuality</span><strong>${skills.punctuality || '-'}</strong></div>`;
+      affectiveHTML += `<div class="skill-item"><span>Obedience</span><strong>${skills.obedience || '-'}</strong></div>`;
+      affectiveHTML += `<div class="skill-item"><span>Honesty</span><strong>${skills.honesty || '-'}</strong></div>`;
+      affectiveHTML += `<div class="skill-item"><span>Cleanliness</span><strong>${skills.cleanliness || '-'}</strong></div>`;
+      affectiveBox.innerHTML = affectiveHTML;
+
+      // Psychomotor Skills Box
+      const psychomotorBox = document.getElementById('psychomotorSkillsBox');
+      let psychomotorHTML = '<h4>💪 Psychomotor Skills</h4>';
+      psychomotorHTML += `<div class="skill-item"><span>Initiative</span><strong>${skills.initiative || '-'}</strong></div>`;
+      psychomotorHTML += `<div class="skill-item"><span>Cooperation</span><strong>${skills.cooperation || '-'}</strong></div>`;
+      psychomotorBox.innerHTML = psychomotorHTML;
+    }
+
+    // ===== Attendance Section =====
+    if (attendance && Object.keys(attendance).length > 0 && 
+        (attendance.present !== '-' || attendance.absent !== '-' || attendance.rate !== 0)) {
+      hasSkillsData = true;
+      const attendanceBox = document.getElementById('attendanceBox');
+      let attendanceHTML = '<h4>📍 Attendance</h4>';
+      attendanceHTML += `<div class="attendance-item"><span>Present</span><strong>${attendance.present || '-'}</strong></div>`;
+      attendanceHTML += `<div class="attendance-item"><span>Absent</span><strong>${attendance.absent || '-'}</strong></div>`;
+      attendanceHTML += `<div class="attendance-item"><span>Rate</span><strong>${attendance.rate ? attendance.rate + '%' : '-'}</strong></div>`;
+      attendanceBox.innerHTML = attendanceHTML;
+    }
+
+    // Show or hide skills/attendance container
+    if (hasSkillsData) {
+      skillsContainer.style.display = 'grid';
+    } else {
+      skillsContainer.style.display = 'none';
+    }
+
+    // ===== Principal Comment Section =====
+    if (principalComment && principalComment.trim()) {
+      document.getElementById('principalCommentText').textContent = principalComment;
+      document.getElementById('principalCommentBox').style.display = 'block';
+    } else {
+      document.getElementById('principalCommentBox').style.display = 'none';
+    }
+
+    // Refresh previous results
+    renderPreviousResults();
+  }
+
+  // ============================================
+  // Download Result - Opens Report Page with Data
+  // ============================================
+  function downloadCurrentResult() {
+    if (!currentResultData) {
+      showError('No result data to download.');
+      return;
+    }
+
+    const downloadBtn = document.getElementById('downloadBtn');
+    downloadBtn.disabled = true;
+    downloadBtn.innerHTML = '<span class="spinner-small"></span> Generating...';
+
+    try {
+      // Store result data in sessionStorage for report page
+      sessionStorage.setItem('reportData', JSON.stringify(currentResultData));
+      
+      // Open report page in new tab
+      const reportUrl = 'report.html';
+      window.open(reportUrl, '_blank');
+      
+      setTimeout(() => {
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
+      }, 500);
+    } catch (error) {
+      console.error('Error opening report:', error);
+      showError('Failed to generate report. Please try again.');
+      downloadBtn.disabled = false;
+      downloadBtn.innerHTML = '<i class="fa fa-download"></i> Download Result';
+    }
+  }
+
+  // ============================================
+  // Initialize on page load
+  // ============================================
+  document.addEventListener('DOMContentLoaded', () => {
+    renderPreviousResults();
+  });
+</script>
 </body>
 </html>
