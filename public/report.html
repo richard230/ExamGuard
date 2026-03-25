@@ -182,6 +182,23 @@
       background: #f9f9f9;
     }
 
+    /* Dynamic font sizing based on number of rows */
+    .results-table.subjects-5 { font-size: 18px; }
+    .results-table.subjects-5 th, 
+    .results-table.subjects-5 td { padding: 6px 4px; }
+
+    .results-table.subjects-6-8 { font-size: 14px; }
+    .results-table.subjects-6-8 th, 
+    .results-table.subjects-6-8 td { padding: 4px 2px; }
+
+    .results-table.subjects-9-12 { font-size: 14px; }
+    .results-table.subjects-9-12 th, 
+    .results-table.subjects-9-12 td { padding: 6px 4px; }
+
+    .results-table.subjects-13-plus { font-size: 10px; }
+    .results-table.subjects-13-plus th, 
+    .results-table.subjects-13-plus td { padding: 4px 2px; }
+
     .tc { text-align: center; }
     .tr { text-align: right; }
 
@@ -902,23 +919,24 @@
         <div class="signature-row" role="group" aria-label="Signatures and next term">
           <div class="signature-block">
             <div class="sig-wrapper">
-              <!-- Teacher Signature -->
-              <img id="teacherSigImage" src="seal.jpg" alt="Teacher signature" class="sig-image">
+              <!-- Teacher Signature - Shows fetched image if available, otherwise shows seal.jpg -->
+              <img id="teacherSigImage" src="https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely-image.svg" alt="Teacher signature" class="sig-image">
               <div class="sign-line"></div>
-              <div class="sign-name" id="teacherName">Class Teacher</div>
-              <div class="sign-role">Teacher</div>
+              <div class="sign-name" id="teacherName">Ughojo Deborah</div>
+              <div class="sign-role">Class Teacher</div>
             </div>
             <div class="sig-wrapper">
-              <!-- Principal Signature -->
-              <img id="principalSigImage" src="seal.jpg" alt="Principal signature" class="sig-image">
+              <!-- Principal Signature - Shows fetched image if available, otherwise shows seal.jpg -->
+              <img id="principalSigImage" src="https://signaturely.com/wp-content/uploads/2020/04/downward-angle-signaturely.svg" alt="Principal signature" class="sig-image">
               <div class="sign-line"></div>
-              <div class="sign-name" id="principalName">Principal</div>
+              <div class="sign-name" id="principalName">Richard O. Timothy</div>
               <div class="sign-role">Principal</div>
             </div>
           </div>
           <div class="next-term" aria-label="Next term information">
-            <div class="nt-label">Date Issued:</div>
-            <div class="nt-date" id="dateIssued">-</div>
+            <div class="nt-label">Next Term Begins</div>
+            <div class="nt-date" id="nextTermDate">-</div>
+            <div style="margin-top:2px;" class="nt-label">Date Issued: <span id="dateIssued">-</span></div>
           </div>
         </div>
 
@@ -987,20 +1005,19 @@
       return passingGrades.includes(grade);
     }
 
-    // Load report data from localStorage (updated)
+    // Load report data from sessionStorage
     function loadReportData() {
       try {
-        // Try to get from currentReport in localStorage (set by institutional.js)
-        const reportDataStr = localStorage.getItem('currentReport');
-        console.log('localStorage reportData:', reportDataStr);
+        const reportDataStr = sessionStorage.getItem('reportData');
+        console.log('SessionStorage data:', reportDataStr);
         
         if (!reportDataStr) {
-          console.error('No report data found in localStorage');
+          console.error('No report data found in sessionStorage');
           return null;
         }
 
         const data = JSON.parse(reportDataStr);
-        console.log('Parsed report data:', data);
+        console.log('Parsed data:', data);
         return data;
       } catch (error) {
         console.error('Error loading report data:', error);
@@ -1008,76 +1025,126 @@
       }
     }
 
+    // Apply dynamic font sizing based on number of subjects
+    function applyDynamicFontSizing(resultCount) {
+      const table = document.getElementById('resultsTable');
+      table.classList.remove('subjects-5', 'subjects-6-8', 'subjects-9-12', 'subjects-13-plus');
+      
+      if (resultCount <= 5) {
+        table.classList.add('subjects-5');
+      } else if (resultCount <= 8) {
+        table.classList.add('subjects-6-8');
+      } else if (resultCount <= 12) {
+        table.classList.add('subjects-9-12');
+      } else {
+        table.classList.add('subjects-13-plus');
+      }
+    }
+
+    // Set signature images with fallback to static seal
+    function setSignatureImages(data) {
+      // Teacher signature
+      const teacherSigImg = document.getElementById('teacherSigImage');
+      if (data.teacherSignatureBase64) {
+        teacherSigImg.src = 'data:image/jpeg;base64,' + data.teacherSignatureBase64;
+      } else {
+        // Keep default seal.jpg for fallback
+        teacherSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/downward-angle-signaturely.svg';
+      }
+
+      // Principal signature
+      const principalSigImg = document.getElementById('principalSigImage');
+      if (data.principalSignatureBase64) {
+        principalSigImg.src = 'data:image/jpeg;base64,' + data.principalSignatureBase64;
+      } else {
+        // Keep default seal.jpg for fallback
+        principalSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely-image.svg';
+      }
+    }
+
     // Populate report
     function populateReport() {
       const data = loadReportData();
       if (!data) {
-        document.getElementById('resultsTableBody').innerHTML = '<tr><td colspan="9" style="text-align:center; padding:10px; color:red;">Error: No data available. Please verify a report first.</td></tr>';
+        document.getElementById('resultsTableBody').innerHTML = '<tr><td colspan="9" style="text-align:center; padding:10px; color:red;">Error: No data available</td></tr>';
         return;
       }
 
-      console.log('=== POPULATING REPORT ===');
-      console.log('Full data object:', JSON.stringify(data, null, 2));
+      const results = data.results || [];
+      const student = data.student || {};
+      const skillsReport = data.skillsReport || {};
+      const classSize = data.classSize || 0;
+      const term = data.term || '';
 
-      const subjects = data.subjects || [];
-      const studentName = data.studentName || '-';
-      const regNo = data.regNo || '-';
-      const schoolName = data.school?.name || '-';
-      const sessionName = data.session?.name || '-';
-      const termName = data.term?.name || '-';
-      const className = data.classLevel?.name || '-';
-      const totalScore = parseFloat(data.totalScore) || 0;
-      const averageScore = parseFloat(data.averageScore) || 0;
-      const overallGrade = data.overallGrade || '-';
-      const classPosition = data.classPosition || '-';
-      const verificationCode = data.verificationCode || '-';
-      const issueDate = data.issueDate || new Date();
+      console.log('Populating with results:', results);
+      console.log('Student:', student);
+      console.log('Skills:', skillsReport);
 
-      console.log('Subjects:', subjects);
-      console.log('Subject positions:', subjects.map(s => ({ name: s.name, position: s.position })));
+      // Apply dynamic sizing based on number of results
+      applyDynamicFontSizing(results.length);
 
       // Populate profile
-      document.getElementById('profileName').textContent = studentName;
-      document.getElementById('profileAdmNo').textContent = regNo;
-      document.getElementById('profileClass').textContent = className;
-      document.getElementById('profileSession').textContent = sessionName;
-      document.getElementById('profileDOB').textContent = '-';
-      document.getElementById('profileAge').textContent = '-';
-      document.getElementById('profileSex').textContent = '-';
-      document.getElementById('profileEmail').textContent = '-';
-      document.getElementById('classSize').textContent = '-';
+      document.getElementById('profileName').textContent = student.name || '-';
+      document.getElementById('profileAdmNo').textContent = student.regNo || '-';
+      document.getElementById('profileClass').textContent = student.class?.name || student.class || '-';
+      document.getElementById('profileSession').textContent = data.session || '-';
+      document.getElementById('profileDOB').textContent = formatDate(student.DOB);
+      document.getElementById('profileAge').textContent = calculateAge(student.DOB);
+      document.getElementById('profileSex').textContent = student.gender || '-';
+      document.getElementById('profileEmail').textContent = student.email || '-';
+      document.getElementById('classSize').textContent = classSize;
 
-      // Populate term info
-      document.getElementById('reportTitleEl').textContent = `${termName} STUDENT'S PERFORMANCE REPORT`;
-      document.getElementById('termLabelProfile').textContent = termName;
+      // Populate photo
+      if (student.photoBase64) {
+        document.getElementById('profilePhoto').src = 'data:image/jpeg;base64,' + student.photoBase64;
+      } else {
+        // Keep default seal.jpg for fallback
+        document.getElementById('profilePhoto').src = 'avatar.jpg';
+    }
 
-      // Populate results table with POSITIONS
-      const tbody = document.getElementById('resultsTableBody');
-      tbody.innerHTML = '';
-
+      // Calculate statistics
+      let totalScore = 0, highestScore = 0, lowestScore = Infinity;
       let passCount = 0, failCount = 0;
 
-      subjects.forEach(subject => {
-        const grade = subject.grade || '-';
-        const position = subject.position || '-'; // GET POSITION FROM DATA
-        
-        if (isPassingGrade(grade)) {
+      results.forEach(r => {
+        const score = parseInt(r.total) || 0;
+        totalScore += score;
+        if (score > highestScore) highestScore = score;
+        if (score < lowestScore) lowestScore = score;
+
+        // Count pass/fail
+        if (isPassingGrade(r.grade)) {
           passCount++;
         } else {
           failCount++;
         }
+      });
 
+      if (lowestScore === Infinity) lowestScore = 0;
+
+      const totalObtainable = results.length * 100;
+      const percentage = totalObtainable > 0 ? ((totalScore / totalObtainable) * 100).toFixed(2) : 0;
+
+      // Populate term info
+      document.getElementById('reportTitleEl').textContent = `${data.term || 'TERM'} STUDENT'S PERFORMANCE REPORT`;
+      document.getElementById('termLabelProfile').textContent = data.term || 'TERM';
+
+      // Populate results table
+      const tbody = document.getElementById('resultsTableBody');
+      tbody.innerHTML = '';
+
+      results.forEach(r => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td style="text-align:left;">${subject.name || '-'}</td>
-          <td class="tc">${subject.ca1 || '-'}</td>
-          <td class="tc">${subject.ca2 || '-'}</td>
-          <td class="tc">${subject.midterm || '-'}</td>
-          <td class="tc">${subject.exam || '-'}</td>
-          <td class="tc" style="font-weight:700;">${subject.total.toFixed(2) || 0}</td>
-          <td class="tc" style="font-weight:700;">${grade}</td>
-          <td class="tc">-</td>
-          <td class="tc">${position}</td>
+          <td style="text-align:left;">${r.subject || '-'}</td>
+          <td class="tc">${r.ca1_score || '-'}</td>
+          <td class="tc">${r.ca2_score || '-'}</td>
+          <td class="tc">${r.midterm_score || '-'}</td>
+          <td class="tc">${r.exam_score || '-'}</td>
+          <td class="tc" style="font-weight:700;">${r.total || 0}</td>
+          <td class="tc" style="font-weight:700;">${r.grade || '-'}</td>
+          <td class="tc">${r.remarks || '-'}</td>
+          <td class="tc">${r.subject_position || '-'}</td>
         `;
         tbody.appendChild(row);
       });
@@ -1088,29 +1155,51 @@
 
       // Determine overall status
       let statusElement = document.getElementById('overallStatus');
-      let statusText = failCount > 0 ? 'FAILED' : 'PASSED';
-      let statusClass = failCount > 0 ? 'failed' : 'passed';
+      let statusText = '';
+      let statusClass = '';
+
+      if (failCount > 0) {
+        statusText = 'FAILED';
+        statusClass = 'failed';
+      } else if (term && term.toUpperCase().includes('TERM 3') && student.class) {
+        // Check if it's term 3 and below SS3
+        const classNameLower = (student.class?.name || student.class || '').toLowerCase();
+        const isBeforeSS3 = !classNameLower.includes('ss3') && !classNameLower.includes('form 3');
+        
+        if (isBeforeSS3) {
+          statusText = 'PROMOTED';
+          statusClass = 'promoted';
+        } else {
+          statusText = 'PASSED';
+          statusClass = 'passed';
+        }
+      } else {
+        statusText = 'PASSED';
+        statusClass = 'passed';
+      }
 
       statusElement.textContent = statusText;
       statusElement.className = `pass-status ${statusClass}`;
 
       // Populate performance summary
       document.getElementById('totalObtained').textContent = totalScore.toFixed(1);
-      document.getElementById('totalObtainable').textContent = subjects.length * 100;
-      document.getElementById('totalSubjectsPerf').textContent = subjects.length;
-      
-      const percentage = subjects.length > 0 ? ((totalScore / (subjects.length * 100)) * 100).toFixed(2) : 0;
+      document.getElementById('totalObtainable').textContent = totalObtainable;
+      document.getElementById('totalSubjectsPerf').textContent = results.length;
       document.getElementById('percentagePerf').textContent = percentage + '%';
       document.getElementById('overallPercentage').textContent = percentage + '%';
 
+      // Get overall grade
+      const overallGrade = results.length > 0 ? results[0].grade : '-';
       document.getElementById('gradePerf').textContent = overallGrade;
       document.getElementById('overallGrade').textContent = overallGrade;
 
-      document.getElementById('positionPerf').textContent = classPosition;
-      document.getElementById('overallPosition').textContent = classPosition;
+      // Position
+      const position = data.studentPosition ? `${data.studentPosition} of ${classSize}` : `-`;
+      document.getElementById('positionPerf').textContent = position;
+      document.getElementById('overallPosition').textContent = data.studentPosition || '-';
 
       // Grade analysis
-      const distribution = getGradeDistribution(subjects);
+      const distribution = getGradeDistribution(results);
       const grades = ['A', 'B', 'C', 'D', 'E', 'F'];
       
       let gradeCountsRow = '<tr>';
@@ -1127,23 +1216,24 @@
       document.getElementById('gradeCountsRow').innerHTML = gradeCountsRow;
       document.getElementById('gradeValuesRow').innerHTML = gradeValuesRow;
 
-      // Populate skills/attendance
-      const skills = data.skills || {};
-      const attendance = data.attendance || {};
+      // Populate skills
+      const affSkills = skillsReport.skills?.affective || {};
+      const psychSkills = skillsReport.skills?.psychomotor || {};
+      const attendance = skillsReport.attendance || {};
 
       // Affective Domain
       const affectiveTable = document.getElementById('affectiveTable');
       const affectiveMap = {
-        'punctuality': 'Punctuality',
-        'obedience': 'Obedience',
+        'attentiveness': 'Attentiveness',
         'honesty': 'Honesty',
-        'cleanliness': 'Cleanliness',
-        'initiative': 'Initiative',
-        'cooperation': 'Cooperation'
+        'neatness': 'Neatness',
+        'politeness': 'Politeness',
+        'punctuality': 'Punctuality / Assembly',
+        'selfControl': 'Self Control / Calmness'
       };
 
       for (const [key, label] of Object.entries(affectiveMap)) {
-        const value = skills[key] === '-' ? 0 : (parseInt(skills[key]) || 0);
+        const value = affSkills[key] || 0;
         const row = document.createElement('tr');
         row.innerHTML = `
           <td style="text-align:left;">${label}</td>
@@ -1156,27 +1246,64 @@
         affectiveTable.appendChild(row);
       }
 
+      // Psychomotor Skills - Show ALL items
+      const psychomotorTable = document.getElementById('psychomotorTable');
+      const psychomotorMap = {
+        'handling': 'Handling Of Tools',
+        'drawing': 'Drawing / Painting',
+        'handwriting': 'Handwriting',
+        'speaking': 'Public Speaking',
+        'fluency': 'Speech Fluency'
+      };
+
+      for (const [key, label] of Object.entries(psychomotorMap)) {
+        const value = psychSkills[key] || 0;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td style="text-align:left;">${label}</td>
+          <td class="tc">${value === 5 ? '✓' : ''}</td>
+          <td class="tc">${value === 4 ? '✓' : ''}</td>
+          <td class="tc">${value === 3 ? '✓' : ''}</td>
+          <td class="tc">${value === 2 ? '✓' : ''}</td>
+          <td class="tc">${value === 1 ? '✓' : ''}</td>
+        `;
+        psychomotorTable.appendChild(row);
+      }
+
       // Attendance
-      document.getElementById('schoolOpened').textContent = attendance.present !== undefined ? attendance.present : '-';
-      document.getElementById('timesPresent').textContent = attendance.present !== undefined ? attendance.present : '-';
-      document.getElementById('timesAbsent').textContent = attendance.absent !== undefined ? attendance.absent : '-';
+      document.getElementById('schoolOpened').textContent = attendance.schoolOpened || '-';
+      document.getElementById('timesPresent').textContent = attendance.timesPresent || '-';
+      document.getElementById('timesAbsent').textContent = attendance.timesAbsent || '-';
 
-      // Remarks
-      document.getElementById('teacherRemark').textContent = data.teacherComment?.comment || '-';
-      document.getElementById('principalRemark').textContent = data.principalRemark?.remark || '-';
-
-      // Signature names
-      document.getElementById('teacherName').textContent = data.teacherComment?.teacherName || 'Class Teacher';
-      document.getElementById('principalName').textContent = data.principalRemark?.principalName || 'Principal';
-
-      // Date
-      document.getElementById('dateIssued').textContent = formatDate(issueDate);
-
-      console.log('✅ Report populated successfully');
+      // Remarks - Check both locations
+      const teacherRemarkValue = skillsReport.teacherRemark || data.teacherRemark || 'No remark';
+      const principalRemarkValue = skillsReport.comment || skillsReport.principalComment || data.principalComment || data.principalRemark || 'No remark';
+      
+      document.getElementById('teacherRemark').textContent = teacherRemarkValue;
+      document.getElementById('principalRemark').textContent = principalRemarkValue;
+      
+      // Set names
+      document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
+      document.getElementById('principalName').textContent = data.principalName || 'Principal';
+      
+      // Set signature images with fallback to static seal.jpg
+      setSignatureImages(data);
+      
+      // Dates
+      document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate) || '-';
+      document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
     }
 
-    // Initialize on load
+    // Initialize on page load
     document.addEventListener('DOMContentLoaded', populateReport);
+
+    // Auto-print after a short delay
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    });
   </script>
+
 </body>
 </html>
