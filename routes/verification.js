@@ -10,6 +10,8 @@ const Subject = require('../models/Subject');
 const UniversalUpload = require('../models/UniversalUpload');
 const { authMiddleware } = require('./auth');
 
+// ============ HELPER FUNCTIONS ============
+
 // Helper: Normalize term name for flexible matching
 function normalizeTerm(term) {
   const termMap = {
@@ -50,6 +52,105 @@ function normalizeClass(className) {
   return normalized || className;
 }
 
+/**
+ * Format position with ordinal suffix (1st, 2nd, 3rd, etc)
+ */
+function ordinalSuffix(pos) {
+  if (typeof pos !== 'number') pos = parseInt(pos);
+  if (pos % 100 >= 11 && pos % 100 <= 13) return pos + 'th';
+  switch (pos % 10) {
+    case 1: return pos + 'st';
+    case 2: return pos + 'nd';
+    case 3: return pos + 'rd';
+    default: return pos + 'th';
+  }
+}
+
+/**
+ * Calculate total score from component scores
+ */
+function calculateTotal(ca1, ca2, midterm, exam) {
+  return (parseFloat(ca1) || 0) +
+         (parseFloat(ca2) || 0) +
+         (parseFloat(midterm) || 0) +
+         (parseFloat(exam) || 0);
+}
+
+/**
+ * Calculate subject position for a student within their class/session/term
+ * Queries all students with same subject and ranks by total score
+ */
+async function calculateSubjectPosition(studentId, classId, sessionId, termId, subjectId, subjectName) {
+  try {
+    console.log(`  📍 Calculating position for subject: ${subjectName}`);
+
+    // Get all published results for this subject in the class/session/term
+    const allResults = await Result.find({
+      class: classId,
+      session: sessionId,
+      term: termId,
+      subject: subjectId,
+      status: 'Published'
+    }).populate('student').select('student ca1_score ca2_score midterm_score exam_score');
+
+    console.log(`    📊 Found ${allResults.length} students in this subject`);
+
+    if (allResults.length === 0) {
+      console.log('    ⚠️  No results to rank against');
+      return '-'; // No results to rank against
+    }
+
+    // Calculate total score for each result
+    const resultsWithScores = allResults.map(r => {
+      const total = calculateTotal(r.ca1_score, r.ca2_score, r.midterm_score, r.exam_score);
+      return {
+        id: r._id.toString(),
+        studentId: r.student._id.toString(),
+        studentName: r.student.firstname + ' ' + r.student.surname,
+        total
+      };
+    });
+
+    // Sort by score descending
+    resultsWithScores.sort((a, b) => b.total - a.total);
+
+    console.log(`    📋 Top 3 scores: ${resultsWithScores.slice(0, 3).map(r => `${r.studentName}(${r.total})`).join(', ')}`);
+
+    // Assign positions with tie-handling
+    let position = 1;
+    let lastScore = null;
+
+    for (let i = 0; i < resultsWithScores.length; i++) {
+      const current = resultsWithScores[i];
+
+      // Update position if score is different from previous
+      if (lastScore !== null && current.total < lastScore) {
+        position = i + 1; // Position accounts for ties
+      }
+
+      if (current.studentId === studentId) {
+        const positionText = ordinalSuffix(position);
+        console.log(`    ✓ Position: ${positionText} (out of ${allResults.length})`);
+        return positionText;
+      }
+
+      lastScore = current.total;
+    }
+
+    console.log('    ⚠️  Student not found in results');
+    return '-'; // Student not found in results
+  } catch (err) {
+    console.error('    ❌ Error calculating subject position:', err.message);
+    return '-';
+  }
+}
+
+// ============ ROUTES ============
+
+/**
+ * POST /api/res/verify-student-report
+ * Verify a student's report by matching registration number, scratch card, and academic context
+ */
 router.post('/verify-student-report', authMiddleware, async (req, res) => {
   try {
     console.log('=== VERIFICATION REQUEST ===');
@@ -75,7 +176,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     }
 
-    // Step 1: Verify school exists
+    // ============ STEP 1: VERIFY SCHOOL ============
     console.log('Step 1: Verifying school...');
     const school = await School.findById(schoolId);
     if (!school || school.status !== 'active') {
@@ -87,7 +188,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     }
     console.log('✓ School:', school.schoolName);
 
-    // Step 2: Find student
+    // ============ STEP 2: FIND STUDENT ============
     console.log('Step 2: Finding student with regNo:', regNo);
     const student = await Student.findOne({
       $or: [
@@ -105,7 +206,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     }
     console.log('✓ Student:', student.firstname, student.surname);
 
-    // Step 3: Verify scratch card
+    // ============ STEP 3: VERIFY SCRATCH CARD ============
     if (!scratchCard || scratchCard.length < 4) {
       return res.status(400).json({
         success: false,
@@ -114,7 +215,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     }
 
-    // Step 4: Get Term details and normalize
+    // ============ STEP 4: GET TERM DETAILS ============
     console.log('Step 4: Fetching term details...');
     const normalizedTermName = normalizeTerm(termName);
     
@@ -131,7 +232,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     }
     console.log('✓ Term:', term.name, '-> Normalized:', normalizedTermName);
 
-    // Step 5: Get Session details
+    // ============ STEP 5: GET SESSION DETAILS ============
     console.log('Step 5: Fetching session details...');
     const session = await Session.findById(sessionId);
     if (!session) {
@@ -143,7 +244,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     }
     console.log('✓ Session:', session.name);
 
-    // Step 6: Get Class details and normalize
+    // ============ STEP 6: GET CLASS DETAILS ============
     console.log('Step 6: Fetching class details...');
     const normalizedClassName = normalizeClass(className);
     
@@ -159,7 +260,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       console.log('✓ Using class name as string:', className, '-> Normalized:', finalClassName);
     }
 
-    // Step 7: Query UniversalUpload with flexible matching
+    // ============ STEP 7: QUERY UNIVERSALUPLOAD ============
     console.log('Step 7: Querying UniversalUpload with flexible matching...');
     console.log('Primary search criteria:', {
       schoolRef: schoolId,
@@ -174,70 +275,34 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       session: session.name,
       term: normalizedTermName,
       class: finalClassName,
-      status: 'completed'
+      isDeleted: false
     });
 
-    // If not found, try case-insensitive regex match
+    // If not found, try case-insensitive matching on class
     if (!universalUpload) {
-      console.log('Exact match not found, trying case-insensitive...');
+      console.log('  ⚠️  No exact match, trying case-insensitive...');
       universalUpload = await UniversalUpload.findOne({
         schoolRef: schoolId,
         session: session.name,
-        term: { $regex: new RegExp('^' + normalizedTermName + '$', 'i') },
+        term: normalizedTermName,
         class: { $regex: new RegExp('^' + finalClassName + '$', 'i') },
-        status: 'completed'
+        isDeleted: false
       });
     }
 
-    // If still not found, try flexible term/class combination
     if (!universalUpload) {
-      console.log('Trying flexible term matching...');
-      // Get all variations of the term
-      const termVariations = [normalizedTermName];
-      if (normalizedTermName.includes('First')) termVariations.push('first term', 'FIRST TERM', '1');
-      if (normalizedTermName.includes('Second')) termVariations.push('second term', 'SECOND TERM', '2');
-      if (normalizedTermName.includes('Third')) termVariations.push('third term', 'THIRD TERM', '3');
-
-      universalUpload = await UniversalUpload.findOne({
-        schoolRef: schoolId,
-        session: session.name,
-        term: { $in: termVariations },
-        class: { $regex: new RegExp('^' + finalClassName + '$', 'i') },
-        status: 'completed'
-      });
-    }
-
-    // If still not found, debug output
-    if (!universalUpload) {
-      console.log('❌ UniversalUpload not found, searching for debugging info...');
-      const debugUploads = await UniversalUpload.find({ 
-        schoolRef: schoolId,
-        status: 'completed'
-      })
-        .select('uploadId session term class status results')
-        .limit(10);
-      
-      console.log('Available uploads for this school:');
-      debugUploads.forEach(u => {
-        console.log(`  - Session: "${u.session}", Term: "${u.term}", Class: "${u.class}", Results: ${u.results.length}`);
-      });
-
       return res.status(404).json({
         success: false,
         verified: false,
-        message: `No results found for ${session.name} / ${normalizedTermName} / ${finalClassName}. Check server logs for available combinations.`
+        message: `No results found for ${session.name} - ${normalizedTermName} - ${finalClassName}`
       });
     }
-
     console.log('✓ UniversalUpload found:', universalUpload.uploadId);
-    console.log('  Actual values: Session:', universalUpload.session, '| Term:', universalUpload.term, '| Class:', universalUpload.class);
 
-    // Step 8: Find student's results
-    console.log('Step 8: Filtering student results...');
+    // ============ STEP 8: FIND STUDENT RESULTS IN UPLOAD ============
+    console.log('Step 8: Finding student results in upload...');
     const studentId = student._id.toString();
-    console.log('Student ID to match:', studentId);
-    console.log('Total results in upload:', universalUpload.results.length);
-
+    
     const studentResults = universalUpload.results.filter(r => {
       const rStudentId = r.student_id?.toString ? r.student_id.toString() : String(r.student_id);
       const matches = rStudentId === studentId;
@@ -263,13 +328,14 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     }
 
-    // Step 9: Calculate aggregate data
+    // ============ STEP 9: CALCULATE AGGREGATE DATA ============
     console.log('Step 9: Calculating scores...');
     let totalScore = 0;
     const subjects = [];
 
     studentResults.forEach(result => {
-      const subjectTotal = (parseFloat(result.ca1_score) || 0) +
+      const subjectTotal =
+        (parseFloat(result.ca1_score) || 0) +
         (parseFloat(result.ca2_score) || 0) +
         (parseFloat(result.midterm_score) || 0) +
         (parseFloat(result.exam_score) || 0);
@@ -284,7 +350,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
         exam: result.exam_score || 0,
         total: subjectTotal,
         grade: result.grade || '-',
-        position: '-'
+        position: '-' // Will be populated in Step 10
       });
     });
 
@@ -295,6 +361,33 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
     else if (averageScore >= 50) overallGrade = 'C';
     else if (averageScore >= 45) overallGrade = 'D';
     else if (averageScore >= 40) overallGrade = 'E';
+
+    // ============ STEP 10: CALCULATE SUBJECT POSITIONS ============
+    console.log('Step 10: Calculating subject positions...');
+    
+    for (let i = 0; i < subjects.length; i++) {
+      const subject = subjects[i];
+      
+      // Find Subject document
+      const subjectDoc = await Subject.findOne({ name: subject.name });
+      
+      if (subjectDoc && classLevel) {
+        // Calculate position for this student in this subject
+        const position = await calculateSubjectPosition(
+          student._id,
+          classLevel._id,
+          session._id,
+          term._id,
+          subjectDoc._id,
+          subject.name
+        );
+        
+        subject.position = position;
+      } else {
+        console.log(`  ⚠️  Could not find subject document for: ${subject.name}`);
+        subject.position = '-';
+      }
+    }
 
     const verificationCode = `VER-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
@@ -328,7 +421,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
         totalScore: totalScore.toFixed(2),
         averageScore: averageScore.toFixed(2),
         overallGrade,
-        subjects,
+        subjects, // Now includes positions calculated in Step 10
         issueDate: new Date(),
         verificationPurpose,
         requestingInstitution: institutionName,
@@ -370,6 +463,7 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
 
 /**
  * GET /api/res/verification-history
+ * Retrieve verification history for authenticated user
  */
 router.get('/verification-history', authMiddleware, async (req, res) => {
   try {
