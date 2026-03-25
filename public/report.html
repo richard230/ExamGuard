@@ -1059,7 +1059,7 @@
         principalSigImg.src = 'data:image/jpeg;base64,' + data.principalSignatureBase64;
       } else {
         // Keep default seal.jpg for fallback
-        principalSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely-image.svg';
+        principalSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely.svg';
       }
     }
 
@@ -1217,10 +1217,27 @@
       document.getElementById('gradeCountsRow').innerHTML = gradeCountsRow;
       document.getElementById('gradeValuesRow').innerHTML = gradeValuesRow;
 
-      // Populate skills
-      const affSkills = skillsReport.skills?.affective || {};
-      const psychSkills = skillsReport.skills?.psychomotor || {};
-      const attendance = skillsReport.attendance || {};
+      // Populate skills - Handle multiple data structure formats
+      let affSkills = {};
+      let psychSkills = {};
+      let attendance = {};
+
+      // Try nested structure first
+      if (skillsReport.skills) {
+        affSkills = skillsReport.skills.affective || {};
+        psychSkills = skillsReport.skills.psychomotor || {};
+      }
+      
+      // Fallback to flat structure
+      if (Object.keys(affSkills).length === 0 && skillsReport.affectiveSkills) {
+        affSkills = skillsReport.affectiveSkills;
+      }
+      if (Object.keys(psychSkills).length === 0 && skillsReport.psychomotorSkills) {
+        psychSkills = skillsReport.psychomotorSkills;
+      }
+
+      // Get attendance
+      attendance = skillsReport.attendance || data.attendance || {};
 
       // Affective Domain
       const affectiveTable = document.getElementById('affectiveTable');
