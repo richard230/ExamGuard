@@ -198,8 +198,8 @@ async function findOrCreateStudent(row, classId) {
 }
 
 /**
- * BUILD REPORT DATA - Helper function
- * FIXED: Properly scopes all calculations to session/term and includes all enriched data
+ * BUILD REPORT DATA - Helper function (CORRECTED FOR NESTED SKILLS)
+ * FIXED: Properly extracts nested skills (affective/psychomotor) and attendance data
  */
 async function buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings) {
   const data = [];
@@ -255,7 +255,7 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     status: 'Published'  // Only count published
   }).then(students => students.length);
 
-  // Extract skills and attendance from student or initialize defaults
+  // Extract skills and attendance from student skillsReports
   let skillsReport = { 
     skills: { 
       punctuality: '-', 
@@ -263,64 +263,69 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
       honesty: '-', 
       cleanliness: '-', 
       initiative: '-', 
-      cooperation: '-' 
+      cooperation: '-',
+      attentiveness: '-',
+      neatness: '-',
+      politeness: '-',
+      selfControl: '-',
+      handling: '-',
+      drawing: '-',
+      handwriting: '-',
+      speaking: '-',
+      fluency: '-'
     }, 
-    attendance: { present: '-', absent: '-', rate: 0 }, 
+    attendance: { 
+      schoolOpened: '-', 
+      timesPresent: '-', 
+      timesAbsent: '-',
+      rate: 0 
+    }, 
     comment: "" 
   };
   
-  if (Array.isArray(results) && results.length > 0) {
-    const firstResult = results[0];
-    
-    // Check if skills data is in the result
-    if (firstResult.skills && typeof firstResult.skills === 'object') {
-      skillsReport.skills = {
-        punctuality: firstResult.skills.punctuality || '-',
-        obedience: firstResult.skills.obedience || '-',
-        honesty: firstResult.skills.honesty || '-',
-        cleanliness: firstResult.skills.cleanliness || '-',
-        initiative: firstResult.skills.initiative || '-',
-        cooperation: firstResult.skills.cooperation || '-'
-      };
-    }
-    
-    if (firstResult.attendance && typeof firstResult.attendance === 'object') {
-      skillsReport.attendance = {
-        present: firstResult.attendance.present || '-',
-        absent: firstResult.attendance.absent || '-',
-        rate: parseFloat(firstResult.attendance.rate) || 0
-      };
-    }
-    
-    if (firstResult.teacherComment && typeof firstResult.teacherComment === 'object') {
-      skillsReport.comment = firstResult.teacherComment.comment || '';
-    }
-  }
-  
-  // Also check in student skills reports
+  // Check student skillsReports array for matching session/term
   if (Array.isArray(student.skillsReports)) {
     const found = student.skillsReports.find(r =>
       r.session?.toLowerCase() === sessionObj.name.toLowerCase() &&
       r.term?.toLowerCase() === termObj.name.toLowerCase()
     );
+    
     if (found) {
-      if (found.skills) {
+      // Extract affective skills
+      if (found.skills?.affective && typeof found.skills.affective === 'object') {
         skillsReport.skills = {
-          punctuality: found.skills.punctuality || '-',
-          obedience: found.skills.obedience || '-',
-          honesty: found.skills.honesty || '-',
-          cleanliness: found.skills.cleanliness || '-',
-          initiative: found.skills.initiative || '-',
-          cooperation: found.skills.cooperation || '-'
+          ...skillsReport.skills,
+          punctuality: found.skills.affective.punctuality || '-',
+          attentiveness: found.skills.affective.attentiveness || '-',
+          honesty: found.skills.affective.honesty || '-',
+          neatness: found.skills.affective.neatness || '-',
+          politeness: found.skills.affective.politeness || '-',
+          selfControl: found.skills.affective.selfControl || '-'
         };
       }
-      if (found.attendance) {
+      
+      // Extract psychomotor skills
+      if (found.skills?.psychomotor && typeof found.skills.psychomotor === 'object') {
+        skillsReport.skills = {
+          ...skillsReport.skills,
+          handling: found.skills.psychomotor.handling || '-',
+          drawing: found.skills.psychomotor.drawing || '-',
+          handwriting: found.skills.psychomotor.handwriting || '-',
+          speaking: found.skills.psychomotor.speaking || '-',
+          fluency: found.skills.psychomotor.fluency || '-'
+        };
+      }
+      
+      // Extract attendance
+      if (found.attendance && typeof found.attendance === 'object') {
         skillsReport.attendance = {
-          present: found.attendance.present || '-',
-          absent: found.attendance.absent || '-',
-          rate: parseFloat(found.attendance.rate) || 0
+          schoolOpened: found.attendance.schoolOpened || '-',
+          timesPresent: found.attendance.timesPresent || '-',
+          timesAbsent: found.attendance.timesAbsent || '-',
+          rate: found.attendance.rate || 0
         };
       }
+      
       if (found.comment) {
         skillsReport.comment = found.comment;
       }
@@ -328,7 +333,7 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
   }
 
   const principalComment = skillsReport.comment || "";
-  const attendance = skillsReport.attendance || { present: '-', absent: '-', rate: 0 };
+  const attendance = skillsReport.attendance || { schoolOpened: '-', timesPresent: '-', timesAbsent: '-', rate: 0 };
 
   // Get form master
   const classId = classObj._id.toString();
@@ -365,6 +370,23 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     termId: termObj._id
   });
 
+  // Build comprehensive skills object for frontend
+  const flattenedSkills = {
+    // Affective skills
+    punctuality: skillsReport.skills.punctuality,
+    attentiveness: skillsReport.skills.attentiveness,
+    honesty: skillsReport.skills.honesty,
+    neatness: skillsReport.skills.neatness,
+    politeness: skillsReport.skills.politeness,
+    selfControl: skillsReport.skills.selfControl,
+    // Psychomotor skills
+    handling: skillsReport.skills.handling,
+    drawing: skillsReport.skills.drawing,
+    handwriting: skillsReport.skills.handwriting,
+    speaking: skillsReport.skills.speaking,
+    fluency: skillsReport.skills.fluency
+  };
+
   return {
     results: data,
     skillsReport,
@@ -379,8 +401,8 @@ async function buildReportData(student, classObj, sessionObj, termObj, results, 
     studentPosition: studentPosition,
     nextTermDate: null,
     dateIssued: new Date().toISOString(),
-    // Include skills data directly too
-    skills: skillsReport.skills,
+    // Include flattened skills for frontend
+    skills: flattenedSkills,
     teacherComment: {
       comment: skillsReport.comment || 'No comment on record',
       teacherName: formMasterName
