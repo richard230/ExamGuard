@@ -726,8 +726,8 @@
 const API_BASE_URL = "https://examguard-8rxe.onrender.com";
 let students = [];
 let selectedStudents = new Set();
-let classesMap = {}; // store classes by id
 
+// Page spinner
 document.addEventListener('DOMContentLoaded', () => {
   const spinner = document.getElementById('pageSpinnerOverlay');
   if (spinner) spinner.style.display = 'flex';
@@ -739,6 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 1200);
 });
 
+// Sidebar mobile toggle
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -779,22 +780,19 @@ document.addEventListener('keydown', e => {
 window.addEventListener('resize', handleResize);
 handleResize();
 
+// Fill classes dropdown
 function fillClasses() {
   fetch(API_BASE_URL + "/api/classes")
     .then(res => res.json())
     .then(data => {
       const sel = document.getElementById('filterClass');
-      const classes = data.classes || [];
-
-      classesMap = {};
-      classes.forEach(c => classesMap[c._id] = c);
-
       sel.innerHTML = '<option value="">All Classes</option>' +
-        classes.map(c => `<option value="${c._id}">${c.name}</option>`).join('');
+        (data.classes || []).map(c => `<option value="${c._id}">${c.name}</option>`).join('');
     })
     .catch(err => console.error('Error loading classes:', err));
 }
 
+// Fetch students
 function fetchStudents() {
   const filterClass = document.getElementById('filterClass').value;
   const filterSession = document.getElementById('filterSession').value;
@@ -817,11 +815,11 @@ function fetchStudents() {
     .then(res => res.json())
     .then(data => {
       students = (data.students || []).map(s => ({
-        id: s._id, // FIX: use real Mongo ID
+        id: s._id,
         name: `${s.firstname || ''} ${s.surname || ''}`,
         regNo: s.regNo,
         class: s.class?.name || s.class,
-        classId: s.class?._id || s.class, // store classId
+        classId: s.class?._id || null,
         session: s.academicSession,
         term: s.term || '',
         status: s.status || "Pending"
@@ -830,32 +828,55 @@ function fetchStudents() {
     })
     .catch(err => {
       tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-exclamation-circle"></i></div><p style="color: #dc2626;">Failed to load students.</p></div></td></tr>`;
-      console.error(err);
+      console.error('Error fetching students:', err);
     });
 }
 
+// Render table
 function renderStudentsTable() {
   const tbody = document.getElementById('studentsTableBody');
   
   if (!students.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-inbox"></i></div><p>No students found.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-inbox"></i></div><p>No students found for selected criteria.</p></div></td></tr>`;
     document.getElementById('bulkActionsBar').classList.remove('active');
     return;
   }
 
   tbody.innerHTML = students.map(s => `
     <tr>
-      <td><input type="checkbox" value="${s.id}" ${selectedStudents.has(s.id) ? "checked" : ""} onchange="toggleStudent('${s.id}')"></td>
-      <td>${s.name}</td>
+      <td>
+        <input type="checkbox" value="${s.id}" ${selectedStudents.has(s.id) ? "checked" : ""} onchange="toggleStudent('${s.id}')">
+      </td>
+      <td><span class="student-name">${s.name}</span></td>
       <td>${s.regNo}</td>
       <td>${s.class}</td>
       <td>${s.session}</td>
       <td>${s.term}</td>
-      <td>${s.status}</td>
       <td>
-        <button onclick="promoteStudent('${s.id}')">↑</button>
-        <button onclick="graduateStudent('${s.id}')">🎓</button>
-        <button onclick="demoteStudent('${s.id}')">↓</button>
+        <span class="badge ${
+          s.status === "Promoted" ? "badge-promoted" :
+          s.status === "Graduated" ? "badge-graduated" :
+          "badge-pending"
+        }">
+          <i class="fas ${
+            s.status === "Promoted" ? "fa-arrow-up" :
+            s.status === "Graduated" ? "fa-graduation-cap" :
+            "fa-hourglass-half"
+          }"></i> ${s.status}
+        </span>
+      </td>
+      <td>
+        <div class="action-buttons">
+          <button class="btn-sm btn-promote" onclick="promoteStudent('${s.id}')" ${s.status === "Promoted" || s.status === "Graduated" ? "disabled" : ""} title="Promote to next class">
+            <i class="fas fa-arrow-up"></i>
+          </button>
+          <button class="btn-sm btn-graduate" onclick="graduateStudent('${s.id}')" ${s.status === "Graduated" ? "disabled" : ""} title="Graduate student">
+            <i class="fas fa-graduation-cap"></i>
+          </button>
+          <button class="btn-sm btn-demote" onclick="demoteStudent('${s.id}')" title="Demote to previous class">
+            <i class="fas fa-arrow-down"></i>
+          </button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -863,6 +884,7 @@ function renderStudentsTable() {
   updateBulkActionsBar();
 }
 
+// Update bulk actions bar
 function updateBulkActionsBar() {
   const bar = document.getElementById('bulkActionsBar');
   if (selectedStudents.size > 0) {
@@ -873,9 +895,40 @@ function updateBulkActionsBar() {
   }
 }
 
+// Toggle student selection
 function toggleStudent(id) {
-  selectedStudents.has(id) ? selectedStudents.delete(id) : selectedStudents.add(id);
+  if (selectedStudents.has(id)) {
+    selectedStudents.delete(id);
+  } else {
+    selectedStudents.add(id);
+  }
   renderStudentsTable();
+}
+
+// Toggle all students
+function toggleAllStudents(box) {
+  if (box.checked) {
+    students.forEach(s => selectedStudents.add(s.id));
+  } else {
+    students.forEach(s => selectedStudents.delete(s.id));
+  }
+  renderStudentsTable();
+}
+
+// Actions
+function promoteStudent(id) {
+  if (!confirm('Promote this student to the next class?')) return;
+  performAction(id, 'promote');
+}
+
+function graduateStudent(id) {
+  if (!confirm('Graduate this student?')) return;
+  performAction(id, 'graduate');
+}
+
+function demoteStudent(id) {
+  if (!confirm('Demote this student to the previous class?')) return;
+  performAction(id, 'demote');
 }
 
 function performAction(id, action) {
@@ -884,32 +937,41 @@ function performAction(id, action) {
   fetch(`${API_BASE_URL}/api/student/${id}/promote`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      action,
-      classId: student.classId // FIX: send classId
-    })
+    body: JSON.stringify({ action, classId: student.classId })
   })
     .then(res => res.json())
     .then(resp => {
-      if (resp.error) return alert(resp.error);
-
-      student.status = action === 'promote' ? 'Promoted' : action === 'graduate' ? 'Graduated' : 'Pending';
+      if (resp.error) {
+        alert('Error: ' + resp.error);
+        return;
+      }
+      const s = students.find(x => x.id === id);
+      if (s) {
+        s.status = action === 'promote' ? 'Promoted' : action === 'graduate' ? 'Graduated' : 'Pending';
+      }
       renderStudentsTable();
-      alert(resp.message || "Success");
+      alert(resp.message || `Student ${action}ed successfully!`);
     })
-    .catch(err => alert(err.message));
+    .catch(err => {
+      alert('Network error: ' + err.message);
+      console.error(err);
+    });
 }
 
-function promoteStudent(id) {
-  if (confirm('Promote student?')) performAction(id, 'promote');
+// Bulk actions
+function bulkPromote() {
+  if (!confirm(`Promote ${selectedStudents.size} student(s)?`)) return;
+  bulkAction('promote');
 }
 
-function graduateStudent(id) {
-  if (confirm('Graduate student?')) performAction(id, 'graduate');
+function bulkGraduate() {
+  if (!confirm(`Graduate ${selectedStudents.size} student(s)?`)) return;
+  bulkAction('graduate');
 }
 
-function demoteStudent(id) {
-  if (confirm('Demote student?')) performAction(id, 'demote');
+function bulkDemote() {
+  if (!confirm(`Demote ${selectedStudents.size} student(s)?`)) return;
+  bulkAction('demote');
 }
 
 function bulkAction(action) {
@@ -922,33 +984,35 @@ function bulkAction(action) {
   })
     .then(res => res.json())
     .then(resp => {
-      if (resp.error) return alert(resp.error);
-
+      if (resp.error) {
+        alert('Error: ' + resp.error);
+        return;
+      }
       students.forEach(s => {
         if (selectedStudents.has(s.id)) {
           s.status = action === 'promote' ? 'Promoted' : action === 'graduate' ? 'Graduated' : 'Pending';
         }
       });
-
-      const count = selectedStudents.size; // FIX before clearing
+      const count = selectedStudents.size;
       selectedStudents.clear();
       renderStudentsTable();
-
       alert(resp.message || `${count} student(s) updated`);
     })
-    .catch(err => alert(err.message));
+    .catch(err => {
+      alert('Network error: ' + err.message);
+      console.error(err);
+    });
 }
 
-function bulkPromote() { bulkAction('promote'); }
-function bulkGraduate() { bulkAction('graduate'); }
-function bulkDemote() { bulkAction('demote'); }
-
+// Initial load
 fillClasses();
 fetchStudents();
 
-document.getElementById('searchName').addEventListener('keydown', e => {
+// Search on Enter
+document.getElementById('searchName').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') fetchStudents();
 });
+
 document.getElementById('filterClass').addEventListener('change', fetchStudents);
 document.getElementById('filterSession').addEventListener('change', fetchStudents);
 document.getElementById('filterTerm').addEventListener('change', fetchStudents);
