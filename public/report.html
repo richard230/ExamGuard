@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Student Performance Report</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     /* A4 portrait with tight margins */
     @page { size: A4 portrait; margin: 6mm; }
@@ -649,6 +650,38 @@
   padding-top: 6px;
   padding-bottom: 6px;
 }
+    .qr-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.qr-code canvas {
+  width: 70px;
+  height: 70px;
+  border: 1px solid #ccc;
+  padding: 2px;
+  background: #fff;
+}
+
+.qr-info {
+  font-size: 7.5px;
+  line-height: 1.2;
+  max-width: 160px;
+}
+
+.qr-title {
+  font-weight: 700;
+  font-size: 8px;
+  margin-bottom: 2px;
+}
+
+.qr-link {
+  font-weight: 700;
+  color: #1f375e;
+  word-break: break-all;
+}
     @media print {
       .profile-section { box-shadow: none; border: 1px solid #bbb; }
       body { background: #fff; }
@@ -987,7 +1020,19 @@
             <div style="margin-top:2px;" class="nt-label">Date Issued: <span id="dateIssued">-</span></div>
           </div>
         </div>
-
+<div class="qr-section">
+  <div class="qr-code">
+    <canvas id="qrCanvas"></canvas>
+  </div>
+  <div class="qr-info">
+    <div class="qr-title">Result Verification</div>
+    <div class="qr-text">
+      Scan the QR code or visit:<br>
+      <span class="qr-link">https://examguard.com/verify</span><br><br>
+      Enter the student's Registration No to verify this result.
+    </div>
+  </div>
+</div>
         <!-- Seal at the bottom, inside remarks -->
         <img src="seal.jpg" alt="Official Seal" class="seal-image" />
 
@@ -1088,7 +1133,24 @@
         table.classList.add('subjects-13-plus');
       }
     }
+function generateQRCode(student, session) {
+  const qrData = `
+Name: ${student.name || ''}
+RegNo: ${student.regNo || ''}
+Class: ${student.class?.name || student.class || ''}
+Session: ${session || ''}
+Verify: https://examguard.com/verify
+  `.trim();
 
+  const canvas = document.getElementById("qrCanvas");
+
+  new QRCode(canvas, {
+    text: qrData,
+    width: 70,
+    height: 70,
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
     // Set signature images with fallback to static seal
     function setSignatureImages(data) {
       // Teacher signature
@@ -1353,7 +1415,7 @@
       
       // Set signature images with fallback to static seal.jpg
       setSignatureImages(data);
-      
+      generateQRCode(student, data.session);
       // Dates
       document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate) || '-';
       document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
