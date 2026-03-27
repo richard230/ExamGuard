@@ -1391,25 +1391,153 @@ function formatTimer(s) {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-// ================= SUBMIT =================
-async function submitExam() {
-  clearInterval(timerInterval);
+    async function submitExam() {
+      document.getElementById('cbtExamArea').style.display = 'none';
+      document.getElementById('cbtResultArea').style.display = '';
+      document.getElementById('cbtResultArea').innerHTML = '<div class="cbt-loader"><div class="cbt-spinner"></div><div class="cbt-loader-text">Submitting your exam...</div></div>';
 
-  await fetch(API_BASE_URL + '/api/result', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      exam: exam._id,
-      answers,
-      student: student._id,
-      startedAt,
-      finishedAt: new Date().toISOString()
-    })
-  });
+      const payload = {
+        exam: exam._id,
+        answers,
+        student: student._id,
+        startedAt: startedAt,
+        finishedAt: new Date().toISOString()
+      };
 
-  alert("Exam submitted!");
-  logout();
-}
+      let result = null;
+      try {
+        const res = await fetch(API_BASE_URL + '/api/result', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          result = await res.json();
+        }
+      } catch (e) {
+        console.error('Submission error:', e);
+      }
+
+      logStudentActivity('submitted', { answers });
+      showResults(result);
+    }
+
+    function showResults(result) {
+      let correct = 0;
+      let total = questions.length;
+      let resultsHtml = `
+        <div class="cbt-results-container">
+          <div class="cbt-results-header">
+            <div class="cbt-results-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="cbt-results-title">Exam Submitted</div>
+            <div class="cbt-results-subtitle">Thank you, <strong>${student.name}</strong></div>
+          </div>
+
+          <div class="cbt-score-display">
+            <div>Your Score</div>
+            <div class="cbt-score-big">
+              <span class="cbt-score-value" id="finalScore">0</span>
+              <span class="cbt-score-total">/ ${total}</span>
+            </div>
+            <div class="cbt-score-percentage" id="finalPercentage">0%</div>
+          </div>
+
+          <div class="cbt-results-body" id="resultsList"></div>
+
+          <div class="cbt-results-footer">
+            <button class="cbt-btn cbt-btn-primary" onclick="logout()">
+              <i class="fas fa-sign-out-alt"></i> Log Out
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('cbtResultArea').innerHTML = resultsHtml;
+
+      if (result && result.results && Array.isArray(result.results)) {
+        result.results.forEach((q, i) => {
+          if (q.isCorrect) correct++;
+        });
+        showDetailedResults(result.results);
+      } else {
+        questions.forEach((q, i) => {
+          let correctIdx = typeof q.answer === 'number' ? q.answer : 
+            (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
+          if (answers[i] === correctIdx) correct++;
+        });
+        showLocalResults();
+      }
+
+      const percentage = Math.round((correct / total) * 100);
+      document.getElementById('finalScore').textContent = correct;
+      document.getElementById('finalPercentage').textContent = percentage + '%';
+    }
+
+    function showDetailedResults(results) {
+      let html = '';
+      results.forEach((r, i) => {
+        const isCorrect = r.isCorrect;
+        html += `
+          <div class="cbt-result-item">
+            <div class="cbt-result-item-number">Question ${i + 1}</div>
+            <div class="cbt-result-item-question">${questions[i].text}</div>
+            <div class="cbt-result-item-feedback">
+              <div class="cbt-result-answer">
+                <div class="cbt-result-answer-label">Your Answer</div>
+                <div class="cbt-result-answer-value">
+                  ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
+                </div>
+              </div>
+              <div class="cbt-result-answer">
+                <div class="cbt-result-answer-label">Correct Answer</div>
+                <div class="cbt-result-answer-value">${typeof r.correctAnswer === 'number' ? String.fromCharCode(65+r.correctAnswer) : '-'}</div>
+              </div>
+            </div>
+            <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
+              <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+              ${isCorrect ? 'Correct' : 'Incorrect'}
+            </div>
+          </div>
+        `;
+      });
+      document.getElementById('resultsList').innerHTML = html;
+    }
+
+    function showLocalResults() {
+      let html = '';
+      questions.forEach((q, i) => {
+        let correctIdx = typeof q.answer === 'number' ? q.answer : 
+          (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
+        const isCorrect = answers[i] === correctIdx;
+        html += `
+          <div class="cbt-result-item">
+            <div class="cbt-result-item-number">Question ${i + 1}</div>
+            <div class="cbt-result-item-question">${q.text}</div>
+            <div class="cbt-result-item-feedback">
+              <div class="cbt-result-answer">
+                <div class="cbt-result-answer-label">Your Answer</div>
+                <div class="cbt-result-answer-value">
+                  ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
+                </div>
+              </div>
+              <div class="cbt-result-answer">
+                <div class="cbt-result-answer-label">Correct Answer</div>
+                <div class="cbt-result-answer-value">${typeof correctIdx === 'number' ? String.fromCharCode(65+correctIdx) : '-'}</div>
+              </div>
+            </div>
+            <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
+              <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+              ${isCorrect ? 'Correct' : 'Incorrect'}
+            </div>
+          </div>
+        `;
+      });
+      document.getElementById('resultsList').innerHTML = html;
+    }
+
 
 // ================= LOGOUT =================
 function logout() {
