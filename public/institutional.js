@@ -510,7 +510,7 @@
             <td class="score">${exam}</td>
             <td class="score score-total">${total.toFixed(2)}</td>
             <td style="text-align: center;"><span class="grade-badge grade-${(subject.grade || 'f').toLowerCase()}">${subject.grade}</span></td>
-            <td class="position">${subject.position}</td>
+            
           `;
           tableBody.appendChild(row);
         });
