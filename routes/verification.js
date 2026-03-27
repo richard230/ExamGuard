@@ -462,7 +462,6 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
         exam: result.exam_score || 0,
         total: subjectTotal,
         grade: result.grade || '-',
-        position: '-' // Will be populated in Step 10
       });
     });
 
