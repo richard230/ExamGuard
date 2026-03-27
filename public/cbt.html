@@ -2,197 +2,952 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ExamGuard International School| Central Computer Based Test</title>
+  <title>Computer Based Test - ExamGuard International School</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Flowbite + TailwindCSS + FontAwesome -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body {
-      font-family: 'Inter', Arial, sans-serif;
-      background: #f7fafd;
-      color: #1a2b4b;
-      min-height: 100vh;
+    * {
       margin: 0;
-    }
-    .cbt-option {
-      cursor: pointer;
-      transition: box-shadow 0.18s, background 0.18s;
-      background: #ffffff;
-      border: 2px solid #ddeaff;
-      word-break: break-word;
-      max-width: 100%;
-      overflow-x: auto;
-    }
-    .cbt-option.selected {
-      background: #2647a6;
-      color: #fff;
-      border-color: #2647a6;
-      box-shadow: 0 4px 18px #ddeaff99;
-    }
-    .cbt-option:hover {
-      background: #e9f0fe;
-      border-color: #2647a6;
-    }
-    .cbt-btn {
-      padding: 0.9em 2em;
-      border-radius: 0.6em;
-      background: #2647a6;
-      color: #fff;
-      font-weight: 700;
-      border: none;
-      transition: background 0.18s;
-      margin: 0 0.5em;
-      box-shadow: 0 2px 12px #ddeaff99;
-      white-space: nowrap;
-    }
-    .cbt-btn:disabled {
-      background: #bfcde7;
-      color: #888;
-    }
-    .cbt-btn:hover:not(:disabled) {
-      background: #18308b;
-    }
-    .cbt-timer {
-      font-weight: bold;
-      font-size: 1.08em;
-      background: #e9f0fe;
-      color: #2647a6;
-      padding: 0.6em 1.2em;
-      border-radius: 0.5em;
-      margin-bottom: 1em;
-      display: inline-block;
-      box-shadow: 0 1px 7px #ddeaff88;
-      white-space: nowrap;
-      max-width: 100%;
-    }
-    .cbt-summary {
-      background: #fff;
-      border-radius: 1em;
-      box-shadow: 0 2px 14px #ddeaff77;
-      padding: 1.7em 1.5em;
-      margin-bottom: 1.2em;
-      min-width: 250px;
-      font-size: 1em;
-      max-width: 100%;
-      overflow-x: auto;
-    }
-    .cbt-question-nav button {
-      width: 32px; height: 32px;
-      margin: 0.2em;
-      border-radius: 0.4em;
-      border: 1.5px solid #ddeaff;
-      background: #f6f8fa;
-      font-weight: 700;
-      color: #2647a6;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-    .cbt-question-nav button.answered {
-      background: #2647a6;
-      color: #fff;
-      border-color: #2647a6;
-    }
-    .cbt-question-nav button.current {
-      background: #ffd600;
-      border-color: #ffd600;
-      color: #22305a;
-    }
-    .cbt-question-nav button:hover {
-      background: #e9f0fe;
-    }
-    .ql-editor img, .cbt-question img, .cbt-option img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      margin: 8px auto;
-      border-radius: 0.3em;
-      background: #f6f8fa;
-      box-shadow: 0 1px 6px #ddeaff33;
-    }
-    /* Prevent overflow */
-    .cbt-content, .cbt-sidebar {
-      max-width: 100vw;
-      overflow-x: auto;
-    }
-    .cbt-content * {
+      padding: 0;
       box-sizing: border-box;
-      max-width: 100%;
+    }
+
+    html, body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      color: #2c3e50;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* ============================================
+       CONTAINER & LAYOUT
+       ============================================ */
+    .cbt-container {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header Bar */
+    .cbt-header {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      padding: 0 24px;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cbt-header.show {
+      display: flex;
+    }
+
+    .cbt-header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .cbt-header-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .cbt-header-timer {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 16px;
+    }
+
+    /* Main Layout */
+    .cbt-main {
+      display: flex;
+      width: 100%;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ============================================
+       SIDEBAR (LEFT)
+       ============================================ */
+    .cbt-sidebar {
+      width: 320px;
+      background: white;
+      border-right: 1px solid #e8ecf1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+      z-index: 50;
+    }
+
+    .cbt-sidebar-header {
+      padding: 24px 20px;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      border-bottom: none;
+    }
+
+    .cbt-logo {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      opacity: 0.9;
+    }
+
+    .cbt-exam-title {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    /* Student Card */
+    .cbt-student-card {
+      padding: 20px;
+      background: #f8f9fb;
+      border-bottom: 1px solid #e8ecf1;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .cbt-student-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 24px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .cbt-student-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cbt-student-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #2c3e50;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .cbt-student-meta {
+      font-size: 12px;
+      color: #7f8c8d;
+    }
+
+    /* Stats Section */
+    .cbt-stats {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      border-bottom: 1px solid #e8ecf1;
+    }
+
+    .cbt-stat {
+      background: #f8f9fb;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #e8ecf1;
+    }
+
+    .cbt-stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #2a5298;
+      display: block;
+    }
+
+    .cbt-stat-label {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    /* Timer */
+    .cbt-sidebar-timer {
+      padding: 16px 20px;
+      text-align: center;
+      border-bottom: 1px solid #e8ecf1;
+    }
+
+    .cbt-timer-display {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 32px;
+      font-weight: 700;
+      color: #2a5298;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .cbt-timer-label {
+      font-size: 12px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .cbt-timer-display.warning {
+      color: #e67e22;
+    }
+
+    .cbt-timer-display.critical {
+      color: #e74c3c;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Question Navigator */
+    .cbt-navigator {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 12px;
+      min-height: 0;
+    }
+
+    .cbt-nav-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      padding: 0 8px;
+    }
+
+    .cbt-question-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .cbt-q-btn {
+      aspect-ratio: 1;
+      border: 2px solid #e8ecf1;
+      background: white;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #7f8c8d;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .cbt-q-btn:hover {
+      border-color: #2a5298;
+      color: #2a5298;
+      box-shadow: 0 2px 6px rgba(42, 82, 152, 0.1);
+    }
+
+    .cbt-q-btn.answered {
+      background: #2a5298;
+      color: white;
+      border-color: #2a5298;
+      box-shadow: 0 2px 8px rgba(42, 82, 152, 0.3);
+    }
+
+    .cbt-q-btn.current {
+      background: #f39c12;
+      color: white;
+      border-color: #f39c12;
+      box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.2);
+    }
+
+    .cbt-q-btn.current.answered {
+      background: linear-gradient(135deg, #2a5298 0%, #f39c12 100%);
+      border-color: #f39c12;
+    }
+
+    /* ============================================
+       MAIN CONTENT AREA
+       ============================================ */
+    .cbt-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #f5f7fa;
+      overflow: hidden;
+    }
+
+    .cbt-content-header {
+      padding: 20px 32px;
+      background: white;
+      border-bottom: 1px solid #e8ecf1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .cbt-breadcrumb {
+      font-size: 13px;
+      color: #7f8c8d;
+    }
+
+    .cbt-breadcrumb strong {
+      color: #2a5298;
+      font-weight: 600;
+    }
+
+    .cbt-content-progress {
+      font-size: 13px;
+      color: #7f8c8d;
+      font-weight: 600;
+    }
+
+    /* Question Area */
+    .cbt-question-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 32px;
+    }
+
+    .cbt-question-number {
+      font-size: 13px;
+      font-weight: 700;
+      color: #2a5298;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .cbt-question-text {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2c3e50;
+      line-height: 1.6;
+      margin-bottom: 32px;
       word-break: break-word;
     }
 
-    @media (max-width: 950px) {
-      .cbt-main { flex-direction: column; }
-      .cbt-sidebar { width: 100%; margin-bottom: 1.5em; }
-      .cbt-content { width: 100%; }
+    .cbt-question-text img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 16px 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
-    @media (max-width: 700px) {
-      .cbt-content, .cbt-sidebar, .cbt-main, body, html {
-        width: 100vw !important;
-        max-width: 100vw !important;
-        overflow-x: hidden !important;
+
+    /* Options */
+    .cbt-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .cbt-option {
+      padding: 16px 20px;
+      border: 2px solid #e8ecf1;
+      border-radius: 12px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .cbt-option:hover {
+      border-color: #2a5298;
+      box-shadow: 0 2px 8px rgba(42, 82, 152, 0.1);
+      background: #f8faff;
+    }
+
+    .cbt-option.selected {
+      background: #e3f0ff;
+      border-color: #2a5298;
+      box-shadow: 0 4px 16px rgba(42, 82, 152, 0.2);
+    }
+
+    .cbt-option-letter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #f0f2f5;
+      font-weight: 700;
+      color: #2a5298;
+      flex-shrink: 0;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 14px;
+    }
+
+    .cbt-option.selected .cbt-option-letter {
+      background: #2a5298;
+      color: white;
+    }
+
+    .cbt-option-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cbt-option img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+
+    /* Loader & No Exam */
+    .cbt-loader, .cbt-no-exam {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      color: #7f8c8d;
+      font-size: 16px;
+    }
+
+    .cbt-loader i {
+      font-size: 48px;
+      color: #2a5298;
+      margin-bottom: 16px;
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Buttons Area */
+    .cbt-buttons {
+      padding: 0 32px 32px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .cbt-btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cbt-btn-primary {
+      background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+      color: white;
+      box-shadow: 0 2px 8px rgba(42, 82, 152, 0.3);
+    }
+
+    .cbt-btn-primary:hover:not(:disabled) {
+      box-shadow: 0 4px 16px rgba(42, 82, 152, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .cbt-btn-secondary {
+      background: #f0f2f5;
+      color: #2c3e50;
+      border: 1px solid #e8ecf1;
+    }
+
+    .cbt-btn-secondary:hover:not(:disabled) {
+      background: #e8ecf1;
+      border-color: #2a5298;
+    }
+
+    .cbt-btn-danger {
+      background: #e74c3c;
+      color: white;
+      box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+    }
+
+    .cbt-btn-danger:hover:not(:disabled) {
+      background: #c0392b;
+      box-shadow: 0 4px 16px rgba(231, 76, 60, 0.4);
+    }
+
+    .cbt-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Results Section */
+    .cbt-result-area {
+      padding: 32px;
+      overflow-y: auto;
+    }
+
+    .cbt-result-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .cbt-result-icon {
+      font-size: 64px;
+      color: #27ae60;
+      margin-bottom: 16px;
+    }
+
+    .cbt-result-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 12px;
+    }
+
+    .cbt-result-message {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin-bottom: 24px;
+    }
+
+    .cbt-score-card {
+      background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+      color: white;
+      padding: 32px;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 32px;
+      box-shadow: 0 4px 16px rgba(42, 82, 152, 0.3);
+    }
+
+    .cbt-score-value {
+      font-size: 56px;
+      font-weight: 700;
+      font-family: 'Roboto Mono', monospace;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .cbt-score-label {
+      font-size: 14px;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cbt-result-details {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .cbt-detail-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #e8ecf1;
+    }
+
+    .cbt-detail-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2a5298;
+      margin-bottom: 8px;
+    }
+
+    .cbt-detail-label {
+      font-size: 12px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cbt-result-list {
+      margin-bottom: 32px;
+    }
+
+    .cbt-result-item {
+      background: white;
+      padding: 16px;
+      border-left: 4px solid #e8ecf1;
+      margin-bottom: 12px;
+      border-radius: 4px;
+    }
+
+    .cbt-result-item.correct {
+      border-left-color: #27ae60;
+    }
+
+    .cbt-result-item.incorrect {
+      border-left-color: #e74c3c;
+    }
+
+    .cbt-result-item-question {
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .cbt-result-item-answer {
+      font-size: 13px;
+      color: #7f8c8d;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .cbt-result-item-answer strong {
+      color: #2c3e50;
+    }
+
+    .cbt-result-item-status {
+      display: inline-block;
+      margin-left: 8px;
+      font-size: 16px;
+    }
+
+    /* ============================================
+       RESPONSIVE
+       ============================================ */
+    @media (max-width: 1200px) {
+      .cbt-sidebar {
+        width: 280px;
       }
+
+      .cbt-question-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .cbt-main {
+        flex-direction: column;
+      }
+
+      .cbt-sidebar {
+        width: 100%;
+        height: 120px;
+        border-right: none;
+        border-bottom: 1px solid #e8ecf1;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      .cbt-sidebar-header {
+        padding: 12px 20px;
+        min-width: 200px;
+      }
+
+      .cbt-student-card {
+        padding: 12px 20px;
+        min-width: 200px;
+        border-bottom: none;
+        border-right: 1px solid #e8ecf1;
+      }
+
+      .cbt-stats {
+        display: flex;
+        gap: 12px;
+        padding: 12px 20px;
+        border-bottom: none;
+        border-right: 1px solid #e8ecf1;
+        min-width: 200px;
+      }
+
+      .cbt-sidebar-timer {
+        padding: 12px 20px;
+        border-bottom: none;
+        border-right: 1px solid #e8ecf1;
+        min-width: 160px;
+      }
+
+      .cbt-navigator {
+        padding: 12px 20px;
+        min-width: auto;
+        flex: 1;
+      }
+
+      .cbt-question-grid {
+        grid-template-columns: repeat(4, 40px);
+        gap: 6px;
+      }
+
+      .cbt-content {
+        flex: 1;
+      }
+
+      .cbt-options {
+        grid-template-columns: 1fr;
+      }
+
+      .cbt-question-area {
+        padding: 24px;
+      }
+
+      .cbt-buttons {
+        padding: 0 24px 24px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .cbt-question-area {
+        padding: 16px;
+      }
+
+      .cbt-question-text {
+        font-size: 16px;
+        margin-bottom: 24px;
+      }
+
+      .cbt-content-header {
+        padding: 16px;
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+      }
+
+      .cbt-buttons {
+        padding: 0 16px 16px;
+        flex-direction: column;
+      }
+
+      .cbt-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .cbt-detail-value {
+        font-size: 18px;
+      }
+
+      .cbt-result-details {
+        grid-template-columns: 1fr;
+      }
+
+      .cbt-timer-display {
+        font-size: 24px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .cbt-sidebar {
+        height: auto;
+        flex-direction: column;
+        border-bottom: 1px solid #e8ecf1;
+      }
+
+      .cbt-sidebar-header {
+        min-width: auto;
+        border-right: none;
+      }
+
+      .cbt-student-card {
+        min-width: auto;
+        border-right: none;
+        padding: 12px;
+      }
+
+      .cbt-stats {
+        min-width: auto;
+        border-right: none;
+        padding: 12px;
+      }
+
+      .cbt-sidebar-timer {
+        min-width: auto;
+        border-right: none;
+        padding: 12px;
+      }
+
+      .cbt-navigator {
+        min-width: auto;
+        padding: 8px;
+      }
+
+      .cbt-question-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
       .cbt-option {
-        font-size: 1em;
-        padding: 1em 0.7em;
-        min-width: 0;
+        padding: 12px 16px;
       }
+
+      .cbt-score-value {
+        font-size: 40px;
+      }
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f5f7fa;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #d0d7e0;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #bcc2cc;
     }
   </style>
 </head>
 <body>
-  <div class="flex flex-col items-center w-full min-h-screen py-6 bg-[#f7fafd]">
-    <div class="w-full max-w-6xl flex cbt-main gap-8 px-3 py-2">
-      <!-- Sidebar: Student Details & Navigation -->
-      <aside class="cbt-sidebar bg-white rounded-2xl shadow-lg p-7 flex flex-col items-center gap-5 min-w-[230px] max-w-sm">
-        <div class="text-2xl font-bold text-primary mb-2 text-center">ExamGuard International School</div>
-        <div class="text-lg font-semibold mb-2 text-center">CENTRAL COMPUTER BASED TEST</div>
-        <div class="cbt-summary w-full">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="rounded-full bg-[#ddeaff] text-[#2647a6] font-bold text-xl flex items-center justify-center w-14 h-14 shadow avatar">
-              <i class="fa fa-desktop"></i>
-            </div>
-            <div>
-              <div class="font-bold text-lg" id="studentName">Student Name</div>
-              <div class="text-sm text-gray-600" id="studentClass">Class: -</div>
-            </div>
-          </div>
-          <div class="text-sm mb-1" id="cbtSubject">Subject: -</div>
-          <div class="text-sm mb-1">Questions: <span id="cbtTotalQuestions">-</span></div>
-          <div class="text-sm mb-1">Answered: <span id="cbtTotalAnswered">0</span></div>
-          <div class="text-sm mb-1">Left: <span id="cbtTotalLeft">-</span></div>
+  <div class="cbt-container">
+    <!-- SIDEBAR -->
+    <aside class="cbt-sidebar">
+      <div class="cbt-sidebar-header">
+        <div class="cbt-logo">ExamGuard</div>
+        <div class="cbt-exam-title" id="cbtExamTitle">Computer Based Test</div>
+      </div>
+
+      <div class="cbt-student-card">
+        <div class="cbt-student-avatar">
+          <i class="fas fa-user"></i>
         </div>
-        <div class="cbt-question-nav flex flex-wrap justify-center w-full mb-3" id="cbtQuestionNav"></div>
-        <div class="cbt-timer text-center" id="cbtTimer"></div>
-      </aside>
-      <!-- Main CBT Content -->
-      <main class="cbt-content flex-1 bg-white rounded-2xl shadow-lg p-8 flex flex-col gap-7">
-        <div id="cbtExamLoader" class="text-center text-lg text-gray-500 py-16">Loading exam...</div>
-        <div id="cbtExamArea" class="hidden">
-          <div class="text-lg font-bold text-primary mb-3" id="cbtTestTitle"></div>
-          <div class="text-base font-semibold mb-2 cbt-question" id="cbtQuestionText"></div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4" id="cbtOptions">
-            <!-- Options go here -->
-          </div>
-          <div class="flex items-center gap-2 mt-6 flex-wrap">
-            <button class="cbt-btn" id="cbtPrevBtn"><i class="fa fa-arrow-left mr-1"></i> Previous</button>
-            <button class="cbt-btn" id="cbtNextBtn">Next <i class="fa fa-arrow-right ml-1"></i></button>
-            <button class="cbt-btn" id="cbtSubmitBtn"><i class="fa fa-paper-plane mr-1"></i> Submit</button>
-          </div>
+        <div class="cbt-student-info">
+          <div class="cbt-student-name" id="studentName">Student Name</div>
+          <div class="cbt-student-meta" id="studentClass">Class: -</div>
         </div>
-        <div id="cbtResultArea" class="hidden"></div>
-        <div id="cbtNoExamArea" class="hidden text-center text-lg text-gray-500 py-16"></div>
-      </main>
-    </div>
+      </div>
+
+      <div class="cbt-stats">
+        <div class="cbt-stat">
+          <span class="cbt-stat-value" id="cbtTotalQuestions">-</span>
+          <span class="cbt-stat-label">Total</span>
+        </div>
+        <div class="cbt-stat">
+          <span class="cbt-stat-value" id="cbtTotalAnswered">0</span>
+          <span class="cbt-stat-label">Answered</span>
+        </div>
+      </div>
+
+      <div class="cbt-sidebar-timer">
+        <div class="cbt-timer-display" id="cbtTimer">00:00</div>
+        <div class="cbt-timer-label">Time Remaining</div>
+      </div>
+
+      <div class="cbt-navigator">
+        <div class="cbt-nav-label">Questions</div>
+        <div class="cbt-question-grid" id="cbtQuestionNav"></div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="cbt-content">
+      <div class="cbt-content-header">
+        <div class="cbt-breadcrumb">
+          <strong id="cbtSubject">Subject</strong> • <span id="cbtClass">Class</span>
+        </div>
+        <div class="cbt-content-progress">
+          Question <strong id="cbtCurrentQuestion">1</strong> of <strong id="cbtTotalQuestionsHeader">-</strong>
+        </div>
+      </div>
+
+      <!-- LOADER -->
+      <div class="cbt-loader" id="cbtExamLoader">
+        <div style="text-align: center;">
+          <i class="fas fa-spinner"></i>
+          <p style="margin-top: 16px;">Loading your exam...</p>
+        </div>
+      </div>
+
+      <!-- NO EXAM -->
+      <div class="cbt-no-exam hidden" id="cbtNoExamArea" style="display: none;">
+        <div style="text-align: center;">
+          <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7; margin-bottom: 16px;"></i>
+          <p style="font-size: 16px; color: #7f8c8d;">No CBT exam is currently scheduled for you.</p>
+          <p style="font-size: 14px; color: #95a5a6; margin-top: 8px;">If you believe this is an error, please contact your teacher.</p>
+        </div>
+      </div>
+
+      <!-- EXAM AREA -->
+      <div id="cbtExamArea" style="display: none;" class="hidden">
+        <div class="cbt-question-area">
+          <div class="cbt-question-number">Question <span id="qNum">1</span></div>
+          <div class="cbt-question-text" id="cbtQuestionText">Loading...</div>
+          <div class="cbt-options" id="cbtOptions"></div>
+        </div>
+
+        <div class="cbt-buttons">
+          <button class="cbt-btn cbt-btn-secondary" id="cbtPrevBtn">
+            <i class="fas fa-chevron-left"></i> Previous
+          </button>
+          <button class="cbt-btn cbt-btn-secondary" id="cbtClearBtn">
+            <i class="fas fa-times"></i> Clear Answer
+          </button>
+          <button class="cbt-btn cbt-btn-primary" id="cbtNextBtn">
+            Next <i class="fas fa-chevron-right"></i>
+          </button>
+          <button class="cbt-btn cbt-btn-danger" id="cbtSubmitBtn">
+            <i class="fas fa-check"></i> Submit
+          </button>
+        </div>
+      </div>
+
+      <!-- RESULTS AREA -->
+      <div id="cbtResultArea" style="display: none;" class="hidden cbt-result-area">
+        <!-- Results rendered here -->
+      </div>
+    </main>
   </div>
+
   <script>
-    // Backend API URL (adjust if needed)
     const API_BASE_URL = "https://examguard-8rxe.onrender.com";
-    // AUTH
     const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
-    let student = { name: '', class: '', subject: '', avatar: '' };
+    
+    let student = { name: '', class: '', subject: '', avatar: '', _id: '' };
     let exam = null;
     let startedAt = new Date().toISOString();
     let questions = [];
@@ -200,128 +955,129 @@
     let currentQ = 0;
     let timerSeconds = 0;
     let timerInterval = null;
-// Helper to send student activity
-async function logStudentActivity(action, extra = {}) {
-  // Prepare payload
-  const payload = {
-    student: student._id,         // Student's MongoDB ID
-    exam: exam._id,               // Exam's MongoDB ID
-    action: action,               // e.g., 'started', 'answered', 'navigated', 'submitted'
-    timestamp: new Date().toISOString()
-                        // Additional info (questionIndex, answer, etc)
-  };
 
-  try {
-    await fetch(API_BASE_URL + '/api/activity', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-      },
-      body: JSON.stringify(payload)
-    });
-    // Optionally, handle/log success or failure
-  } catch (e) {
-    // Optionally, log errors for debug
-    // console.error('Activity log failed', e);
-  }
-}
-    // --- Fetch student info and scheduled exam ---
+    async function logStudentActivity(action, extra = {}) {
+      const payload = {
+        student: student._id,
+        exam: exam._id,
+        action: action,
+        timestamp: new Date().toISOString(),
+        ...extra
+      };
+
+      try {
+        await fetch(API_BASE_URL + '/api/activity', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error('Activity log failed', e);
+      }
+    }
+
     async function fetchStudentAndExam() {
-      // 1. Fetch student info
-      let studentRes = await fetch(API_BASE_URL + '/api/student/me', {
-        headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-      });
-      if (!studentRes.ok) {
-        document.getElementById('cbtExamLoader').textContent = 'Failed to load student data. Please login again.';
-        return;
-      }
-      const studentJson = await studentRes.json();
-student.name = studentJson.name || 
-    ((studentJson.firstname && studentJson.surname) ? studentJson.firstname + " " + studentJson.surname : "Student Name");
+      try {
+        let studentRes = await fetch(API_BASE_URL + '/api/student/me', {
+          headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+        });
 
-// If studentJson.class is an object, try to use .name, else use as string, else fallback to '-'
-student.class = 
-    (typeof studentJson.class === 'object' && studentJson.class && studentJson.class.name) ? studentJson.class.name :
-    (typeof studentJson.class === 'string' ? studentJson.class : '-');
+        if (!studentRes.ok) {
+          document.getElementById('cbtExamLoader').innerHTML = '<p>Failed to load student data. Please login again.</p>';
+          return;
+        }
 
-student.avatar = studentJson.photo_url || '';
-      student._id = studentJson._id;
-let scheduledRes = await fetch(
-  API_BASE_URL + '/api/exam/student?status=Scheduled,Started&scheduledFor=student',
-  { headers: token ? { 'Authorization': 'Bearer ' + token } : {} }
-);
-      let scheduled = [];
-      if (scheduledRes.ok) {
-        scheduled = await scheduledRes.json();
+        const studentJson = await studentRes.json();
+        student.name = studentJson.name || 
+          ((studentJson.firstname && studentJson.surname) ? studentJson.firstname + " " + studentJson.surname : "Student Name");
+        student.class = 
+          (typeof studentJson.class === 'object' && studentJson.class && studentJson.class.name) ? studentJson.class.name :
+          (typeof studentJson.class === 'string' ? studentJson.class : '-');
+        student.avatar = studentJson.photo_url || '';
+        student._id = studentJson._id;
+
+        let scheduledRes = await fetch(
+          API_BASE_URL + '/api/exam/student?status=Scheduled,Started&scheduledFor=student',
+          { headers: token ? { 'Authorization': 'Bearer ' + token } : {} }
+        );
+
+        let scheduled = [];
+        if (scheduledRes.ok) {
+          scheduled = await scheduledRes.json();
+        }
+
+        if (!Array.isArray(scheduled) || !scheduled.length) {
+          showNoExam();
+          return;
+        }
+
+        exam = scheduled[0];
+        questions = Array.isArray(exam.questions) ? exam.questions : [];
+        answers = Array(questions.length).fill(null);
+        timerSeconds = (exam.duration || 15) * 60;
+        currentQ = 0;
+
+        document.getElementById('cbtExamLoader').style.display = 'none';
+        document.getElementById('cbtExamArea').style.display = '';
+        document.getElementById('cbtExamArea').classList.remove('hidden');
+
+        fillStudentSidebar();
+        renderQuestion();
+        startTimer();
+        logStudentActivity('started');
+      } catch (e) {
+        console.error('Error fetching exam:', e);
+        document.getElementById('cbtExamLoader').innerHTML = '<p>Error loading exam. Please refresh.</p>';
       }
-      if (!Array.isArray(scheduled) || !scheduled.length) {
-        showNoExam();
-        return;
-      }
-      // For now, pick the first scheduled exam
-      exam = scheduled[0];
-      questions = Array.isArray(exam.questions) ? exam.questions : [];
-      answers = Array(questions.length).fill(null);
-      timerSeconds = (exam.duration || 15) * 60;
-      currentQ = 0;
-      // Fill sidebar and render question
-      document.getElementById('cbtExamLoader').style.display = 'none';
-      document.getElementById('cbtExamArea').style.display = '';
-      document.getElementById('cbtExamArea').classList.remove('hidden');
-      fillStudentSidebar();
-      renderQuestion();
-      startTimer();
-      // After exam and student objects are set and exam is about to begin
-logStudentActivity('started');
     }
 
     function showNoExam() {
       document.getElementById('cbtExamLoader').style.display = 'none';
       document.getElementById('cbtNoExamArea').style.display = '';
       document.getElementById('cbtNoExamArea').classList.remove('hidden');
-      document.getElementById('cbtNoExamArea').innerHTML =
-        "No CBT exam is currently scheduled for you. If you believe this is an error, please contact your teacher.";
     }
 
     function fillStudentSidebar() {
       document.getElementById('studentName').textContent = student.name || 'Student Name';
       document.getElementById('studentClass').textContent = "Class: " + (student.class || '-');
-      document.getElementById('cbtSubject').textContent = "Subject: " + (exam?.subjectName || exam?.subject?.name || '-');
+      document.getElementById('cbtExamTitle').textContent = exam?.subjectName || exam?.subject?.name || 'CBT';
+      document.getElementById('cbtSubject').textContent = exam?.subjectName || exam?.subject?.name || '-';
+      document.getElementById('cbtClass').textContent = student.class || '-';
       document.getElementById('cbtTotalQuestions').textContent = questions.length;
-      document.getElementById('cbtTotalAnswered').textContent = answers.filter(a => a !== null).length;
-      document.getElementById('cbtTotalLeft').textContent = answers.filter(a => a === null).length;
+      document.getElementById('cbtTotalQuestionsHeader').textContent = questions.length;
+      updateSidebarStats();
 
-      // Question navigation
       let navHtml = "";
       for (let i = 0; i < questions.length; i++) {
         let btnClass = "";
         if (i === currentQ) btnClass = "current";
-        else if (answers[i] !== null) btnClass = "answered";
-        navHtml += `<button type="button" class="${btnClass}" onclick="gotoQuestion(${i})">${i + 1}</button>`;
+        if (answers[i] !== null) btnClass += " answered";
+        navHtml += `<button type="button" class="cbt-q-btn ${btnClass}" onclick="gotoQuestion(${i})" title="Question ${i + 1}">${i + 1}</button>`;
       }
       document.getElementById('cbtQuestionNav').innerHTML = navHtml;
     }
 
-    function renderQuestion() {
-      document.getElementById('cbtTestTitle').textContent =
-        (exam?.subjectName || exam?.subject?.name || '-') + " — " + (student.class || '-');
-      // Render question (HTML, images safe)
-      const q = questions[currentQ];
-      document.getElementById('cbtQuestionText').innerHTML =
-        `<div style="overflow-x:auto;max-width:100vw;" class="cbt-question">${q.text}</div>`;
+    function updateSidebarStats() {
+      document.getElementById('cbtTotalAnswered').textContent = answers.filter(a => a !== null).length;
+      document.getElementById('cbtCurrentQuestion').textContent = currentQ + 1;
+    }
 
-      // Render options
+    function renderQuestion() {
+      const q = questions[currentQ];
+      document.getElementById('qNum').textContent = currentQ + 1;
+      document.getElementById('cbtQuestionText').innerHTML = `<div>${q.text}</div>`;
+
       let optsHtml = "";
       (q.options || []).forEach((opt, idx) => {
         let selected = answers[currentQ] === idx ? "selected" : "";
-        // opt may be string (HTML) or object with .value
         let optValue = typeof opt === 'string' ? opt : (opt.value || '');
         optsHtml += `
-          <div class="cbt-option flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-base font-bold ${selected}"
-            onclick="selectAnswer(${idx})">
-            <span class="text-base font-bold mb-2">(${String.fromCharCode(65 + idx)})</span>
-            <span style="width:100%;overflow-x:auto;display:block;">${optValue}</span>
+          <div class="cbt-option ${selected}" onclick="selectAnswer(${idx})">
+            <div class="cbt-option-letter">${String.fromCharCode(65 + idx)}</div>
+            <div class="cbt-option-content">${optValue}</div>
           </div>
         `;
       });
@@ -335,16 +1091,16 @@ logStudentActivity('started');
     }
 
     window.gotoQuestion = function (qIdx) {
-  currentQ = qIdx;
-  renderQuestion();
-  logStudentActivity('navigated', { questionIndex: qIdx });
-}
+      currentQ = qIdx;
+      renderQuestion();
+      logStudentActivity('navigated', { questionIndex: qIdx });
+    }
 
     window.selectAnswer = function (idx) {
-  answers[currentQ] = idx;
-  renderQuestion();
-  logStudentActivity('answered', { questionIndex: currentQ, answer: idx });
-}
+      answers[currentQ] = idx;
+      renderQuestion();
+      logStudentActivity('answered', { questionIndex: currentQ, answer: idx });
+    }
 
     document.getElementById('cbtPrevBtn').onclick = function () {
       if (currentQ > 0) {
@@ -352,31 +1108,38 @@ logStudentActivity('started');
         renderQuestion();
       }
     };
+
     document.getElementById('cbtNextBtn').onclick = function () {
       if (currentQ < questions.length - 1) {
         currentQ++;
         renderQuestion();
       }
     };
+
+    document.getElementById('cbtClearBtn').onclick = function () {
+      answers[currentQ] = null;
+      renderQuestion();
+    };
+
     document.getElementById('cbtSubmitBtn').onclick = async function () {
       if (!exam || !student) return;
-      if (confirm("Are you sure you want to submit?")) {
+      if (confirm("Are you sure you want to submit? You cannot change your answers after submission.")) {
         clearInterval(timerInterval);
         await submitExam();
       }
     };
 
-    // ---- Timer Logic ----
     function formatTimer(s) {
       const m = Math.floor(s / 60);
       const sec = s % 60;
       return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
     }
+
     function startTimer() {
-      document.getElementById('cbtTimer').textContent = "Time Left: " + formatTimer(timerSeconds);
+      updateTimerDisplay();
       timerInterval = setInterval(() => {
         timerSeconds--;
-        document.getElementById('cbtTimer').textContent = "Time Left: " + formatTimer(timerSeconds);
+        updateTimerDisplay();
         if (timerSeconds <= 0) {
           clearInterval(timerInterval);
           alert("Time is up! Submitting your test.");
@@ -385,20 +1148,34 @@ logStudentActivity('started');
       }, 1000);
     }
 
-    // ---- Submit & Result Display ----
+    function updateTimerDisplay() {
+      const timerEl = document.getElementById('cbtTimer');
+      timerEl.textContent = formatTimer(timerSeconds);
+      
+      if (timerSeconds <= 60) {
+        timerEl.classList.add('critical');
+        timerEl.classList.remove('warning');
+      } else if (timerSeconds <= 300) {
+        timerEl.classList.add('warning');
+        timerEl.classList.remove('critical');
+      } else {
+        timerEl.classList.remove('warning', 'critical');
+      }
+    }
+
     async function submitExam() {
-      // POST /api/results
-      document.getElementById('cbtExamArea').classList.add('hidden');
-      document.getElementById('cbtResultArea').classList.remove('hidden');
-      document.getElementById('cbtResultArea').innerHTML = '<div class="text-center text-lg text-primary py-14">Submitting your answers...</div>';
+      document.getElementById('cbtExamArea').style.display = 'none';
+      document.getElementById('cbtResultArea').style.display = '';
+      document.getElementById('cbtResultArea').innerHTML = '<div class="cbt-loader"><div style="text-align: center;"><i class="fas fa-spinner"></i><p style="margin-top: 16px;">Submitting your answers...</p></div></div>';
 
       const payload = {
-  exam: exam._id,
-  answers,
-  student: student._id,
-  startedAt: startedAt,   // you need to record when the test starts!
-  finishedAt: new Date().toISOString()
-};
+        exam: exam._id,
+        answers,
+        student: student._id,
+        startedAt: startedAt,
+        finishedAt: new Date().toISOString()
+      };
+
       let result = null;
       try {
         const res = await fetch(API_BASE_URL + '/api/result', {
@@ -412,67 +1189,116 @@ logStudentActivity('started');
         if (res.ok) {
           result = await res.json();
         }
-      } catch {}
+      } catch (e) {
+        console.error('Submit error:', e);
+      }
+
       logStudentActivity('submitted', { answers });
-  
       showResults(result);
     }
 
-  function showResults(result) {
-  // If result is not returned (API not implemented), fallback to local check
-  let correct = 0;
-  let total = questions.length;
-  let resultHtml = "<h2 class='text-xl font-bold mb-2 text-primary'>Test Submitted</h2>";
-  resultHtml += `<div class='mb-3'>Thank you, <b>${student.name}</b>!<br>Here are your results:</div><ul class='mb-3'>`;
+    function showResults(result) {
+      let correct = 0;
+      let total = questions.length;
+      let resultHtml = `
+        <div class="cbt-result-header">
+          <div class="cbt-result-icon">✓</div>
+          <div class="cbt-result-title">Exam Submitted Successfully</div>
+          <div class="cbt-result-message">Thank you, <strong>${student.name}</strong>! Your answers have been recorded.</div>
+        </div>
+      `;
 
-  if (result && result.results && Array.isArray(result.results)) {
-    // If backend returns detailed answers
-    result.results.forEach((q, i) => {
-      let isCorrect = q.isCorrect;
-      if (isCorrect) correct++;
-      resultHtml += `<li class="mb-2 text-base">${questions[i].text}<br>
-        <b>Your Ans:</b> ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span class="text-red-600">No Answer</span>'} |
-        <b>Correct:</b> ${typeof q.correctAnswer === 'number' ? String.fromCharCode(65+q.correctAnswer) : '-'}
-        ${isCorrect ? "<span class='text-green-600 ml-2'>✔️</span>" : "<span class='text-red-600 ml-2'>❌</span>"}
-      </li>`;
-    });
-  } else {
-    // Fallback to local check (if backend does not validate)
-    questions.forEach((q, i) => {
-      let correctIdx = typeof q.answer === 'number' ? q.answer : (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
-      let isCorrect = answers[i] === correctIdx;
-      if (isCorrect) correct++;
-      resultHtml += `<li class="mb-2 text-base">${q.text}<br>
-        <b>Your Ans:</b> ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span class="text-red-600">No Answer</span>'} |
-        <b>Correct:</b> ${typeof correctIdx === 'number' ? String.fromCharCode(65+correctIdx) : '-'}
-        ${isCorrect ? "<span class='text-green-600 ml-2'>✔️</span>" : "<span class='text-red-600 ml-2'>❌</span>"}
-      </li>`;
-    });
-  }
-  resultHtml += "</ul>";
-  resultHtml += `<div class="font-bold text-lg text-primary">Score: ${correct} / ${total}</div>`;
-  // --- LOGOUT BUTTON ---
-  resultHtml += `<button id="cbtLogoutBtn" class="cbt-btn mt-5" style="margin-top:2em;">Log Out</button>`;
+      const resultsData = [];
 
-  document.getElementById('cbtResultArea').innerHTML = `<div class="py-8">${resultHtml}</div>`;
-  document.getElementById('cbtTimer').textContent = '';
-  document.getElementById('cbtQuestionNav').innerHTML = '';
+      if (result && result.results && Array.isArray(result.results)) {
+        result.results.forEach((q, i) => {
+          let isCorrect = q.isCorrect;
+          if (isCorrect) correct++;
+          resultsData.push({
+            question: questions[i]?.text || 'Question ' + (i + 1),
+            userAnswer: typeof answers[i] === 'number' ? String.fromCharCode(65 + answers[i]) : 'No Answer',
+            correctAnswer: typeof q.correctAnswer === 'number' ? String.fromCharCode(65 + q.correctAnswer) : '-',
+            isCorrect: isCorrect
+          });
+        });
+      } else {
+        questions.forEach((q, i) => {
+          let correctIdx = typeof q.answer === 'number' ? q.answer : (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
+          let isCorrect = answers[i] === correctIdx;
+          if (isCorrect) correct++;
+          resultsData.push({
+            question: q.text,
+            userAnswer: typeof answers[i] === 'number' ? String.fromCharCode(65 + answers[i]) : 'No Answer',
+            correctAnswer: typeof correctIdx === 'number' ? String.fromCharCode(65 + correctIdx) : '-',
+            isCorrect: isCorrect
+          });
+        });
+      }
 
-  // Attach logout handler
-  const logoutBtn = document.getElementById('cbtLogoutBtn');
-  if (logoutBtn) {
-    logoutBtn.onclick = function() {
-      localStorage.removeItem('student_token');
-      localStorage.removeItem('studentToken');
-      localStorage.removeItem('token');
-      window.location.href = '/cbt-login.html';
-    };
-  }
-}
+      resultHtml += `
+        <div class="cbt-score-card">
+          <div class="cbt-score-value">${correct}/${total}</div>
+          <div class="cbt-score-label">Your Score</div>
+        </div>
 
-    // --- INIT ---
+        <div class="cbt-result-details">
+          <div class="cbt-detail-card">
+            <div class="cbt-detail-value">${correct}</div>
+            <div class="cbt-detail-label">Correct</div>
+          </div>
+          <div class="cbt-detail-card">
+            <div class="cbt-detail-value">${total - correct}</div>
+            <div class="cbt-detail-label">Incorrect</div>
+          </div>
+          <div class="cbt-detail-card">
+            <div class="cbt-detail-value">${Math.round((correct / total) * 100)}%</div>
+            <div class="cbt-detail-label">Percentage</div>
+          </div>
+        </div>
+
+        <div class="cbt-result-list">
+      `;
+
+      resultsData.forEach((item, idx) => {
+        const status = item.isCorrect ? '✓' : '✗';
+        const statusEmoji = item.isCorrect ? '✓' : '✗';
+        resultHtml += `
+          <div class="cbt-result-item ${item.isCorrect ? 'correct' : 'incorrect'}">
+            <div class="cbt-result-item-question">
+              <strong>Q${idx + 1}.</strong> ${item.question}
+            </div>
+            <div class="cbt-result-item-answer">
+              <div><strong>Your Answer:</strong> ${item.userAnswer}</div>
+              <div><strong>Correct Answer:</strong> ${item.correctAnswer}</div>
+            </div>
+            <div class="cbt-result-item-status" style="color: ${item.isCorrect ? '#27ae60' : '#e74c3c'};">${statusEmoji}</div>
+          </div>
+        `;
+      });
+
+      resultHtml += `
+        </div>
+        <div style="text-align: center;">
+          <button class="cbt-btn cbt-btn-primary" id="cbtLogoutBtn">
+            <i class="fas fa-sign-out"></i> Log Out
+          </button>
+        </div>
+      `;
+
+      document.getElementById('cbtResultArea').innerHTML = resultHtml;
+
+      const logoutBtn = document.getElementById('cbtLogoutBtn');
+      if (logoutBtn) {
+        logoutBtn.onclick = function() {
+          localStorage.removeItem('student_token');
+          localStorage.removeItem('studentToken');
+          localStorage.removeItem('token');
+          window.location.href = '/cbt-login.html';
+        };
+      }
+    }
+
     fetchStudentAndExam();
-    // Make functions globally accessible for event handlers
     window.gotoQuestion = window.gotoQuestion;
     window.selectAnswer = window.selectAnswer;
   </script>
