@@ -19,7 +19,7 @@ document.querySelectorAll('.tablist button').forEach(btn => {
 // Exam section tabs
 function showExamTab(tab) {
   document.querySelectorAll('#examTabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.examtab === tab));
-  document.querySelectorAll('#examTabContent > div').forEach(sec => sec.classList.toggle('hidden', sec.data-examsection !== tab));
+  document.querySelectorAll('#examTabContent > div').forEach(sec => sec.classList.toggle('hidden', sec.dataset.examsection !== tab));
 }
 
 document.querySelectorAll('#examTabs button').forEach(btn => {
@@ -32,30 +32,6 @@ const API_BASE = "https://examguard-8rxe.onrender.com/api/academics";
 const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
 
 // ============ UTILITY FUNCTIONS ============
-
-// Generate unique exam code
-function generateExamCode(examTitle, className) {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const examPrefix = examTitle.substring(0, 3).toUpperCase();
-  const classPrefix = className.substring(0, 2).toUpperCase();
-  return `${classPrefix}${examPrefix}${timestamp}${randomStr}`;
-}
-
-// Copy to clipboard
-function copyToClipboard(text, btn = null) {
-  navigator.clipboard.writeText(text).then(() => {
-    if (btn) {
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '<i class="fa fa-check"></i> Copied!';
-      setTimeout(() => {
-        btn.innerHTML = originalText;
-      }, 2000);
-    }
-  }).catch(() => {
-    alert('Failed to copy to clipboard');
-  });
-}
 
 // Fill dropdown with data from API
 async function fillDropdown(endpoint, selectId, valueKey = 'name') {
@@ -562,7 +538,7 @@ fillDropdown("/classes", "examClassSelect");
 fillDropdown("/classes", "cbtClassSelect");
 fillDropdown("/classes", "resultsClassSelect");
 
-// ✅ Load exam schedules WITH exam codes
+// Load exam schedules
 async function loadExamSchedules() {
   const tbody = document.getElementById('examScheduleTableBody');
   if (!tbody) return;
@@ -572,13 +548,13 @@ async function loadExamSchedules() {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
-      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="6">Error loading schedules.</td></tr>';
+      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Error loading schedules.</td></tr>';
       return;
     }
     const exams = await res.json();
     
     if (!exams.length) {
-      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="6">No exams scheduled.</td></tr>';
+      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">No exams scheduled.</td></tr>';
       return;
     }
     
@@ -588,14 +564,6 @@ async function loadExamSchedules() {
         <td class="py-2 px-3">${ex.term?.name || '-'}</td>
         <td class="py-2 px-3">${ex.class?.name || '-'}</td>
         <td class="py-2 px-3">${ex.date ? ex.date.slice(0, 10) : ''}</td>
-        <td class="py-2 px-3">
-          <code style="background:#f0f0f0; padding:4px 8px; border-radius:4px; font-weight:bold; color:#2647a6;">
-            ${ex.examCode || 'No Code'}
-          </code>
-          <button class="px-2 py-1 ml-2 rounded bg-blue-500 text-white text-xs" onclick="copyToClipboard('${ex.examCode || ''}', this)" title="Copy Code">
-            <i class="fa fa-copy"></i>
-          </button>
-        </td>
         <td class="py-2 px-3">
           <button class="px-2 py-1 rounded bg-[#2647a6] text-white text-xs" onclick="editExamSchedule('${ex._id}')" title="Edit">
             <i class="fa fa-edit"></i>
@@ -607,7 +575,7 @@ async function loadExamSchedules() {
       </tr>`
     ).join('');
   } catch (err) {
-    tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="6">Error loading schedules.</td></tr>';
+    tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Error loading schedules.</td></tr>';
     console.error('Error loading exam schedules:', err);
   }
 }
@@ -635,7 +603,7 @@ window.deleteExamSchedule = async function(id, btn) {
   }
 };
 
-// ✅ Edit exam schedule WITH auto-generated code
+// Edit exam schedule
 window.editExamSchedule = function(id) {
   fetch(`${API_BASE}/exams/schedules/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -648,20 +616,6 @@ window.editExamSchedule = function(id) {
       form.termId.value = exam.termId || "";
       form.classId.value = exam.classId || "";
       form.date.value = exam.date ? exam.date.slice(0, 10) : "";
-      
-      // Show existing code or show generation info
-      const codeDisplay = document.getElementById('examCodeDisplay');
-      if (codeDisplay) {
-        codeDisplay.innerHTML = exam.examCode 
-          ? `<div style="padding:10px; background:#e8f5e9; border-radius:4px; color:#2e7d32; font-weight:bold;">
-               Code: <code>${exam.examCode}</code>
-               <button class="ml-2 px-2 py-1 rounded bg-green-600 text-white text-xs" onclick="copyToClipboard('${exam.examCode}', this)">
-                 <i class="fa fa-copy"></i> Copy
-               </button>
-             </div>`
-          : '<div style="padding:10px; background:#fff3e0; border-radius:4px; color:#e65100;">A code will be generated when you save.</div>';
-      }
-      
       form.setAttribute('data-edit-id', id);
       const msg = document.getElementById('examScheduleMessage');
       if (msg) msg.textContent = "Editing exam schedule. Save to update.";
@@ -669,7 +623,7 @@ window.editExamSchedule = function(id) {
     .catch(err => console.error('Error editing exam schedule:', err));
 };
 
-// ✅ Save exam schedule WITH exam code generation
+// Save exam schedule
 document.addEventListener('DOMContentLoaded', () => {
   const examScheduleForm = document.getElementById('examScheduleForm');
   if (examScheduleForm) {
@@ -680,16 +634,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const editId = form.getAttribute('data-edit-id');
       const msgEl = document.getElementById('examScheduleMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
-      // Get the selected class name for code generation
-      const classSelect = document.getElementById('examClassSelect');
-      const classOption = classSelect.options[classSelect.selectedIndex];
-      const className = classOption ? classOption.text : 'Exam';
-      
-      // Generate exam code if not editing or if code doesn't exist
-      if (!editId) {
-        data.examCode = generateExamCode(data.title || 'Exam', className);
-      }
       
       try {
         const method = editId ? "PUT" : "POST";
@@ -703,26 +647,11 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify(data)
         });
         
+        if (msgEl) msgEl.textContent = res.ok ? "Saved!" : "Failed!";
         if (res.ok) {
-          const result = await res.json();
-          const codeDisplay = document.getElementById('examCodeDisplay');
-          if (codeDisplay && result.examCode) {
-            codeDisplay.innerHTML = `<div style="padding:10px; background:#e3f2fd; border-radius:4px; color:#1565c0; font-weight:bold;">
-              ✅ Code Generated: <code>${result.examCode}</code>
-              <button class="ml-2 px-2 py-1 rounded bg-blue-600 text-white text-xs" onclick="copyToClipboard('${result.examCode}', this)">
-                <i class="fa fa-copy"></i> Copy
-              </button>
-            </div>`;
-          }
-          if (msgEl) msgEl.textContent = "Saved!";
-          setTimeout(() => {
-            form.reset();
-            form.removeAttribute('data-edit-id');
-            if (codeDisplay) codeDisplay.innerHTML = '';
-            loadExamSchedules();
-          }, 1500);
-        } else {
-          if (msgEl) msgEl.textContent = "Failed to save!";
+          form.reset();
+          form.removeAttribute('data-edit-id');
+          loadExamSchedules();
         }
       } catch (err) {
         if (msgEl) msgEl.textContent = "Network error.";
@@ -742,7 +671,7 @@ async function fillExamDropdown() {
     const exams = await res.json();
     const select = document.getElementById('modeExamSelect');
     if (select) {
-      select.innerHTML = exams.map(ex => `<option value="${ex._id}">${ex.title} (${ex.examCode || 'No Code'})</option>`).join('');
+      select.innerHTML = exams.map(ex => `<option value="${ex._id}">${ex.title}</option>`).join('');
     }
   } catch (err) {
     console.error('Error filling exam dropdown:', err);
@@ -773,7 +702,7 @@ async function loadExamModes() {
       `<tr>
         <td class="py-2 px-3">${m.exam?.title || '-'}</td>
         <td class="py-2 px-3">${m.mode}</td>
-        <td class="py-2 px-3">${m.duration || '-'} min</td>
+        <td class="py-2 px-3">${m.duration || '-'}</td>
         <td class="py-2 px-3">
           <button class="px-2 py-1 rounded bg-[#2647a6] text-white text-xs" onclick="editExamMode('${m._id}')" title="Edit">
             <i class="fa fa-edit"></i>
