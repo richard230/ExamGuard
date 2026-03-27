@@ -75,12 +75,13 @@ const schoolsRoute = require('./routes/schools');
 const apiKeysRoute = require('./routes/apiKeys');
 const universalUploadRoute = require('./routes/universalUpload');
 const verificationRoute = require('./routes/verification');
+const cbtAuthRoutes = require('./routes/cbt-auth');
 
 /* ================= Route Mounting ================= */
 
 // API Keys Management
 app.use('/api/api-keys', apiKeysRoute);
-
+app.use('/api/cbt/auth', cbtAuthRoutes);
 // Demo Requests & Schools Management
 app.use('/api/demo-requests', demoRequestsRoute);
 app.use('/api/schools', schoolsRoute);
