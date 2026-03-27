@@ -6,18 +6,16 @@ const jwt = require('jsonwebtoken');
 
 const Student = require('../models/Student');
 const Exam = require('../models/CBTExam');
+const Class = require('../models/Class');
 
 // ================= HELPERS =================
-function getStudentName(student) {
-  if (student.name) return student.name;
-
-  const first = student.firstname || '';
-  const last = student.surname || '';
-  return (first + ' ' + last).trim() || 'Student';
-}
-
 function normalizeCode(code) {
   return String(code || '').trim().toUpperCase();
+}
+
+function getStudentName(student) {
+  if (student.name) return student.name;
+  return `${student.firstname || ''} ${student.surname || ''}`.trim() || 'Student';
 }
 
 // ================= CODE LOGIN =================
@@ -28,7 +26,7 @@ router.post('/code-login', async (req, res) => {
     // ---------- VALIDATION ----------
     if (!examCode || !classId || !studentId) {
       return res.status(400).json({
-        error: 'examCode, classId, studentId are required'
+        error: 'examCode, classId, studentId required'
       });
     }
 
@@ -38,16 +36,26 @@ router.post('/code-login', async (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
 
-    // ---------- CLASS CHECK (STRING SAFE) ----------
-    const studentClassId = student.class?.toString();
+    if (!student.class) {
+      return res.status(400).json({ error: 'Student class missing' });
+    }
 
-    if (!studentClassId) {
-      return res.status(400).json({
-        error: 'Student class missing'
+    // ---------- CLASS LOOKUP ----------
+    const classDoc = await Class.findOne({
+      name: classId // e.g. "SS1"
+    });
+
+    if (!classDoc) {
+      return res.status(404).json({
+        error: 'Class not found'
       });
     }
 
-    if (studentClassId !== classId.toString()) {
+    // ---------- CLASS VALIDATION ----------
+    const studentClass = student.class.toString().toUpperCase();
+    const incomingClass = classDoc.name.toUpperCase();
+
+    if (studentClass !== incomingClass) {
       return res.status(403).json({
         error: 'Student does not belong to this class'
       });
@@ -56,7 +64,7 @@ router.post('/code-login', async (req, res) => {
     // ---------- EXAM ----------
     const exam = await Exam.findOne({
       examCode: normalizeCode(examCode),
-      class: classId,
+      class: classDoc._id, // ✅ FIXED
       isCodeActive: true,
       status: { $in: ['Scheduled', 'Active'] }
     });
@@ -67,12 +75,12 @@ router.post('/code-login', async (req, res) => {
       });
     }
 
-    // ---------- JWT ----------
+    // ---------- TOKEN ----------
     const token = jwt.sign(
       {
         studentId: student._id,
         examId: exam._id,
-        classId: classId,
+        classId: classDoc._id,
         type: 'student'
       },
       process.env.JWT_SECRET || 'dev-secret',
@@ -87,7 +95,7 @@ router.post('/code-login', async (req, res) => {
       student: {
         _id: student._id,
         name: getStudentName(student),
-        class: student.class,
+        class: classDoc.name,
         email: student.studentEmail || student.email || '-'
       },
 
@@ -126,9 +134,22 @@ router.post('/validate-code', async (req, res) => {
       });
     }
 
+    // ---------- CLASS ----------
+    const classDoc = await Class.findOne({
+      name: classId
+    });
+
+    if (!classDoc) {
+      return res.status(404).json({
+        error: 'Class not found',
+        valid: false
+      });
+    }
+
+    // ---------- EXAM ----------
     const exam = await Exam.findOne({
       examCode: normalizeCode(examCode),
-      class: classId,
+      class: classDoc._id,
       isCodeActive: true,
       status: { $in: ['Scheduled', 'Active'] }
     });
