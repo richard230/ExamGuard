@@ -1087,376 +1087,438 @@
   </div>
 
   <script>
-    // Backend API URL
-    const API_BASE_URL = "https://examguard-8rxe.onrender.com";
-    const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
-    
-    let student = { name: '', class: '', subject: '', avatar: '', _id: '' };
-    let exam = null;
-    let startedAt = new Date().toISOString();
-    let questions = [];
-    let answers = [];
-    let currentQ = 0;
-    let timerSeconds = 0;
-    let timerInterval = null;
+// Backend API URL
+const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+let token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
 
-    // Helper to send student activity
-    async function logStudentActivity(action, extra = {}) {
-      const payload = {
-        student: student._id,
-        exam: exam._id,
-        action: action,
-        timestamp: new Date().toISOString(),
-        ...extra
-      };
+let student = { name: '', class: '', subject: '', avatar: '', _id: '', classId: '' };
+let exam = null;
+let startedAt = new Date().toISOString();
+let questions = [];
+let answers = [];
+let currentQ = 0;
+let timerSeconds = 0;
+let timerInterval = null;
 
-      try {
-        await fetch(API_BASE_URL + '/api/activity', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-          },
-          body: JSON.stringify(payload)
-        });
-      } catch (e) {
-        console.warn('Activity logging failed:', e);
-      }
+// Helper to send student activity
+async function logStudentActivity(action, extra = {}) {
+  const payload = {
+    student: student._id,
+    exam: exam?._id,
+    action: action,
+    timestamp: new Date().toISOString(),
+    ...extra
+  };
+
+  try {
+    await fetch(API_BASE_URL + '/api/activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.warn('Activity logging failed:', e);
+  }
+}
+
+/* =========================
+   NEW: LOAD STUDENT ONLY
+========================= */
+async function loadStudent() {
+  try {
+    let studentRes = await fetch(API_BASE_URL + '/api/student/me', {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+    });
+
+    if (!studentRes.ok) throw new Error('Failed to load student');
+
+    const studentJson = await studentRes.json();
+
+    student.name = studentJson.name || 
+      ((studentJson.firstname && studentJson.surname) ? studentJson.firstname + " " + studentJson.surname : "Student");
+
+    student.class = (typeof studentJson.class === 'object' && studentJson.class?.name) ? 
+      studentJson.class.name : (typeof studentJson.class === 'string' ? studentJson.class : '-');
+
+    student.classId = studentJson.class?._id || studentJson.class;
+    student.email = studentJson.email || '-';
+    student.avatar = studentJson.photo_url || '';
+    student._id = studentJson._id;
+
+    showExamCodePrompt();
+
+  } catch (error) {
+    console.error('Error loading student:', error);
+    showNoExam();
+  }
+}
+
+/* =========================
+   NEW: EXAM CODE UI
+========================= */
+function showExamCodePrompt() {
+  document.getElementById('cbtExamLoader').style.display = 'none';
+  document.getElementById('cbtNoExamArea').style.display = '';
+
+  document.getElementById('cbtNoExamArea').innerHTML = `
+    <div class="cbt-empty-state">
+      <div class="cbt-empty-icon"><i class="fas fa-key"></i></div>
+      <div class="cbt-empty-title">Enter Exam Code</div>
+      <div class="cbt-empty-text">Please enter the exam code provided by your teacher.</div>
+
+      <div style="margin-top:20px; display:flex; gap:10px;">
+        <input id="examCodeInput" placeholder="Enter code"
+          style="padding:10px; border:1px solid #ccc; border-radius:6px;" />
+
+        <button class="cbt-btn cbt-btn-primary" onclick="submitExamCode()">
+          Start Exam
+        </button>
+      </div>
+
+      <div id="codeError" style="color:red; margin-top:10px;"></div>
+    </div>
+  `;
+}
+
+/* =========================
+   NEW: SUBMIT CODE
+========================= */
+window.submitExamCode = async function () {
+  const examCode = document.getElementById('examCodeInput').value.trim().toUpperCase();
+
+  if (!examCode) {
+    document.getElementById('codeError').textContent = 'Enter exam code';
+    return;
+  }
+
+  try {
+    const res = await fetch(API_BASE_URL + '/api/cbt/auth/code-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        examCode,
+        classId: student.classId,
+        studentId: student._id
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Invalid code');
+
+    token = data.token;
+    localStorage.setItem('student_token', token);
+
+    exam = data.exam;
+    questions = Array.isArray(exam.questions) ? exam.questions : [];
+    answers = Array(questions.length).fill(null);
+    timerSeconds = (exam.duration || 15) * 60;
+    currentQ = 0;
+
+    document.getElementById('cbtNoExamArea').style.display = 'none';
+    document.getElementById('cbtExamArea').style.display = '';
+    document.getElementById('cbtExamLoader').style.display = 'none';
+
+    fillStudentSidebar();
+    renderQuestion();
+    startTimer();
+    logStudentActivity('started');
+
+  } catch (err) {
+    document.getElementById('codeError').textContent = err.message;
+  }
+}
+
+/* =========================
+   OLD FUNCTION (DISABLED)
+========================= */
+// function fetchStudentAndExam() {}  // intentionally removed
+
+function showNoExam() {
+  document.getElementById('cbtExamLoader').style.display = 'none';
+  document.getElementById('cbtNoExamArea').style.display = '';
+}
+
+function fillStudentSidebar() {
+  document.getElementById('studentName').textContent = student.name || 'Student';
+  document.getElementById('studentClass').textContent = "Class: " + (student.class || '-');
+  document.getElementById('studentEmail').textContent = student.email || '-';
+  document.getElementById('headerStudentName').textContent = student.name.split(' ')[0] || 'Student';
+  document.getElementById('headerSubject').textContent = "Subject: " + (exam?.subjectName || exam?.subject?.name || exam?.title || '-');
+  
+  document.getElementById('cbtTotalQuestions').textContent = questions.length;
+  const answered = answers.filter(a => a !== null).length;
+  document.getElementById('cbtTotalAnswered').textContent = answered;
+  document.getElementById('cbtTotalLeft').textContent = questions.length - answered;
+  const progress = questions.length > 0 ? Math.round((answered / questions.length) * 100) : 0;
+  document.getElementById('progressPercent').textContent = progress + '%';
+  document.getElementById('navQCount').textContent = (currentQ + 1) + '/' + questions.length;
+
+  let navHtml = "";
+  for (let i = 0; i < questions.length; i++) {
+    let btnClass = "";
+    if (i === currentQ) btnClass = "current";
+    else if (answers[i] !== null) btnClass = "answered";
+    navHtml += `<button type="button" class="cbt-nav-btn ${btnClass}" onclick="gotoQuestion(${i})" title="Question ${i + 1}">${i + 1}</button>`;
+  }
+  document.getElementById('cbtQuestionNav').innerHTML = navHtml;
+}
+
+function renderQuestion() {
+  const q = questions[currentQ];
+  document.getElementById('cbtTestTitle').textContent = exam?.subjectName || exam?.subject?.name || exam?.title || '-';
+  document.getElementById('cbtQuestionNumber').textContent = `Question ${currentQ + 1} of ${questions.length}`;
+  
+  document.getElementById('cbtQuestionText').innerHTML = 
+    `<div style="overflow-x:auto;max-width:100%;">${q.text}</div>`;
+
+  const progress = ((currentQ + 1) / questions.length) * 100;
+  document.getElementById('progressBar').style.width = progress + '%';
+
+  let optsHtml = "";
+  (q.options || []).forEach((opt, idx) => {
+    let selected = answers[currentQ] === idx ? "selected" : "";
+    let optValue = typeof opt === 'string' ? opt : (opt.value || '');
+    optsHtml += `
+      <div class="cbt-option ${selected}" onclick="selectAnswer(${idx})">
+        <div class="cbt-option-label">${String.fromCharCode(65 + idx)}</div>
+        <div class="cbt-option-content">
+          <div class="cbt-option-text">${optValue}</div>
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('cbtOptions').innerHTML = optsHtml;
+
+  document.getElementById('cbtPrevBtn').disabled = currentQ === 0;
+  document.getElementById('cbtNextBtn').disabled = currentQ === questions.length - 1;
+  document.getElementById('cbtSubmitBtn').disabled = answers.filter(a => a !== null).length !== questions.length;
+
+  fillStudentSidebar();
+}
+
+window.gotoQuestion = function (qIdx) {
+  currentQ = qIdx;
+  renderQuestion();
+  logStudentActivity('navigated', { questionIndex: qIdx });
+};
+
+window.selectAnswer = function (idx) {
+  answers[currentQ] = idx;
+  renderQuestion();
+  logStudentActivity('answered', { questionIndex: currentQ, answer: idx });
+};
+
+document.getElementById('cbtPrevBtn').onclick = function () {
+  if (currentQ > 0) {
+    currentQ--;
+    renderQuestion();
+  }
+};
+
+document.getElementById('cbtNextBtn').onclick = function () {
+  if (currentQ < questions.length - 1) {
+    currentQ++;
+    renderQuestion();
+  }
+};
+
+document.getElementById('cbtSubmitBtn').onclick = async function () {
+  if (!exam || !student) return;
+  if (confirm("Are you sure you want to submit your exam? You cannot change your answers after submission.")) {
+    clearInterval(timerInterval);
+    await submitExam();
+  }
+};
+
+function formatTimer(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+}
+
+function startTimer() {
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    updateTimerDisplay();
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      alert("Time is up! Submitting your exam.");
+      submitExam();
     }
+  }, 1000);
+}
 
-    // Fetch student and exam
-    async function fetchStudentAndExam() {
-      try {
-        let studentRes = await fetch(API_BASE_URL + '/api/student/me', {
-          headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-        });
-        if (!studentRes.ok) {
-          throw new Error('Failed to load student data');
-        }
-        const studentJson = await studentRes.json();
-        student.name = studentJson.name || 
-          ((studentJson.firstname && studentJson.surname) ? studentJson.firstname + " " + studentJson.surname : "Student");
-        student.class = (typeof studentJson.class === 'object' && studentJson.class?.name) ? 
-          studentJson.class.name : (typeof studentJson.class === 'string' ? studentJson.class : '-');
-        student.email = studentJson.email || '-';
-        student.avatar = studentJson.photo_url || '';
-        student._id = studentJson._id;
+function updateTimerDisplay() {
+  const timerEl = document.getElementById('cbtTimer');
+  timerEl.textContent = formatTimer(timerSeconds);
+  
+  if (timerSeconds <= 60) {
+    timerEl.classList.add('danger');
+  } else if (timerSeconds <= 300) {
+    timerEl.classList.add('warning');
+  }
+}
 
-        let scheduledRes = await fetch(
-          API_BASE_URL + '/api/exam/student?status=Scheduled,Started&scheduledFor=student',
-          { headers: token ? { 'Authorization': 'Bearer ' + token } : {} }
-        );
-        let scheduled = [];
-        if (scheduledRes.ok) {
-          scheduled = await scheduledRes.json();
-        }
-        if (!Array.isArray(scheduled) || !scheduled.length) {
-          showNoExam();
-          return;
-        }
+async function submitExam() {
+  document.getElementById('cbtExamArea').style.display = 'none';
+  document.getElementById('cbtResultArea').style.display = '';
+  document.getElementById('cbtResultArea').innerHTML = '<div class="cbt-loader"><div class="cbt-spinner"></div><div class="cbt-loader-text">Submitting your exam...</div></div>';
 
-        exam = scheduled[0];
-        questions = Array.isArray(exam.questions) ? exam.questions : [];
-        answers = Array(questions.length).fill(null);
-        timerSeconds = (exam.duration || 15) * 60;
-        currentQ = 0;
+  const payload = {
+    exam: exam._id,
+    answers,
+    student: student._id,
+    startedAt: startedAt,
+    finishedAt: new Date().toISOString()
+  };
 
-        document.getElementById('cbtExamLoader').style.display = 'none';
-        document.getElementById('cbtExamArea').style.display = '';
-        
-        fillStudentSidebar();
-        renderQuestion();
-        startTimer();
-        logStudentActivity('started');
-      } catch (error) {
-        console.error('Error fetching exam:', error);
-        showNoExam();
-      }
+  let result = null;
+  try {
+    const res = await fetch(API_BASE_URL + '/api/result', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      result = await res.json();
     }
+  } catch (e) {
+    console.error('Submission error:', e);
+  }
 
-    function showNoExam() {
-      document.getElementById('cbtExamLoader').style.display = 'none';
-      document.getElementById('cbtNoExamArea').style.display = '';
-    }
+  logStudentActivity('submitted', { answers });
+  showResults(result);
+}
 
-    function fillStudentSidebar() {
-      document.getElementById('studentName').textContent = student.name || 'Student';
-      document.getElementById('studentClass').textContent = "Class: " + (student.class || '-');
-      document.getElementById('studentEmail').textContent = student.email || '-';
-      document.getElementById('headerStudentName').textContent = student.name.split(' ')[0] || 'Student';
-      document.getElementById('headerSubject').textContent = "Subject: " + (exam?.subjectName || exam?.subject?.name || '-');
-      
-      document.getElementById('cbtTotalQuestions').textContent = questions.length;
-      const answered = answers.filter(a => a !== null).length;
-      document.getElementById('cbtTotalAnswered').textContent = answered;
-      document.getElementById('cbtTotalLeft').textContent = questions.length - answered;
-      const progress = questions.length > 0 ? Math.round((answered / questions.length) * 100) : 0;
-      document.getElementById('progressPercent').textContent = progress + '%';
-      document.getElementById('navQCount').textContent = (currentQ + 1) + '/' + questions.length;
+function showResults(result) {
+  let correct = 0;
+  let total = questions.length;
+  let resultsHtml = `
+    <div class="cbt-results-container">
+      <div class="cbt-results-header">
+        <div class="cbt-results-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="cbt-results-title">Exam Submitted</div>
+        <div class="cbt-results-subtitle">Thank you, <strong>${student.name}</strong></div>
+      </div>
 
-      let navHtml = "";
-      for (let i = 0; i < questions.length; i++) {
-        let btnClass = "";
-        if (i === currentQ) btnClass = "current";
-        else if (answers[i] !== null) btnClass = "answered";
-        navHtml += `<button type="button" class="cbt-nav-btn ${btnClass}" onclick="gotoQuestion(${i})" title="Question ${i + 1}">${i + 1}</button>`;
-      }
-      document.getElementById('cbtQuestionNav').innerHTML = navHtml;
-    }
+      <div class="cbt-score-display">
+        <div>Your Score</div>
+        <div class="cbt-score-big">
+          <span class="cbt-score-value" id="finalScore">0</span>
+          <span class="cbt-score-total">/ ${total}</span>
+        </div>
+        <div class="cbt-score-percentage" id="finalPercentage">0%</div>
+      </div>
 
-    function renderQuestion() {
-      const q = questions[currentQ];
-      document.getElementById('cbtTestTitle').textContent = exam?.subjectName || exam?.subject?.name || '-';
-      document.getElementById('cbtQuestionNumber').textContent = `Question ${currentQ + 1} of ${questions.length}`;
-      
-      document.getElementById('cbtQuestionText').innerHTML = 
-        `<div style="overflow-x:auto;max-width:100%;">${q.text}</div>`;
+      <div class="cbt-results-body" id="resultsList"></div>
 
-      const progress = ((currentQ + 1) / questions.length) * 100;
-      document.getElementById('progressBar').style.width = progress + '%';
+      <div class="cbt-results-footer">
+        <button class="cbt-btn cbt-btn-primary" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Log Out
+        </button>
+      </div>
+    </div>
+  `;
 
-      let optsHtml = "";
-      (q.options || []).forEach((opt, idx) => {
-        let selected = answers[currentQ] === idx ? "selected" : "";
-        let optValue = typeof opt === 'string' ? opt : (opt.value || '');
-        optsHtml += `
-          <div class="cbt-option ${selected}" onclick="selectAnswer(${idx})">
-            <div class="cbt-option-label">${String.fromCharCode(65 + idx)}</div>
-            <div class="cbt-option-content">
-              <div class="cbt-option-text">${optValue}</div>
+  document.getElementById('cbtResultArea').innerHTML = resultsHtml;
+
+  if (result && result.results && Array.isArray(result.results)) {
+    result.results.forEach((q, i) => {
+      if (q.isCorrect) correct++;
+    });
+    showDetailedResults(result.results);
+  } else {
+    questions.forEach((q, i) => {
+      let correctIdx = typeof q.answer === 'number' ? q.answer : 
+        (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
+      if (answers[i] === correctIdx) correct++;
+    });
+    showLocalResults();
+  }
+
+  const percentage = Math.round((correct / total) * 100);
+  document.getElementById('finalScore').textContent = correct;
+  document.getElementById('finalPercentage').textContent = percentage + '%';
+}
+
+function showDetailedResults(results) {
+  let html = '';
+  results.forEach((r, i) => {
+    const isCorrect = r.isCorrect;
+    html += `
+      <div class="cbt-result-item">
+        <div class="cbt-result-item-number">Question ${i + 1}</div>
+        <div class="cbt-result-item-question">${questions[i].text}</div>
+        <div class="cbt-result-item-feedback">
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Your Answer</div>
+            <div class="cbt-result-answer-value">
+              ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
             </div>
           </div>
-        `;
-      });
-      document.getElementById('cbtOptions').innerHTML = optsHtml;
-
-      document.getElementById('cbtPrevBtn').disabled = currentQ === 0;
-      document.getElementById('cbtNextBtn').disabled = currentQ === questions.length - 1;
-      document.getElementById('cbtSubmitBtn').disabled = answers.filter(a => a !== null).length !== questions.length;
-
-      fillStudentSidebar();
-    }
-
-    window.gotoQuestion = function (qIdx) {
-      currentQ = qIdx;
-      renderQuestion();
-      logStudentActivity('navigated', { questionIndex: qIdx });
-    };
-
-    window.selectAnswer = function (idx) {
-      answers[currentQ] = idx;
-      renderQuestion();
-      logStudentActivity('answered', { questionIndex: currentQ, answer: idx });
-    };
-
-    document.getElementById('cbtPrevBtn').onclick = function () {
-      if (currentQ > 0) {
-        currentQ--;
-        renderQuestion();
-      }
-    };
-
-    document.getElementById('cbtNextBtn').onclick = function () {
-      if (currentQ < questions.length - 1) {
-        currentQ++;
-        renderQuestion();
-      }
-    };
-
-    document.getElementById('cbtSubmitBtn').onclick = async function () {
-      if (!exam || !student) return;
-      if (confirm("Are you sure you want to submit your exam? You cannot change your answers after submission.")) {
-        clearInterval(timerInterval);
-        await submitExam();
-      }
-    };
-
-    function formatTimer(s) {
-      const m = Math.floor(s / 60);
-      const sec = s % 60;
-      return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-    }
-
-    function startTimer() {
-      updateTimerDisplay();
-      timerInterval = setInterval(() => {
-        timerSeconds--;
-        updateTimerDisplay();
-        if (timerSeconds <= 0) {
-          clearInterval(timerInterval);
-          alert("Time is up! Submitting your exam.");
-          submitExam();
-        }
-      }, 1000);
-    }
-
-    function updateTimerDisplay() {
-      const timerEl = document.getElementById('cbtTimer');
-      timerEl.textContent = formatTimer(timerSeconds);
-      
-      if (timerSeconds <= 60) {
-        timerEl.classList.add('danger');
-      } else if (timerSeconds <= 300) {
-        timerEl.classList.add('warning');
-      }
-    }
-
-    async function submitExam() {
-      document.getElementById('cbtExamArea').style.display = 'none';
-      document.getElementById('cbtResultArea').style.display = '';
-      document.getElementById('cbtResultArea').innerHTML = '<div class="cbt-loader"><div class="cbt-spinner"></div><div class="cbt-loader-text">Submitting your exam...</div></div>';
-
-      const payload = {
-        exam: exam._id,
-        answers,
-        student: student._id,
-        startedAt: startedAt,
-        finishedAt: new Date().toISOString()
-      };
-
-      let result = null;
-      try {
-        const res = await fetch(API_BASE_URL + '/api/result', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-          },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          result = await res.json();
-        }
-      } catch (e) {
-        console.error('Submission error:', e);
-      }
-
-      logStudentActivity('submitted', { answers });
-      showResults(result);
-    }
-
-    function showResults(result) {
-      let correct = 0;
-      let total = questions.length;
-      let resultsHtml = `
-        <div class="cbt-results-container">
-          <div class="cbt-results-header">
-            <div class="cbt-results-icon"><i class="fas fa-check-circle"></i></div>
-            <div class="cbt-results-title">Exam Submitted</div>
-            <div class="cbt-results-subtitle">Thank you, <strong>${student.name}</strong></div>
-          </div>
-
-          <div class="cbt-score-display">
-            <div>Your Score</div>
-            <div class="cbt-score-big">
-              <span class="cbt-score-value" id="finalScore">0</span>
-              <span class="cbt-score-total">/ ${total}</span>
-            </div>
-            <div class="cbt-score-percentage" id="finalPercentage">0%</div>
-          </div>
-
-          <div class="cbt-results-body" id="resultsList"></div>
-
-          <div class="cbt-results-footer">
-            <button class="cbt-btn cbt-btn-primary" onclick="logout()">
-              <i class="fas fa-sign-out-alt"></i> Log Out
-            </button>
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Correct Answer</div>
+            <div class="cbt-result-answer-value">${typeof r.correctAnswer === 'number' ? String.fromCharCode(65+r.correctAnswer) : '-'}</div>
           </div>
         </div>
-      `;
+        <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
+          <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+          ${isCorrect ? 'Correct' : 'Incorrect'}
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('resultsList').innerHTML = html;
+}
 
-      document.getElementById('cbtResultArea').innerHTML = resultsHtml;
-
-      if (result && result.results && Array.isArray(result.results)) {
-        result.results.forEach((q, i) => {
-          if (q.isCorrect) correct++;
-        });
-        showDetailedResults(result.results);
-      } else {
-        questions.forEach((q, i) => {
-          let correctIdx = typeof q.answer === 'number' ? q.answer : 
-            (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
-          if (answers[i] === correctIdx) correct++;
-        });
-        showLocalResults();
-      }
-
-      const percentage = Math.round((correct / total) * 100);
-      document.getElementById('finalScore').textContent = correct;
-      document.getElementById('finalPercentage').textContent = percentage + '%';
-    }
-
-    function showDetailedResults(results) {
-      let html = '';
-      results.forEach((r, i) => {
-        const isCorrect = r.isCorrect;
-        html += `
-          <div class="cbt-result-item">
-            <div class="cbt-result-item-number">Question ${i + 1}</div>
-            <div class="cbt-result-item-question">${questions[i].text}</div>
-            <div class="cbt-result-item-feedback">
-              <div class="cbt-result-answer">
-                <div class="cbt-result-answer-label">Your Answer</div>
-                <div class="cbt-result-answer-value">
-                  ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
-                </div>
-              </div>
-              <div class="cbt-result-answer">
-                <div class="cbt-result-answer-label">Correct Answer</div>
-                <div class="cbt-result-answer-value">${typeof r.correctAnswer === 'number' ? String.fromCharCode(65+r.correctAnswer) : '-'}</div>
-              </div>
-            </div>
-            <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
-              <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
-              ${isCorrect ? 'Correct' : 'Incorrect'}
+function showLocalResults() {
+  let html = '';
+  questions.forEach((q, i) => {
+    let correctIdx = typeof q.answer === 'number' ? q.answer : 
+      (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
+    const isCorrect = answers[i] === correctIdx;
+    html += `
+      <div class="cbt-result-item">
+        <div class="cbt-result-item-number">Question ${i + 1}</div>
+        <div class="cbt-result-item-question">${q.text}</div>
+        <div class="cbt-result-item-feedback">
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Your Answer</div>
+            <div class="cbt-result-answer-value">
+              ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
             </div>
           </div>
-        `;
-      });
-      document.getElementById('resultsList').innerHTML = html;
-    }
-
-    function showLocalResults() {
-      let html = '';
-      questions.forEach((q, i) => {
-        let correctIdx = typeof q.answer === 'number' ? q.answer : 
-          (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
-        const isCorrect = answers[i] === correctIdx;
-        html += `
-          <div class="cbt-result-item">
-            <div class="cbt-result-item-number">Question ${i + 1}</div>
-            <div class="cbt-result-item-question">${q.text}</div>
-            <div class="cbt-result-item-feedback">
-              <div class="cbt-result-answer">
-                <div class="cbt-result-answer-label">Your Answer</div>
-                <div class="cbt-result-answer-value">
-                  ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
-                </div>
-              </div>
-              <div class="cbt-result-answer">
-                <div class="cbt-result-answer-label">Correct Answer</div>
-                <div class="cbt-result-answer-value">${typeof correctIdx === 'number' ? String.fromCharCode(65+correctIdx) : '-'}</div>
-              </div>
-            </div>
-            <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
-              <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
-              ${isCorrect ? 'Correct' : 'Incorrect'}
-            </div>
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Correct Answer</div>
+            <div class="cbt-result-answer-value">${typeof correctIdx === 'number' ? String.fromCharCode(65+correctIdx) : '-'}</div>
           </div>
-        `;
-      });
-      document.getElementById('resultsList').innerHTML = html;
-    }
+        </div>
+        <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
+          <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+          ${isCorrect ? 'Correct' : 'Incorrect'}
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('resultsList').innerHTML = html;
+}
 
-    window.logout = function() {
-      localStorage.removeItem('student_token');
-      localStorage.removeItem('studentToken');
-      localStorage.removeItem('token');
-      window.location.href = '/cbt-login.html';
-    };
+window.logout = function() {
+  localStorage.removeItem('student_token');
+  localStorage.removeItem('studentToken');
+  localStorage.removeItem('token');
+  window.location.href = '/cbt-login.html';
+};
 
-    // Initialize
-    fetchStudentAndExam();
+// ✅ NEW INIT
+loadStudent();
   </script>
 </body>
 </html>
