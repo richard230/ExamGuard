@@ -1049,7 +1049,7 @@
         </div>
 <div class="qr-section">
   <div class="qr-code">
-    <canvas id="qrCanvas"></canvas>
+    <div id="qrCode"></div>
   </div>
   <div class="qr-info">
     <div class="qr-title">Result Verification</div>
@@ -1162,20 +1162,23 @@
     }
 function generateQRCode(student, session) {
   const qrData = `
-Name: ${student.name || ''}
-RegNo: ${student.regNo || ''}
-Class: ${student.class?.name || student.class || ''}
+Name: ${student?.name || ''}
+RegNo: ${student?.regNo || ''}
+Class: ${student?.class?.name || student?.class || ''}
 Session: ${session || ''}
 Verify: https://examguard.com/verify
   `.trim();
 
-  const canvas = document.getElementById("qrCanvas");
+  const container = document.getElementById("qrCode");
 
-  new QRCode(canvas, {
+  if (!container || !qrData) return;
+
+  container.innerHTML = ""; // clear previous
+
+  new QRCode(container, {
     text: qrData,
     width: 70,
-    height: 70,
-    correctLevel: QRCode.CorrectLevel.M
+    height: 70
   });
 }
     // Set signature images with fallback to static seal
@@ -1446,7 +1449,9 @@ Verify: https://examguard.com/verify
       document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate) || '-';
       document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
     }
-
+document.addEventListener("DOMContentLoaded", () => {
+  generateQRCode(student, data.session);
+});
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', populateReport);
 
