@@ -1,54 +1,73 @@
+// /routes/cbt-auth.js
+
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+
 const Student = require('../models/Student');
 const Exam = require('../models/CBTExam');
-const Class = require('../models/Class');
 
-// ✅ NEW: POST /api/cbt/auth/code-login - Student login with exam code
+// ================= HELPERS =================
+function getStudentName(student) {
+  if (student.name) return student.name;
+
+  const first = student.firstname || '';
+  const last = student.surname || '';
+  return (first + ' ' + last).trim() || 'Student';
+}
+
+function normalizeCode(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+// ================= CODE LOGIN =================
 router.post('/code-login', async (req, res) => {
   try {
     const { examCode, classId, studentId } = req.body;
-    
-    // Validate inputs
+
+    // ---------- VALIDATION ----------
     if (!examCode || !classId || !studentId) {
       return res.status(400).json({
-        error: 'Missing exam code, class ID, or student ID'
+        error: 'examCode, classId, studentId are required'
       });
     }
-    
-    // Find student
-    const student = await Student.findById(studentId).populate('class');
+
+    // ---------- STUDENT ----------
+    const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({
-        error: 'Student not found'
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // ---------- CLASS CHECK (STRING SAFE) ----------
+    const studentClassId = student.class?.toString();
+
+    if (!studentClassId) {
+      return res.status(400).json({
+        error: 'Student class missing'
       });
     }
-    
-    // Verify student belongs to the specified class
-    if (student.class?._id.toString() !== classId && student.classId?.toString() !== classId) {
+
+    if (studentClassId !== classId.toString()) {
       return res.status(403).json({
         error: 'Student does not belong to this class'
       });
     }
-    
-    // Find exam by code + class
+
+    // ---------- EXAM ----------
     const exam = await Exam.findOne({
-      examCode: examCode.toUpperCase(),
+      examCode: normalizeCode(examCode),
       class: classId,
       isCodeActive: true,
       status: { $in: ['Scheduled', 'Active'] }
-    })
-      .populate('class', 'name')
-      .populate('subject', 'name');
-    
+    });
+
     if (!exam) {
       return res.status(404).json({
-        error: 'Invalid exam code for this class or exam is not active'
+        error: 'Invalid exam code or exam not active'
       });
     }
-    
-    // Generate JWT token
+
+    // ---------- JWT ----------
     const token = jwt.sign(
       {
         studentId: student._id,
@@ -56,79 +75,86 @@ router.post('/code-login', async (req, res) => {
         classId: classId,
         type: 'student'
       },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      process.env.JWT_SECRET || 'dev-secret',
+      { expiresIn: '12h' }
     );
-    
-    res.json({
+
+    // ---------- RESPONSE ----------
+    return res.json({
       success: true,
       token,
+
       student: {
         _id: student._id,
-        name: student.name || `${student.first_name} ${student.last_name}`,
-        class: student.class?.name,
-        email: student.email
+        name: getStudentName(student),
+        class: student.class,
+        email: student.studentEmail || student.email || '-'
       },
+
       exam: {
         _id: exam._id,
         title: exam.title,
+        subject: exam.subjectName || exam.subject || '',
         duration: exam.duration,
-        questions: exam.questions.map(q => ({
+
+        questions: (exam.questions || []).map(q => ({
           _id: q._id,
           text: q.text,
           options: q.options,
-          score: q.score
+          score: q.score || 1
         }))
       }
     });
+
   } catch (err) {
     console.error('Code login error:', err);
-    res.status(500).json({
-      error: 'Authentication failed: ' + err.message
+    return res.status(500).json({
+      error: 'Authentication failed'
     });
   }
 });
 
-// ✅ POST /api/cbt/auth/validate-code - Just validate without login
+// ================= VALIDATE CODE =================
 router.post('/validate-code', async (req, res) => {
   try {
     const { examCode, classId } = req.body;
-    
+
     if (!examCode || !classId) {
       return res.status(400).json({
-        error: 'Missing exam code or class ID'
-      });
-    }
-    
-    const exam = await Exam.findOne({
-      examCode: examCode.toUpperCase(),
-      class: classId,
-      isCodeActive: true,
-      status: { $in: ['Scheduled', 'Active'] }
-    })
-      .populate('class', 'name')
-      .populate('subject', 'name');
-    
-    if (!exam) {
-      return res.status(404).json({
-        error: 'Invalid exam code for this class or exam is not active',
+        error: 'examCode and classId required',
         valid: false
       });
     }
-    
-    res.json({
+
+    const exam = await Exam.findOne({
+      examCode: normalizeCode(examCode),
+      class: classId,
+      isCodeActive: true,
+      status: { $in: ['Scheduled', 'Active'] }
+    });
+
+    if (!exam) {
+      return res.status(404).json({
+        error: 'Invalid or inactive exam',
+        valid: false
+      });
+    }
+
+    return res.json({
       success: true,
       valid: true,
       exam: {
         _id: exam._id,
         title: exam.title,
-        subject: exam.subject?.name,
+        subject: exam.subjectName || exam.subject || '',
         duration: exam.duration
       }
     });
+
   } catch (err) {
-    res.status(500).json({
-      error: 'Validation failed: ' + err.message,
+    console.error('Validate code error:', err);
+    return res.status(500).json({
+      error: 'Validation failed',
       valid: false
     });
   }
