@@ -1187,12 +1187,21 @@ function showExamCodePrompt() {
    NEW: SUBMIT CODE
 ========================= */
 window.submitExamCode = async function () {
-  const examCode = document.getElementById('examCodeInput').value.trim().toUpperCase();
+  const btn = document.querySelector('#cbtNoExamArea button');
+  const input = document.getElementById('examCodeInput');
+  const errorEl = document.getElementById('codeError');
+
+  const examCode = input.value.trim().toUpperCase();
 
   if (!examCode) {
-    document.getElementById('codeError').textContent = 'Enter exam code';
+    errorEl.textContent = 'Enter exam code';
     return;
   }
+
+  // ✅ spinner ON
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+  errorEl.textContent = '';
 
   try {
     const res = await fetch(API_BASE_URL + '/api/cbt/auth/code-login', {
@@ -1227,9 +1236,13 @@ window.submitExamCode = async function () {
     logStudentActivity('started');
 
   } catch (err) {
-    document.getElementById('codeError').textContent = err.message;
+    errorEl.textContent = err.message;
+
+    // ❗ restore button
+    btn.disabled = false;
+    btn.innerHTML = 'Start Exam';
   }
-}
+};
 
 /* =========================
    OLD FUNCTION (DISABLED)
@@ -1394,30 +1407,26 @@ async function submitExam() {
   }
 
   logStudentActivity('submitted', { answers });
-  showResults(result);
+  showResults();
 }
 
-function showResults(result) {
-  let correct = 0;
-  let total = questions.length;
-  let resultsHtml = `
+function showResults() {
+  document.getElementById('cbtResultArea').innerHTML = `
     <div class="cbt-results-container">
       <div class="cbt-results-header">
-        <div class="cbt-results-icon"><i class="fas fa-check-circle"></i></div>
-        <div class="cbt-results-title">Exam Submitted</div>
-        <div class="cbt-results-subtitle">Thank you, <strong>${student.name}</strong></div>
-      </div>
-
-      <div class="cbt-score-display">
-        <div>Your Score</div>
-        <div class="cbt-score-big">
-          <span class="cbt-score-value" id="finalScore">0</span>
-          <span class="cbt-score-total">/ ${total}</span>
+        <div class="cbt-results-icon">
+          <i class="fas fa-check-circle"></i>
         </div>
-        <div class="cbt-score-percentage" id="finalPercentage">0%</div>
+        <div class="cbt-results-title">Exam Submitted</div>
+        <div class="cbt-results-subtitle">
+          Thank you, <strong>${student.name}</strong>
+        </div>
       </div>
 
-      <div class="cbt-results-body" id="resultsList"></div>
+      <div class="cbt-results-body" style="text-align:center; padding:20px;">
+        Your responses have been recorded successfully.<br/>
+        You will receive your result from your teacher.
+      </div>
 
       <div class="cbt-results-footer">
         <button class="cbt-btn cbt-btn-primary" onclick="logout()">
@@ -1426,26 +1435,6 @@ function showResults(result) {
       </div>
     </div>
   `;
-
-  document.getElementById('cbtResultArea').innerHTML = resultsHtml;
-
-  if (result && result.results && Array.isArray(result.results)) {
-    result.results.forEach((q, i) => {
-      if (q.isCorrect) correct++;
-    });
-    showDetailedResults(result.results);
-  } else {
-    questions.forEach((q, i) => {
-      let correctIdx = typeof q.answer === 'number' ? q.answer : 
-        (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
-      if (answers[i] === correctIdx) correct++;
-    });
-    showLocalResults();
-  }
-
-  const percentage = Math.round((correct / total) * 100);
-  document.getElementById('finalScore').textContent = correct;
-  document.getElementById('finalPercentage').textContent = percentage + '%';
 }
 
 function showDetailedResults(results) {
