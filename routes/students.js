@@ -51,6 +51,7 @@ const studentSchema = Joi.object({
   scratchCard: Joi.string().length(8).alphanum().required(),
   class: Joi.string().required(),
   parentName: Joi.string().required(),
+  parentId: Joi.string().length(24).hex().optional().allow(null, ''),
   parentRelationship: Joi.string().required(),
   parentPhone: Joi.string().required(),
   password: Joi.string().min(6).required(),
