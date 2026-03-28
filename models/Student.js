@@ -47,14 +47,14 @@ const feeSchema = new mongoose.Schema({
 const skillsReportSchema = new mongoose.Schema({
   session: String,
   term: String,
-  skills: mongoose.Schema.Types.Mixed, // e.g. { leadership: 'A', teamwork: 'B+' }
+  skills: mongoose.Schema.Types.Mixed,
   attendance: mongoose.Schema.Types.Mixed,
   comment: String,
   updatedAt: Date,
 });
 
-const hostelSchema = new mongoose.Schema({}, { strict: false }); // Flexible for hostel info
-const transportSchema = new mongoose.Schema({}, { strict: false }); // Flexible for transport info
+const hostelSchema = new mongoose.Schema({}, { strict: false });
+const transportSchema = new mongoose.Schema({}, { strict: false });
 
 const StudentSchema = new mongoose.Schema({
   student_id: { type: String, unique: true, required: true },
@@ -90,6 +90,12 @@ const StudentSchema = new mongoose.Schema({
   genotype: { type: String, default: '' },
   medical: { type: String, default: '' },
   password: { type: String, required: true },
+  // NEW: Reference to parent account
+  parentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Parent',
+    default: null
+  },
   academic: [academicSchema],
   attendance: [attendanceSchema],
   guardians: [guardianSchema],
