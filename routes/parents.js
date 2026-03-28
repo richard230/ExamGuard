@@ -90,23 +90,24 @@ router.post('/', async (req, res) => {
     const temporaryPassword = generateTemporaryPassword();
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
-    const parentData = {
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      phone: phone ? phone.trim() : '',
-      address: address ? address.trim() : '',
-      occupation: occupation ? occupation.trim() : '',
-      emergencyContactName: emergencyContactName ? emergencyContactName.trim() : '',
-      emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : '',
-      families: Array.isArray(families) ? families.filter(f => f && f.trim()) : [],
-      studentIds: Array.isArray(studentIds) && studentIds.length > 0 
-        ? studentIds.map(id => new mongoose.Types.ObjectId(id))
-        : [],
-      password: hashedPassword,
-      temporaryPassword: temporaryPassword,
-      role: 'parent',
-      status: 'active'
-    };
+// In routes/parents.js - CREATE parent (line ~89)
+const parentData = {
+  name: name.trim(),
+  email: email.toLowerCase().trim(),
+  phone: phone ? phone.trim() : '',
+  address: address ? address.trim() : '',
+  occupation: occupation ? occupation.trim() : '',
+  emergencyContactName: emergencyContactName ? emergencyContactName.trim() : '',
+  emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : '',
+  families: Array.isArray(families) ? families.filter(f => f && f.trim()) : [],
+  studentIds: Array.isArray(studentIds) && studentIds.length > 0 
+    ? studentIds  // Store student_id strings directly, no ObjectId conversion needed
+    : [],
+  password: hashedPassword,
+  temporaryPassword: temporaryPassword,
+  role: 'parent',
+  status: 'active'
+};
 
     const parent = await Parent.create(parentData);
 
