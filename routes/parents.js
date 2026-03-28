@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const Parent = require('../models/Parent');
+const Student = require('../models/Student');
 
 /**
  * Utility: Generate temporary password
@@ -17,13 +18,18 @@ function generateTemporaryPassword() {
 }
 
 /**
- * GET all parents
+ * GET all parents with student details
  */
 router.get('/', async (req, res) => {
   try {
-    const parents = await Parent.find()
-      .populate('studentIds', 'firstname surname class regNo')
+    const parents = await Parent.find({ status: 'active' })
+      .populate({
+        path: 'studentIds',
+        select: 'firstname surname class regNo student_id',
+        model: 'Student'
+      })
       .sort({ name: 1 });
+
     res.json(parents);
   } catch (error) {
     console.error('Error fetching parents:', error);
@@ -37,7 +43,12 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const parent = await Parent.findById(req.params.id)
-      .populate('studentIds', 'firstname surname class regNo');
+      .populate({
+        path: 'studentIds',
+        select: 'firstname surname class regNo student_id',
+        model: 'Student'
+      });
+    
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
     res.json(parent);
   } catch (error) {
@@ -68,10 +79,6 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Name and email are required' });
     }
 
-    if (!studentIds || studentIds.length === 0) {
-      return res.status(400).json({ error: 'At least one student must be assigned' });
-    }
-
     // Check if email already exists
     const existingParent = await Parent.findOne({ email: email.toLowerCase() });
     if (existingParent) {
@@ -90,8 +97,8 @@ router.post('/', async (req, res) => {
       occupation: occupation ? occupation.trim() : '',
       emergencyContactName: emergencyContactName ? emergencyContactName.trim() : '',
       emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : '',
-      families: Array.isArray(families) ? families.filter(f => f.trim()) : [],
-      studentIds: Array.isArray(studentIds) ? studentIds : [studentIds],
+      families: Array.isArray(families) ? families.filter(f => f && f.trim()) : [],
+      studentIds: Array.isArray(studentIds) && studentIds.length > 0 ? studentIds : [],
       password: hashedPassword,
       temporaryPassword: temporaryPassword,
       role: 'parent',
@@ -100,6 +107,13 @@ router.post('/', async (req, res) => {
 
     const parent = await Parent.create(parentData);
 
+    // Populate student details
+    await parent.populate({
+      path: 'studentIds',
+      select: 'firstname surname class regNo student_id',
+      model: 'Student'
+    });
+
     // Return parent data without sensitive fields
     const parentResponse = parent.toObject();
     delete parentResponse.password;
@@ -107,7 +121,7 @@ router.post('/', async (req, res) => {
 
     res.status(201).json({
       ...parentResponse,
-      temporaryPassword: temporaryPassword // Only return on creation for sharing with parent
+      temporaryPassword: temporaryPassword
     });
   } catch (error) {
     console.error('Error creating parent:', error);
@@ -145,8 +159,8 @@ router.patch('/:id', async (req, res) => {
     if (occupation !== undefined) updateData.occupation = occupation ? occupation.trim() : '';
     if (emergencyContactName !== undefined) updateData.emergencyContactName = emergencyContactName ? emergencyContactName.trim() : '';
     if (emergencyContactPhone !== undefined) updateData.emergencyContactPhone = emergencyContactPhone ? emergencyContactPhone.trim() : '';
-    if (families) updateData.families = Array.isArray(families) ? families.filter(f => f.trim()) : [];
-    if (studentIds) updateData.studentIds = Array.isArray(studentIds) ? studentIds : [studentIds];
+    if (families) updateData.families = Array.isArray(families) ? families.filter(f => f && f.trim()) : [];
+    if (studentIds) updateData.studentIds = Array.isArray(studentIds) && studentIds.length > 0 ? studentIds : [];
 
     // Prevent direct password updates via PATCH
     if (req.body.password) {
@@ -164,11 +178,17 @@ router.patch('/:id', async (req, res) => {
       }
     }
 
+    updateData.updatedAt = new Date();
+
     const updatedParent = await Parent.findByIdAndUpdate(
       req.params.id, 
       updateData, 
       { new: true, runValidators: true }
-    ).populate('studentIds', 'firstname surname class regNo');
+    ).populate({
+      path: 'studentIds',
+      select: 'firstname surname class regNo student_id',
+      model: 'Student'
+    });
 
     if (!updatedParent) return res.status(404).json({ error: 'Parent not found' });
 
@@ -193,6 +213,15 @@ router.delete('/:id', async (req, res) => {
   try {
     const parent = await Parent.findByIdAndDelete(req.params.id);
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
+    
+    // Also remove parent reference from students
+    if (parent.studentIds && parent.studentIds.length > 0) {
+      await Student.updateMany(
+        { _id: { $in: parent.studentIds } },
+        { $set: { parentId: null } }
+      );
+    }
+    
     res.json({ message: 'Parent deleted successfully!' });
   } catch (error) {
     console.error('Error deleting parent:', error);
@@ -220,7 +249,11 @@ router.post('/:id/reset-password', async (req, res) => {
         temporaryPassword: newPassword
       },
       { new: true }
-    );
+    ).populate({
+      path: 'studentIds',
+      select: 'firstname surname class regNo student_id',
+      model: 'Student'
+    });
 
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
 
@@ -234,6 +267,27 @@ router.post('/:id/reset-password', async (req, res) => {
     });
   } catch (error) {
     console.error('Error resetting password:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET available parents for student assignment
+ */
+router.get('/available/for-students', async (req, res) => {
+  try {
+    const parents = await Parent.find({ status: 'active' })
+      .select('_id name email phone occupation studentIds')
+      .populate({
+        path: 'studentIds',
+        select: 'firstname surname',
+        model: 'Student'
+      })
+      .sort({ name: 1 });
+    
+    res.json(parents);
+  } catch (error) {
+    console.error('Error fetching available parents:', error);
     res.status(500).json({ error: error.message });
   }
 });
