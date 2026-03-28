@@ -1,3 +1,5 @@
+// routes/parents.js
+
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
@@ -19,7 +21,20 @@ function generateTemporaryPassword() {
 }
 
 /**
- * GET all parents with student details
+ * Utility: Resolve student_id → ObjectId
+ */
+async function resolveStudentObjectIds(studentIds) {
+  if (!Array.isArray(studentIds) || studentIds.length === 0) return [];
+
+  const students = await Student.find({
+    student_id: { $in: studentIds }
+  }).select('_id');
+
+  return students.map(s => s._id);
+}
+
+/**
+ * GET all parents
  */
 router.get('/', async (req, res) => {
   try {
@@ -27,13 +42,11 @@ router.get('/', async (req, res) => {
       .populate({
         path: 'studentIds',
         select: 'firstname surname class regNo student_id',
-        model: 'Student'
       })
       .sort({ name: 1 });
 
     res.json(parents);
   } catch (error) {
-    console.error('Error fetching parents:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -47,13 +60,12 @@ router.get('/:id', async (req, res) => {
       .populate({
         path: 'studentIds',
         select: 'firstname surname class regNo student_id',
-        model: 'Student'
       });
-    
+
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
+
     res.json(parent);
   } catch (error) {
-    console.error('Error fetching parent:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -63,75 +75,66 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { 
-      name, 
-      email, 
-      phone, 
-      address, 
+    const {
+      name,
+      email,
+      phone,
+      address,
       occupation,
       emergencyContactName,
       emergencyContactPhone,
       families,
-      studentIds 
+      studentIds
     } = req.body;
 
-    // Validation
     if (!name || !email) {
       return res.status(400).json({ error: 'Name and email are required' });
     }
 
-    // Check if email already exists
     const existingParent = await Parent.findOne({ email: email.toLowerCase() });
     if (existingParent) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    // Generate temporary password
     const temporaryPassword = generateTemporaryPassword();
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
-// In routes/parents.js - CREATE parent (line ~89)
-const parentData = {
-  name: name.trim(),
-  email: email.toLowerCase().trim(),
-  phone: phone ? phone.trim() : '',
-  address: address ? address.trim() : '',
-  occupation: occupation ? occupation.trim() : '',
-  emergencyContactName: emergencyContactName ? emergencyContactName.trim() : '',
-  emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : '',
-  families: Array.isArray(families) ? families.filter(f => f && f.trim()) : [],
-  studentIds: Array.isArray(studentIds) && studentIds.length > 0 
-    ? studentIds  // Store student_id strings directly, no ObjectId conversion needed
-    : [],
-  password: hashedPassword,
-  temporaryPassword: temporaryPassword,
-  role: 'parent',
-  status: 'active'
-};
+    // 🔥 FIX: resolve student_ids → ObjectIds
+    const resolvedStudentIds = await resolveStudentObjectIds(studentIds);
+
+    const parentData = {
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone ? phone.trim() : '',
+      address: address ? address.trim() : '',
+      occupation: occupation ? occupation.trim() : '',
+      emergencyContactName: emergencyContactName ? emergencyContactName.trim() : '',
+      emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : '',
+      families: Array.isArray(families) ? families.filter(f => f && f.trim()) : [],
+      studentIds: resolvedStudentIds,
+      password: hashedPassword,
+      temporaryPassword,
+      role: 'parent',
+      status: 'active'
+    };
 
     const parent = await Parent.create(parentData);
 
-    // Populate student details
     await parent.populate({
       path: 'studentIds',
       select: 'firstname surname class regNo student_id',
-      model: 'Student'
     });
 
-    // Return parent data without sensitive fields
     const parentResponse = parent.toObject();
     delete parentResponse.password;
     delete parentResponse.temporaryPassword;
 
     res.status(201).json({
       ...parentResponse,
-      temporaryPassword: temporaryPassword
+      temporaryPassword
     });
+
   } catch (error) {
-    console.error('Error creating parent:', error);
-    if (error.code === 11000) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
     res.status(400).json({ error: error.message });
   }
 });
@@ -141,19 +144,18 @@ const parentData = {
  */
 router.patch('/:id', async (req, res) => {
   try {
-    const { 
-      name, 
-      email, 
-      phone, 
-      address, 
+    const {
+      name,
+      email,
+      phone,
+      address,
       occupation,
       emergencyContactName,
       emergencyContactPhone,
       families,
-      studentIds 
+      studentIds
     } = req.body;
 
-    // Build update object
     const updateData = {};
 
     if (name) updateData.name = name.trim();
@@ -164,16 +166,16 @@ router.patch('/:id', async (req, res) => {
     if (emergencyContactName !== undefined) updateData.emergencyContactName = emergencyContactName ? emergencyContactName.trim() : '';
     if (emergencyContactPhone !== undefined) updateData.emergencyContactPhone = emergencyContactPhone ? emergencyContactPhone.trim() : '';
     if (families) updateData.families = Array.isArray(families) ? families.filter(f => f && f.trim()) : [];
-    if (studentIds) updateData.studentIds = Array.isArray(studentIds) && studentIds.length > 0 
-      ? studentIds.map(id => new mongoose.Types.ObjectId(id))
-      : [];
 
-    // Prevent direct password updates via PATCH
-    if (req.body.password) {
-      return res.status(400).json({ error: 'Use reset-password endpoint to change password' });
+    // 🔥 FIX: resolve here too
+    if (studentIds) {
+      updateData.studentIds = await resolveStudentObjectIds(studentIds);
     }
 
-    // Check if email is unique (if changing)
+    if (req.body.password) {
+      return res.status(400).json({ error: 'Use reset-password endpoint' });
+    }
+
     if (email) {
       const parent = await Parent.findById(req.params.id);
       if (parent && parent.email !== email.toLowerCase()) {
@@ -187,13 +189,12 @@ router.patch('/:id', async (req, res) => {
     updateData.updatedAt = new Date();
 
     const updatedParent = await Parent.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
+      req.params.id,
+      updateData,
       { new: true, runValidators: true }
     ).populate({
       path: 'studentIds',
       select: 'firstname surname class regNo student_id',
-      model: 'Student'
     });
 
     if (!updatedParent) return res.status(404).json({ error: 'Parent not found' });
@@ -203,11 +204,8 @@ router.patch('/:id', async (req, res) => {
     delete parentResponse.temporaryPassword;
 
     res.json(parentResponse);
+
   } catch (error) {
-    console.error('Error updating parent:', error);
-    if (error.code === 11000) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
     res.status(400).json({ error: error.message });
   }
 });
@@ -219,81 +217,39 @@ router.delete('/:id', async (req, res) => {
   try {
     const parent = await Parent.findByIdAndDelete(req.params.id);
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
-    
-    // Also remove parent reference from students
-    if (parent.studentIds && parent.studentIds.length > 0) {
+
+    if (parent.studentIds.length > 0) {
       await Student.updateMany(
         { _id: { $in: parent.studentIds } },
         { $set: { parentId: null } }
       );
     }
-    
+
     res.json({ message: 'Parent deleted successfully!' });
+
   } catch (error) {
-    console.error('Error deleting parent:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 /**
- * RESET parent password
+ * RESET PASSWORD
  */
 router.post('/:id/reset-password', async (req, res) => {
   try {
     const { newPassword } = req.body;
 
-    if (!newPassword) {
-      return res.status(400).json({ error: 'New password is required' });
-    }
-
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const parent = await Parent.findByIdAndUpdate(
       req.params.id,
-      {
-        password: hashedPassword,
-        temporaryPassword: newPassword
-      },
+      { password: hashedPassword },
       { new: true }
-    ).populate({
-      path: 'studentIds',
-      select: 'firstname surname class regNo student_id',
-      model: 'Student'
-    });
+    );
 
-    if (!parent) return res.status(404).json({ error: 'Parent not found' });
+    res.json({ message: 'Password reset successful' });
 
-    const parentResponse = parent.toObject();
-    delete parentResponse.password;
-    delete parentResponse.temporaryPassword;
-
-    res.json({
-      message: 'Password reset successfully',
-      ...parentResponse
-    });
   } catch (error) {
-    console.error('Error resetting password:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET available parents for student assignment
- */
-router.get('/available/for-students', async (req, res) => {
-  try {
-    const parents = await Parent.find({ status: 'active' })
-      .select('_id name email phone occupation studentIds')
-      .populate({
-        path: 'studentIds',
-        select: 'firstname surname',
-        model: 'Student'
-      })
-      .sort({ name: 1 });
-    
-    res.json(parents);
-  } catch (error) {
-    console.error('Error fetching available parents:', error);
     res.status(500).json({ error: error.message });
   }
 });
