@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const ParentSchema = new mongoose.Schema({
   name: { 
@@ -38,9 +39,11 @@ const ParentSchema = new mongoose.Schema({
     type: String,
     trim: true 
   }],
+  // IMPORTANT: Proper student reference
   studentIds: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Student'
+    ref: 'Student',
+    required: false
   }],
   password: {
     type: String,
@@ -75,6 +78,14 @@ const ParentSchema = new mongoose.Schema({
     email: { type: Boolean, default: true },
     sms: { type: Boolean, default: false },
     inApp: { type: Boolean, default: true }
+  },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
   }
 }, { timestamps: true });
 
