@@ -1508,23 +1508,30 @@ function renderParents(parents) {
   parents.forEach((parent) => {
     const tr = document.createElement('tr');
     
+    // Build student badges
     const studentBadges = (parent.studentIds || [])
-      .map(studentId => {
-        const student = allStudents.find(s => s._id === studentId);
-        if (student) {
-          const studentFullName = `${student.firstName} ${student.lastName}`.trim();
-          return `<span class="student-badge">${escapeHTML(studentFullName)}</span>`;
+      .map(student => {
+        if (student && student.firstname && student.surname) {
+          const studentFullName = `${escapeHTML(student.firstname)} ${escapeHTML(student.surname)}`;
+          return `<span class="student-badge">${studentFullName}</span>`;
         }
         return '';
       })
       .filter(Boolean)
       .join('');
 
+    const studentCount = (parent.studentIds || []).filter(s => s && s.firstname).length;
+
     tr.innerHTML = `
       <td>${escapeHTML(parent.name || 'N/A')}</td>
       <td>${escapeHTML(parent.email || '—')}</td>
       <td>${escapeHTML(parent.phone || '—')}</td>
-      <td>${studentBadges || '—'}</td>
+      <td>
+        <div>
+          ${studentBadges || '<span style="color: #999;">No students assigned</span>'}
+          ${studentCount > 0 ? `<p style="margin: 6px 0 0 0; font-size: 0.85em; color: #6b7280;">${studentCount} student(s)</p>` : ''}
+        </div>
+      </td>
       <td>
         <div class="actions-cell">
           <button class="icon-btn" title="View" onclick="viewParent('${escapeHTML(parent._id)}')" aria-label="View parent">
