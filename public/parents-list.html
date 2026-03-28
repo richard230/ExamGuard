@@ -1479,7 +1479,14 @@ function renderStudentsCheckboxes(students) {
   studentsCheckboxContainer.innerHTML = '';
 
   students.forEach((student) => {
-    const isChecked = selectedStudents.includes(student._id) ? 'checked' : '';
+    // Validate student has required ID
+    if (!student._id || !student._id.trim()) {
+      console.warn('Skipping student without valid ID:', student);
+      return;
+    }
+
+    // Check if this student is in selectedStudents array
+    const isChecked = selectedStudents.some(id => id === student._id) ? 'checked' : '';
     const studentFullName = `${escapeHTML(student.firstName || '')} ${escapeHTML(student.lastName || '')}`.trim() || 'N/A';
     
     const div = document.createElement('div');
@@ -1488,7 +1495,7 @@ function renderStudentsCheckboxes(students) {
       <input 
         type="checkbox" 
         id="student-${escapeHTML(student._id)}" 
-        value="${escapeHTML(student._id)}"
+        value="${student._id}"
         class="student-checkbox"
         ${isChecked}
       >
@@ -1871,7 +1878,7 @@ window.editParent = function(id) {
     return;
   }
 
-  selectedStudents = parent.studentIds || [];
+  selectedStudents = (parent.studentIds || []).filter(id => id && typeof id === 'string' && id.trim());
   
   parentModalTitle.textContent = 'Edit Parent';
   parentIdInput.value = parent._id;
@@ -2000,7 +2007,7 @@ if (parentForm) {
         emergencyContactName,
         emergencyContactPhone,
         families,
-        studentIds: selectedStudents  // Send MongoDB _ids directly
+        studentIds: selectedStudents.filter(id => id && id.trim())  // Send MongoDB _ids directly
       };
 
       let res;
