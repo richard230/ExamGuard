@@ -364,6 +364,7 @@
       if (!validateForm()) {
         return;
       }
+document.querySelector('.two-column').classList.remove('report-visible');
 
       const schoolId = document.getElementById('schoolName').value;
       const regNo = document.getElementById('regNo').value.trim();
@@ -457,8 +458,10 @@
     // ============ DISPLAY REPORT ============
     // ============ DISPLAY REPORT ============
     function displayReport(data) {
-      document.getElementById('reportEmpty').style.display = 'none';
-      document.getElementById('reportCard').style.display = 'block';
+       document.querySelector('.two-column').classList.add('report-visible');
+  
+  document.getElementById('reportEmpty').style.display = 'none';
+  document.getElementById('reportCard').style.display = 'block';
 
       // Convert string values to numbers
       const totalScore = parseFloat(data.totalScore) || 0;
