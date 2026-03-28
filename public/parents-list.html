@@ -1341,6 +1341,8 @@ function generatePassword() {
 
 // ===== STUDENTS FUNCTIONS =====
 
+// ===== STUDENTS FUNCTIONS =====
+
 async function fetchStudents() {
   try {
     studentsLoadingSpinner.style.display = 'flex';
@@ -1356,10 +1358,10 @@ async function fetchStudents() {
     
     const data = await res.json();
     
-    // Map students from API response
+    // Map students from API response - Use the actual MongoDB _id
     if (data.students && Array.isArray(data.students)) {
       allStudents = data.students.map(s => ({
-        _id: s.student_id || s.id || '',
+        _id: s._id || s.id || '',  // Use MongoDB _id, not student_id or regNo
         firstName: s.firstname || '',
         lastName: s.surname || '',
         className: s.class || '',
@@ -1385,6 +1387,81 @@ async function fetchStudents() {
     showError('Failed to load students');
     return false;
   }
+}
+
+function renderStudentsCheckboxes(students) {
+  studentsLoadingSpinner.style.display = 'none';
+  
+  if (!students || students.length === 0) {
+    studentsCheckboxContainer.innerHTML = '';
+    studentsSearchContainer.style.display = 'none';
+    studentsEmptyState.style.display = 'block';
+    return;
+  }
+
+  studentsEmptyState.style.display = 'none';
+  studentsSearchContainer.style.display = 'block';
+  studentsCheckboxContainer.innerHTML = '';
+
+  students.forEach((student) => {
+    const isChecked = selectedStudents.includes(student._id) ? 'checked' : '';
+    const studentFullName = `${escapeHTML(student.firstName || '')} ${escapeHTML(student.lastName || '')}`.trim() || 'N/A';
+    
+    const div = document.createElement('div');
+    div.className = 'checkbox-item';
+    div.innerHTML = `
+      <input 
+        type="checkbox" 
+        id="student-${escapeHTML(student._id)}" 
+        value="${escapeHTML(student._id)}"
+        class="student-checkbox"
+        ${isChecked}
+      >
+      <label for="student-${escapeHTML(student._id)}">
+        <span class="student-name">${studentFullName}</span>
+        <span class="student-class">${escapeHTML(student.className || 'N/A')} - ${escapeHTML(student.regNo || 'N/A')}</span>
+      </label>
+    `;
+    
+    const checkbox = div.querySelector('input[type="checkbox"]');
+    checkbox.addEventListener('change', updateSelectedStudents);
+    
+    studentsCheckboxContainer.appendChild(div);
+  });
+
+  studentsCheckboxContainer.style.display = 'block';
+  updateSelectedCount();
+}
+
+function updateSelectedStudents() {
+  selectedStudents = Array.from(document.querySelectorAll('#studentsCheckboxContainer input[type="checkbox"]:checked'))
+    .map(cb => cb.value);
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const count = selectedStudents.length;
+  if (count > 0) {
+    selectedCount.textContent = `${count} student(s) selected`;
+    selectedCount.style.display = 'block';
+  } else {
+    selectedCount.style.display = 'none';
+  }
+}
+
+if (studentSearchInput) {
+  studentSearchInput.addEventListener('input', () => {
+    const query = studentSearchInput.value.trim().toLowerCase();
+    const checkboxes = document.querySelectorAll('#studentsCheckboxContainer .checkbox-item');
+    
+    checkboxes.forEach(item => {
+      const studentName = item.querySelector('.student-name').textContent.toLowerCase();
+      const studentClass = item.querySelector('.student-class').textContent.toLowerCase();
+      
+      const matches = studentName.includes(query) || studentClass.includes(query);
+      item.style.display = matches ? 'flex' : 'none';
+    });
+  });
 }
 
 function renderStudentsCheckboxes(students) {
@@ -1869,6 +1946,8 @@ window.resetParentPassword = async function(id) {
 
 // ===== FORM SUBMISSION =====
 
+// ===== FORM SUBMISSION =====
+
 if (parentForm) {
   parentForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1921,7 +2000,7 @@ if (parentForm) {
         emergencyContactName,
         emergencyContactPhone,
         families,
-        studentIds: selectedStudents
+        studentIds: selectedStudents  // Send MongoDB _ids directly
       };
 
       let res;
@@ -1947,7 +2026,10 @@ if (parentForm) {
         });
       }
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
 
       const successMsg = id ? 'Parent updated successfully' : 'Parent added successfully';
       showSuccess(successMsg);
@@ -1955,7 +2037,7 @@ if (parentForm) {
       await fetchParents();
     } catch (err) {
       console.error('Error saving parent:', err);
-      showError('Failed to save parent. Please try again.');
+      showError(err.message || 'Failed to save parent. Please try again.');
     } finally {
       parentFormSubmitBtn.disabled = false;
       parentFormSubmitBtn.innerHTML = id ? '<i class="fa fa-save"></i> Update Parent' : '<i class="fa fa-save"></i> Save Parent';
