@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Parent = require('../models/Parent');
 const Student = require('../models/Student');
@@ -98,7 +99,9 @@ router.post('/', async (req, res) => {
       emergencyContactName: emergencyContactName ? emergencyContactName.trim() : '',
       emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : '',
       families: Array.isArray(families) ? families.filter(f => f && f.trim()) : [],
-      studentIds: Array.isArray(studentIds) && studentIds.length > 0 ? studentIds : [],
+      studentIds: Array.isArray(studentIds) && studentIds.length > 0 
+        ? studentIds.map(id => new mongoose.Types.ObjectId(id))
+        : [],
       password: hashedPassword,
       temporaryPassword: temporaryPassword,
       role: 'parent',
@@ -160,7 +163,9 @@ router.patch('/:id', async (req, res) => {
     if (emergencyContactName !== undefined) updateData.emergencyContactName = emergencyContactName ? emergencyContactName.trim() : '';
     if (emergencyContactPhone !== undefined) updateData.emergencyContactPhone = emergencyContactPhone ? emergencyContactPhone.trim() : '';
     if (families) updateData.families = Array.isArray(families) ? families.filter(f => f && f.trim()) : [];
-    if (studentIds) updateData.studentIds = Array.isArray(studentIds) && studentIds.length > 0 ? studentIds : [];
+    if (studentIds) updateData.studentIds = Array.isArray(studentIds) && studentIds.length > 0 
+      ? studentIds.map(id => new mongoose.Types.ObjectId(id))
+      : [];
 
     // Prevent direct password updates via PATCH
     if (req.body.password) {
