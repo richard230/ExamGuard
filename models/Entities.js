@@ -6,11 +6,6 @@ const EmployeeSchema = new mongoose.Schema({
   role: String,
 }, { timestamps: true });
 
-const ParentSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-}, { timestamps: true });
-
 const PaymentSchema = new mongoose.Schema({
   studentId: mongoose.Schema.Types.ObjectId,
   amount: Number,
@@ -54,9 +49,7 @@ const LeaveApplicationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = {
-  
   Employee: mongoose.model('Employee', EmployeeSchema),
-  Parent: mongoose.model('Parent', ParentSchema),
   Payment: mongoose.model('Payment', PaymentSchema),
   CashRequest: mongoose.model('CashRequest', CashRequestSchema),
   Admission: mongoose.model('Admission', AdmissionSchema),
