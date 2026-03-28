@@ -41,7 +41,8 @@ const ParentSchema = new mongoose.Schema({
   }],
   // IMPORTANT: Proper student reference
   studentIds: [{
-  type: String,  // Change from ObjectId to String
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Student',
   required: false
 }],
   password: {
