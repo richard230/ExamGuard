@@ -38,19 +38,21 @@ async function resolveStudentObjectIds(studentIds) {
  */
 router.get('/', async (req, res) => {
   try {
+    console.log("🔥 GET /parents HIT");
+
     const parents = await Parent.find({ status: 'active' })
       .populate({
         path: 'studentIds',
         select: 'firstname surname class regNo student_id',
-      })
-      .sort({ name: 1 });
+      });
+
+    console.log("🔥 RESULT:", JSON.stringify(parents, null, 2));
 
     res.json(parents);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 /**
  * GET parent by ID
  */
