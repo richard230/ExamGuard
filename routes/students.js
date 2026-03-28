@@ -161,6 +161,8 @@ router.post('/', upload.single('photo'), async (req, res) => {
       genotype: data.genotype || '',
       medical: data.medical || '',
       password: hashedPassword,
+      // NEW: Link to parent if provided
+      parentId: data.parentId || null,
       academic: [],
       attendance: [],
       guardians: [],
@@ -172,8 +174,24 @@ router.post('/', upload.single('photo'), async (req, res) => {
       updatedAt: new Date()
     };
 
-    await Student.create(studentDoc);
-    res.status(201).json({ message: 'Student enrolled successfully!', regNo });
+    const newStudent = await Student.create(studentDoc);
+
+    // If parent was selected, add this student to parent's studentIds
+    if (data.parentId) {
+      const Parent = require('../models/Parent');
+      await Parent.findByIdAndUpdate(
+        data.parentId,
+        { $addToSet: { studentIds: newStudent._id } },
+        { new: true }
+      );
+    }
+
+    res.status(201).json({ 
+      message: 'Student enrolled successfully!', 
+      regNo,
+      student_id: newStudent.student_id,
+      parentLinked: !!data.parentId
+    });
   } catch (error) {
     console.error('[ENROLL ERROR]', error);
     res.status(500).json({ error: error.message || 'Unknown server error.' });
@@ -366,6 +384,22 @@ router.get('/me', studentAuthMiddleware, async (req, res) => {
     name: `${student.firstname} ${student.surname}`,
     photo_url: student.photoBase64 || ''
   });
+});
+/**
+ * GET all parents for student assignment
+ */
+router.get('/parents/available', async (req, res) => {
+  try {
+    const Parent = require('../models/Parent');
+    const parents = await Parent.find({ status: 'active' })
+      .select('_id name email phone occupation studentIds')
+      .sort({ name: 1 });
+    
+    res.json(parents);
+  } catch (error) {
+    console.error('Error fetching parents:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 // GET /api/alumni - Return only alumni (students with status and class as Graduated)
 router.get('/alumni', async (req, res) => {
