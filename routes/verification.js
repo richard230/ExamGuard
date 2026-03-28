@@ -322,15 +322,22 @@ router.post('/verify-student-report', authMiddleware, async (req, res) => {
       });
     }
     console.log('✓ Student:', student.firstname, student.surname);
+// ============ STEP 3: VERIFY SCRATCH CARD ============
+console.log('Step 3: Verifying scratch card against student record...');
 
-    // ============ STEP 3: VERIFY SCRATCH CARD ============
-    if (!scratchCard || scratchCard.length < 4) {
-      return res.status(400).json({
-        success: false,
-        verified: false,
-        message: 'Invalid scratch card code'
-      });
-    }
+// Normalize the input scratch card
+const normalizedInputCard = scratchCard.trim().toUpperCase();
+const normalizedStudentCard = student.scratchCard.trim().toUpperCase();
+
+if (normalizedInputCard !== normalizedStudentCard) {
+  return res.status(401).json({
+    success: false,
+    verified: false,
+    message: 'Invalid scratch card code for this student'
+  });
+}
+
+console.log('✓ Scratch card verified');
 
     // ============ STEP 4: GET TERM DETAILS ============
     console.log('Step 4: Fetching term details...');
