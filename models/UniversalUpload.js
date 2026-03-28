@@ -87,11 +87,6 @@ const universalUploadSchema = new mongoose.Schema({
     grade: { type: String, default: null },
     remarks: { type: String, default: null },
     subject: { type: String, default: null },
-    
-    // Subject Position (Where student ranked in this subject)
-    position: { type: String, default: '-' },
-    position_numeric: { type: Number, default: null },
-    
     // Affective Skills Assessment
     skills: {
       punctuality: { type: String, default: '-' },
