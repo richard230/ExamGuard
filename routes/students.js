@@ -129,7 +129,11 @@ router.post('/', upload.single('photo'), async (req, res) => {
     if (req.file) {
       photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     }
+let parentObjectId = null;
 
+if (data.parentId && mongoose.Types.ObjectId.isValid(data.parentId)) {
+  parentObjectId = new mongoose.Types.ObjectId(data.parentId);
+}
     const studentDoc = {
       student_id,
       surname: data.surname,
@@ -163,7 +167,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
       medical: data.medical || '',
       password: hashedPassword,
       // NEW: Link to parent if provided
-      parentId: data.parentId || null,
+      parentId: parentObjectId,
       academic: [],
       attendance: [],
       guardians: [],
@@ -181,10 +185,10 @@ router.post('/', upload.single('photo'), async (req, res) => {
     if (data.parentId) {
       const Parent = require('../models/Parent');
       await Parent.findByIdAndUpdate(
-        data.parentId,
-        { $addToSet: { studentIds: newStudent._id } },
-        { new: true }
-      );
+  parentObjectId,
+  { $addToSet: { studentIds: newStudent._id.toString() } },
+  { new: true }
+);
     }
 
     res.status(201).json({ 
