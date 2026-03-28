@@ -198,7 +198,7 @@ router.patch('/:studentId/promote', async (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
     // Classes order - update this list as per your school's structure
-    const classesOrder = ["Creche", "Nursery 1", "Nursery 2", "Nursery 3", "Primary 1", "Primary 2","Primary 3", "Primary 4", "Primary 5", "JSS1", "JSS2", "JSS3", "SSS1", "SSS2", "SSS3"];
+    const classesOrder = ["Creche", "Nursery 1", "Nursery 2", "Nursery 3", "Primary 1", "Primary 2","Primary 3", "Primary 4", "Primary 5", "JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"];
     let newStatus;
 
     if (action === 'promote') {
@@ -247,7 +247,7 @@ router.patch('/bulk/promote', async (req, res) => {
     if (!Array.isArray(studentIds) || !action) return res.status(400).json({ error: 'studentIds and action required' });
 
     // Classes order - update this list as per your school's structure
-    const classesOrder = ["JSS 1", "JSS 2", "JSS 3", "SSS 1", "SSS 2", "SSS 3"];
+    const classesOrder = ["JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"];
     let newStatus;
 
     let bulkUpdates = [];
