@@ -1339,10 +1339,6 @@ function generatePassword() {
   return password;
 }
 
-// ===== STUDENTS FUNCTIONS =====
-
-// ===== STUDENTS FUNCTIONS =====
-
 async function fetchStudents() {
   try {
     studentsLoadingSpinner.style.display = 'flex';
@@ -1358,13 +1354,15 @@ async function fetchStudents() {
     
     const data = await res.json();
     
-    // Map students from API response - Use the actual MongoDB _id
+    // Map students from API response - Use the student_id instead of MongoDB _id
     if (data.students && Array.isArray(data.students)) {
       allStudents = data.students.map(s => ({
-        _id: s._id || s.id || '',  // Use MongoDB _id, not student_id or regNo
+        student_id: s.student_id || '',  // Use student_id as the unique identifier
+        _id: s._id || '',                // Keep MongoDB _id as backup
         firstName: s.firstname || '',
         lastName: s.surname || '',
         className: s.class || '',
+        classArm: s.classArm || '',
         regNo: s.regNo || '',
         academicSession: s.academicSession || ''
       }));
@@ -1389,80 +1387,7 @@ async function fetchStudents() {
   }
 }
 
-function renderStudentsCheckboxes(students) {
-  studentsLoadingSpinner.style.display = 'none';
-  
-  if (!students || students.length === 0) {
-    studentsCheckboxContainer.innerHTML = '';
-    studentsSearchContainer.style.display = 'none';
-    studentsEmptyState.style.display = 'block';
-    return;
-  }
 
-  studentsEmptyState.style.display = 'none';
-  studentsSearchContainer.style.display = 'block';
-  studentsCheckboxContainer.innerHTML = '';
-
-  students.forEach((student) => {
-    const isChecked = selectedStudents.includes(student._id) ? 'checked' : '';
-    const studentFullName = `${escapeHTML(student.firstName || '')} ${escapeHTML(student.lastName || '')}`.trim() || 'N/A';
-    
-    const div = document.createElement('div');
-    div.className = 'checkbox-item';
-    div.innerHTML = `
-      <input 
-        type="checkbox" 
-        id="student-${escapeHTML(student._id)}" 
-        value="${escapeHTML(student._id)}"
-        class="student-checkbox"
-        ${isChecked}
-      >
-      <label for="student-${escapeHTML(student._id)}">
-        <span class="student-name">${studentFullName}</span>
-        <span class="student-class">${escapeHTML(student.className || 'N/A')} - ${escapeHTML(student.regNo || 'N/A')}</span>
-      </label>
-    `;
-    
-    const checkbox = div.querySelector('input[type="checkbox"]');
-    checkbox.addEventListener('change', updateSelectedStudents);
-    
-    studentsCheckboxContainer.appendChild(div);
-  });
-
-  studentsCheckboxContainer.style.display = 'block';
-  updateSelectedCount();
-}
-
-function updateSelectedStudents() {
-  selectedStudents = Array.from(document.querySelectorAll('#studentsCheckboxContainer input[type="checkbox"]:checked'))
-    .map(cb => cb.value);
-  updateSelectedCount();
-}
-
-function updateSelectedCount() {
-  const count = selectedStudents.length;
-  if (count > 0) {
-    selectedCount.textContent = `${count} student(s) selected`;
-    selectedCount.style.display = 'block';
-  } else {
-    selectedCount.style.display = 'none';
-  }
-}
-
-if (studentSearchInput) {
-  studentSearchInput.addEventListener('input', () => {
-    const query = studentSearchInput.value.trim().toLowerCase();
-    const checkboxes = document.querySelectorAll('#studentsCheckboxContainer .checkbox-item');
-    
-    checkboxes.forEach(item => {
-      const studentName = item.querySelector('.student-name').textContent.toLowerCase();
-      const studentClass = item.querySelector('.student-class').textContent.toLowerCase();
-      
-      const matches = studentName.includes(query) || studentClass.includes(query);
-      item.style.display = matches ? 'flex' : 'none';
-    });
-  });
-}
 
 function renderStudentsCheckboxes(students) {
   studentsLoadingSpinner.style.display = 'none';
@@ -1479,14 +1404,14 @@ function renderStudentsCheckboxes(students) {
   studentsCheckboxContainer.innerHTML = '';
 
   students.forEach((student) => {
-    // Validate student has required ID
-    if (!student._id || !student._id.trim()) {
-      console.warn('Skipping student without valid ID:', student);
+    // Validate student has required student_id
+    if (!student.student_id) {
+      console.warn('Skipping student without valid student_id:', student);
       return;
     }
 
     // Check if this student is in selectedStudents array
-    const isChecked = selectedStudents.some(id => id === student._id) ? 'checked' : '';
+    const isChecked = selectedStudents.includes(student.student_id) ? 'checked' : '';
     const studentFullName = `${escapeHTML(student.firstName || '')} ${escapeHTML(student.lastName || '')}`.trim() || 'N/A';
     
     const div = document.createElement('div');
@@ -1494,14 +1419,14 @@ function renderStudentsCheckboxes(students) {
     div.innerHTML = `
       <input 
         type="checkbox" 
-        id="student-${escapeHTML(student._id)}" 
-        value="${student._id}"
+        id="student-${escapeHTML(student.student_id)}" 
+        value="${escapeHTML(student.student_id)}"
         class="student-checkbox"
         ${isChecked}
       >
-      <label for="student-${escapeHTML(student._id)}">
+      <label for="student-${escapeHTML(student.student_id)}">
         <span class="student-name">${studentFullName}</span>
-        <span class="student-class">${escapeHTML(student.className || 'N/A')} - ${escapeHTML(student.regNo || 'N/A')}</span>
+        <span class="student-class">${escapeHTML(student.className || 'N/A')} ${escapeHTML(student.classArm || '')} - ${escapeHTML(student.regNo || 'N/A')}</span>
       </label>
     `;
     
@@ -1517,7 +1442,8 @@ function renderStudentsCheckboxes(students) {
 
 function updateSelectedStudents() {
   selectedStudents = Array.from(document.querySelectorAll('#studentsCheckboxContainer input[type="checkbox"]:checked'))
-    .map(cb => cb.value);
+    .map(cb => cb.value)
+    .filter(id => id && id.trim()); // Filter out empty strings
   updateSelectedCount();
 }
 
@@ -1878,7 +1804,10 @@ window.editParent = function(id) {
     return;
   }
 
-  selectedStudents = (parent.studentIds || []).filter(id => id && typeof id === 'string' && id.trim());
+  // Set selectedStudents to student_ids from parent's linked students
+  selectedStudents = (parent.studentIds || [])
+    .map(student => student.student_id || student)  // Extract student_id if nested, otherwise use as-is
+    .filter(id => id && typeof id === 'string' && id.trim());
   
   parentModalTitle.textContent = 'Edit Parent';
   parentIdInput.value = parent._id;
@@ -1999,16 +1928,16 @@ if (parentForm) {
 
     try {
       const payload = { 
-        name, 
-        email, 
-        phone, 
-        address, 
-        occupation,
-        emergencyContactName,
-        emergencyContactPhone,
-        families,
-        studentIds: selectedStudents.filter(id => id && id.trim())  // Send MongoDB _ids directly
-      };
+  name, 
+  email, 
+  phone, 
+  address, 
+  occupation,
+  emergencyContactName,
+  emergencyContactPhone,
+  families,
+  studentIds: selectedStudents.filter(id => id && id.trim())  // These are now student_id strings like "STU634238"
+};
 
       let res;
       if (id) {
