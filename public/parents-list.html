@@ -1190,718 +1190,784 @@
   </div>
 
   <script>
-    // Spinner overlay logic
-    document.addEventListener('DOMContentLoaded', () => {
-      const spinner = document.getElementById('pageSpinnerOverlay');
-      if (spinner) spinner.style.display = 'flex';
+// Spinner overlay logic
+document.addEventListener('DOMContentLoaded', () => {
+  const spinner = document.getElementById('pageSpinnerOverlay');
+  if (spinner) spinner.style.display = 'flex';
+  setTimeout(() => {
+    if (spinner) {
+      spinner.style.opacity = '0';
       setTimeout(() => {
-        if (spinner) {
-          spinner.style.opacity = '0';
-          setTimeout(() => {
-            spinner.style.display = 'none';
-          }, 400);
+        spinner.style.display = 'none';
+      }, 400);
+    }
+  }, 1200);
+});
+
+// Sidebar mobile toggle logic
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+function handleResize() {
+  if (window.innerWidth <= 768) {
+    sidebarToggle.style.display = 'flex';
+  } else {
+    sidebarToggle.style.display = 'none';
+    sidebar.classList.remove('active');
+    sidebarOverlay.classList.remove('active');
+  }
+}
+
+function openSidebar() {
+  sidebar.classList.add('active');
+  sidebarOverlay.classList.add('active');
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('active');
+  sidebarOverlay.classList.remove('active');
+}
+
+sidebarToggle.addEventListener('click', openSidebar);
+sidebarOverlay.addEventListener('click', closeSidebar);
+
+document.querySelectorAll('.nav-link').forEach(link => {
+  link.addEventListener('click', () => {
+    if (window.innerWidth <= 768) {
+      closeSidebar();
+    }
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSidebar();
+});
+
+window.addEventListener('resize', handleResize);
+handleResize();
+
+// ===== PARENTS FUNCTIONALITY =====
+const API_BASE_URL = 'https://examguard-8rxe.onrender.com';
+const token = localStorage.getItem('token');
+let allParents = [];
+let allStudents = [];
+let selectedStudents = [];
+
+// Modal Elements - Add/Edit
+const parentModalBackdrop = document.getElementById('parentModalBackdrop');
+const closeParentModal = document.getElementById('closeParentModal');
+const cancelParentBtn = document.getElementById('cancelParentBtn');
+const parentForm = document.getElementById('parentForm');
+const parentModalTitle = document.getElementById('parentModalTitle');
+const parentIdInput = document.getElementById('parentIdInput');
+const parentNameInput = document.getElementById('parentNameInput');
+const parentEmailInput = document.getElementById('parentEmailInput');
+const parentPhoneInput = document.getElementById('parentPhoneInput');
+const parentAddressInput = document.getElementById('parentAddressInput');
+const parentOccupationInput = document.getElementById('parentOccupationInput');
+const parentEmergencyNameInput = document.getElementById('parentEmergencyNameInput');
+const parentEmergencyPhoneInput = document.getElementById('parentEmergencyPhoneInput');
+const parentFamiliesInput = document.getElementById('parentFamiliesInput');
+const parentFormSubmitBtn = document.getElementById('parentFormSubmitBtn');
+
+// Students elements
+const studentsLoadingSpinner = document.getElementById('studentsLoadingSpinner');
+const studentsSearchContainer = document.getElementById('studentsSearchContainer');
+const studentsCheckboxContainer = document.getElementById('studentsCheckboxContainer');
+const studentsEmptyState = document.getElementById('studentsEmptyState');
+const studentSearchInput = document.getElementById('studentSearchInput');
+const selectedCount = document.getElementById('selectedCount');
+
+// Modal Elements - View
+const viewParentModalBackdrop = document.getElementById('viewParentModalBackdrop');
+const closeViewParentModal = document.getElementById('closeViewParentModal');
+const viewParentContent = document.getElementById('viewParentContent');
+
+// Modal Elements - Credentials
+const credentialsModalBackdrop = document.getElementById('credentialsModalBackdrop');
+const closeCredentialsModal = document.getElementById('closeCredentialsModal');
+const credentialsContent = document.getElementById('credentialsContent');
+
+// Table Elements
+const parentsLoading = document.getElementById('parentsLoading');
+const parentsEmpty = document.getElementById('parentsEmpty');
+const parentsTable = document.getElementById('parentsTable');
+const parentsTableBody = document.getElementById('parentsTableBody');
+const parentSearchInput = document.getElementById('parentSearchInput');
+
+// Message Elements
+const successMessage = document.getElementById('successMessage');
+const errorMessage = document.getElementById('errorMessage');
+const successText = document.getElementById('successText');
+const errorText = document.getElementById('errorText');
+
+// ===== UTILITY FUNCTIONS =====
+
+function escapeHTML(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function showSuccess(message) {
+  successText.textContent = message;
+  successMessage.style.display = 'flex';
+  setTimeout(() => {
+    successMessage.style.display = 'none';
+  }, 3000);
+}
+
+function showError(message) {
+  errorText.textContent = message;
+  errorMessage.style.display = 'flex';
+  setTimeout(() => {
+    errorMessage.style.display = 'none';
+  }, 3000);
+}
+
+function generatePassword() {
+  const length = 12;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
+// ===== STUDENTS FUNCTIONS =====
+
+async function fetchStudents() {
+  try {
+    studentsLoadingSpinner.style.display = 'flex';
+    studentsSearchContainer.style.display = 'none';
+    studentsCheckboxContainer.style.display = 'none';
+    studentsEmptyState.style.display = 'none';
+
+    const res = await fetch(`${API_BASE_URL}/api/student`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const data = await res.json();
+    
+    // Map students from API response
+    if (data.students && Array.isArray(data.students)) {
+      allStudents = data.students.map(s => ({
+        _id: s.student_id || s.id || '',
+        firstName: s.firstname || '',
+        lastName: s.surname || '',
+        className: s.class || '',
+        regNo: s.regNo || '',
+        academicSession: s.academicSession || ''
+      }));
+    } else {
+      allStudents = [];
+    }
+
+    renderStudentsCheckboxes(allStudents);
+    return true;
+  } catch (err) {
+    console.error('Error fetching students:', err);
+    studentsLoadingSpinner.style.display = 'none';
+    studentsCheckboxContainer.style.display = 'none';
+    studentsSearchContainer.style.display = 'none';
+    studentsEmptyState.style.display = 'block';
+    studentsEmptyState.innerHTML = `
+      <i class="fa fa-exclamation-circle"></i>
+      <p>Failed to load students. Please try again.</p>
+    `;
+    showError('Failed to load students');
+    return false;
+  }
+}
+
+function renderStudentsCheckboxes(students) {
+  studentsLoadingSpinner.style.display = 'none';
+  
+  if (!students || students.length === 0) {
+    studentsCheckboxContainer.innerHTML = '';
+    studentsSearchContainer.style.display = 'none';
+    studentsEmptyState.style.display = 'block';
+    return;
+  }
+
+  studentsEmptyState.style.display = 'none';
+  studentsSearchContainer.style.display = 'block';
+  studentsCheckboxContainer.innerHTML = '';
+
+  students.forEach((student) => {
+    const isChecked = selectedStudents.includes(student._id) ? 'checked' : '';
+    const studentFullName = `${escapeHTML(student.firstName || '')} ${escapeHTML(student.lastName || '')}`.trim() || 'N/A';
+    
+    const div = document.createElement('div');
+    div.className = 'checkbox-item';
+    div.innerHTML = `
+      <input 
+        type="checkbox" 
+        id="student-${escapeHTML(student._id)}" 
+        value="${escapeHTML(student._id)}"
+        class="student-checkbox"
+        ${isChecked}
+      >
+      <label for="student-${escapeHTML(student._id)}">
+        <span class="student-name">${studentFullName}</span>
+        <span class="student-class">${escapeHTML(student.className || 'N/A')} - ${escapeHTML(student.regNo || 'N/A')}</span>
+      </label>
+    `;
+    
+    const checkbox = div.querySelector('input[type="checkbox"]');
+    checkbox.addEventListener('change', updateSelectedStudents);
+    
+    studentsCheckboxContainer.appendChild(div);
+  });
+
+  studentsCheckboxContainer.style.display = 'block';
+  updateSelectedCount();
+}
+
+function updateSelectedStudents() {
+  selectedStudents = Array.from(document.querySelectorAll('#studentsCheckboxContainer input[type="checkbox"]:checked'))
+    .map(cb => cb.value);
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const count = selectedStudents.length;
+  if (count > 0) {
+    selectedCount.textContent = `${count} student(s) selected`;
+    selectedCount.style.display = 'block';
+  } else {
+    selectedCount.style.display = 'none';
+  }
+}
+
+if (studentSearchInput) {
+  studentSearchInput.addEventListener('input', () => {
+    const query = studentSearchInput.value.trim().toLowerCase();
+    const checkboxes = document.querySelectorAll('#studentsCheckboxContainer .checkbox-item');
+    
+    checkboxes.forEach(item => {
+      const studentName = item.querySelector('.student-name').textContent.toLowerCase();
+      const studentClass = item.querySelector('.student-class').textContent.toLowerCase();
+      
+      const matches = studentName.includes(query) || studentClass.includes(query);
+      item.style.display = matches ? 'flex' : 'none';
+    });
+  });
+}
+
+// ===== PARENTS FUNCTIONS =====
+
+async function fetchParents() {
+  parentsLoading.style.display = 'flex';
+  parentsEmpty.style.display = 'none';
+  parentsTable.style.display = 'none';
+  parentsTableBody.innerHTML = '';
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/parents`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const data = await res.json();
+    allParents = Array.isArray(data) ? data : data.parents || [];
+    renderParents(allParents);
+  } catch (err) {
+    console.error('Error fetching parents:', err);
+    parentsLoading.style.display = 'none';
+    parentsEmpty.style.display = 'block';
+    parentsEmpty.innerHTML = `
+      <i class="fa fa-exclamation-circle"></i>
+      <p>Failed to load parents. Please try again.</p>
+    `;
+    showError('Failed to load parents');
+  }
+}
+
+function renderParents(parents) {
+  parentsLoading.style.display = 'none';
+  parentsTableBody.innerHTML = '';
+
+  if (!parents || parents.length === 0) {
+    parentsTable.style.display = 'none';
+    parentsEmpty.style.display = 'block';
+    return;
+  }
+
+  parentsEmpty.style.display = 'none';
+  parentsTable.style.display = 'table';
+
+  parents.forEach((parent) => {
+    const tr = document.createElement('tr');
+    
+    const studentBadges = (parent.studentIds || [])
+      .map(studentId => {
+        const student = allStudents.find(s => s._id === studentId);
+        if (student) {
+          const studentFullName = `${student.firstName} ${student.lastName}`.trim();
+          return `<span class="student-badge">${escapeHTML(studentFullName)}</span>`;
         }
-      }, 1200);
-    });
+        return '';
+      })
+      .filter(Boolean)
+      .join('');
 
-    // Sidebar mobile toggle logic
-    const sidebar = document.getElementById('sidebar');
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-    function handleResize() {
-      if (window.innerWidth <= 768) {
-        sidebarToggle.style.display = 'flex';
-      } else {
-        sidebarToggle.style.display = 'none';
-        sidebar.classList.remove('active');
-        sidebarOverlay.classList.remove('active');
-      }
-    }
-
-    function openSidebar() {
-      sidebar.classList.add('active');
-      sidebarOverlay.classList.add('active');
-    }
-
-    function closeSidebar() {
-      sidebar.classList.remove('active');
-      sidebarOverlay.classList.remove('active');
-    }
-
-    sidebarToggle.addEventListener('click', openSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', () => {
-        if (window.innerWidth <= 768) {
-          closeSidebar();
-        }
-      });
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeSidebar();
-    });
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    // ===== PARENTS FUNCTIONALITY =====
-    const token = localStorage.getItem('token');
-    let allParents = [];
-    let allStudents = [];
-    let selectedStudents = [];
-
-    // Modal Elements - Add/Edit
-    const parentModalBackdrop = document.getElementById('parentModalBackdrop');
-    const closeParentModal = document.getElementById('closeParentModal');
-    const cancelParentBtn = document.getElementById('cancelParentBtn');
-    const parentForm = document.getElementById('parentForm');
-    const parentModalTitle = document.getElementById('parentModalTitle');
-    const parentIdInput = document.getElementById('parentIdInput');
-    const parentNameInput = document.getElementById('parentNameInput');
-    const parentEmailInput = document.getElementById('parentEmailInput');
-    const parentPhoneInput = document.getElementById('parentPhoneInput');
-    const parentAddressInput = document.getElementById('parentAddressInput');
-    const parentOccupationInput = document.getElementById('parentOccupationInput');
-    const parentEmergencyNameInput = document.getElementById('parentEmergencyNameInput');
-    const parentEmergencyPhoneInput = document.getElementById('parentEmergencyPhoneInput');
-    const parentFamiliesInput = document.getElementById('parentFamiliesInput');
-    const parentFormSubmitBtn = document.getElementById('parentFormSubmitBtn');
-
-    // Students elements
-    const studentsLoadingSpinner = document.getElementById('studentsLoadingSpinner');
-    const studentsSearchContainer = document.getElementById('studentsSearchContainer');
-    const studentsCheckboxContainer = document.getElementById('studentsCheckboxContainer');
-    const studentsEmptyState = document.getElementById('studentsEmptyState');
-    const studentSearchInput = document.getElementById('studentSearchInput');
-    const selectedCount = document.getElementById('selectedCount');
-
-    // Modal Elements - View
-    const viewParentModalBackdrop = document.getElementById('viewParentModalBackdrop');
-    const closeViewParentModal = document.getElementById('closeViewParentModal');
-    const viewParentContent = document.getElementById('viewParentContent');
-
-    // Modal Elements - Credentials
-    const credentialsModalBackdrop = document.getElementById('credentialsModalBackdrop');
-    const closeCredentialsModal = document.getElementById('closeCredentialsModal');
-    const credentialsContent = document.getElementById('credentialsContent');
-
-    // Table Elements
-    const parentsLoading = document.getElementById('parentsLoading');
-    const parentsEmpty = document.getElementById('parentsEmpty');
-    const parentsTable = document.getElementById('parentsTable');
-    const parentsTableBody = document.getElementById('parentsTableBody');
-    const parentSearchInput = document.getElementById('parentSearchInput');
-
-    // Message Elements
-    const successMessage = document.getElementById('successMessage');
-    const errorMessage = document.getElementById('errorMessage');
-    const successText = document.getElementById('successText');
-    const errorText = document.getElementById('errorText');
-
-    // Show Success Message
-    function showSuccess(message) {
-      successText.textContent = message;
-      successMessage.style.display = 'flex';
-      setTimeout(() => {
-        successMessage.style.display = 'none';
-      }, 3000);
-    }
-
-    // Show Error Message
-    function showError(message) {
-      errorText.textContent = message;
-      errorMessage.style.display = 'flex';
-      setTimeout(() => {
-        errorMessage.style.display = 'none';
-      }, 3000);
-    }
-
-    // Fetch Students
-    async function fetchStudents() {
-      try {
-        const res = await fetch('https://examguard-8rxe.onrender.com/api/students', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!res.ok) throw new Error('Failed to fetch students');
-        
-        allStudents = await res.json();
-        renderStudentsCheckboxes(allStudents);
-        return true;
-      } catch (err) {
-        console.error('Error fetching students:', err);
-        studentsLoadingSpinner.style.display = 'none';
-        studentsEmptyState.style.display = 'block';
-        showError('Failed to load students');
-        return false;
-      }
-    }
-
-    // Render Students Checkboxes
-    function renderStudentsCheckboxes(students) {
-      studentsLoadingSpinner.style.display = 'none';
-      
-      if (!students || students.length === 0) {
-        studentsCheckboxContainer.style.display = 'none';
-        studentsSearchContainer.style.display = 'none';
-        studentsEmptyState.style.display = 'block';
-        return;
-      }
-
-      studentsEmptyState.style.display = 'none';
-      studentsSearchContainer.style.display = 'block';
-      studentsCheckboxContainer.style.display = 'block';
-      studentsCheckboxContainer.innerHTML = '';
-
-      students.forEach((student, idx) => {
-        const isChecked = selectedStudents.includes(student._id) ? 'checked' : '';
-        
-        const div = document.createElement('div');
-        div.className = 'checkbox-item';
-        div.innerHTML = `
-          <input 
-            type="checkbox" 
-            id="student-${student._id}" 
-            value="${student._id}"
-            data-student-name="${escapeHTML(student.firstName + ' ' + student.lastName)}"
-            ${isChecked}
-          >
-          <label for="student-${student._id}">
-            <span class="student-name">${escapeHTML(student.firstName + ' ' + student.lastName)}</span>
-            <span class="student-class">${escapeHTML(student.className || 'N/A')}</span>
-          </label>
-        `;
-        
-        const checkbox = div.querySelector('input[type="checkbox"]');
-        checkbox.addEventListener('change', updateSelectedStudents);
-        
-        studentsCheckboxContainer.appendChild(div);
-      });
-
-      updateSelectedCount();
-    }
-
-    // Update Selected Students
-    function updateSelectedStudents() {
-      selectedStudents = Array.from(document.querySelectorAll('#studentsCheckboxContainer input[type="checkbox"]:checked'))
-        .map(cb => cb.value);
-      updateSelectedCount();
-    }
-
-    // Update Selected Count
-    function updateSelectedCount() {
-      if (selectedStudents.length > 0) {
-        selectedCount.textContent = `${selectedStudents.length} student(s) selected`;
-        selectedCount.style.display = 'block';
-      } else {
-        selectedCount.style.display = 'none';
-      }
-    }
-
-    // Search Students
-    studentSearchInput.addEventListener('input', () => {
-      const query = studentSearchInput.value.trim().toLowerCase();
-      const checkboxes = document.querySelectorAll('#studentsCheckboxContainer .checkbox-item');
-      
-      checkboxes.forEach(item => {
-        const studentName = item.querySelector('.student-name').textContent.toLowerCase();
-        const studentClass = item.querySelector('.student-class').textContent.toLowerCase();
-        
-        if (studentName.includes(query) || studentClass.includes(query)) {
-          item.style.display = 'flex';
-        } else {
-          item.style.display = 'none';
-        }
-      });
-    });
-
-    // Open Add Parent Modal
-    window.openAddParentModal = function() {
-      selectedStudents = [];
-      parentModalTitle.textContent = 'Add Parent';
-      parentForm.reset();
-      parentIdInput.value = '';
-      parentFormSubmitBtn.innerHTML = '<i class="fa fa-save"></i> Save Parent';
-      parentFormSubmitBtn.disabled = false;
-      
-      parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
-      
-      studentSearchInput.value = '';
-      studentsLoadingSpinner.style.display = 'flex';
-      studentsSearchContainer.style.display = 'none';
-      studentsCheckboxContainer.style.display = 'none';
-      studentsEmptyState.style.display = 'none';
-      
-      fetchStudents();
-      
-      parentNameInput.focus();
-      parentModalBackdrop.classList.add('active');
-    };
-
-    // Close Modal
-    function closeModal() {
-      parentModalBackdrop.classList.remove('active');
-      parentForm.reset();
-      selectedStudents = [];
-    }
-
-    function closeViewModal() {
-      viewParentModalBackdrop.classList.remove('active');
-    }
-
-    function closeCredentialsModal_fn() {
-      credentialsModalBackdrop.classList.remove('active');
-    }
-
-    closeParentModal.addEventListener('click', closeModal);
-    cancelParentBtn.addEventListener('click', closeModal);
-    parentModalBackdrop.addEventListener('click', (e) => {
-      if (e.target === parentModalBackdrop) closeModal();
-    });
-
-    closeViewParentModal.addEventListener('click', closeViewModal);
-    viewParentModalBackdrop.addEventListener('click', (e) => {
-      if (e.target === viewParentModalBackdrop) closeViewModal();
-    });
-
-    closeCredentialsModal.addEventListener('click', closeCredentialsModal_fn);
-    credentialsModalBackdrop.addEventListener('click', (e) => {
-      if (e.target === credentialsModalBackdrop) closeCredentialsModal_fn();
-    });
-
-    // Generate Password
-    function generatePassword() {
-      const length = 12;
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-      let password = '';
-      for (let i = 0; i < length; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return password;
-    }
-
-    // Fetch Parents
-    async function fetchParents() {
-      parentsLoading.style.display = 'flex';
-      parentsEmpty.style.display = 'none';
-      parentsTable.style.display = 'none';
-      parentsTableBody.innerHTML = '';
-
-      try {
-        const res = await fetch('https://examguard-8rxe.onrender.com/api/parents', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!res.ok) throw new Error('Failed to fetch parents');
-        
-        allParents = await res.json();
-        renderParents(allParents);
-      } catch (err) {
-        console.error('Error fetching parents:', err);
-        parentsLoading.style.display = 'none';
-        parentsEmpty.style.display = 'block';
-        parentsEmpty.innerHTML = `
-          <i class="fa fa-exclamation-circle"></i>
-          <p>Failed to load parents. Please try again.</p>
-        `;
-        showError('Failed to load parents');
-      }
-    }
-
-    // Render Parents Table
-    function renderParents(parents) {
-      parentsLoading.style.display = 'none';
-      parentsTableBody.innerHTML = '';
-
-      if (!parents || parents.length === 0) {
-        parentsTable.style.display = 'none';
-        parentsEmpty.style.display = 'block';
-        return;
-      }
-
-      parentsEmpty.style.display = 'none';
-      parentsTable.style.display = '';
-
-      parents.forEach((parent, idx) => {
-        const tr = document.createElement('tr');
-        
-        const studentBadges = (parent.studentIds || [])
-          .map(studentId => {
-            const student = allStudents.find(s => s._id === studentId);
-            return student ? `<span class="student-badge">${escapeHTML(student.firstName + ' ' + student.lastName)}</span>` : '';
-          })
-          .join('');
-
-        tr.innerHTML = `
-          <td>${escapeHTML(parent.name || 'N/A')}</td>
-          <td>${escapeHTML(parent.email || '—')}</td>
-          <td>${escapeHTML(parent.phone || '—')}</td>
-          <td>${studentBadges || '—'}</td>
-          <td>
-            <div class="actions-cell">
-              <button class="icon-btn" title="View" onclick="viewParent('${parent._id}')" aria-label="View parent">
-                <i class="fa fa-eye" style="color: var(--accent-2);"></i>
-              </button>
-              <button class="icon-btn" title="Credentials" onclick="showCredentials('${parent._id}')" aria-label="Show credentials">
-                <i class="fa fa-key" style="color: #059669;"></i>
-              </button>
-              <button class="icon-btn" title="Edit" onclick="editParent('${parent._id}')" aria-label="Edit parent">
-                <i class="fa fa-edit" style="color: #a77b06;"></i>
-              </button>
-              <button class="icon-btn" title="Delete" onclick="deleteParent('${parent._id}')" aria-label="Delete parent">
-                <i class="fa fa-trash" style="color: #c82333;"></i>
-              </button>
-            </div>
-          </td>
-        `;
-        
-        parentsTableBody.appendChild(tr);
-      });
-    }
-
-    // Search Parents
-    parentSearchInput.addEventListener('input', () => {
-      const query = parentSearchInput.value.trim().toLowerCase();
-      const filtered = allParents.filter(p =>
-        (p.name || '').toLowerCase().includes(query) ||
-        (p.email || '').toLowerCase().includes(query) ||
-        (p.phone || '').toLowerCase().includes(query)
-      );
-      renderParents(filtered);
-    });
-
-    // Escape HTML
-    function escapeHTML(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    // View Parent
-    window.viewParent = function(id) {
-      const parent = allParents.find(p => p._id === id);
-      if (!parent) return;
-
-      const emergencyInfo = parent.emergencyContactName || parent.emergencyContactPhone 
-        ? `${parent.emergencyContactName || 'N/A'} - ${parent.emergencyContactPhone || 'N/A'}`
-        : 'Not provided';
-
-      const assignedStudents = (parent.studentIds || [])
-        .map(studentId => {
-          const student = allStudents.find(s => s._id === studentId);
-          return student ? `<span class="student-badge">${escapeHTML(student.firstName + ' ' + student.lastName)} (${escapeHTML(student.className)})</span>` : '';
-        })
-        .join('');
-
-      viewParentContent.innerHTML = `
-        <div class="info-section">
-          <h4>Personal Information</h4>
-          <div class="info-grid">
-            <div class="info-item">
-              <label>Full Name</label>
-              <value>${escapeHTML(parent.name || 'N/A')}</value>
-            </div>
-            <div class="info-item">
-              <label>Email</label>
-              <value>${escapeHTML(parent.email || 'N/A')}</value>
-            </div>
-            <div class="info-item">
-              <label>Phone</label>
-              <value>${escapeHTML(parent.phone || 'N/A')}</value>
-            </div>
-            <div class="info-item">
-              <label>Occupation</label>
-              <value>${escapeHTML(parent.occupation || 'N/A')}</value>
-            </div>
-          </div>
-        </div>
-
-        <div class="info-section">
-          <h4>Address Information</h4>
-          <div class="info-grid" style="grid-template-columns: 1fr;">
-            <div class="info-item">
-              <label>Residential Address</label>
-              <value>${escapeHTML(parent.address || 'N/A')}</value>
-            </div>
-          </div>
-        </div>
-
-        <div class="info-section">
-          <h4>Emergency Contact</h4>
-          <div class="info-grid">
-            <div class="info-item">
-              <label>Name & Phone</label>
-              <value>${escapeHTML(emergencyInfo)}</value>
-            </div>
-          </div>
-        </div>
-
-        <div class="info-section">
-          <h4>Assigned Students</h4>
-          <div style="margin-top: 8px;">
-            ${assignedStudents || '<span style="color: #999;">No students assigned</span>'}
-          </div>
-        </div>
-
-        <div class="form-actions" style="margin-top: 24px;">
-          <button type="button" class="btn-cancel" onclick="closeViewModal()">Close</button>
-          <button type="button" class="btn-primary" onclick="editParent('${parent._id}')">
-            <i class="fa fa-edit"></i> Edit Parent
+    tr.innerHTML = `
+      <td>${escapeHTML(parent.name || 'N/A')}</td>
+      <td>${escapeHTML(parent.email || '—')}</td>
+      <td>${escapeHTML(parent.phone || '—')}</td>
+      <td>${studentBadges || '—'}</td>
+      <td>
+        <div class="actions-cell">
+          <button class="icon-btn" title="View" onclick="viewParent('${escapeHTML(parent._id)}')" aria-label="View parent">
+            <i class="fa fa-eye" style="color: var(--accent-2);"></i>
+          </button>
+          <button class="icon-btn" title="Credentials" onclick="showCredentials('${escapeHTML(parent._id)}')" aria-label="Show credentials">
+            <i class="fa fa-key" style="color: #059669;"></i>
+          </button>
+          <button class="icon-btn" title="Edit" onclick="editParent('${escapeHTML(parent._id)}')" aria-label="Edit parent">
+            <i class="fa fa-edit" style="color: #a77b06;"></i>
+          </button>
+          <button class="icon-btn" title="Delete" onclick="deleteParent('${escapeHTML(parent._id)}')" aria-label="Delete parent">
+            <i class="fa fa-trash" style="color: #c82333;"></i>
           </button>
         </div>
-      `;
+      </td>
+    `;
+    
+    parentsTableBody.appendChild(tr);
+  });
+}
 
-      viewParentModalBackdrop.classList.add('active');
-    };
+if (parentSearchInput) {
+  parentSearchInput.addEventListener('input', () => {
+    const query = parentSearchInput.value.trim().toLowerCase();
+    const filtered = allParents.filter(p =>
+      (p.name || '').toLowerCase().includes(query) ||
+      (p.email || '').toLowerCase().includes(query) ||
+      (p.phone || '').toLowerCase().includes(query)
+    );
+    renderParents(filtered);
+  });
+}
 
-    // Show Credentials
-    window.showCredentials = function(id) {
-      const parent = allParents.find(p => p._id === id);
-      if (!parent) return;
+// ===== MODAL FUNCTIONS =====
 
-      const username = parent.email || 'N/A';
-      const password = parent.temporaryPassword || generatePassword();
-      let passwordVisible = false;
+window.openAddParentModal = function() {
+  selectedStudents = [];
+  parentModalTitle.textContent = 'Add Parent';
+  parentForm.reset();
+  parentIdInput.value = '';
+  parentFormSubmitBtn.innerHTML = '<i class="fa fa-save"></i> Save Parent';
+  parentFormSubmitBtn.disabled = false;
+  
+  parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
+  
+  if (studentSearchInput) studentSearchInput.value = '';
+  studentsLoadingSpinner.style.display = 'flex';
+  studentsSearchContainer.style.display = 'none';
+  studentsCheckboxContainer.style.display = 'none';
+  studentsEmptyState.style.display = 'none';
+  
+  fetchStudents();
+  
+  if (parentNameInput) parentNameInput.focus();
+  parentModalBackdrop.classList.add('active');
+};
 
-      credentialsContent.innerHTML = `
-        <div class="credential-box">
-          <div class="credential-row">
-            <span class="credential-label">Username:</span>
-            <div class="credential-value">${escapeHTML(username)}</div>
-            <button type="button" class="credential-btn" onclick="copyToClipboard('${escapeHTML(username)}')">
-              <i class="fa fa-copy"></i> Copy
-            </button>
-          </div>
+function closeModal() {
+  parentModalBackdrop.classList.remove('active');
+  parentForm.reset();
+  selectedStudents = [];
+}
 
-          <div class="credential-row" style="margin-top: 12px;">
-            <span class="credential-label">Password:</span>
-            <div class="credential-value" id="passwordDisplay" style="font-size: 1em;">${'*'.repeat(password.length)}</div>
-            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('${escapeHTML(password)}')" title="Toggle password visibility">
-              <i class="fa fa-eye"></i>
-            </button>
-            <button type="button" class="credential-btn" onclick="copyToClipboard('${escapeHTML(password)}')">
-              <i class="fa fa-copy"></i> Copy
-            </button>
-          </div>
+function closeViewModal() {
+  viewParentModalBackdrop.classList.remove('active');
+}
 
-          <div class="credential-row" style="margin-top: 12px;">
-            <span class="credential-label">Portal Link:</span>
-            <div class="credential-value">examguard-parent.vercel.app</div>
-            <button type="button" class="credential-btn" onclick="copyToClipboard('examguard-parent.vercel.app')">
-              <i class="fa fa-copy"></i> Copy
-            </button>
-          </div>
-        </div>
+function closeCredentialsModal_fn() {
+  credentialsModalBackdrop.classList.remove('active');
+}
 
-        <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 0.9em;">
-          <strong style="color: #b45309;">⚠️ Important:</strong>
-          <p style="margin: 8px 0 0 0;">Please share these credentials securely with the parent. Ensure the temporary password is changed on first login.</p>
-        </div>
+if (closeParentModal) closeParentModal.addEventListener('click', closeModal);
+if (cancelParentBtn) cancelParentBtn.addEventListener('click', closeModal);
+if (parentModalBackdrop) {
+  parentModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === parentModalBackdrop) closeModal();
+  });
+}
 
-        <div class="form-actions" style="margin-top: 20px;">
-          <button type="button" class="btn-cancel" onclick="closeCredentialsModal_fn()">Close</button>
-          <button type="button" class="btn-secondary" onclick="resetParentPassword('${parent._id}')">
-            <i class="fa fa-refresh"></i> Reset Password
-          </button>
-        </div>
-      `;
+if (closeViewParentModal) closeViewParentModal.addEventListener('click', closeViewModal);
+if (viewParentModalBackdrop) {
+  viewParentModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === viewParentModalBackdrop) closeViewModal();
+  });
+}
 
-      credentialsModalBackdrop.classList.add('active');
-    };
+if (closeCredentialsModal) closeCredentialsModal.addEventListener('click', closeCredentialsModal_fn);
+if (credentialsModalBackdrop) {
+  credentialsModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === credentialsModalBackdrop) closeCredentialsModal_fn();
+  });
+}
 
-    // Toggle Password Visibility
-    window.togglePasswordVisibility = function(password) {
-      const display = document.getElementById('passwordDisplay');
-      if (display.textContent.includes('*')) {
-        display.textContent = password;
-        display.style.letterSpacing = '2px';
-      } else {
-        display.textContent = '*'.repeat(password.length);
-        display.style.letterSpacing = 'normal';
+// ===== PARENT CRUD OPERATIONS =====
+
+window.viewParent = function(id) {
+  const parent = allParents.find(p => p._id === id);
+  if (!parent) {
+    showError('Parent not found');
+    return;
+  }
+
+  const emergencyInfo = parent.emergencyContactName || parent.emergencyContactPhone 
+    ? `${parent.emergencyContactName || 'N/A'} - ${parent.emergencyContactPhone || 'N/A'}`
+    : 'Not provided';
+
+  const assignedStudents = (parent.studentIds || [])
+    .map(studentId => {
+      const student = allStudents.find(s => s._id === studentId);
+      if (student) {
+        const studentFullName = `${student.firstName} ${student.lastName}`.trim();
+        return `<span class="student-badge">${escapeHTML(studentFullName)} (${escapeHTML(student.className)})</span>`;
       }
-    };
+      return '';
+    })
+    .filter(Boolean)
+    .join('');
 
-    // Copy to Clipboard
-    window.copyToClipboard = function(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        showSuccess('Copied to clipboard!');
-      }).catch(() => {
-        showError('Failed to copy');
-      });
-    };
+  viewParentContent.innerHTML = `
+    <div class="info-section">
+      <h4>Personal Information</h4>
+      <div class="info-grid">
+        <div class="info-item">
+          <label>Full Name</label>
+          <value>${escapeHTML(parent.name || 'N/A')}</value>
+        </div>
+        <div class="info-item">
+          <label>Email</label>
+          <value>${escapeHTML(parent.email || 'N/A')}</value>
+        </div>
+        <div class="info-item">
+          <label>Phone</label>
+          <value>${escapeHTML(parent.phone || 'N/A')}</value>
+        </div>
+        <div class="info-item">
+          <label>Occupation</label>
+          <value>${escapeHTML(parent.occupation || 'N/A')}</value>
+        </div>
+      </div>
+    </div>
 
-    // Edit Parent
-    window.editParent = function(id) {
-      const parent = allParents.find(p => p._id === id);
-      if (!parent) return;
+    <div class="info-section">
+      <h4>Address Information</h4>
+      <div class="info-grid" style="grid-template-columns: 1fr;">
+        <div class="info-item">
+          <label>Residential Address</label>
+          <value>${escapeHTML(parent.address || 'N/A')}</value>
+        </div>
+      </div>
+    </div>
 
-      selectedStudents = parent.studentIds || [];
-      
-      parentModalTitle.textContent = 'Edit Parent';
-      parentIdInput.value = parent._id;
-      parentNameInput.value = parent.name || '';
-      parentEmailInput.value = parent.email || '';
-      parentPhoneInput.value = parent.phone || '';
-      parentAddressInput.value = parent.address || '';
-      parentOccupationInput.value = parent.occupation || '';
-      parentEmergencyNameInput.value = parent.emergencyContactName || '';
-      parentEmergencyPhoneInput.value = parent.emergencyContactPhone || '';
-      parentFamiliesInput.value = (parent.families || []).join(', ');
+    <div class="info-section">
+      <h4>Emergency Contact</h4>
+      <div class="info-grid">
+        <div class="info-item">
+          <label>Name & Phone</label>
+          <value>${escapeHTML(emergencyInfo)}</value>
+        </div>
+      </div>
+    </div>
 
-      parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
-      parentFormSubmitBtn.disabled = false;
-      parentFormSubmitBtn.innerHTML = '<i class="fa fa-save"></i> Update Parent';
+    <div class="info-section">
+      <h4>Assigned Students</h4>
+      <div style="margin-top: 8px;">
+        ${assignedStudents || '<span style="color: #999;">No students assigned</span>'}
+      </div>
+    </div>
 
-      studentSearchInput.value = '';
-      studentsLoadingSpinner.style.display = 'flex';
-      studentsSearchContainer.style.display = 'none';
-      studentsCheckboxContainer.style.display = 'none';
-      studentsEmptyState.style.display = 'none';
+    <div class="form-actions" style="margin-top: 24px;">
+      <button type="button" class="btn-cancel" onclick="closeViewModal()">Close</button>
+      <button type="button" class="btn-primary" onclick="editParent('${escapeHTML(parent._id)}')">
+        <i class="fa fa-edit"></i> Edit Parent
+      </button>
+    </div>
+  `;
 
-      fetchStudents();
-      
-      parentNameInput.focus();
-      parentModalBackdrop.classList.add('active');
-    };
+  viewParentModalBackdrop.classList.add('active');
+};
 
-    // Delete Parent
-    window.deleteParent = async function(id) {
-      if (!confirm('Are you sure you want to delete this parent?')) return;
+window.showCredentials = function(id) {
+  const parent = allParents.find(p => p._id === id);
+  if (!parent) {
+    showError('Parent not found');
+    return;
+  }
 
-      try {
-        const res = await fetch(`https://examguard-8rxe.onrender.com/api/parents/${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+  const username = parent.email || 'N/A';
+  const password = parent.temporaryPassword || generatePassword();
+
+  credentialsContent.innerHTML = `
+    <div class="credential-box">
+      <div class="credential-row">
+        <span class="credential-label">Username:</span>
+        <div class="credential-value">${escapeHTML(username)}</div>
+        <button type="button" class="credential-btn" onclick="copyToClipboard('${username}')">
+          <i class="fa fa-copy"></i> Copy
+        </button>
+      </div>
+
+      <div class="credential-row" style="margin-top: 12px;">
+        <span class="credential-label">Password:</span>
+        <div class="credential-value" id="passwordDisplay" style="font-size: 1em;">${'*'.repeat(password.length)}</div>
+        <button type="button" class="password-toggle" onclick="togglePasswordVisibility('${password}')" title="Toggle password visibility">
+          <i class="fa fa-eye"></i>
+        </button>
+        <button type="button" class="credential-btn" onclick="copyToClipboard('${password}')">
+          <i class="fa fa-copy"></i> Copy
+        </button>
+      </div>
+
+      <div class="credential-row" style="margin-top: 12px;">
+        <span class="credential-label">Portal Link:</span>
+        <div class="credential-value">examguard-parent.vercel.app</div>
+        <button type="button" class="credential-btn" onclick="copyToClipboard('examguard-parent.vercel.app')">
+          <i class="fa fa-copy"></i> Copy
+        </button>
+      </div>
+    </div>
+
+    <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 0.9em;">
+      <strong style="color: #b45309;">⚠️ Important:</strong>
+      <p style="margin: 8px 0 0 0;">Please share these credentials securely with the parent. Ensure the temporary password is changed on first login.</p>
+    </div>
+
+    <div class="form-actions" style="margin-top: 20px;">
+      <button type="button" class="btn-cancel" onclick="closeCredentialsModal_fn()">Close</button>
+      <button type="button" class="btn-secondary" onclick="resetParentPassword('${escapeHTML(parent._id)}')">
+        <i class="fa fa-refresh"></i> Reset Password
+      </button>
+    </div>
+  `;
+
+  credentialsModalBackdrop.classList.add('active');
+};
+
+window.togglePasswordVisibility = function(password) {
+  const display = document.getElementById('passwordDisplay');
+  if (display.textContent.includes('*')) {
+    display.textContent = password;
+    display.style.letterSpacing = '2px';
+  } else {
+    display.textContent = '*'.repeat(password.length);
+    display.style.letterSpacing = 'normal';
+  }
+};
+
+window.copyToClipboard = function(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showSuccess('Copied to clipboard!');
+  }).catch(() => {
+    showError('Failed to copy to clipboard');
+  });
+};
+
+window.editParent = function(id) {
+  const parent = allParents.find(p => p._id === id);
+  if (!parent) {
+    showError('Parent not found');
+    return;
+  }
+
+  selectedStudents = parent.studentIds || [];
+  
+  parentModalTitle.textContent = 'Edit Parent';
+  parentIdInput.value = parent._id;
+  if (parentNameInput) parentNameInput.value = parent.name || '';
+  if (parentEmailInput) parentEmailInput.value = parent.email || '';
+  if (parentPhoneInput) parentPhoneInput.value = parent.phone || '';
+  if (parentAddressInput) parentAddressInput.value = parent.address || '';
+  if (parentOccupationInput) parentOccupationInput.value = parent.occupation || '';
+  if (parentEmergencyNameInput) parentEmergencyNameInput.value = parent.emergencyContactName || '';
+  if (parentEmergencyPhoneInput) parentEmergencyPhoneInput.value = parent.emergencyContactPhone || '';
+  if (parentFamiliesInput) parentFamiliesInput.value = (parent.families || []).join(', ');
+
+  parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
+  parentFormSubmitBtn.disabled = false;
+  parentFormSubmitBtn.innerHTML = '<i class="fa fa-save"></i> Update Parent';
+
+  if (studentSearchInput) studentSearchInput.value = '';
+  studentsLoadingSpinner.style.display = 'flex';
+  studentsSearchContainer.style.display = 'none';
+  studentsCheckboxContainer.style.display = 'none';
+  studentsEmptyState.style.display = 'none';
+
+  fetchStudents();
+  
+  if (parentNameInput) parentNameInput.focus();
+  parentModalBackdrop.classList.add('active');
+};
+
+window.deleteParent = async function(id) {
+  if (!confirm('Are you sure you want to delete this parent? This action cannot be undone.')) return;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/parents/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    showSuccess('Parent deleted successfully');
+    await fetchParents();
+  } catch (err) {
+    console.error('Error deleting parent:', err);
+    showError('Failed to delete parent');
+  }
+};
+
+window.resetParentPassword = async function(id) {
+  if (!confirm('Generate a new temporary password for this parent?')) return;
+
+  try {
+    const newPassword = generatePassword();
+    const res = await fetch(`${API_BASE_URL}/api/parents/${id}/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ newPassword })
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    showSuccess('Password reset successfully');
+    await fetchParents();
+    closeCredentialsModal_fn();
+  } catch (err) {
+    console.error('Error resetting password:', err);
+    showError('Failed to reset password');
+  }
+};
+
+// ===== FORM SUBMISSION =====
+
+if (parentForm) {
+  parentForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const id = parentIdInput.value;
+    const name = parentNameInput.value.trim();
+    const email = parentEmailInput.value.trim();
+    const phone = parentPhoneInput.value.trim();
+    const address = parentAddressInput.value.trim();
+    const occupation = parentOccupationInput.value.trim();
+    const emergencyContactName = parentEmergencyNameInput.value.trim();
+    const emergencyContactPhone = parentEmergencyPhoneInput.value.trim();
+    const families = parentFamiliesInput.value
+      .split(',')
+      .map(f => f.trim())
+      .filter(Boolean);
+
+    // Validation
+    if (!name) {
+      showError('Please enter parent name');
+      return;
+    }
+
+    if (!email) {
+      showError('Please enter email address');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showError('Please enter a valid email address');
+      return;
+    }
+
+    if (selectedStudents.length === 0) {
+      showError('Please select at least one student');
+      return;
+    }
+
+    parentFormSubmitBtn.disabled = true;
+    parentFormSubmitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+
+    try {
+      const payload = { 
+        name, 
+        email, 
+        phone, 
+        address, 
+        occupation,
+        emergencyContactName,
+        emergencyContactPhone,
+        families,
+        studentIds: selectedStudents
+      };
+
+      let res;
+      if (id) {
+        // Update existing parent
+        res = await fetch(`${API_BASE_URL}/api/parents/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
         });
-
-        if (!res.ok) throw new Error('Delete failed');
-
-        showSuccess('Parent deleted successfully');
-        await fetchParents();
-      } catch (err) {
-        console.error('Error deleting parent:', err);
-        showError('Failed to delete parent');
-      }
-    };
-
-        // Reset Parent Password
-    window.resetParentPassword = async function(id) {
-      if (!confirm('Generate a new temporary password for this parent?')) return;
-
-      try {
-        const newPassword = generatePassword();
-        const res = await fetch(`https://examguard-8rxe.onrender.com/api/parents/${id}/reset-password`, {
+      } else {
+        // Create new parent
+        res = await fetch(`${API_BASE_URL}/api/parents`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ newPassword })
+          body: JSON.stringify(payload)
         });
-
-        if (!res.ok) throw new Error('Reset failed');
-
-        showSuccess('Password reset successfully');
-        await fetchParents();
-        closeCredentialsModal_fn();
-      } catch (err) {
-        console.error('Error resetting password:', err);
-        showError('Failed to reset password');
-      }
-    };
-
-    // Submit Form (Add/Edit)
-    parentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const id = parentIdInput.value;
-      const name = parentNameInput.value.trim();
-      const email = parentEmailInput.value.trim();
-      const phone = parentPhoneInput.value.trim();
-      const address = parentAddressInput.value.trim();
-      const occupation = parentOccupationInput.value.trim();
-      const emergencyContactName = parentEmergencyNameInput.value.trim();
-      const emergencyContactPhone = parentEmergencyPhoneInput.value.trim();
-      const families = parentFamiliesInput.value
-        .split(',')
-        .map(f => f.trim())
-        .filter(Boolean);
-
-      if (!name || !email) {
-        showError('Please enter name and email');
-        return;
       }
 
-      if (selectedStudents.length === 0) {
-        showError('Please select at least one student');
-        return;
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Basic email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        showError('Please enter a valid email address');
-        return;
-      }
+      const successMsg = id ? 'Parent updated successfully' : 'Parent added successfully';
+      showSuccess(successMsg);
+      closeModal();
+      await fetchParents();
+    } catch (err) {
+      console.error('Error saving parent:', err);
+      showError('Failed to save parent. Please try again.');
+    } finally {
+      parentFormSubmitBtn.disabled = false;
+      parentFormSubmitBtn.innerHTML = id ? '<i class="fa fa-save"></i> Update Parent' : '<i class="fa fa-save"></i> Save Parent';
+    }
+  });
+}
 
-      parentFormSubmitBtn.disabled = true;
-      parentFormSubmitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+// ===== INITIALIZE =====
+document.addEventListener('DOMContentLoaded', () => {
+  if (!token) {
+    showError('Authentication required. Please log in.');
+    setTimeout(() => {
+      window.location.href = '/login.html';
+    }, 2000);
+    return;
+  }
 
-      try {
-        const payload = { 
-          name, 
-          email, 
-          phone, 
-          address, 
-          occupation,
-          emergencyContactName,
-          emergencyContactPhone,
-          families,
-          studentIds: selectedStudents
-        };
-        let res;
-
-        if (id) {
-          res = await fetch(`https://examguard-8rxe.onrender.com/api/parents/${id}`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-        } else {
-          res = await fetch('https://examguard-8rxe.onrender.com/api/parents', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-        }
-
-        if (!res.ok) throw new Error('Save failed');
-
-        showSuccess(id ? 'Parent updated successfully' : 'Parent added successfully');
-        closeModal();
-        await fetchParents();
-      } catch (err) {
-        console.error('Error saving parent:', err);
-        showError('Failed to save parent');
-        parentFormSubmitBtn.disabled = false;
-        parentFormSubmitBtn.innerHTML = id ? '<i class="fa fa-save"></i> Update Parent' : '<i class="fa fa-save"></i> Save Parent';
-      }
-    });
-
-    // Initialize
-    fetchParents();
+  fetchParents();
+});
   </script>
 </body>
 </html>
