@@ -268,7 +268,7 @@ function calculateClassPosition(universalUpload, studentId) {
  * POST /api/res/verify-student-report
  * Verify a student's report by matching registration number, scratch card, and academic context
  */
-router.post('/verify-student-report', authMiddleware, async (req, res) => {
+router.post('/verify-student-report', async (req, res) => {
   try {
     console.log('=== VERIFICATION REQUEST ===');
     const {
