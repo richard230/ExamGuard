@@ -9,7 +9,6 @@ const User = require('../models/User');
 
 // ==================== SALARY PAYMENT ENDPOINTS ====================
 
-// GET all salary payments
 router.get('/salary', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { staff, status, year, month } = req.query;
@@ -21,7 +20,7 @@ router.get('/salary', authMiddleware, adminAuth, async (req, res) => {
     if (month) query.month = month;
 
     const salaries = await SalaryPayment.find(query)
-      .populate('staff', 'name email position')
+      .populate('staff', 'first_name last_name email designation position')  // ← FIXED
       .populate('paidBy', 'email name')
       .sort({ year: -1, month: -1 });
 
@@ -31,11 +30,10 @@ router.get('/salary', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
-// GET single salary payment
 router.get('/salary/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
     const salary = await SalaryPayment.findById(req.params.id)
-      .populate('staff')
+      .populate('staff', 'first_name last_name email designation position')  // ← FIXED
       .populate('paidBy', 'email name');
 
     if (!salary) {
@@ -48,7 +46,6 @@ router.get('/salary/:id', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
-// CREATE salary payment
 router.post('/salary', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { staffId, month, year, amount, method, reference } = req.body;
@@ -88,7 +85,7 @@ router.post('/salary', authMiddleware, adminAuth, async (req, res) => {
     });
 
     await salary.save();
-    await salary.populate('staff', 'name email position');
+    await salary.populate('staff', 'first_name last_name email designation position');  // ← FIXED
     await salary.populate('paidBy', 'email name');
 
     res.status(201).json(salary);
@@ -96,8 +93,6 @@ router.post('/salary', authMiddleware, adminAuth, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// UPDATE salary payment status
 router.put('/salary/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { status, method, reference, waiveNote, notes } = req.body;
@@ -120,7 +115,7 @@ router.put('/salary/:id', authMiddleware, adminAuth, async (req, res) => {
     }
 
     await salary.save();
-    await salary.populate('staff', 'name email position');
+    await salary.populate('staff', 'first_name last_name email designation position');  // ← FIXED
     await salary.populate('paidBy', 'email name');
 
     res.json(salary);
