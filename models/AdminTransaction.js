@@ -21,7 +21,7 @@ const AdminTransactionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Paid', 'Unpaid', 'Pending', 'Approved', 'Rejected'],
+    enum: ['Paid', 'Unpaid', 'Pending', 'Approved', 'Rejected', 'Waived'],
     default: 'Pending'
   },
   method: {
