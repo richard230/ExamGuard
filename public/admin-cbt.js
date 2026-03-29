@@ -520,7 +520,7 @@ async function showUploadExam() {
   }
 }
 
-// 3. Schedule Exam - WITH EXAM CODE GENERATION
+// 3. Schedule Exam - WITH EXAM CODE GENERATION & CHECKBOX SELECTION
 async function showScheduleExam() {
   document.getElementById('pageTitle').textContent = 'Schedule & Merge Exams';
   document.getElementById('contentArea').innerHTML = `
@@ -535,13 +535,13 @@ async function showScheduleExam() {
 
   document.getElementById('contentArea').innerHTML = `
     <h2 class="text-2xl font-bold mb-5 text-[#22305a]">Schedule & Merge Exams</h2>
-    <form id="mergeScheduleExamForm" class="space-y-4 max-w-xl">
+    <form id="mergeScheduleExamForm" class="space-y-4 max-w-4xl">
       <div class="form-group">
         <label>Select Exams to Merge <span class="text-red-500">*</span></label>
-        <select name="examIds" id="mergeExamSelect" multiple required class="block w-full rounded border px-3 py-2 mt-1 h-40">
-          ${exams.map(e => `<option value="${e._id}">${e.title}</option>`).join('')}
-        </select>
-        <small>Select two or more exams to merge their questions. Use Ctrl/Cmd to select multiple.</small>
+        <div id="examsCheckboxContainer" class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <!-- Checkboxes will be populated here -->
+        </div>
+        <small class="block mt-2 text-gray-600">Select two or more exams to merge their questions.</small>
       </div>
       <div id="mergedQuestionsPreview" class="mt-4"></div>
       <div class="form-group mt-4">
@@ -577,16 +577,37 @@ async function showScheduleExam() {
     <div id="mergeExamMsg" class="mt-4"></div>
   `;
 
+  // Populate checkboxes
+  const checkboxContainer = document.getElementById('examsCheckboxContainer');
+  if (Array.isArray(exams) && exams.length > 0) {
+    checkboxContainer.innerHTML = exams.map(exam => `
+      <label class="option-checkbox">
+        <input type="checkbox" name="examIds" value="${exam._id}" class="exam-checkbox" data-title="${exam.title}">
+        <span class="font-medium">${exam.title}</span>
+        <div class="text-sm text-gray-600">${exam.className} - ${exam.subjectName || 'N/A'}</div>
+      </label>
+    `).join('');
+  } else {
+    checkboxContainer.innerHTML = `<div class="text-gray-500 col-span-full">No exams available to merge.</div>`;
+  }
+
   let mergedQuestions = [];
 
-  document.getElementById('mergeExamSelect').onchange = async function () {
-    const selected = Array.from(this.selectedOptions).map(opt => opt.value);
+  // Track checkbox changes and update preview
+  document.querySelectorAll('.exam-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', updateMergedPreview);
+  });
+
+  async function updateMergedPreview() {
+    const selected = Array.from(document.querySelectorAll('.exam-checkbox:checked')).map(cb => cb.value);
     const previewDiv = document.getElementById('mergedQuestionsPreview');
-    if (selected.length < 1) {
-      previewDiv.innerHTML = "<div class='text-gray-500'>Select two or more exams to merge.</div>";
+    
+    if (selected.length < 2) {
+      previewDiv.innerHTML = "<div class='text-gray-500 p-4'>Select two or more exams to see merged preview.</div>";
       mergedQuestions = [];
       return;
     }
+
     previewDiv.innerHTML = `<div class="flex items-center text-blue-600 font-semibold py-4"><i class="fa fa-spinner fa-spin"></i> Merging questions...</div>`;
 
     const questionSets = await Promise.all(selected.map(id =>
@@ -600,29 +621,40 @@ async function showScheduleExam() {
       });
     });
 
-    previewDiv.innerHTML =
-      mergedQuestions.map((q, idx) => `
-        <div class="mb-2 p-2 bg-[#f8fafc] rounded border flex items-start gap-3">
-          <div class="text-gray-500 mt-1">${idx + 1}.</div>
-          <div class="flex-1">
-            <div class="font-semibold text-[#22305a]">From: <span class="text-blue-700">${q.sourceExamTitle}</span></div>
-            <div class="mb-2">${q.text}</div>
-            <ol class="list-decimal ml-5">${(q.options || []).map((o, oi) => `<li>${o.value || o}</li>`).join('')}</ol>
+    previewDiv.innerHTML = `
+      <div class="mt-4">
+        <div class="font-semibold text-[#22305a] mb-3">📋 Merged Questions Preview (${mergedQuestions.length} questions)</div>
+        ${mergedQuestions.map((q, idx) => `
+          <div class="mb-2 p-3 bg-[#f8fafc] rounded border flex items-start gap-3">
+            <div class="text-gray-500 font-bold mt-1">${idx + 1}.</div>
+            <div class="flex-1">
+              <div class="font-semibold text-[#22305a]">From: <span class="text-blue-700">${q.sourceExamTitle}</span></div>
+              <div class="mb-2 text-gray-800">${q.text}</div>
+              <ol class="list-decimal ml-5 text-sm">${(q.options || []).map((o, oi) => `<li class="text-gray-700">${o.value || o}</li>`).join('')}</ol>
+            </div>
           </div>
-        </div>
-      `).join('');
-  };
+        `).join('')}
+      </div>
+    `;
+  }
 
   document.getElementById('mergeScheduleExamForm').onsubmit = async function (e) {
     e.preventDefault();
-    const selected = Array.from(document.getElementById('mergeExamSelect').selectedOptions).map(opt => opt.value);
-    if (selected.length < 1) {
+    const selected = Array.from(document.querySelectorAll('.exam-checkbox:checked')).map(cb => cb.value);
+    
+    if (selected.length < 2) {
       document.getElementById('mergeExamMsg').innerHTML = `<div class="text-red-600">Please select at least 2 exams to merge.</div>`;
       return;
     }
+
     const mergedTitle = document.getElementById('mergedTitle').value;
     const duration = Number(document.getElementById('mergedDuration').value);
     const scheduledFor = document.querySelector('[name="scheduledFor"]').value;
+
+    if (!mergedTitle || !duration || !scheduledFor) {
+      document.getElementById('mergeExamMsg').innerHTML = `<div class="text-red-600">Please fill in all required fields.</div>`;
+      return;
+    }
 
     const firstExam = await fetch(`https://examguard-8rxe.onrender.com/api/exam/${selected[0]}`).then(r => r.json());
     const classId = firstExam.class || firstExam.classId;
