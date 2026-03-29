@@ -7,8 +7,8 @@ const User = require('../models/User');
  * Ensures that a superadmin user exists in MongoDB.
  */
 async function ensureSuperAdmin() {
-  const superEmail = process.env.SUPERADMIN_EMAIL || 'admin@goldlincschools.com';
-  const superPassword = process.env.SUPERADMIN_PASSWORD || 'GoldLinc123';
+  const superEmail = process.env.SUPERADMIN_EMAIL || 'admin@gold.com';
+  const superPassword = process.env.SUPERADMIN_PASSWORD || 'GoldLinc1238';
   const superName = process.env.SUPERADMIN_NAME || 'School Registrar';
 
   try {
