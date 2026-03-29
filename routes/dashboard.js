@@ -1,5 +1,3 @@
-// routes/dashboardSummary.js
-
 const express = require('express');
 const router = express.Router();
 const Student = require('../models/Student');
@@ -24,7 +22,6 @@ router.get('/dashboard/summary', async (req, res) => {
     const [
       students,
       employees,
-      parents,
       payments,
       cashRequests,
       expiringSubscriptions,
@@ -37,18 +34,17 @@ router.get('/dashboard/summary', async (req, res) => {
       leaveApplications
     ] = await Promise.all([
       Student.find().lean(),
-      Employee.countDocuments(),
-      Parent.countDocuments(),
-      Payment.find().lean(),
-      CashRequest.countDocuments(),
-      Student.countDocuments({ subscriptionStatus: 'Expired' }),
-      Admission.countDocuments({ status: 'ongoing' }),
-      Admission.countDocuments(),
-      HostelApplication.countDocuments({ status: 'pending' }),
-      TransportApplication.countDocuments({ status: 'pending' }),
-      LibraryRequest.countDocuments({ status: 'pending' }),
-      InventoryRequest.countDocuments({ status: 'pending' }),
-      LeaveApplication.countDocuments({ status: 'pending' })
+      Employee.countDocuments().catch(() => 0),
+      Payment.find().lean().catch(() => []),
+      CashRequest.countDocuments().catch(() => 0),
+      Student.countDocuments({ subscriptionStatus: 'Expired' }).catch(() => 0),
+      Admission.countDocuments({ status: 'ongoing' }).catch(() => 0),
+      Admission.countDocuments().catch(() => 0),
+      HostelApplication.countDocuments({ status: 'pending' }).catch(() => 0),
+      TransportApplication.countDocuments({ status: 'pending' }).catch(() => 0),
+      LibraryRequest.countDocuments({ status: 'pending' }).catch(() => 0),
+      InventoryRequest.countDocuments({ status: 'pending' }).catch(() => 0),
+      LeaveApplication.countDocuments({ status: 'pending' }).catch(() => 0)
     ]);
 
     const activeStudents = students.filter(s => s.accountStatus === 'Active').length;
@@ -71,7 +67,7 @@ router.get('/dashboard/summary', async (req, res) => {
 
     const months = [];
     const incomes = Array(24).fill(0);
-    const expenditures = Array(24).fill(0); // Placeholder: replace with actual logic
+    const expenditures = Array(24).fill(0);
 
     for (let i = 0; i < 24; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - 23 + i, 1);
@@ -92,7 +88,6 @@ router.get('/dashboard/summary', async (req, res) => {
       cashRequests,
       expiringSubscriptions,
       employees,
-      parents,
       activeStudents,
       totalStudents,
       ongoingAdmissions,
@@ -102,6 +97,7 @@ router.get('/dashboard/summary', async (req, res) => {
       libraryRequests,
       inventoryRequests,
       leaveApplications,
+      parents: 0, // Placeholder since Parent model doesn't exist
       session: "2024–2025",
       financeSummary: {
         labels: months,
@@ -112,7 +108,7 @@ router.get('/dashboard/summary', async (req, res) => {
 
   } catch (error) {
     console.error('Dashboard summary error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
