@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Student = require('../models/Student');
+const Parent = require('../models/Parent');  // ← ADD THIS
 const {
   Employee,
   Payment,
@@ -22,6 +23,7 @@ router.get('/dashboard/summary', async (req, res) => {
     const [
       students,
       employees,
+      parents,
       payments,
       cashRequests,
       expiringSubscriptions,
@@ -35,6 +37,7 @@ router.get('/dashboard/summary', async (req, res) => {
     ] = await Promise.all([
       Student.find().lean(),
       Employee.countDocuments().catch(() => 0),
+      Parent.countDocuments().catch(() => 0),  // ← ADD THIS
       Payment.find().lean().catch(() => []),
       CashRequest.countDocuments().catch(() => 0),
       Student.countDocuments({ subscriptionStatus: 'Expired' }).catch(() => 0),
@@ -88,6 +91,7 @@ router.get('/dashboard/summary', async (req, res) => {
       cashRequests,
       expiringSubscriptions,
       employees,
+      parents,  // ← CHANGE THIS from hardcoded 0
       activeStudents,
       totalStudents,
       ongoingAdmissions,
@@ -97,7 +101,6 @@ router.get('/dashboard/summary', async (req, res) => {
       libraryRequests,
       inventoryRequests,
       leaveApplications,
-      parents: 0, // Placeholder since Parent model doesn't exist
       session: "2024–2025",
       financeSummary: {
         labels: months,
