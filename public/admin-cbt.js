@@ -713,7 +713,7 @@ async function showScheduleExam() {
 
 // 4. Results with filtering, search, and PDF export
 async function showResults() {
-  document.getElementById('pageTitle').textContent = 'Student Results';
+  document.getElementById('pageTitle').textContent = 'Student CBT Results';
   document.getElementById('contentArea').innerHTML = `
     <div class="flex items-center justify-between mb-7">
       <h2 class="text-2xl font-bold text-[#22305a]">Student Results</h2>
