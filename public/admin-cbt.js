@@ -602,7 +602,7 @@ async function showScheduleExam() {
     const selected = Array.from(document.querySelectorAll('.exam-checkbox:checked')).map(cb => cb.value);
     const previewDiv = document.getElementById('mergedQuestionsPreview');
     
-    if (selected.length < 2) {
+    if (selected.length < 1) {
       previewDiv.innerHTML = "<div class='text-gray-500 p-4'>Select two or more exams to see merged preview.</div>";
       mergedQuestions = [];
       return;
@@ -642,7 +642,7 @@ async function showScheduleExam() {
     e.preventDefault();
     const selected = Array.from(document.querySelectorAll('.exam-checkbox:checked')).map(cb => cb.value);
     
-    if (selected.length < 2) {
+    if (selected.length < 1) {
       document.getElementById('mergeExamMsg').innerHTML = `<div class="text-red-600">Please select at least 2 exams to merge.</div>`;
       return;
     }
