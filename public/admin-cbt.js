@@ -711,7 +711,7 @@ async function showScheduleExam() {
   };
 }
 
-// 4. Results with filtering and search
+// 4. Results with filtering, search, and PDF export
 async function showResults() {
   document.getElementById('pageTitle').textContent = 'Student Results';
   document.getElementById('contentArea').innerHTML = `
@@ -738,9 +738,12 @@ async function showResults() {
           </select>
         </div>
         <button class="cbt-btn" onclick="resetResultsFilters()"><i class="fa fa-redo mr-1"></i> Reset</button>
+        <button class="cbt-btn" style="background: #28a745;" onclick="exportResultsToPDF()"><i class="fa fa-file-pdf mr-1"></i> Export PDF</button>
       </div>
       <div id="resultsInfo" class="results-info"></div>
       <div id="resultsTable" class="table-wrapper"></div>
+      <!-- Hidden PDF content -->
+      <div id="pdfContent" style="display: none;"></div>
     </div>
   `;
 
@@ -808,7 +811,7 @@ async function showResults() {
       <tbody>`;
     
     dataToRender.forEach((r, idx) => {
-      html += `<tr class="border-b">
+      html += `<tr class="border-b hover:bg-[#f9fafc]">
         <td class="p-3 font-bold text-[#2647a6]">${idx + 1}</td>
         <td class="p-3">${r.studentName}</td>
         <td class="p-3">${r.className}</td>
@@ -823,6 +826,80 @@ async function showResults() {
     });
     html += `</tbody></table>`;
     table.innerHTML = html;
+
+    // Update PDF content for export
+    updatePDFContent(dataToRender);
+  }
+
+  function updatePDFContent(dataToRender) {
+    const classFilter = document.getElementById('classFilter').value || 'All Classes';
+    const subjectFilter = document.getElementById('subjectFilter').value || 'All Subjects';
+    const currentDate = new Date().toLocaleString();
+
+    let pdfHtml = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e40af; padding-bottom: 15px;">
+          <h1 style="color: #0f172a; margin: 0; font-size: 24px; font-weight: bold;">ExamGuard International School</h1>
+          <p style="color: #6b7280; margin: 5px 0; font-size: 14px;">Student Results Report</p>
+          <p style="color: #6b7280; margin: 5px 0; font-size: 12px;">Generated on: ${currentDate}</p>
+        </div>
+
+        <!-- Filter Summary -->
+        <div style="margin-bottom: 20px; background: #f3f4f6; padding: 12px; border-radius: 6px;">
+          <p style="margin: 5px 0; font-size: 13px;"><strong>Class Filter:</strong> ${classFilter}</p>
+          <p style="margin: 5px 0; font-size: 13px;"><strong>Subject Filter:</strong> ${subjectFilter}</p>
+          <p style="margin: 5px 0; font-size: 13px;"><strong>Total Results:</strong> ${dataToRender.length}</p>
+        </div>
+
+        <!-- Results Table -->
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background-color: #f3f8ff; border-bottom: 2px solid #1e40af;">
+              <th style="padding: 12px; text-align: left; color: #0f172a; font-weight: bold; border: 1px solid #ddeaff;">#</th>
+              <th style="padding: 12px; text-align: left; color: #0f172a; font-weight: bold; border: 1px solid #ddeaff;">Student Name</th>
+              <th style="padding: 12px; text-align: left; color: #0f172a; font-weight: bold; border: 1px solid #ddeaff;">Class</th>
+              <th style="padding: 12px; text-align: left; color: #0f172a; font-weight: bold; border: 1px solid #ddeaff;">Subject</th>
+              <th style="padding: 12px; text-align: left; color: #0f172a; font-weight: bold; border: 1px solid #ddeaff;">Exam Title</th>
+              <th style="padding: 12px; text-align: center; color: #0f172a; font-weight: bold; border: 1px solid #ddeaff;">Score</th>
+              <th style="padding: 12px; text-align: left; color: #0f172a; font-weight: bold; border: 1px solid #ddeaff;">Date Completed</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dataToRender.map((r, idx) => `
+              <tr style="border-bottom: 1px solid #eef3ff;">
+                <td style="padding: 10px; border: 1px solid #eef3ff; color: #1e40af; font-weight: bold;">${idx + 1}</td>
+                <td style="padding: 10px; border: 1px solid #eef3ff; color: #374151;">${r.studentName}</td>
+                <td style="padding: 10px; border: 1px solid #eef3ff; color: #374151;">${r.className}</td>
+                <td style="padding: 10px; border: 1px solid #eef3ff; color: #374151;">${r.subjectName}</td>
+                <td style="padding: 10px; border: 1px solid #eef3ff; color: #374151;">${r.examTitle}</td>
+                <td style="padding: 10px; border: 1px solid #eef3ff; text-align: center; color: #16a34a; font-weight: bold;">${r.score}/${r.total}</td>
+                <td style="padding: 10px; border: 1px solid #eef3ff; color: #374151; font-size: 12px;">${r.finishedAt ? new Date(r.finishedAt).toLocaleDateString() : '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <!-- Summary Stats -->
+        <div style="margin-top: 30px; padding: 15px; background: #f0f4ff; border-radius: 6px; border-left: 4px solid #1e40af;">
+          <p style="margin: 8px 0; color: #0f172a; font-size: 13px;">
+            <strong>Average Score:</strong> ${(dataToRender.reduce((sum, r) => sum + (r.score || 0), 0) / dataToRender.length).toFixed(2)} / ${dataToRender.length > 0 ? dataToRender[0].total : 0}
+          </p>
+          <p style="margin: 8px 0; color: #0f172a; font-size: 13px;">
+            <strong>Highest Score:</strong> ${Math.max(...dataToRender.map(r => r.score || 0))} / ${dataToRender.length > 0 ? dataToRender[0].total : 0}
+          </p>
+          <p style="margin: 8px 0; color: #0f172a; font-size: 13px;">
+            <strong>Lowest Score:</strong> ${Math.min(...dataToRender.map(r => r.score || 0))} / ${dataToRender.length > 0 ? dataToRender[0].total : 0}
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #ddeaff; text-align: center; color: #9ca3af; font-size: 11px;">
+          <p>This is an automatically generated report from ExamGuard CBT System</p>
+        </div>
+      </div>
+    `;
+    document.getElementById('pdfContent').innerHTML = pdfHtml;
   }
 
   function applyFilters() {
@@ -849,6 +926,36 @@ async function showResults() {
     document.getElementById('subjectFilter').value = '';
     filteredResults = [...results];
     renderResultsTable(filteredResults);
+  }
+
+  window.exportResultsToPDF = function() {
+    const pdfContent = document.getElementById('pdfContent').innerHTML;
+    if (!pdfContent) {
+      alert('No results to export');
+      return;
+    }
+
+    const element = document.createElement('div');
+    element.innerHTML = pdfContent;
+    element.style.position = 'absolute';
+    element.style.left = '-10000px';
+    document.body.appendChild(element);
+
+    const opt = {
+      margin: 10,
+      filename: `student-results-${new Date().toISOString().split('T')[0]}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+      document.body.removeChild(element);
+    }).catch(err => {
+      console.error('PDF generation error:', err);
+      alert('Error generating PDF');
+      document.body.removeChild(element);
+    });
   }
 
   document.getElementById('searchInput').addEventListener('input', applyFilters);
