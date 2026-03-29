@@ -1139,18 +1139,34 @@
     });
 
     // ==================== LOAD STAFF ====================
-    async function loadStaff() {
-      try {
-        const res = await fetch(API_BASE + "/staffs?all=1", { headers: { Authorization: "Bearer " + token } });
-        const data = await res.json();
-        const select = document.getElementById('staffId');
-        select.innerHTML = '<option value="">Select Staff</option>' +
-          data.map(s => `<option value="${s._id}">${s.name} - ${s.position || 'Staff'}</option>`).join('');
-      } catch (e) {
-        console.error('Error loading staff:', e);
-      }
-    }
-    loadStaff();
+async function loadStaff() {
+  try {
+    const res = await fetch(API_BASE + "/staffs?all=1", { 
+      headers: { Authorization: "Bearer " + token } 
+    });
+    const data = await res.json();
+    
+    console.log('Staff data:', data); // Debug log
+    
+    const select = document.getElementById('staffId');
+    select.innerHTML = '<option value="">Select Staff</option>' +
+      data.map(s => {
+        // Build name from first_name and last_name
+        const firstName = s.first_name || s.firstname || '';
+        const lastName = s.last_name || s.surname || '';
+        const fullName = `${firstName} ${lastName}`.trim() || 'Unknown Staff';
+        const designation = s.designation || s.position || 'Staff';
+        
+        return `<option value="${s._id || s.id}">${fullName} - ${designation}</option>`;
+      }).join('');
+      
+  } catch (e) {
+    console.error('Error loading staff:', e);
+    const select = document.getElementById('staffId');
+    select.innerHTML = '<option value="">Error loading staff</option>';
+  }
+}
+loadStaff();
 
     // ==================== SALARY PAYMENT ====================
     document.getElementById('salaryPaymentForm').addEventListener('submit', async function(e) {
