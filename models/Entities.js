@@ -47,12 +47,17 @@ const LeaveApplicationSchema = new mongoose.Schema({
   employeeId: mongoose.Schema.Types.ObjectId,
   status: String,
 }, { timestamps: true });
-
+const ParentSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  phone: String,
+}, { timestamps: true });
 module.exports = {
   Employee: mongoose.model('Employee', EmployeeSchema),
   Payment: mongoose.model('Payment', PaymentSchema),
   CashRequest: mongoose.model('CashRequest', CashRequestSchema),
   Admission: mongoose.model('Admission', AdmissionSchema),
+  Payment: mongoose.model('Payment', PaymentSchema),
   HostelApplication: mongoose.model('HostelApplication', HostelApplicationSchema),
   TransportApplication: mongoose.model('TransportApplication', TransportApplicationSchema),
   LibraryRequest: mongoose.model('LibraryRequest', LibraryRequestSchema),
