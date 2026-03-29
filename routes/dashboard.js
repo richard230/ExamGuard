@@ -3,10 +3,11 @@
 const express = require('express');
 const router = express.Router();
 const Student = require('../models/Student');
+const express = require('express');
+const router = express.Router();
+const Student = require('../models/Student');
 const {
-  
   Employee,
-  Parent,
   Payment,
   CashRequest,
   Admission,
