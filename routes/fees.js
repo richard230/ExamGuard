@@ -424,13 +424,37 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
       });
     }
 
-    // Find all students in the class
-    const students = await Student.find({ class: classId });
+    // Try to find students by classId (handle both string and ObjectId)
+    let students = await Student.find({ class: classId });
+
+    // If no students found with direct ID, try to find class by name or other identifiers
+    if (!students.length) {
+      // Try finding by class name (case-insensitive)
+      students = await Student.find({ 
+        class: new RegExp(`^${classId}$`, 'i') 
+      });
+    }
+
+    // If still no students, try to find the class first
+    if (!students.length && Class) {
+      try {
+        const classRecord = await Class.findById(classId);
+        if (classRecord && classRecord.name) {
+          students = await Student.find({ class: classRecord.name });
+        }
+      } catch (e) {
+        console.log('Class lookup failed:', e.message);
+      }
+    }
 
     if (!students.length) {
       return res.status(404).json({ 
         success: false, 
-        error: 'No students found in this class' 
+        error: 'No students found in this class',
+        debug: {
+          classIdSearched: classId,
+          tip: 'Ensure classId matches the class field in Student documents. It might be a class name (string) rather than ObjectId.'
+        }
       });
     }
 
@@ -497,7 +521,8 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
     console.error('Error in POST /class-setup:', err);
     res.status(500).json({ 
       success: false, 
-      error: err.message 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 });
