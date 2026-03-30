@@ -381,18 +381,29 @@ router.post('/export', authMiddleware, adminAuth, async (req, res) => {
  * POST /api/fees/class-setup
  * Setup/create fees for a class
  * Used by the admin fees page for bulk fee assignment
- * Body: { classId, term, session, feeType, amount, dueDate }
+ * Body: { classId, term, session, feeType (or type), amount, dueDate }
  * Auth: Admin
  */
 router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const { classId, term, session, feeType, amount, dueDate } = req.body;
+    const { classId, term, session, feeType, type, amount, dueDate } = req.body;
+
+    // Accept both 'feeType' and 'type' field names
+    const finalFeeType = feeType || type;
 
     // Validation
-    if (!classId || !term || !session || !feeType || !amount || !dueDate) {
+    if (!classId || !term || !session || !finalFeeType || !amount || !dueDate) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields: classId, term, session, feeType, amount, dueDate' 
+        error: 'Missing required fields: classId, term, session, feeType (or type), amount, dueDate',
+        received: {
+          classId: classId ? '✓' : '✗',
+          term: term ? '✓' : '✗',
+          session: session ? '✓' : '✗',
+          feeType: finalFeeType ? '✓' : '✗',
+          amount: amount ? '✓' : '✗',
+          dueDate: dueDate ? '✓' : '✗'
+        }
       });
     }
 
@@ -409,7 +420,7 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
     if (isNaN(dueDateTime.getTime())) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Invalid due date format' 
+        error: 'Invalid due date format. Use YYYY-MM-DD format' 
       });
     }
 
@@ -427,7 +438,7 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
     const newFee = {
       session,
       term,
-      type: feeType,
+      type: finalFeeType,
       amount: parsedAmount,
       status: 'Unpaid',
       date: dueDateTime,
@@ -448,7 +459,7 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
         const feeExists = student.fees.some(f => 
           f.term === term && 
           f.session === session && 
-          f.type === feeType &&
+          f.type === finalFeeType &&
           f.amount === parsedAmount
         );
 
@@ -474,7 +485,7 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
       skipped: students.length - successCount,
       failedStudents: failedStudents.length > 0 ? failedStudents : undefined,
       fee: {
-        type: feeType,
+        type: finalFeeType,
         amount: parsedAmount,
         term,
         session,
@@ -572,18 +583,29 @@ router.get('/', authMiddleware, adminAuth, async (req, res) => {
 /**
  * POST /api/fees
  * Create/assign fees to a class
- * Body: { classId, term, session, feeType, amount, dueDate }
+ * Body: { classId, term, session, feeType (or type), amount, dueDate }
  * Auth: Admin
  */
 router.post('/', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const { classId, term, session, feeType, amount, dueDate } = req.body;
+    const { classId, term, session, feeType, type, amount, dueDate } = req.body;
+
+    // Accept both 'feeType' and 'type' field names
+    const finalFeeType = feeType || type;
 
     // Validation
-    if (!classId || !term || !session || !feeType || !amount || !dueDate) {
+    if (!classId || !term || !session || !finalFeeType || !amount || !dueDate) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields: classId, term, session, feeType, amount, dueDate' 
+        error: 'Missing required fields: classId, term, session, feeType (or type), amount, dueDate',
+        received: {
+          classId: classId ? '✓' : '✗',
+          term: term ? '✓' : '✗',
+          session: session ? '✓' : '✗',
+          feeType: finalFeeType ? '✓' : '✗',
+          amount: amount ? '✓' : '✗',
+          dueDate: dueDate ? '✓' : '✗'
+        }
       });
     }
 
@@ -600,7 +622,7 @@ router.post('/', authMiddleware, adminAuth, async (req, res) => {
     if (isNaN(dueDateTime.getTime())) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Invalid due date format' 
+        error: 'Invalid due date format. Use YYYY-MM-DD format' 
       });
     }
 
@@ -618,7 +640,7 @@ router.post('/', authMiddleware, adminAuth, async (req, res) => {
     const newFee = {
       session,
       term,
-      type: feeType,
+      type: finalFeeType,
       amount: parsedAmount,
       status: 'Unpaid',
       date: dueDateTime,
@@ -639,7 +661,7 @@ router.post('/', authMiddleware, adminAuth, async (req, res) => {
         const feeExists = student.fees.some(f => 
           f.term === term && 
           f.session === session && 
-          f.type === feeType &&
+          f.type === finalFeeType &&
           f.amount === parsedAmount
         );
 
