@@ -905,7 +905,7 @@
     </main>
   </div>
 
-  <script>
+<script>
     // Sidebar & Topbar Logic
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
@@ -936,180 +936,77 @@
     const token = localStorage.getItem('studentToken') || localStorage.getItem('student_token') || localStorage.getItem('token');
     let currentFilter = 'all';
     let allFees = [];
+    let classFeesData = [];
 
     // Fill profile
-    function fillProfile(data) {
-      document.getElementById('studentName').textContent = data.name || 'Student Name';
-      document.getElementById('studentClass').textContent = data.class || 'Student';
-      const avatarUrl = data.photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name || 'Student') + '&background=2647a6&color=fff';
+    function fillProfile(studentData) {
+      document.getElementById('studentName').textContent = studentData.name || 'Student Name';
+      document.getElementById('studentClass').textContent = studentData.class || 'Student';
+      const avatarUrl = studentData.photoUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(studentData.name || 'Student') + '&background=2647a6&color=fff';
       document.getElementById('studentAvatar').src = avatarUrl;
       document.getElementById('topbarAvatar').src = avatarUrl;
     }
 
-    // Fetch fees
+    // Format currency
+    function formatCurrency(value) {
+      return '₦' + (value || 0).toLocaleString();
+    }
+
+    // Fetch student fees
     async function fetchStudentFees() {
       try {
         const res = await fetch(API_BASE + "/fees/me", {
           headers: { 'Authorization': 'Bearer ' + token }
         });
-        if (!res.ok) throw new Error("Failed to fetch.");
+        if (!res.ok) throw new Error("Failed to fetch fees");
         const data = await res.json();
 
-        fillProfile(data);
+        if (data.success) {
+          fillProfile(data.student);
 
-        // Summary
-        document.getElementById('feesPaid').textContent = "₦" + (data.fees?.paid || 0).toLocaleString();
-        document.getElementById('feesDue').textContent = "₦" + (data.fees?.due || 0).toLocaleString();
-        document.getElementById('feesTotal').textContent = "₦" + (data.fees?.total || 0).toLocaleString();
+          // Update summary
+          document.getElementById('feesPaid').textContent = formatCurrency(data.summary.paid);
+          document.getElementById('feesDue').textContent = formatCurrency(data.summary.due);
+          document.getElementById('feesTotal').textContent = formatCurrency(data.summary.total);
 
-        // Breakdown
-        allFees = data.fees?.breakdown || [];
-        renderFeeTable();
+          // Store fees
+          allFees = data.breakdown || [];
+          renderFeeTable();
+          
+          // Fetch class fees
+          fetchClassFees(data.student.class);
+        }
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching fees:', err);
         document.getElementById('feeTableBody').innerHTML = `
           <tr>
             <td colspan="7">
               <div class="empty-state">
                 <div class="empty-state-icon">⚠️</div>
                 <div class="empty-state-title">Unable to load fees</div>
-                <p class="text-muted">Please refresh the page</p>
+                <p class="text-muted">${err.message}</p>
               </div>
             </td>
           </tr>
         `;
       }
-    }
-
-    // Render fee table
-    function renderFeeTable() {
-      const tbody = document.getElementById('feeTableBody');
-      if (!allFees.length) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7">
-              <div class="empty-state">
-                <div class="empty-state-icon">📭</div>
-                <div class="empty-state-title">No fee data found</div>
-              </div>
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = allFees.map(fee => {
-        let badgeClass = 'badge-pending';
-        if (fee.status === 'Paid') badgeClass = 'badge-paid';
-        else if (fee.status === 'Overdue') badgeClass = 'badge-overdue';
-        else if (fee.status === 'Waived') badgeClass = 'badge-waived';
-
-        return `
-          <tr>
-            <td><strong>${fee.type}</strong></td>
-            <td>₦${(fee.amount || 0).toLocaleString()}</td>
-            <td><span class="badge ${badgeClass}">${fee.status}</span></td>
-            <td>${fee.term || '-'}</td>
-            <td>${fee.session || '-'}</td>
-            <td>${fee.due ? fee.due.slice(0, 10) : '-'}</td>
-            <td>${fee.method || '-'}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    // Filter fees
-    function filterFees(status) {
-      currentFilter = status;
-      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-
-      const tbody = document.getElementById('feeTableBody');
-      const rows = tbody.querySelectorAll('tr');
-
-      rows.forEach(row => {
-        if (status === 'all') {
-          row.style.display = '';
-        } else {
-          const badge = row.querySelector('.badge');
-          if (!badge) return;
-          const badgeText = badge.textContent.toLowerCase();
-          let show = false;
-
-          if (status === 'paid' && badgeText.includes('paid')) show = true;
-          if (status === 'pending' && badgeText.includes('pending')) show = true;
-          if (status === 'overdue' && badgeText.includes('overdue')) show = true;
-          if (status === 'waived' && badgeText.includes('waived')) show = true;
-
-          row.style.display = show ? '' : 'none';
-        }
-      });
     }
 
     // Fetch class fees
-    async function fetchClassFees() {
+    async function fetchClassFees(classId) {
       try {
-        const resProfile = await fetch(API_BASE + "/students/me", {
+        const res = await fetch(API_BASE + `/fees/class/${classId}/me`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
-        if (!resProfile.ok) throw new Error("Failed to fetch profile.");
-        const student = await resProfile.json();
-        const classId = student.class?._id;
+        if (!res.ok) throw new Error("Failed to fetch class fees");
+        const data = await res.json();
 
-        if (!classId) {
-          document.getElementById('classFeeTableBody').innerHTML = `
-            <tr>
-              <td colspan="7">
-                <div class="empty-state">
-                  <div class="empty-state-icon">❌</div>
-                  <div class="empty-state-title">Class info not found</div>
-                </div>
-              </td>
-            </tr>
-          `;
-          return;
-        }
-
-        const resFees = await fetch(API_BASE + `/fees/class/${classId}/me`, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (!resFees.ok) throw new Error("Failed to fetch class fees.");
-        const fees = await resFees.json();
-
-        const tbody = document.getElementById('classFeeTableBody');
-        if (!fees.length) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7">
-                <div class="empty-state">
-                  <div class="empty-state-icon">📭</div>
-                  <div class="empty-state-title">No class fees found</div>
-                </div>
-              </td>
-            </tr>
-          `;
-        } else {
-          tbody.innerHTML = fees.map(fee => {
-            let badgeClass = 'badge-pending';
-            if (fee.status === 'Paid') badgeClass = 'badge-paid';
-            else if (fee.status === 'Overdue') badgeClass = 'badge-overdue';
-            else if (fee.status === 'Waived') badgeClass = 'badge-waived';
-
-            return `
-              <tr>
-                <td><strong>${fee.class?.name || ''}</strong></td>
-                <td>${fee.term || '-'}</td>
-                <td>${fee.session || '-'}</td>
-                <td>${fee.type}</td>
-                <td>₦${(fee.amount || 0).toLocaleString()}</td>
-                <td><span class="badge ${badgeClass}">${fee.status}</span></td>
-                <td>${fee.dueDate ? fee.dueDate.slice(0, 10) : '-'}</td>
-              </tr>
-            `;
-          }).join('');
+        if (data.success) {
+          classFeesData = data.fees || [];
+          renderClassFeeTable();
         }
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching class fees:', err);
         document.getElementById('classFeeTableBody').innerHTML = `
           <tr>
             <td colspan="7">
@@ -1123,27 +1020,136 @@
       }
     }
 
-    // Accordion toggle
-    function toggleAccordion(button) {
-      const isActive = button.classList.contains('active');
-      document.querySelectorAll('.accordion-header').forEach(h => h.classList.remove('active'));
-      document.querySelectorAll('.accordion-body').forEach(b => b.classList.remove('active'));
-
-      if (!isActive) {
-        button.classList.add('active');
-        button.nextElementSibling.classList.add('active');
+    // Get status badge
+    function getStatusBadge(status) {
+      const now = new Date();
+      const statusLower = (status || 'unpaid').toLowerCase();
+      
+      if (statusLower === 'paid') {
+        return '<span class="badge badge-paid">✓ Paid</span>';
+      } else if (statusLower === 'waived') {
+        return '<span class="badge badge-waived">⊘ Waived</span>';
+      } else if (statusLower === 'partial') {
+        return '<span class="badge badge-pending">◐ Partial</span>';
+      } else {
+        return '<span class="badge badge-pending">○ Pending</span>';
       }
     }
 
-    // Pay Now
+    // Get filter status
+    function getFilterStatus(fee) {
+      const statusLower = (fee.status || 'unpaid').toLowerCase();
+      
+      if (statusLower === 'paid' || statusLower === 'waived') {
+        return 'paid';
+      } else if (statusLower === 'partial') {
+        return 'pending';
+      } else {
+        return 'pending';
+      }
+    }
+
+    // Render fee table
+    function renderFeeTable() {
+      const tbody = document.getElementById('feeTableBody');
+      
+      if (!allFees.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-title">No fees assigned</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const filtered = currentFilter === 'all' ? allFees : 
+                       allFees.filter(f => getFilterStatus(f) === currentFilter);
+
+      if (!filtered.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-title">No fees found for this filter</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(fee => `
+        <tr>
+          <td><strong>${fee.type || 'Unknown'}</strong></td>
+          <td>${formatCurrency(fee.amount)}</td>
+          <td>${getStatusBadge(fee.status)}</td>
+          <td>${fee.term || '—'}</td>
+          <td>${fee.session || '—'}</td>
+          <td>${fee.dueDate || '—'}</td>
+          <td>${fee.paymentMethod || '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Render class fee table
+    function renderClassFeeTable() {
+      const tbody = document.getElementById('classFeeTableBody');
+      
+      if (!classFeesData.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="empty-state-icon">🎓</div>
+                <div class="empty-state-title">No class fees assigned</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = classFeesData.map(fee => `
+        <tr>
+          <td>${fee.class || '—'}</td>
+          <td>${fee.term || '—'}</td>
+          <td>${fee.session || '—'}</td>
+          <td><strong>${fee.type || 'Unknown'}</strong></td>
+          <td>${formatCurrency(fee.amount)}</td>
+          <td><span class="badge badge-pending">○ Class Fee</span></td>
+          <td>${fee.dueDate || '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Filter fees
+    function filterFees(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      renderFeeTable();
+    }
+
+    // Pay now button
     document.getElementById('payNowBtn').addEventListener('click', () => {
-      alert("Redirecting to payment portal...");
-      window.location.href = "https://paystack.com/pay/goldlinc";
+      alert('Payment functionality coming soon. Please contact the school finance office.');
     });
 
-    // Initial load
-    fetchStudentFees();
-    fetchClassFees();
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!token) {
+        alert('Please log in first');
+        window.location.href = 'login.html';
+        return;
+      }
+      fetchStudentFees();
+    });
   </script>
 </body>
 </html>
