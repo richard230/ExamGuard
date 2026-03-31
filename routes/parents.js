@@ -423,19 +423,39 @@ router.delete('/:id', async (req, res) => {
 /**
  * RESET PASSWORD
  */
+/**
+ * POST /parents/:id/reset-password
+ * Reset parent password
+ */
 router.post('/:id/reset-password', async (req, res) => {
   try {
     const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'New password required' });
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const parent = await Parent.findByIdAndUpdate(
       req.params.id,
-      { password: hashedPassword },
+      { 
+        password: hashedPassword,
+        temporaryPassword: newPassword  // ✅ Store plain password for display purposes
+      },
       { new: true }
-    );
+    ).select('-password');  // Don't return hashed password
 
-    res.json({ message: 'Password reset successful' });
+    if (!parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Password reset successful',
+      temporaryPassword: newPassword,  // ✅ Return the new password
+      parent
+    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
