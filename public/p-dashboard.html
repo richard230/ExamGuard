@@ -1164,12 +1164,182 @@
         </button>
       </div>
     </section>
+        <!-- Fees Section -->
+    <section id="fees-section" class="section" style="display: none;">
+      <div class="breadcrumb">
+        <a href="#" onclick="navigateTo('dashboard')">Dashboard</a> / <span class="current">Fees & Payments</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-money-bill"></i> Fees Overview
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="stat-card success">
+            <div class="stat-value">₦0</div>
+            <div class="stat-label">Total Paid</div>
+          </div>
+          <div class="stat-card danger">
+            <div class="stat-value">₦0</div>
+            <div class="stat-label">Outstanding</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">₦0</div>
+            <div class="stat-label">Total Fees</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-list"></i> Fee Breakdown
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table id="feesTable">
+            <thead>
+              <tr>
+                <th>Child</th>
+                <th>Fee Type</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Due Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" class="empty-state">
+                  <div class="loader"></div>
+                  Loading fees...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Children List Section -->
+    <section id="children-section" class="section" style="display: none;">
+      <div class="breadcrumb">
+        <a href="#" onclick="navigateTo('dashboard')">Dashboard</a> / <span class="current">My Children</span>
+      </div>
+
+      <div id="childrenList" class="empty-state">
+        <div class="loader"></div>
+        Loading children...
+      </div>
+    </section>
+
+    <!-- Grades Section -->
+    <section id="grades-section" class="section" style="display: none;">
+      <div class="breadcrumb">
+        <a href="#" onclick="navigateTo('dashboard')">Dashboard</a> / <span class="current">Academic Progress</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-chart-line"></i> Academic Progress
+          </div>
+        </div>
+
+        <div id="gradesContainer" class="empty-state">
+          <div class="empty-icon">📊</div>
+          <div class="empty-title">No grades available</div>
+          <p>Grades will appear here once they are released.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Attendance Section -->
+    <section id="attendance-section" class="section" style="display: none;">
+      <div class="breadcrumb">
+        <a href="#" onclick="navigateTo('dashboard')">Dashboard</a> / <span class="current">Attendance</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-calendar-check"></i> Attendance Record
+          </div>
+        </div>
+
+        <div id="attendanceContainer" class="empty-state">
+          <div class="empty-icon">📅</div>
+          <div class="empty-title">No attendance data</div>
+          <p>Attendance records will appear here.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Communications Section -->
+    <section id="communications-section" class="section" style="display: none;">
+      <div class="breadcrumb">
+        <a href="#" onclick="navigateTo('dashboard')">Dashboard</a> / <span class="current">Communications</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-envelope"></i> Messages
+          </div>
+        </div>
+
+        <div id="messagesContainer" class="empty-state">
+          <div class="empty-icon">📧</div>
+          <div class="empty-title">No messages yet</div>
+          <p>Check back later for messages from the school.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Section -->
+    <section id="settings-section" class="section" style="display: none;">
+      <div class="breadcrumb">
+        <a href="#" onclick="navigateTo('dashboard')">Dashboard</a> / <span class="current">Settings</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-cog"></i> Account Settings
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-input" id="settingName" readonly>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" id="settingEmail" readonly>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="tel" class="form-input" id="settingPhone" readonly>
+        </div>
+
+        <button class="btn btn-primary" onclick="editSettings()">
+          <i class="fas fa-edit"></i> Edit Profile
+        </button>
+      </div>
+    </section>
   </main>
 
   <!-- Script -->
-  <script>
+<script>
     const API_BASE = "https://examguard-8rxe.onrender.com/api";
     const token = localStorage.getItem('parentToken') || localStorage.getItem('token');
+    let parentData = null;
 
     // Sidebar Toggle
     const menuToggle = document.getElementById('menuToggle');
@@ -1234,68 +1404,181 @@
       }
 
       // Load parent data
-      loadParentData();
+      await loadParentData();
+      updateDashboard();
     }
 
+    // ✅ Load parent data from /parents/me endpoint
     async function loadParentData() {
       try {
-        // Fetch parent profile
         const res = await fetch(API_BASE + "/parents/me", {
           headers: { 'Authorization': 'Bearer ' + token }
         });
 
-        if (!res.ok) throw new Error('Failed to load parent data');
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
 
-        const parent = await res.json();
-        document.getElementById('userName').textContent = parent.name || 'Parent';
-        document.getElementById('userEmail').textContent = parent.email || '';
-        document.getElementById('welcomeName').textContent = parent.name?.split(' ')[0] || 'Parent';
+        parentData = await res.json();
+        
+        // Update profile info
+        document.getElementById('userName').textContent = parentData.name || 'Parent';
+        document.getElementById('userEmail').textContent = parentData.email || '';
+        document.getElementById('welcomeName').textContent = parentData.name?.split(' ')[0] || 'Parent';
 
-        // Load children data
-        loadChildrenData();
+        console.log('✓ Parent data loaded:', parentData);
       } catch (err) {
         console.error('Error loading parent data:', err);
+        alert('Failed to load parent data: ' + err.message);
       }
     }
 
-    async function loadChildrenData() {
-      try {
-        // Load children fees and grades
-        const res = await fetch(API_BASE + "/fees/me", {
-          headers: { 'Authorization': 'Bearer ' + token }
+    // ✅ Update dashboard with parent's children data
+    function updateDashboard() {
+      if (!parentData) return;
+
+      // Children count
+      const children = parentData.studentIds || [];
+      document.getElementById('childrenCount').textContent = children.length;
+
+      // Calculate fees statistics from children's fees
+      let totalFees = 0;
+      let paidFees = 0;
+      let unpaidFees = 0;
+      let allFees = [];
+
+      children.forEach(child => {
+        const childFees = child.fees || [];
+        childFees.forEach(fee => {
+          totalFees += fee.amount || 0;
+          if (fee.status === 'Paid' || fee.status === 'Waived') {
+            paidFees += fee.amount || 0;
+          } else {
+            unpaidFees += fee.amount || 0;
+          }
+          allFees.push({
+            childName: `${child.firstname} ${child.surname}`,
+            ...fee
+          });
         });
+      });
 
-        if (res.ok) {
-          const data = await res.json();
-          updateDashboard(data);
-        }
-      } catch (err) {
-        console.error('Error loading children data:', err);
+      document.getElementById('pendingFeesCount').textContent = allFees.filter(f => f.status !== 'Paid').length;
+      
+      // Update fee summary if showing fees section
+      updateFeesSummary(totalFees, paidFees, unpaidFees);
+      
+      // Render fees table
+      renderFeesTable(allFees);
+      
+      // Render children list
+      renderChildrenList(children);
+    }
+
+    // ✅ Update fees summary cards
+    function updateFeesSummary(total, paid, unpaid) {
+      // Find the fees section and update it
+      const feesSection = document.getElementById('fees-section');
+      if (!feesSection) return;
+
+      const summaryCards = feesSection.querySelectorAll('.stat-card');
+      if (summaryCards.length >= 3) {
+        summaryCards[0].innerHTML = `
+          <div class="stat-value">${formatCurrency(paid)}</div>
+          <div class="stat-label">Total Paid</div>
+        `;
+        summaryCards[1].innerHTML = `
+          <div class="stat-value">${formatCurrency(unpaid)}</div>
+          <div class="stat-label">Outstanding</div>
+        `;
+        summaryCards[2].innerHTML = `
+          <div class="stat-value">${formatCurrency(total)}</div>
+          <div class="stat-label">Total Fees</div>
+        `;
       }
     }
 
-    function updateDashboard(data) {
-      // Update stats
-      document.getElementById('childrenCount').textContent = data.breakdown?.length || 0;
-      document.getElementById('pendingFeesCount').textContent = data.breakdown?.filter(f => f.status !== 'Paid').length || 0;
-      document.getElementById('totalPaid').textContent = '₦' + (data.summary?.paid || 0).toLocaleString();
-      document.getElementById('totalOutstanding').textContent = '₦' + (data.summary?.due || 0).toLocaleString();
-      document.getElementById('totalFees').textContent = '₦' + (data.summary?.total || 0).toLocaleString();
+    // ✅ Format currency
+    function formatCurrency(value) {
+      return '₦' + (value || 0).toLocaleString();
+    }
 
-      // Render fees table
-      const feesBody = document.getElementById('feesBody');
-      if (data.breakdown && data.breakdown.length > 0) {
-        feesBody.innerHTML = data.breakdown.map(fee => `
+    // ✅ Render fees table
+    function renderFeesTable(fees) {
+      const tbody = document.querySelector('#feesTable tbody');
+      if (!tbody) return;
+
+      if (!fees || fees.length === 0) {
+        tbody.innerHTML = `
           <tr>
-            <td>${data.student.name}</td>
-            <td>${fee.type}</td>
-            <td>₦${(fee.amount).toLocaleString()}</td>
-            <td><span class="badge badge-${fee.status.toLowerCase()}">${fee.status}</span></td>
-            <td>${fee.dueDate || '—'}</td>
-            <td><button class="btn btn-primary btn-sm">Pay</button></td>
+            <td colspan="6" class="empty-state">
+              <div class="empty-icon">📭</div>
+              <div class="empty-title">No fees assigned</div>
+            </td>
           </tr>
-        `).join('');
+        `;
+        return;
       }
+
+      tbody.innerHTML = fees.map(fee => `
+        <tr>
+          <td>${fee.childName}</td>
+          <td>${fee.type}</td>
+          <td>${formatCurrency(fee.amount)}</td>
+          <td><span class="badge badge-${fee.status.toLowerCase()}">${fee.status}</span></td>
+          <td>${fee.date ? new Date(fee.date).toLocaleDateString() : '—'}</td>
+          <td><button class="btn btn-primary btn-sm">Pay</button></td>
+        </tr>
+      `).join('');
+    }
+
+    // ✅ Render children list
+    function renderChildrenList(children) {
+      const container = document.getElementById('childrenList');
+      if (!container) return;
+
+      if (!children || children.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">👶</div>
+            <div class="empty-title">No children assigned</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = children.map(child => `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              ${child.firstname} ${child.surname}
+            </div>
+            <span class="badge badge-info">${child.class}</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+            <div>
+              <strong>Student ID:</strong> ${child.student_id}
+            </div>
+            <div>
+              <strong>Reg No:</strong> ${child.regNo}
+            </div>
+            <div>
+              <strong>Class:</strong> ${child.class}
+            </div>
+            <div>
+              <strong>Active Fees:</strong> ${child.fees ? child.fees.length : 0}
+            </div>
+          </div>
+          <div style="margin-top: 16px; display: flex; gap: 8px;">
+            <button class="btn btn-primary btn-sm" onclick="navigateTo('fees')">
+              View Fees
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="navigateTo('attendance')">
+              Attendance
+            </button>
+          </div>
+        </div>
+      `).join('');
     }
 
     // Logout
@@ -1307,6 +1590,6 @@
 
     // Initialize on load
     window.addEventListener('DOMContentLoaded', init);
-  </script>
+</script>
 </body>
 </html>
