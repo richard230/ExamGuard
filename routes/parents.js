@@ -32,7 +32,32 @@ async function resolveStudentObjectIds(studentIds) {
 
   return students.map(s => s._id);
 }
+router.get('/me', async (req, res) => {
+  try {
+    // Extract parent ID from token/session
+    const parentId = req.user?._id || req.headers['x-parent-id'];
+    
+    if (!parentId) {
+      return res.status(401).json({ error: 'Parent not authenticated' });
+    }
 
+    const parent = await Parent.findById(parentId)
+      .populate({
+        path: 'studentIds',
+        select: 'firstname surname class regNo student_id fees',
+      })
+      .select('-password -temporaryPassword');
+
+    if (!parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    res.json(parent);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /**
  * GET all parents
  */
