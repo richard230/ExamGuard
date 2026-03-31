@@ -86,14 +86,16 @@ function loadReportData() {
 // Apply dynamic font sizing based on number of subjects
 function applyDynamicFontSizing(resultCount) {
   const table = document.getElementById('resultsTable');
-  table.classList.remove('subjects-5', 'subjects-6-8', 'subjects-9-12', 'subjects-13-plus');
+  table.classList.remove('subjects-5', 'subjects-6-8', 'subjects-9-11', 'subjects-12', 'subjects-13-plus');
   
   if (resultCount <= 5) {
     table.classList.add('subjects-5');
   } else if (resultCount <= 8) {
     table.classList.add('subjects-6-8');
-  } else if (resultCount <= 12) {
-    table.classList.add('subjects-9-12');
+  } else if (resultCount <= 11) {
+    table.classList.add('subjects-9-11');
+    } else if (resultCount <= 12) {
+    table.classList.add('subjects-12');
   } else {
     table.classList.add('subjects-13-plus');
   }
