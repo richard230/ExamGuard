@@ -1833,15 +1833,23 @@ window.resetParentPassword = async function(id) {
       throw new Error(errorData.error || `HTTP ${res.status}`);
     }
 
+    const data = await res.json();
+
     // Show the new password to admin
-    alert(`✓ Password ${isNew ? 'generated' : 'reset'} successfully!\n\nNew Password: ${newPassword}\n\nMake sure to share this with the parent securely.`);
+    alert(`✓ Password ${isNew ? 'generated' : 'reset'} successfully!\n\nNew Password: ${data.temporaryPassword}\n\nMake sure to share this with the parent securely.`);
     
     // Copy to clipboard automatically
-    navigator.clipboard.writeText(newPassword);
+    navigator.clipboard.writeText(data.temporaryPassword);
     
     showSuccess(`Password ${isNew ? 'generated' : 'reset'} successfully`);
-    await fetchParents();
-    
+
+    // ✅ Update the parent in memory with response data
+    const updatedParent = allParents.find(p => p._id === id);
+    if (updatedParent && data.parent) {
+      Object.assign(updatedParent, data.parent);
+      updatedParent.temporaryPassword = data.temporaryPassword;
+    }
+
     // Re-open credentials modal to show updated password
     window.showCredentials(id);
   } catch (err) {
