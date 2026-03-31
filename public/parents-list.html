@@ -1722,6 +1722,8 @@ window.viewParent = function(id) {
   viewParentModalBackdrop.classList.add('active');
 };
 
+// ===== LOGIN CREDENTIAL FUNCTIONS =====
+
 window.showCredentials = function(id) {
   const parent = allParents.find(p => p._id === id);
   if (!parent) {
@@ -1729,34 +1731,40 @@ window.showCredentials = function(id) {
     return;
   }
 
+  // Use email as username and temporaryPassword if available
   const username = parent.email || 'N/A';
-  const password = parent.temporaryPassword || generatePassword();
+  const password = parent.temporaryPassword || 'Not set';
+  const loginUrl = 'parent-login.html';
 
   credentialsContent.innerHTML = `
     <div class="credential-box">
       <div class="credential-row">
-        <span class="credential-label">Username:</span>
+        <span class="credential-label">Email:</span>
         <div class="credential-value">${escapeHTML(username)}</div>
-        <button type="button" class="credential-btn" onclick="copyToClipboard('${username}')">
+        <button type="button" class="credential-btn" onclick="copyToClipboard('${escapeHTML(username)}')">
           <i class="fa fa-copy"></i> Copy
         </button>
       </div>
 
       <div class="credential-row" style="margin-top: 12px;">
         <span class="credential-label">Password:</span>
-        <div class="credential-value" id="passwordDisplay" style="font-size: 1em;">${'*'.repeat(password.length)}</div>
-        <button type="button" class="password-toggle" onclick="togglePasswordVisibility('${password}')" title="Toggle password visibility">
-          <i class="fa fa-eye"></i>
-        </button>
-        <button type="button" class="credential-btn" onclick="copyToClipboard('${password}')">
-          <i class="fa fa-copy"></i> Copy
-        </button>
+        <div class="credential-value" id="passwordDisplay" style="font-size: 1em;">
+          ${password === 'Not set' ? 'Not set' : '*'.repeat(password.length)}
+        </div>
+        ${password !== 'Not set' ? `
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('${escapeHTML(password)}')" title="Toggle password visibility">
+            <i class="fa fa-eye"></i>
+          </button>
+          <button type="button" class="credential-btn" onclick="copyToClipboard('${escapeHTML(password)}')">
+            <i class="fa fa-copy"></i> Copy
+          </button>
+        ` : '<span style="color: #999; font-size: 0.9em;">Click "Reset Password" to generate</span>'}
       </div>
 
       <div class="credential-row" style="margin-top: 12px;">
-        <span class="credential-label">Portal Link:</span>
-        <div class="credential-value">examguard-parent.vercel.app</div>
-        <button type="button" class="credential-btn" onclick="copyToClipboard('examguard-parent.vercel.app')">
+        <span class="credential-label">Login Portal:</span>
+        <div class="credential-value">${escapeHTML(loginUrl)}</div>
+        <button type="button" class="credential-btn" onclick="copyToClipboard('${escapeHTML(loginUrl)}')">
           <i class="fa fa-copy"></i> Copy
         </button>
       </div>
@@ -1764,13 +1772,17 @@ window.showCredentials = function(id) {
 
     <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px; margin: 16px 0; font-size: 0.9em;">
       <strong style="color: #b45309;">⚠️ Important:</strong>
-      <p style="margin: 8px 0 0 0;">Please share these credentials securely with the parent. Ensure the temporary password is changed on first login.</p>
+      <p style="margin: 8px 0 0 0;">
+        ${password === 'Not set' 
+          ? 'This parent account hasn\'t been assigned a password yet. Click "Reset Password" to generate one.' 
+          : 'Share these credentials securely with the parent. They should change the password on first login.'}
+      </p>
     </div>
 
     <div class="form-actions" style="margin-top: 20px;">
       <button type="button" class="btn-cancel" onclick="closeCredentialsModal_fn()">Close</button>
       <button type="button" class="btn-secondary" onclick="resetParentPassword('${escapeHTML(parent._id)}')">
-        <i class="fa fa-refresh"></i> Reset Password
+        <i class="fa fa-refresh"></i> ${password === 'Not set' ? 'Generate Password' : 'Reset Password'}
       </button>
     </div>
   `;
@@ -1791,10 +1803,51 @@ window.togglePasswordVisibility = function(password) {
 
 window.copyToClipboard = function(text) {
   navigator.clipboard.writeText(text).then(() => {
-    showSuccess('Copied to clipboard!');
+    showSuccess('✓ Copied to clipboard!');
   }).catch(() => {
     showError('Failed to copy to clipboard');
   });
+};
+
+window.resetParentPassword = async function(id) {
+  const parent = allParents.find(p => p._id === id);
+  const isNew = !parent.temporaryPassword;
+  
+  if (!confirm(`${isNew ? 'Generate' : 'Reset'} password for this parent?`)) return;
+
+  try {
+    // Generate new password on frontend
+    const newPassword = generatePassword();
+    
+    const res = await fetch(`${API_BASE_URL}/api/parents/${id}/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ newPassword })
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${res.status}`);
+    }
+
+    // Show the new password to admin
+    alert(`✓ Password ${isNew ? 'generated' : 'reset'} successfully!\n\nNew Password: ${newPassword}\n\nMake sure to share this with the parent securely.`);
+    
+    // Copy to clipboard automatically
+    navigator.clipboard.writeText(newPassword);
+    
+    showSuccess(`Password ${isNew ? 'generated' : 'reset'} successfully`);
+    await fetchParents();
+    
+    // Re-open credentials modal to show updated password
+    window.showCredentials(id);
+  } catch (err) {
+    console.error('Error resetting password:', err);
+    showError(err.message || 'Failed to reset password');
+  }
 };
 
 window.editParent = function(id) {
@@ -1852,31 +1905,6 @@ window.deleteParent = async function(id) {
   } catch (err) {
     console.error('Error deleting parent:', err);
     showError('Failed to delete parent');
-  }
-};
-
-window.resetParentPassword = async function(id) {
-  if (!confirm('Generate a new temporary password for this parent?')) return;
-
-  try {
-    const newPassword = generatePassword();
-    const res = await fetch(`${API_BASE_URL}/api/parents/${id}/reset-password`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ newPassword })
-    });
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    showSuccess('Password reset successfully');
-    await fetchParents();
-    closeCredentialsModal_fn();
-  } catch (err) {
-    console.error('Error resetting password:', err);
-    showError('Failed to reset password');
   }
 };
 
