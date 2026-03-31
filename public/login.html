@@ -484,9 +484,6 @@
         }
 
         const isEmail = emailOrReg.includes('@');
-        const body = isEmail
-          ? { email: emailOrReg, password }
-          : { regNo: emailOrReg, password };
 
         if (spinner) spinner.style.display = 'block';
         if (submitBtn) {
@@ -495,6 +492,42 @@
         }
 
         try {
+          // ✅ NEW: Try parent login first if it looks like an email
+          if (isEmail) {
+            try {
+              const parentRes = await fetch('https://examguard-8rxe.onrender.com/api/parents/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: emailOrReg, password }),
+              });
+
+              if (parentRes.ok) {
+                const parentData = await parentRes.json();
+                if (parentData?.token) {
+                  // ✅ Store parent credentials
+                  localStorage.setItem('token', parentData.token);
+                  localStorage.setItem('parentToken', parentData.token);
+                  localStorage.setItem('parentId', parentData.parent._id);
+                  localStorage.setItem('parentName', parentData.parent.name);
+                  localStorage.setItem('userRole', 'parent');
+                  localStorage.setItem('user', JSON.stringify(parentData.parent));
+
+                  console.log('✓ Parent login successful');
+                  window.location.href = 'p-dashboard.html';
+                  return;
+                }
+              }
+            } catch (parentErr) {
+              console.log('Parent login attempt failed, trying regular auth...');
+              // Continue to regular auth below
+            }
+          }
+
+          // ✅ Original: Try regular auth (student/admin/teacher/staff)
+          const body = isEmail
+            ? { email: emailOrReg, password }
+            : { regNo: emailOrReg, password };
+
           const res = await fetch('https://examguard-8rxe.onrender.com/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -512,7 +545,7 @@
           if (res.ok && data?.token) {
             // Store JWT token in multiple keys for compatibility
             localStorage.setItem('token', data.token);
-            localStorage.setItem('authToken', data.token);           // ← Add this
+            localStorage.setItem('authToken', data.token);
             localStorage.setItem('adminToken', data.token);
             localStorage.setItem('superadmin_token', data.token);
             localStorage.setItem('student_token', data.token);
@@ -533,14 +566,11 @@
               window.location.href = 'gen-sec.html';
             } else if (role === 'teacher') {
               window.location.href = 'teacher-dashboard.html';
-            }
-            else if (role === 'staff') {
+            } else if (role === 'staff') {
               window.location.href = 'gen-sec.html';
-            }
-              else if (role === 'parent') {
+            } else if (role === 'parent') {
               window.location.href = 'parent-dashboard.html';
-            }
-            else if (role === 'student') {
+            } else if (role === 'student') {
               window.location.href = 'student-dashboard.html';
             } else {
               // Fallback: redirect to a general dashboard or error page
