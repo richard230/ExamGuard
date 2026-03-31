@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const Parent = require('../models/Parent');
 const Student = require('../models/Student');
 
@@ -32,7 +33,6 @@ async function resolveStudentObjectIds(studentIds) {
 
   return students.map(s => s._id);
 }
-const jwt = require('jsonwebtoken');
 
 /**
  * POST /parents/login
@@ -46,34 +46,126 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    const parent = await Parent.findOne({ email: email.toLowerCase() });
+    // ✅ IMPORTANT: Use .select('+password') to retrieve the hashed password
+    const parent = await Parent.findOne({ email: email.toLowerCase() }).select('+password');
 
     if (!parent) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Compare password
-    const isPasswordValid = await bcrypt.compare(password, parent.password);
+    // ✅ Check if parent has a password set
+    if (!parent.password) {
+      return res.status(401).json({ 
+        error: 'Account not activated. Please contact the school to set your password.' 
+      });
+    }
+
+    // ✅ Compare passwords using bcrypt
+    let isPasswordValid = false;
+    try {
+      isPasswordValid = await bcrypt.compare(password, parent.password);
+    } catch (compareErr) {
+      console.error('Bcrypt comparison error:', compareErr);
+      return res.status(500).json({ error: 'Authentication system error' });
+    }
 
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate JWT token
+    // ✅ Update last login
+    parent.lastLogin = new Date();
+    await parent.save();
+
+    // ✅ Generate JWT token
     const token = jwt.sign(
       { _id: parent._id, email: parent.email, role: 'parent' },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
 
-    const parentResponse = parent.toObject();
-    delete parentResponse.password;
-    delete parentResponse.temporaryPassword;
-
+    // ✅ Return safe parent data
     res.json({
       success: true,
       token,
-      parent: parentResponse
+      parent: {
+        _id: parent._id,
+        name: parent.name,
+        email: parent.email,
+        phone: parent.phone,
+        address: parent.address,
+        role: 'parent'
+      }
+    });
+
+  } catch (error) {
+    console.error('Parent login error:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+});
+
+/**
+ * GET /parents/me - Get current logged-in parent
+ */
+router.get('/me', async (req, res) => {
+  try {
+    // Get token from header
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    // ✅ Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const parent = await Parent.findById(decoded._id)
+      .populate({
+        path: 'studentIds',
+        select: 'firstname surname class regNo student_id fees email',
+      })
+      .select('-password -temporaryPassword');
+
+    if (!parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    res.json(parent);
+
+  } catch (error) {
+    console.error('Error getting parent:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /parents/resend-credentials/:id
+ * Resend login credentials to parent (admin only)
+ */
+router.post('/resend-credentials/:id', async (req, res) => {
+  try {
+    const parent = await Parent.findById(req.params.id).select('+temporaryPassword');
+
+    if (!parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    const credentials = {
+      email: parent.email,
+      password: parent.temporaryPassword || 'Not available',
+      loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login.html`
+    };
+
+    res.json({
+      success: true,
+      message: 'Credentials retrieved',
+      credentials
     });
 
   } catch (error) {
@@ -93,7 +185,7 @@ router.post('/:id/change-password', async (req, res) => {
       return res.status(400).json({ error: 'Current and new password required' });
     }
 
-    const parent = await Parent.findById(req.params.id);
+    const parent = await Parent.findById(req.params.id).select('+password');
 
     if (!parent) {
       return res.status(404).json({ error: 'Parent not found' });
@@ -121,68 +213,37 @@ router.post('/:id/change-password', async (req, res) => {
 });
 
 /**
- * GET /parents/me - Get current logged-in parent
+ * POST /parents/:id/reset-password
+ * Reset parent password (admin only)
  */
-router.get('/me', async (req, res) => {
+router.post('/:id/reset-password', async (req, res) => {
   try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.split(' ')[1];
+    const { newPassword } = req.body;
 
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
+    if (!newPassword) {
+      return res.status(400).json({ error: 'New password required' });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const parent = await Parent.findById(decoded._id)
-      .populate({
-        path: 'studentIds',
-        select: 'firstname surname class regNo student_id fees email',
-      })
-      .select('-password -temporaryPassword');
+    const parent = await Parent.findByIdAndUpdate(
+      req.params.id,
+      { 
+        password: hashedPassword,
+        temporaryPassword: newPassword  // ✅ Store plain for admin display
+      },
+      { new: true }
+    ).select('+temporaryPassword');
 
     if (!parent) {
       return res.status(404).json({ error: 'Parent not found' });
     }
 
-    res.json(parent);
-
-  } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * POST /parents/resend-credentials/:id
- * Resend login credentials to parent
- */
-router.post('/resend-credentials/:id', async (req, res) => {
-  try {
-    const parent = await Parent.findById(req.params.id);
-
-    if (!parent) {
-      return res.status(404).json({ error: 'Parent not found' });
-    }
-
-    // Don't regenerate password - use existing one
-    const credentials = {
-      email: parent.email,
-      password: parent.temporaryPassword || 'Not available',
-      loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/parent-login.html`
-    };
-
-    // In production, send via email:
-    // await sendEmail(parent.email, 'Login Credentials', credentials);
-
-    res.json({
-      success: true,
-      message: 'Credentials resent',
-      credentials // Only for development - don't send in production
+    res.json({ 
+      success: true, 
+      message: 'Password reset successful',
+      temporaryPassword: newPassword,  // ✅ Return for admin
+      parent
     });
 
   } catch (error) {
@@ -190,35 +251,6 @@ router.post('/resend-credentials/:id', async (req, res) => {
   }
 });
 
-/**
- * PATCH /parents/:id/update-profile
- * Update parent profile (self-service)
- */
-router.patch('/:id/update-profile', async (req, res) => {
-  try {
-    const { phone, address, occupation, emergencyContactName, emergencyContactPhone } = req.body;
-
-    const updateData = {};
-    if (phone) updateData.phone = phone.trim();
-    if (address) updateData.address = address.trim();
-    if (occupation) updateData.occupation = occupation.trim();
-    if (emergencyContactName) updateData.emergencyContactName = emergencyContactName.trim();
-    if (emergencyContactPhone) updateData.emergencyContactPhone = emergencyContactPhone.trim();
-
-    const parent = await Parent.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password -temporaryPassword');
-
-    if (!parent) return res.status(404).json({ error: 'Parent not found' });
-
-    res.json({ success: true, parent });
-
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
 /**
  * GET all parents
  */
@@ -230,7 +262,8 @@ router.get('/', async (req, res) => {
       .populate({
         path: 'studentIds',
         select: 'firstname surname class regNo student_id',
-      });
+      })
+      .select('-password -temporaryPassword');
 
     console.log("🔥 RESULT:", JSON.stringify(parents, null, 2));
 
@@ -239,6 +272,7 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 /**
  * GET parent by ID
  */
@@ -248,7 +282,8 @@ router.get('/:id', async (req, res) => {
       .populate({
         path: 'studentIds',
         select: 'firstname surname class regNo student_id',
-      });
+      })
+      .select('-password -temporaryPassword');
 
     if (!parent) return res.status(404).json({ error: 'Parent not found' });
 
@@ -287,7 +322,7 @@ router.post('/', async (req, res) => {
     const temporaryPassword = generateTemporaryPassword();
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
-    // 🔥 FIX: resolve student_ids → ObjectIds
+    // ✅ Resolve student_ids → ObjectIds
     const resolvedStudentIds = await resolveStudentObjectIds(studentIds);
 
     const parentData = {
@@ -301,7 +336,7 @@ router.post('/', async (req, res) => {
       families: Array.isArray(families) ? families.filter(f => f && f.trim()) : [],
       studentIds: resolvedStudentIds,
       password: hashedPassword,
-      temporaryPassword,
+      temporaryPassword,  // ✅ Store plain password for admin display
       role: 'parent',
       status: 'active'
     };
@@ -315,14 +350,14 @@ router.post('/', async (req, res) => {
 
     const parentResponse = parent.toObject();
     delete parentResponse.password;
-    delete parentResponse.temporaryPassword;
 
     res.status(201).json({
       ...parentResponse,
-      temporaryPassword
+      temporaryPassword  // ✅ Show to admin
     });
 
   } catch (error) {
+    console.error('Error creating parent:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -355,7 +390,7 @@ router.patch('/:id', async (req, res) => {
     if (emergencyContactPhone !== undefined) updateData.emergencyContactPhone = emergencyContactPhone ? emergencyContactPhone.trim() : '';
     if (families) updateData.families = Array.isArray(families) ? families.filter(f => f && f.trim()) : [];
 
-    // 🔥 FIX: resolve here too
+    // ✅ Resolve student_ids if provided
     if (studentIds) {
       updateData.studentIds = await resolveStudentObjectIds(studentIds);
     }
@@ -364,6 +399,7 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Use reset-password endpoint' });
     }
 
+    // ✅ Check email uniqueness
     if (email) {
       const parent = await Parent.findById(req.params.id);
       if (parent && parent.email !== email.toLowerCase()) {
@@ -383,15 +419,41 @@ router.patch('/:id', async (req, res) => {
     ).populate({
       path: 'studentIds',
       select: 'firstname surname class regNo student_id',
-    });
+    }).select('-password -temporaryPassword');
 
     if (!updatedParent) return res.status(404).json({ error: 'Parent not found' });
 
-    const parentResponse = updatedParent.toObject();
-    delete parentResponse.password;
-    delete parentResponse.temporaryPassword;
+    res.json(updatedParent);
 
-    res.json(parentResponse);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * PATCH /parents/:id/update-profile
+ * Update parent profile (self-service)
+ */
+router.patch('/:id/update-profile', async (req, res) => {
+  try {
+    const { phone, address, occupation, emergencyContactName, emergencyContactPhone } = req.body;
+
+    const updateData = {};
+    if (phone) updateData.phone = phone.trim();
+    if (address) updateData.address = address.trim();
+    if (occupation) updateData.occupation = occupation.trim();
+    if (emergencyContactName) updateData.emergencyContactName = emergencyContactName.trim();
+    if (emergencyContactPhone) updateData.emergencyContactPhone = emergencyContactPhone.trim();
+
+    const parent = await Parent.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password -temporaryPassword');
+
+    if (!parent) return res.status(404).json({ error: 'Parent not found' });
+
+    res.json({ success: true, parent });
 
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -414,48 +476,6 @@ router.delete('/:id', async (req, res) => {
     }
 
     res.json({ message: 'Parent deleted successfully!' });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * RESET PASSWORD
- */
-/**
- * POST /parents/:id/reset-password
- * Reset parent password
- */
-router.post('/:id/reset-password', async (req, res) => {
-  try {
-    const { newPassword } = req.body;
-
-    if (!newPassword) {
-      return res.status(400).json({ error: 'New password required' });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    const parent = await Parent.findByIdAndUpdate(
-      req.params.id,
-      { 
-        password: hashedPassword,
-        temporaryPassword: newPassword  // ✅ Store plain password for display purposes
-      },
-      { new: true }
-    ).select('-password');  // Don't return hashed password
-
-    if (!parent) {
-      return res.status(404).json({ error: 'Parent not found' });
-    }
-
-    res.json({ 
-      success: true, 
-      message: 'Password reset successful',
-      temporaryPassword: newPassword,  // ✅ Return the new password
-      parent
-    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
