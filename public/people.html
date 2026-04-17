@@ -59,11 +59,30 @@
       overflow-y: auto;
     }
 
+    .sidebar-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 95;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+      opacity: 1;
+    }
+
     .brand {
       display: flex;
       gap: 12px;
       align-items: center;
       margin-bottom: 8px;
+      position: relative;
     }
 
     .brand img {
@@ -84,6 +103,23 @@
     .brand .subtitle {
       font-size: 0.85rem;
       color: #b0c4ff;
+    }
+
+    .brand-close-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+      margin-left: auto;
+      padding: 8px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .brand-close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
     }
 
     .nav {
@@ -125,6 +161,11 @@
       background: rgba(255, 255, 255, 0.95);
       border-bottom: 1px solid #eef3ff;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    }
+
+    .hamburger-btn {
+      display: none;
+      font-size: 24px !important;
     }
 
     .main {
@@ -334,14 +375,26 @@
 
     @media (max-width: 768px) {
       .sidebar {
-        width: 280px;
         position: fixed;
-        left: -280px;
-        transition: left 0.3s ease;
+        left: 0;
+        top: 0;
+        width: 280px;
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 101;
       }
 
       .sidebar.active {
-        left: 0;
+        transform: translateX(0);
+      }
+
+      .brand-close-btn {
+        display: block;
+      }
+
+      .hamburger-btn {
+        display: flex !important;
       }
 
       .topbar {
@@ -358,18 +411,6 @@
       .people-grid {
         grid-template-columns: 1fr;
         gap: 16px;
-      }
-
-      .sidebar-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.3);
-        z-index: 99;
-      }
-
-      .sidebar-overlay.active {
-        display: block;
       }
     }
 
@@ -425,7 +466,6 @@
 
       .sidebar {
         width: 90vw;
-        left: -90vw;
       }
 
       .people-card {
@@ -461,6 +501,9 @@
           <div class="title">ExamGuard International School</div>
           <div class="subtitle">Admin Portal</div>
         </div>
+        <button class="brand-close-btn" id="sidebarCloseMobile" title="Close Menu" aria-label="Close sidebar">
+          <i>✕</i>
+        </button>
       </div>
 
       <nav class="nav" aria-label="Primary">
@@ -510,8 +553,8 @@
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <div class="topbar" role="banner">
-      <div class="flex">
-        <button id="sidebarToggle" class="icon-btn" aria-label="Toggle Sidebar" style="display: none; font-size: 24px;">☰</button>
+      <div class="flex" style="gap: 0; align-items: center;">
+        <button id="sidebarToggle" class="icon-btn hamburger-btn" aria-label="Toggle Sidebar" title="Toggle Menu">☰</button>
         <div class="page-title">People Directory</div>
       </div>
       <div class="flex">
@@ -560,7 +603,6 @@
           <div class="card-body">
             <div class="features-list">
               <a href="teachers.html" class="feature-link"><span>👩‍🏫</span> Teachers</a>
-              
             </div>
           </div>
         </div>
@@ -590,6 +632,7 @@
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const sidebarCloseMobile = document.getElementById('sidebarCloseMobile');
 
     // Show toggle button on mobile
     function handleResize() {
@@ -599,23 +642,21 @@
         sidebarToggle.style.display = 'none';
         sidebar.classList.remove('active');
         sidebarOverlay.classList.remove('active');
-        document.body.classList.remove('sidebar-open');
       }
     }
 
     function openSidebar() {
       sidebar.classList.add('active');
       sidebarOverlay.classList.add('active');
-      document.body.classList.add('sidebar-open');
     }
 
     function closeSidebar() {
       sidebar.classList.remove('active');
       sidebarOverlay.classList.remove('active');
-      document.body.classList.remove('sidebar-open');
     }
 
     sidebarToggle.addEventListener('click', openSidebar);
+    sidebarCloseMobile.addEventListener('click', closeSidebar);
     sidebarOverlay.addEventListener('click', closeSidebar);
 
     // Close sidebar on link click (mobile)
