@@ -28,6 +28,7 @@
             background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
             -webkit-font-smoothing: antialiased;
             color: #07102a;
+            overflow-x: hidden;
         }
         a { color: inherit; text-decoration: none; }
 
@@ -35,6 +36,19 @@
             display: flex;
             min-height: 100vh;
             align-items: stretch;
+        }
+
+        /* Sidebar Overlay */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
         }
 
         .sidebar {
@@ -86,6 +100,7 @@
             flex-direction: column;
             gap: 8px;
             margin-top: 6px;
+            flex: 1;
         }
 
         .nav a {
@@ -98,6 +113,7 @@
             font-size: 0.98rem;
             color: #e6eefc;
             text-decoration: none;
+            transition: background 0.2s, color 0.2s;
         }
 
         .nav a.active, .nav a:hover {
@@ -128,10 +144,27 @@
             height: var(--header-height);
         }
 
+        .hamburger-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--accent-2);
+            cursor: pointer;
+            padding: 8px;
+            margin-right: 12px;
+            transition: transform 0.2s;
+        }
+
+        .hamburger-btn:active {
+            transform: scale(0.9);
+        }
+
         .page-title {
             font-weight: 800;
             font-size: 1.05rem;
             color: var(--accent-2);
+            flex: 1;
         }
 
         .flex {
@@ -169,6 +202,7 @@
             background: transparent;
             border: 1px solid rgba(11, 66, 140, 0.08);
             color: var(--accent-2);
+            white-space: nowrap;
         }
 
         .main-content {
@@ -648,17 +682,58 @@
         /* Responsive */
         @media (max-width: 980px) {
             .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                height: 100vh;
+                top: 0;
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay {
                 display: none;
             }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
             .main-wrapper {
                 margin-left: 0;
             }
+
             .topbar {
                 left: 0;
                 width: 100%;
+                padding: 10px 12px;
             }
+
+            .hamburger-btn {
+                display: block;
+            }
+
+            .page-title {
+                font-size: 1rem;
+                flex: 1;
+            }
+
+            .muted-small {
+                display: none;
+            }
+
+            .btn.ghost {
+                padding: 6px 10px;
+                font-size: 0.85rem;
+            }
+
             .results-filters {
                 grid-template-columns: 1fr;
+            }
+
+            .flex {
+                gap: 8px;
             }
         }
 
@@ -666,19 +741,51 @@
             .main-content {
                 padding: 14px;
             }
+
             .results-actions {
                 flex-direction: column;
             }
+
             .results-actions button {
                 width: 100%;
             }
+
             .modal-content {
                 max-width: 95vw;
             }
+
             .info-grid,
             .info-grid.three-col,
             .info-grid.four-col {
                 grid-template-columns: 1fr;
+            }
+
+            .topbar {
+                padding: 8px 10px;
+            }
+
+            .hamburger-btn {
+                font-size: 1.3rem;
+                padding: 6px;
+                margin-right: 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .page-title {
+                font-size: 0.9rem;
+            }
+
+            .main-content {
+                padding: 10px;
+            }
+
+            .results-table {
+                font-size: 0.85em;
+            }
+
+            .modal-content {
+                padding: 16px;
             }
         }
 
@@ -690,13 +797,16 @@
     <div id="pageSpinnerOverlay"><div class="spinner"></div></div>
 
     <div class="app">
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
         <!-- Sidebar -->
-        <aside class="sidebar" role="navigation" aria-label="Navigation">
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Navigation">
             <div class="brand" style="margin-bottom:8px">
                 <img src="mainlogo.png" alt="Logo">
                 <div>
                     <div class="title">ExamGuard International School</div>
-                    <div class="muted-small">Results Managemnet</div>
+                    <div class="muted-small">Results Management</div>
                 </div>
             </div>
 
@@ -746,9 +856,11 @@
         <div class="main-wrapper">
             <!-- Topbar -->
             <div class="topbar" role="banner">
-                <div>
+                <div style="display: flex; align-items: center; width: 100%;">
+                    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">
+                        <i class="fa fa-bars"></i>
+                    </button>
                     <div class="page-title">Results Management</div>
-                    
                 </div>
                 <div class="flex">
                     <div class="muted-small" id="resultsSummary">Loading...</div>
@@ -928,6 +1040,37 @@
     </div>
 
     <script>
+        // ============ MOBILE MENU MANAGEMENT ============
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        hamburgerBtn.addEventListener('click', function() {
+            sidebar.classList.toggle('mobile-open');
+            sidebarOverlay.classList.toggle('active');
+        });
+
+        sidebarOverlay.addEventListener('click', function() {
+            sidebar.classList.remove('mobile-open');
+            sidebarOverlay.classList.remove('active');
+        });
+
+        document.querySelectorAll('.nav a').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 980) {
+                    sidebar.classList.remove('mobile-open');
+                    sidebarOverlay.classList.remove('active');
+                }
+            });
+        });
+
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 980) {
+                sidebar.classList.remove('mobile-open');
+                sidebarOverlay.classList.remove('active');
+            }
+        });
+
         // ============ API CONFIGURATION ============
         const API_BASE_URL = "https://examguard-8rxe.onrender.com";
         const token = localStorage.getItem('adminToken') || localStorage.getItem('token') || "";
@@ -1000,232 +1143,214 @@
                 return allResults;
             } catch (err) {
                 console.error('Error fetching results:', err);
-                showStatus('Error fetching results: ' + err.message, 'error');
+                displayStatus('Error loading results: ' + err.message, 'error');
                 return [];
             } finally {
                 hideSpinner();
             }
         }
 
-        async function publishResult(resultId) {
-            try {
-                showSpinner();
-                const res = await fetch(`${API_BASE_URL}/api/results/${resultId}/publish`, {
-                    method: 'POST',
-                    headers: authHeaders()
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return await res.json();
-            } catch (err) {
-                console.error('Error publishing result:', err);
-                throw err;
-            } finally {
-                hideSpinner();
-            }
-        }
-
-        async function deleteResult(resultId) {
-            try {
-                showSpinner();
-                const res = await fetch(`${API_BASE_URL}/api/results/${resultId}`, {
-                    method: 'DELETE',
-                    headers: authHeaders()
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return await res.json();
-            } catch (err) {
-                console.error('Error deleting result:', err);
-                throw err;
-            } finally {
-                hideSpinner();
-            }
-        }
-
-        async function updateResult(resultId, data) {
-            try {
-                showSpinner();
-                const res = await fetch(`${API_BASE_URL}/api/results/${resultId}`, {
-                    method: 'PUT',
-                    headers: authHeaders(),
-                    body: JSON.stringify(data)
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return await res.json();
-            } catch (err) {
-                console.error('Error updating result:', err);
-                throw err;
-            } finally {
-                hideSpinner();
-            }
-        }
-
-        // ============ FILTERING LOGIC ============
         function filterResults(event) {
             event.preventDefault();
-
             const session = document.getElementById('sessionSelect').value;
             const term = document.getElementById('termSelect').value;
-            const className = document.getElementById('classSelect').value;
+            const classId = document.getElementById('classSelect').value;
             const subject = document.getElementById('subjectSelect').value;
-            const search = document.getElementById('searchStudentInput').value.toLowerCase();
+            const searchTerm = document.getElementById('searchStudentInput').value.toLowerCase();
 
-            filteredResults = allResults.filter(r => {
-                const sessionMatch = !session || (r.session && r.session.name === session);
-                const termMatch = !term || (r.term && r.term.name === term);
-                const classMatch = !className || (r.class && r.class.name === className);
-                const subjectMatch = !subject || (r.subject && r.subject.name === subject);
-                const searchMatch = !search || 
-                    (r.student && r.student.name && r.student.name.toLowerCase().includes(search)) ||
-                    (r.student && r.student.student_id && r.student.student_id.includes(search));
+            filteredResults = allResults.filter(result => {
+                const matchSession = !session || result.session === session;
+                const matchTerm = !term || result.term === term;
+                const matchClass = !classId || result.class_id === classId;
+                const matchSubject = !subject || result.subject_name === subject;
+                const matchSearch = !searchTerm || (result.student_name && result.student_name.toLowerCase().includes(searchTerm));
 
-                return sessionMatch && termMatch && classMatch && subjectMatch && searchMatch;
+                return matchSession && matchTerm && matchClass && matchSubject && matchSearch;
             });
 
-            renderResults();
+            displayResults(filteredResults);
             return false;
         }
 
-        // ============ RENDER RESULTS ============
-        function renderResults() {
-            const display = document.getElementById('resultsDisplay');
-
-            if (filteredResults.length === 0) {
-                display.innerHTML = `
-                    <div class="results-table-container">
-                        <div class="empty-state">
-                            <i class="fas fa-inbox"></i>
-                            <p>No results found</p>
-                            <p class="muted-small">Try adjusting your filters</p>
-                        </div>
-                    </div>
-                `;
-                updateResultsSummary();
+        function displayResults(results) {
+            const container = document.getElementById('resultsDisplay');
+            if (!results || results.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fa fa-inbox"></i><p>No results found</p></div>';
                 return;
             }
 
-            // Group results by session and term
-            const grouped = {};
-            filteredResults.forEach(r => {
-                const sessionName = (r.session && r.session.name) || 'Unknown Session';
-                const termName = (r.term && r.term.name) || 'Unknown Term';
-                const key = `${sessionName} - ${termName}`;
+            let html = '<div class="results-table-container"><table class="results-table"><thead><tr><th><input type="checkbox" id="selectAllCheckbox"></th><th>#</th><th>Student</th><th>Class</th><th>Subject</th><th>Total</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
 
-                if (!grouped[key]) {
-                    grouped[key] = [];
-                }
-                grouped[key].push(r);
+            results.forEach((result, idx) => {
+                const total = calculateResultTotal(result);
+                const { grade, remark } = getGradeAndRemark(total);
+                const status = result.status === 'published' ? '<span class="status-published">Published</span>' : '<span class="status-draft">Draft</span>';
+
+                html += `<tr>
+                    <td class="checkbox-cell"><input type="checkbox" class="result-checkbox" value="${result.id}" data-id="${result.id}"></td>
+                    <td class="row-number">${idx + 1}</td>
+                    <td>${result.student_name || 'N/A'}</td>
+                    <td>${result.class_name || 'N/A'}</td>
+                    <td>${result.subject_name || 'N/A'}</td>
+                    <td>${total}</td>
+                    <td>${grade}</td>
+                    <td>${status}</td>
+                    <td>
+                        <button class="action-btn edit" onclick="editResult('${result.id}')" title="Edit"><i class="fa fa-edit"></i></button>
+                        <button class="action-btn publish" onclick="publishResult('${result.id}')" title="Publish"><i class="fa fa-send"></i></button>
+                        <button class="action-btn delete" onclick="deleteResult('${result.id}')" title="Delete"><i class="fa fa-trash"></i></button>
+                    </td>
+                </tr>`;
             });
 
-            let html = '';
-            let rowNum = 1;
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
 
-            for (const groupKey in grouped) {
-                html += `<div class="section-header">${groupKey}</div>`;
+            document.getElementById('selectAllCheckbox').addEventListener('change', toggleSelectAll);
+            document.querySelectorAll('.result-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateActionButtons);
+            });
+        }
 
-                const groupResults = grouped[groupKey];
-                html += `
-                    <div class="results-table-container">
-                        <table class="results-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;">
-                                        <input type="checkbox" id="selectAll_${groupKey.replace(/\s/g, '_')}" 
-                                            onchange="toggleSelectAll(this, '${groupKey.replace(/\s/g, '_')}')">
-                                    </th>
-                                    <th style="width: 50px;">No.</th>
-                                    <th>Student ID</th>
-                                    <th>Student Name</th>
-                                    <th>Class</th>
-                                    <th>Subject</th>
-                                    <th>Total</th>
-                                    <th>Grade</th>
-                                    <th>Status</th>
-                                    <th>Position</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('selectAllCheckbox').checked;
+            document.querySelectorAll('.result-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+                if (isChecked) selectedResults.add(checkbox.value);
+                else selectedResults.delete(checkbox.value);
+            });
+            updateActionButtons();
+        }
 
-                groupResults.forEach((r, idx) => {
-                    const total = calculateResultTotal(r);
-                    const { grade, remark } = getGradeAndRemark(total);
-                    const studentId = r.student && r.student._id ? r.student._id : '';
-                    const studentName = (r.student && r.student.name) || 'Unknown';
-                    const studentNo = (r.student && r.student.student_id) || '—';
-                    const className = (r.class && r.class.name) || '—';
-                    const subjectName = (r.subject && r.subject.name) || '—';
-                    const status = r.status === 'Published' ? 'Published' : 'Draft';
-                    const statusClass = status === 'Published' ? 'status-published' : 'status-draft';
-                    const position = r.subject_position || '—';
+        function updateActionButtons() {
+            selectedResults.clear();
+            document.querySelectorAll('.result-checkbox:checked').forEach(checkbox => {
+                selectedResults.add(checkbox.value);
+            });
+            document.getElementById('publishSelectedBtn').disabled = selectedResults.size === 0;
+            document.getElementById('deleteSelectedBtn').disabled = selectedResults.size === 0;
+        }
 
-                    html += `
-                        <tr class="result-row" data-result-id="${r._id}">
-                            <td class="checkbox-cell">
-                                <input type="checkbox" class="result-checkbox" data-group="${groupKey.replace(/\s/g, '_')}" 
-                                    value="${r._id}" onchange="updateSelectionState()">
-                            </td>
-                            <td class="row-number">${rowNum}</td>
-                            <td>${studentNo}</td>
-                            <td>${studentName}</td>
-                            <td>${className}</td>
-                            <td>${subjectName}</td>
-                            <td><strong>${total}</strong></td>
-                            <td><strong>${grade}</strong></td>
-                            <td><span class="${statusClass}">${status}</span></td>
-                            <td><span class="position-badge">${position}</span></td>
-                            <td>
-                                <button class="action-btn edit" onclick="openEditModal('${r._id}')" title="Edit">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                ${status === 'Draft' ? `
-                                    <button class="action-btn publish" onclick="openPublishModal('${r._id}')" title="Publish">
-                                        <i class="fas fa-send"></i>
-                                    </button>
-                                ` : ''}
-                                <button class="action-btn delete" onclick="openDeleteModal('${r._id}')" title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
+        function editResult(resultId) {
+            const result = allResults.find(r => r.id === resultId);
+            if (!result) return;
 
-                    rowNum++;
+            document.getElementById('editResultId').value = result.id;
+            document.getElementById('editStudentName').value = result.student_name || '';
+            document.getElementById('editSubjectName').value = result.subject_name || '';
+            document.getElementById('editClassName').value = result.class_name || '';
+            document.getElementById('editCA1').value = result.ca1_score || '';
+            document.getElementById('editCA2').value = result.ca2_score || '';
+            document.getElementById('editMidTerm').value = result.midterm_score || '';
+            document.getElementById('editExam').value = result.exam_score || '';
+            document.getElementById('editStatus').value = result.status || 'draft';
+
+            const total = calculateResultTotal(result);
+            const { grade, remark } = getGradeAndRemark(total);
+            document.getElementById('editTotalScore').value = total;
+            document.getElementById('editGrade').value = grade;
+            document.getElementById('editRemarks').value = remark;
+            document.getElementById('editSubjectPosition').value = result.subject_position || '';
+
+            openModal('editResultModal');
+        }
+
+        function deleteResult(resultId) {
+            currentResultToDelete = resultId;
+            openModal('deleteResultModal');
+        }
+
+        function publishResult(resultId) {
+            currentResultToPublish = resultId;
+            openModal('publishResultModal');
+        }
+
+        function confirmDelete() {
+            if (!currentResultToDelete) return;
+            submitDeleteResult();
+        }
+
+        function confirmPublish() {
+            if (!currentResultToPublish) return;
+            submitPublishResult();
+        }
+
+        async function submitEditResult(event) {
+            event.preventDefault();
+            showSpinner();
+            try {
+                const formData = {
+                    ca1_score: parseFloat(document.getElementById('editCA1').value) || 0,
+                    ca2_score: parseFloat(document.getElementById('editCA2').value) || 0,
+                    midterm_score: parseFloat(document.getElementById('editMidTerm').value) || 0,
+                    exam_score: parseFloat(document.getElementById('editExam').value) || 0,
+                };
+
+                const res = await fetch(`${API_BASE_URL}/api/results/${document.getElementById('editResultId').value}`, {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify(formData)
                 });
 
-                html += `
-                            </tbody>
-                        </table>
-                    </div>
-                `;
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                displayStatus('Result updated successfully!', 'success');
+                closeModal('editResultModal');
+                await fetchAllResults();
+                displayResults(allResults);
+            } catch (err) {
+                displayStatus('Error updating result: ' + err.message, 'error');
+            } finally {
+                hideSpinner();
             }
-
-            display.innerHTML = html;
-            updateResultsSummary();
-            attachDetailsRowHandlers();
         }
 
-        // ============ SELECTION HANDLERS ============
-        function toggleSelectAll(checkbox, groupKey) {
-            const checkboxes = document.querySelectorAll(`input.result-checkbox[data-group="${groupKey}"]`);
-            checkboxes.forEach(cb => {
-                cb.checked = checkbox.checked;
-            });
-            updateSelectionState();
+        async function submitDeleteResult() {
+            showSpinner();
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/results/${currentResultToDelete}`, {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                });
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                displayStatus('Result deleted successfully!', 'success');
+                closeModal('deleteResultModal');
+                await fetchAllResults();
+                displayResults(filteredResults.length ? filteredResults : allResults);
+            } catch (err) {
+                displayStatus('Error deleting result: ' + err.message, 'error');
+            } finally {
+                hideSpinner();
+            }
         }
 
-        function updateSelectionState() {
-            selectedResults.clear();
-            document.querySelectorAll('input.result-checkbox:checked').forEach(cb => {
-                selectedResults.add(cb.value);
-            });
+        async function submitPublishResult() {
+            showSpinner();
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/results/${currentResultToPublish}`, {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ status: 'published' })
+                });
 
-            const hasSelected = selectedResults.size > 0;
-            document.getElementById('publishSelectedBtn').disabled = !hasSelected;
-            document.getElementById('deleteSelectedBtn').disabled = !hasSelected;
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                displayStatus('Result published successfully!', 'success');
+                closeModal('publishResultModal');
+                await fetchAllResults();
+                displayResults(filteredResults.length ? filteredResults : allResults);
+            } catch (err) {
+                displayStatus('Error publishing result: ' + err.message, 'error');
+            } finally {
+                hideSpinner();
+            }
         }
 
-        // ============ MODAL HANDLERS ============
+        function displayStatus(message, type) {
+            const statusDiv = document.getElementById('resultsStatus');
+            statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            setTimeout(() => { statusDiv.innerHTML = ''; }, 5000);
+        }
+
         function openModal(modalId) {
             document.getElementById(modalId).classList.add('active');
         }
@@ -1234,266 +1359,17 @@
             document.getElementById(modalId).classList.remove('active');
         }
 
-        function openEditModal(resultId) {
-            const result = allResults.find(r => r._id === resultId);
-            if (!result) return;
-
-            const total = calculateResultTotal(result);
-            const { grade, remark } = getGradeAndRemark(total);
-
-            document.getElementById('editResultId').value = result._id;
-            document.getElementById('editStudentName').value = (result.student && result.student.name) || '';
-            document.getElementById('editSubjectName').value = (result.subject && result.subject.name) || '';
-            document.getElementById('editClassName').value = (result.class && result.class.name) || '';
-            document.getElementById('editStatus').value = result.status || 'Draft';
-            document.getElementById('editCA1').value = result.ca1_score || '';
-            document.getElementById('editCA2').value = result.ca2_score || '';
-            document.getElementById('editMidTerm').value = result.midterm_score || '';
-            document.getElementById('editExam').value = result.exam_score || '';
-            document.getElementById('editTotalScore').value = total;
-            document.getElementById('editGrade').value = grade;
-            document.getElementById('editRemarks').value = remark;
-            document.getElementById('editSubjectPosition').value = result.subject_position || '';
-
-            // Add real-time calculation
-            ['editCA1', 'editCA2', 'editMidTerm', 'editExam'].forEach(id => {
-                document.getElementById(id).addEventListener('change', recalculateScores);
-            });
-
-            openModal('editResultModal');
-        }
-
-        function recalculateScores() {
-            const ca1 = parseFloat(document.getElementById('editCA1').value) || 0;
-            const ca2 = parseFloat(document.getElementById('editCA2').value) || 0;
-            const midTerm = parseFloat(document.getElementById('editMidTerm').value) || 0;
-            const exam = parseFloat(document.getElementById('editExam').value) || 0;
-            const total = ca1 + ca2 + midTerm + exam;
-
-            const { grade, remark } = getGradeAndRemark(total);
-            document.getElementById('editTotalScore').value = total;
-            document.getElementById('editGrade').value = grade;
-            document.getElementById('editRemarks').value = remark;
-        }
-
-        function openDeleteModal(resultId) {
-            currentResultToDelete = resultId;
-            openModal('deleteResultModal');
-        }
-
-        function openPublishModal(resultId) {
-            currentResultToPublish = resultId;
-            openModal('publishResultModal');
-        }
-
-        async function confirmDelete() {
-            if (!currentResultToDelete) return;
-
-            try {
-                await deleteResult(currentResultToDelete);
-                allResults = allResults.filter(r => r._id !== currentResultToDelete);
-                filterResults({ preventDefault: () => {} });
-                closeModal('deleteResultModal');
-                showStatus('Result deleted successfully', 'success');
-            } catch (err) {
-                showStatus('Error: ' + err.message, 'error');
-            }
-        }
-
-        async function confirmPublish() {
-            if (!currentResultToPublish) return;
-
-            try {
-                await publishResult(currentResultToPublish);
-                const result = allResults.find(r => r._id === currentResultToPublish);
-                if (result) result.status = 'Published';
-                filterResults({ preventDefault: () => {} });
-                closeModal('publishResultModal');
-                showStatus('Result published successfully', 'success');
-            } catch (err) {
-                showStatus('Error: ' + err.message, 'error');
-            }
-        }
-
-        async function submitEditResult(event) {
-            event.preventDefault();
-
-            const resultId = document.getElementById('editResultId').value;
-            const ca1 = parseFloat(document.getElementById('editCA1').value) || 0;
-            const ca2 = parseFloat(document.getElementById('editCA2').value) || 0;
-            const midTerm = parseFloat(document.getElementById('editMidTerm').value) || 0;
-            const exam = parseFloat(document.getElementById('editExam').value) || 0;
-            const total = ca1 + ca2 + midTerm + exam;
-            const { grade, remark } = getGradeAndRemark(total);
-
-            try {
-                await updateResult(resultId, {
-                    ca1_score: ca1,
-                    ca2_score: ca2,
-                    midterm_score: midTerm,
-                    exam_score: exam,
-                    grade: grade,
-                    remarks: remark
-                });
-
-                const result = allResults.find(r => r._id === resultId);
-                if (result) {
-                    result.ca1_score = ca1;
-                    result.ca2_score = ca2;
-                    result.midterm_score = midTerm;
-                    result.exam_score = exam;
-                    result.grade = grade;
-                    result.remarks = remark;
-                }
-
-                filterResults({ preventDefault: () => {} });
-                closeModal('editResultModal');
-                showStatus('Result updated successfully', 'success');
-            } catch (err) {
-                document.getElementById('editResultStatus').innerHTML = 
-                    `<div class="status-message status-error">Error: ${err.message}</div>`;
-            }
-        }
-
-        // ============ UTILITY FUNCTIONS ============
-        function showStatus(message, type) {
-            const el = document.getElementById('resultsStatus');
-            el.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
-            setTimeout(() => {
-                el.innerHTML = '';
-            }, 5000);
-        }
-
-        function updateResultsSummary() {
-            const total = filteredResults.length;
-            const published = filteredResults.filter(r => r.status === 'Published').length;
-            const draft = filteredResults.filter(r => r.status === 'Draft').length;
-            document.getElementById('resultsSummary').textContent = 
-                `${total} results (${published} published, ${draft} draft)`;
-        }
-
-        function attachDetailsRowHandlers() {
-            // Details row expansion can be added here if needed
-        }
-
-        // ============ INITIALIZATION ============
-        async function init() {
-            try {
-                showSpinner();
-                await fetchAllResults();
-                
-                // Populate dropdowns
-                const sessions = [...new Set(allResults.map(r => r.session?.name).filter(Boolean))];
-                const terms = [...new Set(allResults.map(r => r.term?.name).filter(Boolean))];
-                const classes = [...new Set(allResults.map(r => r.class?.name).filter(Boolean))];
-                const subjects = [...new Set(allResults.map(r => r.subject?.name).filter(Boolean))];
-
-                const sessionSelect = document.getElementById('sessionSelect');
-                sessions.sort().forEach(s => {
-                    const option = document.createElement('option');
-                    option.value = s;
-                    option.textContent = s;
-                    sessionSelect.appendChild(option);
-                });
-
-                const termSelect = document.getElementById('termSelect');
-                terms.sort().forEach(t => {
-                    const option = document.createElement('option');
-                    option.value = t;
-                    option.textContent = t;
-                    termSelect.appendChild(option);
-                });
-
-                const classSelect = document.getElementById('classSelect');
-                classes.sort().forEach(c => {
-                    const option = document.createElement('option');
-                    option.value = c;
-                    option.textContent = c;
-                    classSelect.appendChild(option);
-                });
-
-                const subjectSelect = document.getElementById('subjectSelect');
-                subjects.sort().forEach(s => {
-                    const option = document.createElement('option');
-                    option.value = s;
-                    option.textContent = s;
-                    subjectSelect.appendChild(option);
-                });
-
-                renderResults();
-            } catch (err) {
-                showStatus('Error initializing: ' + err.message, 'error');
-            } finally {
-                hideSpinner();
-            }
-        }
-
-        // ============ EVENT LISTENERS ============
+        // Close modals on button click
         document.getElementById('closeStatsModal').addEventListener('click', () => closeModal('statisticsModal'));
         document.getElementById('closeEditModal').addEventListener('click', () => closeModal('editResultModal'));
         document.getElementById('closeDeleteModal').addEventListener('click', () => closeModal('deleteResultModal'));
         document.getElementById('closePublishModal').addEventListener('click', () => closeModal('publishResultModal'));
 
-        document.getElementById('uploadResultsBtn').onclick = () => window.location.href = "upload-results.html";
- 
-        document.getElementById('viewStatsBtn').addEventListener('click', () => {
-            openModal('statisticsModal');
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchAllResults();
+            displayResults(allResults);
         });
-
-        document.getElementById('exportCSVBtn').addEventListener('click', () => {
-            if (filteredResults.length === 0) {
-                alert('No results to export');
-                return;
-            }
-            // CSV export logic here
-            alert('Export feature coming soon!');
-        });
-
-        document.getElementById('publishSelectedBtn').addEventListener('click', async () => {
-            if (selectedResults.size === 0) return;
-            
-            if (confirm(`Publish ${selectedResults.size} selected results?`)) {
-                showSpinner();
-                try {
-                    for (const resultId of selectedResults) {
-                        await publishResult(resultId);
-                        const result = allResults.find(r => r._id === resultId);
-                        if (result) result.status = 'Published';
-                    }
-                    selectedResults.clear();
-                    filterResults({ preventDefault: () => {} });
-                    showStatus(`${selectedResults.size} results published`, 'success');
-                } catch (err) {
-                    showStatus('Error publishing results: ' + err.message, 'error');
-                } finally {
-                    hideSpinner();
-                }
-            }
-        });
-
-        document.getElementById('deleteSelectedBtn').addEventListener('click', async () => {
-            if (selectedResults.size === 0) return;
-            
-            if (confirm(`Delete ${selectedResults.size} selected results? This cannot be undone.`)) {
-                showSpinner();
-                try {
-                    for (const resultId of selectedResults) {
-                        await deleteResult(resultId);
-                        allResults = allResults.filter(r => r._id !== resultId);
-                    }
-                    selectedResults.clear();
-                    filterResults({ preventDefault: () => {} });
-                    showStatus(`${selectedResults.size} results deleted`, 'success');
-                } catch (err) {
-                    showStatus('Error deleting results: ' + err.message, 'error');
-                } finally {
-                    hideSpinner();
-                }
-            }
-        });
-
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
