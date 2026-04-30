@@ -105,7 +105,7 @@ router.post('/login', async (req, res) => {
 });
 
 /**
- * GET /parents/me - Get current logged-in parent
+ * GET /parents/me - Get current logged-in parent with complete dashboard data
  */
 router.get('/me', async (req, res) => {
   try {
@@ -128,7 +128,26 @@ router.get('/me', async (req, res) => {
     const parent = await Parent.findById(decoded._id)
       .populate({
         path: 'studentIds',
-        select: 'firstname surname class regNo student_id fees email',
+        select: `
+          _id
+          student_id
+          firstname
+          surname
+          othernames
+          class
+          classArm
+          regNo
+          dob
+          gender
+          photoBase64
+          academic
+          attendance
+          fees
+          parentName
+          parentEmail
+          studentEmail
+          studentPhone
+        `,
       })
       .select('-password -temporaryPassword');
 
@@ -136,13 +155,459 @@ router.get('/me', async (req, res) => {
       return res.status(404).json({ error: 'Parent not found' });
     }
 
-    res.json(parent);
+    // ✅ Enhance response with computed data
+    const parentData = parent.toObject();
+    
+    // Process students and add computed fields
+    parentData.students = (parentData.studentIds || []).map(student => ({
+      _id: student._id,
+      student_id: student.student_id,
+      name: `${student.firstname} ${student.surname}${student.othernames ? ' ' + student.othernames : ''}`.trim(),
+      firstname: student.firstname,
+      surname: student.surname,
+      class: student.class,
+      classArm: student.classArm,
+      regNo: student.regNo,
+      dob: student.dob,
+      gender: student.gender,
+      photoBase64: student.photoBase64,
+      email: student.studentEmail || student.parentEmail,
+      phone: student.studentPhone,
+      
+      // Academic Stats
+      academicStats: {
+        totalRecords: (student.academic || []).length,
+        latestGrade: student.academic && student.academic.length > 0 
+          ? student.academic[student.academic.length - 1].grade 
+          : null,
+        averageScore: calculateAverageScore(student.academic),
+        subjects: extractSubjects(student.academic),
+        byTerm: groupByTerm(student.academic)
+      },
+      
+      // Attendance Stats
+      attendanceStats: {
+        totalRecords: (student.attendance || []).length,
+        latestAttendance: student.attendance && student.attendance.length > 0
+          ? student.attendance[student.attendance.length - 1]
+          : null,
+        averageAttendancePercentage: calculateAverageAttendance(student.attendance),
+        byTerm: groupAttendanceByTerm(student.attendance)
+      },
+      
+      // Fees Stats
+      feesStats: {
+        total: (student.fees || []).length,
+        pending: (student.fees || []).filter(f => f.status === 'pending').length,
+        paid: (student.fees || []).filter(f => f.status === 'paid').length,
+        outstanding: calculateOutstandingFees(student.fees),
+        byTerm: groupFeesByTerm(student.fees)
+      }
+    }));
+
+    // Dashboard summary (aggregate across all children)
+    parentData.dashboardSummary = {
+      totalChildren: parentData.students.length,
+      averageAttendance: calculateGlobalAttendance(parentData.students),
+      averageGrade: calculateGlobalAverageGrade(parentData.students),
+      pendingFeesTotal: parentData.students.reduce((sum, s) => sum + (s.feesStats?.outstanding || 0), 0),
+      allStudentsPending: parentData.students.reduce((sum, s) => sum + (s.feesStats?.pending || 0), 0)
+    };
+
+    // Remove the old studentIds array
+    delete parentData.studentIds;
+
+    res.json(parentData);
 
   } catch (error) {
     console.error('Error getting parent:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
+/**
+ * GET /parents/me/students/:studentId/grades
+ * Get detailed grades for a specific student
+ */
+router.get('/me/students/:studentId/grades', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const parent = await Parent.findById(decoded._id);
+    if (!parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    // Verify parent has access to this student
+    if (!parent.studentIds.includes(req.params.studentId)) {
+      return res.status(403).json({ error: 'Access denied to this student' });
+    }
+
+    const student = await Student.findById(req.params.studentId).select('academic firstname surname');
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const { term } = req.query; // Optional term filter
+
+    let academicData = student.academic || [];
+
+    // Filter by term if provided
+    if (term) {
+      academicData = academicData.filter(record => record.term === term);
+    }
+
+    // Group by subject and include all details
+    const subjectGrades = {};
+    academicData.forEach(record => {
+      if (!subjectGrades[record.subject]) {
+        subjectGrades[record.subject] = [];
+      }
+      subjectGrades[record.subject].push({
+        session: record.session,
+        term: record.term,
+        score: record.score,
+        grade: record.grade,
+        remarks: record.remarks,
+        date: record.date,
+        class: record.class
+      });
+    });
+
+    // Calculate statistics
+    const stats = {
+      totalSubjects: Object.keys(subjectGrades).length,
+      averageScore: academicData.length > 0 
+        ? (academicData.reduce((sum, r) => sum + (r.score || 0), 0) / academicData.length).toFixed(2)
+        : 0,
+      highestScore: academicData.length > 0 
+        ? Math.max(...academicData.map(r => r.score || 0))
+        : 0,
+      lowestScore: academicData.length > 0 
+        ? Math.min(...academicData.map(r => r.score || 0))
+        : 0,
+      gradeDistribution: {
+        a: academicData.filter(r => r.grade === 'A').length,
+        b: academicData.filter(r => r.grade === 'B').length,
+        c: academicData.filter(r => r.grade === 'C').length,
+        d: academicData.filter(r => r.grade === 'D').length,
+        e: academicData.filter(r => r.grade === 'E').length,
+        f: academicData.filter(r => r.grade === 'F').length
+      }
+    };
+
+    res.json({
+      student: {
+        _id: student._id,
+        name: `${student.firstname} ${student.surname}`,
+        firstname: student.firstname,
+        surname: student.surname
+      },
+      term: term || 'all',
+      stats,
+      subjectGrades,
+      records: academicData,
+      recordCount: academicData.length
+    });
+
+  } catch (error) {
+    console.error('Error getting student grades:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /parents/me/students/:studentId/attendance
+ * Get attendance records for a specific student
+ */
+router.get('/me/students/:studentId/attendance', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const parent = await Parent.findById(decoded._id);
+    if (!parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    if (!parent.studentIds.includes(req.params.studentId)) {
+      return res.status(403).json({ error: 'Access denied to this student' });
+    }
+
+    const student = await Student.findById(req.params.studentId).select('attendance firstname surname');
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const attendanceData = student.attendance || [];
+
+    // Group by term
+    const byTerm = {};
+    attendanceData.forEach(record => {
+      if (!byTerm[record.term]) {
+        byTerm[record.term] = [];
+      }
+      byTerm[record.term].push({
+        session: record.session,
+        term: record.term,
+        present: record.present,
+        total: record.total,
+        percentage: record.total > 0 ? ((record.present / record.total) * 100).toFixed(2) : 0,
+        date: record.date
+      });
+    });
+
+    // Calculate overall statistics
+    let totalPresent = 0, totalDays = 0;
+    attendanceData.forEach(r => {
+      totalPresent += r.present || 0;
+      totalDays += r.total || 0;
+    });
+
+    res.json({
+      student: {
+        _id: student._id,
+        name: `${student.firstname} ${student.surname}`,
+        firstname: student.firstname,
+        surname: student.surname
+      },
+      stats: {
+        totalDays,
+        totalPresent,
+        overallPercentage: totalDays > 0 ? ((totalPresent / totalDays) * 100).toFixed(2) : 0,
+        recordCount: attendanceData.length
+      },
+      byTerm,
+      records: attendanceData
+    });
+
+  } catch (error) {
+    console.error('Error getting student attendance:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /parents/me/students/:studentId/fees
+ * Get fees information for a specific student
+ */
+router.get('/me/students/:studentId/fees', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const parent = await Parent.findById(decoded._id);
+    if (!parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    if (!parent.studentIds.includes(req.params.studentId)) {
+      return res.status(403).json({ error: 'Access denied to this student' });
+    }
+
+    const student = await Student.findById(req.params.studentId).select('fees firstname surname');
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const feesData = student.fees || [];
+
+    // Group by term and status
+    const byTerm = {};
+    let totalOutstanding = 0;
+
+    feesData.forEach(record => {
+      if (!byTerm[record.term]) {
+        byTerm[record.term] = {
+          paid: [],
+          pending: [],
+          total: 0,
+          outstanding: 0
+        };
+      }
+
+      const feeRecord = {
+        session: record.session,
+        term: record.term,
+        type: record.type,
+        amount: record.amount,
+        status: record.status,
+        date: record.date
+      };
+
+      if (record.status === 'paid') {
+        byTerm[record.term].paid.push(feeRecord);
+      } else if (record.status === 'pending') {
+        byTerm[record.term].pending.push(feeRecord);
+        totalOutstanding += record.amount || 0;
+      }
+
+      byTerm[record.term].total += record.amount || 0;
+    });
+
+    // Calculate stats
+    const stats = {
+      totalFees: feesData.reduce((sum, f) => sum + (f.amount || 0), 0),
+      totalPaid: feesData.filter(f => f.status === 'paid').reduce((sum, f) => sum + (f.amount || 0), 0),
+      totalOutstanding: totalOutstanding,
+      pendingCount: feesData.filter(f => f.status === 'pending').length,
+      paidCount: feesData.filter(f => f.status === 'paid').length
+    };
+
+    res.json({
+      student: {
+        _id: student._id,
+        name: `${student.firstname} ${student.surname}`,
+        firstname: student.firstname,
+        surname: student.surname
+      },
+      stats,
+      byTerm,
+      records: feesData
+    });
+
+  } catch (error) {
+    console.error('Error getting student fees:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== Helper Functions =====
+
+function calculateAverageScore(academic) {
+  if (!academic || academic.length === 0) return 0;
+  const total = academic.reduce((sum, record) => sum + (record.score || 0), 0);
+  return (total / academic.length).toFixed(2);
+}
+
+function calculateAverageAttendance(attendance) {
+  if (!attendance || attendance.length === 0) return 0;
+  let totalPresent = 0, totalDays = 0;
+  attendance.forEach(record => {
+    totalPresent += record.present || 0;
+    totalDays += record.total || 0;
+  });
+  return totalDays > 0 ? ((totalPresent / totalDays) * 100).toFixed(2) : 0;
+}
+
+function calculateOutstandingFees(fees) {
+  if (!fees || fees.length === 0) return 0;
+  return fees
+    .filter(f => f.status === 'pending')
+    .reduce((sum, f) => sum + (f.amount || 0), 0);
+}
+
+function extractSubjects(academic) {
+  if (!academic) return [];
+  const subjects = new Set();
+  academic.forEach(record => {
+    if (record.subject) subjects.add(record.subject);
+  });
+  return Array.from(subjects);
+}
+
+function groupByTerm(academic) {
+  if (!academic) return {};
+  const grouped = {};
+  academic.forEach(record => {
+    if (!grouped[record.term]) {
+      grouped[record.term] = [];
+    }
+    grouped[record.term].push({
+      subject: record.subject,
+      score: record.score,
+      grade: record.grade,
+      remarks: record.remarks,
+      class: record.class
+    });
+  });
+  return grouped;
+}
+
+function groupAttendanceByTerm(attendance) {
+  if (!attendance) return {};
+  const grouped = {};
+  attendance.forEach(record => {
+    if (!grouped[record.term]) {
+      grouped[record.term] = [];
+    }
+    const percentage = record.total > 0 ? ((record.present / record.total) * 100).toFixed(2) : 0;
+    grouped[record.term].push({
+      present: record.present,
+      total: record.total,
+      percentage,
+      session: record.session
+    });
+  });
+  return grouped;
+}
+
+function groupFeesByTerm(fees) {
+  if (!fees) return {};
+  const grouped = {};
+  fees.forEach(record => {
+    if (!grouped[record.term]) {
+      grouped[record.term] = {
+        paid: 0,
+        pending: 0,
+        total: 0
+      };
+    }
+    grouped[record.term].total += record.amount || 0;
+    if (record.status === 'paid') {
+      grouped[record.term].paid += record.amount || 0;
+    } else if (record.status === 'pending') {
+      grouped[record.term].pending += record.amount || 0;
+    }
+  });
+  return grouped;
+}
+
+function calculateGlobalAttendance(students) {
+  if (!students || students.length === 0) return 0;
+  const totalPercentages = students.map(s => parseFloat(s.attendanceStats?.averageAttendancePercentage) || 0);
+  return (totalPercentages.reduce((a, b) => a + b, 0) / students.length).toFixed(2);
+}
+
+function calculateGlobalAverageGrade(students) {
+  if (!students || students.length === 0) return 0;
+  const totalScores = students.map(s => parseFloat(s.academicStats?.averageScore) || 0);
+  return (totalScores.reduce((a, b) => a + b, 0) / students.length).toFixed(2);
+}
 
 /**
  * POST /parents/resend-credentials/:id
