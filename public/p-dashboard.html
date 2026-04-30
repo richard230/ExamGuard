@@ -817,6 +817,24 @@
       color: #0c4a6e;
       border: 1px solid #bae6fd;
     }
+    /* Add to style section */
+.grade-a { background: #d1fae5 !important; color: #065f46 !important; }
+.grade-b { background: #dcfce7 !important; color: #166534 !important; }
+.grade-c { background: #fef3c7 !important; color: #92400e !important; }
+.grade-d { background: #fee2e2 !important; color: #991b1b !important; }
+.grade-e { background: #fecaca !important; color: #7f1d1d !important; }
+.grade-f { background: #fca5a5 !important; color: #7f1d1d !important; }
+
+#gradesTable tbody tr:hover {
+  background: var(--gray-50);
+  transition: background-color 0.2s ease;
+}
+
+#gradesChildSelect:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(38, 71, 166, 0.1);
+}
   </style>
 </head>
 <body>
@@ -1008,7 +1026,134 @@
         </div>
       </div>
     </section>
+<!-- Add this to your grades-section in p-dashboard.html -->
 
+<!-- Grades Section - COMPLETE & FIXED -->
+<section id="grades-section" class="section" style="display: none;">
+  <div class="breadcrumb">
+    <a href="#" onclick="navigateTo('dashboard')">Dashboard</a> / <span class="current">Academic Progress</span>
+  </div>
+
+  <!-- Child Selector -->
+  <div class="card">
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <label style="font-weight: 600; margin: 0;">Select Child:</label>
+      <select id="gradesChildSelect" style="padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 0.9rem; min-width: 200px;">
+        <option value="">All Children</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Academic Statistics -->
+  <div class="grid" style="margin-bottom: 20px;">
+    <div class="stat-card">
+      <div class="stat-value" id="overallGPA">0.0</div>
+      <div class="stat-label">Overall GPA</div>
+    </div>
+    <div class="stat-card success">
+      <div class="stat-value" id="highestScore">0</div>
+      <div class="stat-label">Highest Score</div>
+    </div>
+    <div class="stat-card warning">
+      <div class="stat-value" id="averageScore">0</div>
+      <div class="stat-label">Average Score</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-value" id="lowestScore">0</div>
+      <div class="stat-label">Lowest Score</div>
+    </div>
+  </div>
+
+  <!-- Term Selector -->
+  <div class="card">
+    <div class="tabs" style="margin-bottom: 0;">
+      <button class="tab active" onclick="switchGradeTerm(1, event)">Term 1</button>
+      <button class="tab" onclick="switchGradeTerm(2, event)">Term 2</button>
+      <button class="tab" onclick="switchGradeTerm(3, event)">Term 3</button>
+    </div>
+  </div>
+
+  <!-- Subjects Performance Table -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-book"></i> Subjects Performance
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="downloadGradesReport()">
+        <i class="fas fa-download"></i> Download
+      </button>
+    </div>
+
+    <div class="table-container">
+      <table id="gradesTable">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>CA1</th>
+            <th>CA2</th>
+            <th>Exam</th>
+            <th>Total</th>
+            <th>Grade</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="7" class="empty-state">
+              <div class="loader"></div>
+              Loading grades...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Progress Trends -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-chart-line"></i> Performance Breakdown
+      </div>
+    </div>
+    <div id="progressTrendContainer" style="padding: 20px;">
+      <p style="text-align: center; color: var(--gray-600);">No data available</p>
+    </div>
+  </div>
+
+  <!-- Comments & Remarks -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-comments"></i> Teacher's Comments
+      </div>
+    </div>
+    <div id="commentsContainer">
+      <p style="color: var(--gray-600); text-align: center;">No comments available</p>
+    </div>
+  </div>
+
+  <!-- Performance Summary -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-info-circle"></i> Performance Summary
+      </div>
+    </div>
+    <div id="summaryContainer">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+        <div style="padding: 16px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+          <div style="font-weight: 600; margin-bottom: 8px;">✓ Strengths</div>
+          <div id="strengthsList" style="color: var(--gray-600); font-size: 0.9rem;">Loading...</div>
+        </div>
+        <div style="padding: 16px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+          <div style="font-weight: 600; margin-bottom: 8px;">⚠️ Areas for Improvement</div>
+          <div id="improvementList" style="color: var(--gray-600); font-size: 0.9rem;">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
     <!-- Fees Section -->
     <section id="fees-section" class="section" style="display: none;">
       <div class="breadcrumb">
@@ -1537,6 +1682,9 @@ function updateProfileUI() {
 /**
  * Update Dashboard Statistics and Content
  */
+/**
+ * Update Dashboard Statistics and Content - IMPROVED
+ */
 async function updateDashboard() {
   if (!parentData) return;
 
@@ -1549,7 +1697,7 @@ async function updateDashboard() {
     // Render children list
     renderChildrenList();
 
-    // Load fees summary
+    // Load fees summary BEFORE calling it
     await loadFeesSummary();
 
     // Load recent activities
@@ -1559,6 +1707,7 @@ async function updateDashboard() {
 
   } catch (err) {
     console.error('❌ Error updating dashboard:', err);
+    showAlert('Error updating dashboard: ' + err.message, 'error');
   }
 }
 
@@ -1595,6 +1744,9 @@ function updateDashboardCards() {
 /**
  * Render Children List
  */
+/**
+ * Render Children List - IMPROVED with Fees Display
+ */
 function renderChildrenList() {
   const container = document.getElementById('childrenList');
   if (!container) return;
@@ -1613,6 +1765,14 @@ function renderChildrenList() {
     const academicStats = child.academicStats || {};
     const attendanceStats = child.attendanceStats || {};
     const feesStats = child.feesStats || {};
+    
+    // Calculate total fees from byTerm
+    let totalFeesAmount = 0;
+    if (feesStats.byTerm) {
+      Object.values(feesStats.byTerm).forEach(term => {
+        totalFeesAmount += term.total || 0;
+      });
+    }
 
     return `
       <div class="card">
@@ -1649,14 +1809,14 @@ function renderChildrenList() {
           
           <!-- Fees Stats -->
           <div>
-            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Outstanding Fees</div>
-            <div style="font-weight: 600; color: var(--danger);">${formatCurrency(feesStats.outstanding || 0)}</div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Total Fees</div>
+            <div style="font-weight: 600; color: var(--primary);">${formatCurrency(totalFeesAmount)}</div>
           </div>
           
-          <!-- Pending Count -->
+          <!-- Outstanding Fees -->
           <div>
-            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Subjects</div>
-            <div style="font-weight: 600;">${academicStats.subjects?.length || 0}</div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Outstanding</div>
+            <div style="font-weight: 600; color: var(--danger);">${formatCurrency(feesStats.outstanding || 0)}</div>
           </div>
         </div>
 
@@ -1667,8 +1827,8 @@ function renderChildrenList() {
           <button class="btn btn-secondary btn-sm" onclick="navigateTo('grades')">
             <i class="fas fa-chart-line"></i> Grades
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="navigateTo('attendance')">
-            <i class="fas fa-calendar-check"></i> Attendance
+          <button class="btn btn-secondary btn-sm" onclick="navigateTo('fees')">
+            <i class="fas fa-money-bill"></i> Fees
           </button>
         </div>
       </div>
@@ -1693,37 +1853,80 @@ async function loadFeesSummary() {
     let allFees = [];
     let totalPaid = 0;
     let totalOutstanding = 0;
+    let totalAmount = 0;
 
     allStudents.forEach(student => {
-      const studentFees = student.feesStats || {};
-      totalPaid += studentFees.paid || 0;
-      totalOutstanding += studentFees.outstanding || 0;
+      const feesStats = student.feesStats || {};
+      
+      // Method 1: From feesStats.byTerm (if available)
+      if (feesStats.byTerm && Object.keys(feesStats.byTerm).length > 0) {
+        Object.entries(feesStats.byTerm).forEach(([term, termFees]) => {
+          const termTotal = termFees.total || 0;
+          const termPaid = termFees.paid || 0;
+          const termPending = termFees.pending || 0;
 
-      if (student.fees && Array.isArray(student.fees)) {
+          allFees.push({
+            childName: student.name,
+            childId: student._id,
+            type: `${term} - School Fees`,
+            amount: termTotal,
+            status: termPaid > 0 ? 'Partial' : 'Pending',
+            date: null,
+            term: term,
+            paid: termPaid,
+            pending: termPending
+          });
+
+          totalAmount += termTotal;
+          totalPaid += termPaid;
+          totalOutstanding += termPending;
+        });
+      }
+
+      // Method 2: From student.fees array (if populated)
+      if (student.fees && Array.isArray(student.fees) && student.fees.length > 0) {
         student.fees.forEach(fee => {
           allFees.push({
             childName: student.name,
             childId: student._id,
-            ...fee
+            type: fee.type || 'School Fee',
+            amount: fee.amount || 0,
+            status: fee.status || 'Pending',
+            date: fee.date,
+            term: fee.term || 'General',
+            paid: (fee.status === 'paid' || fee.status === 'Paid') ? fee.amount : 0,
+            pending: (fee.status === 'pending' || fee.status === 'Pending') ? fee.amount : 0
           });
+
+          totalAmount += fee.amount || 0;
+          if (fee.status === 'paid' || fee.status === 'Paid') {
+            totalPaid += fee.amount || 0;
+          } else {
+            totalOutstanding += fee.amount || 0;
+          }
         });
       }
     });
 
+    console.log('📊 Fees Summary:', {
+      totalFees: allFees.length,
+      totalAmount,
+      totalPaid,
+      totalOutstanding,
+      allFees
+    });
+
     // Update fees cards
-    updateFeesSummaryCards(totalPaid, totalOutstanding, totalPaid + totalOutstanding);
+    updateFeesSummaryCards(totalPaid, totalOutstanding, totalAmount);
 
     // Render fees table
     renderFeesTable(allFees);
 
-    console.log('✓ Fees summary loaded:', {
-      totalFees: allFees.length,
-      totalPaid,
-      totalOutstanding
-    });
+    console.log('✓ Fees summary loaded successfully');
 
   } catch (err) {
     console.error('❌ Error loading fees:', err);
+    showAlert('Failed to load fees summary', 'error');
   }
 }
 
@@ -1732,9 +1935,19 @@ async function loadFeesSummary() {
  */
 function updateFeesSummaryCards(paid, outstanding, total) {
   const feesSection = document.getElementById('fees-section');
-  if (!feesSection) return;
+  if (!feesSection) {
+    console.warn('Fees section not found');
+    return;
+  }
 
   const cards = feesSection.querySelectorAll('.stat-card');
+  
+  console.log('Updating fee cards:', {
+    paid,
+    outstanding,
+    total,
+    cardCount: cards.length
+  });
   
   if (cards.length >= 1) {
     cards[0].innerHTML = `
@@ -1761,14 +1974,20 @@ function updateFeesSummaryCards(paid, outstanding, total) {
  */
 function renderFeesTable(fees) {
   const tbody = document.querySelector('#feesTable tbody');
-  if (!tbody) return;
+  if (!tbody) {
+    console.warn('Fees table tbody not found');
+    return;
+  }
+
+  console.log('Rendering fees table with', fees?.length || 0, 'fees');
 
   if (!fees || fees.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-state">
-          <div class="empty-icon">📭</div>
-          <div class="empty-title">No fees assigned</div>
+        <td colspan="6" style="text-align: center; padding: 40px;">
+          <div style="font-size: 2rem; margin-bottom: 12px;">📭</div>
+          <div style="font-weight: 600; font-size: 1.1rem; color: var(--gray-900);">No Fees Assigned</div>
+          <p style="color: var(--gray-600); margin-top: 8px;">All fees are up to date or no fees have been assigned yet.</p>
         </td>
       </tr>
     `;
@@ -1777,20 +1996,36 @@ function renderFeesTable(fees) {
 
   tbody.innerHTML = fees.map((fee, idx) => {
     const statusClass = (fee.status || '').toLowerCase().replace(/\s+/g, '');
-    const statusBadgeClass = statusClass === 'paid' || statusClass === 'waived' 
-      ? 'badge-success' 
-      : 'badge-warning';
+    let statusBadgeClass = 'badge-warning';
+    
+    if (statusClass === 'paid') {
+      statusBadgeClass = 'badge-success';
+    } else if (statusClass === 'partial') {
+      statusBadgeClass = 'badge-info';
+    } else if (statusClass === 'pending') {
+      statusBadgeClass = 'badge-warning';
+    }
 
     return `
       <tr>
-        <td><strong>${fee.childName || 'N/A'}</strong></td>
-        <td>${fee.type || 'General Fee'}</td>
-        <td>${formatCurrency(fee.amount || 0)}</td>
-        <td><span class="badge ${statusBadgeClass}">${fee.status || 'Pending'}</span></td>
-        <td>${fee.date ? new Date(fee.date).toLocaleDateString() : '—'}</td>
         <td>
-          <button class="btn btn-primary btn-sm" onclick="processFeePayment('${fee.childId}', '${fee._id}')">
-            Pay
+          <strong style="color: var(--primary);">${fee.childName || 'N/A'}</strong>
+          <br>
+          <small style="color: var(--gray-600);">${fee.term || 'General'}</small>
+        </td>
+        <td>${fee.type || 'School Fee'}</td>
+        <td style="font-weight: 600; color: var(--primary);">${formatCurrency(fee.amount || 0)}</td>
+        <td>
+          <span class="badge ${statusBadgeClass}" style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8rem;">
+            ${fee.status || 'Pending'}
+          </span>
+        </td>
+        <td>
+          ${fee.date ? new Date(fee.date).toLocaleDateString() : '—'}
+        </td>
+        <td>
+          <button class="btn btn-primary btn-sm" onclick="processFeePayment('${fee.childId}', '${idx}')" style="padding: 6px 12px; font-size: 0.85rem;">
+            <i class="fas fa-credit-card"></i> Pay
           </button>
         </td>
       </tr>
@@ -1889,11 +2124,12 @@ async function loadRecentActivities() {
  * Initialize Academic Progress Section
  */
 async function initializeAcademicProgress() {
-  console.log('📚 Initializing academic progress...');
+  console.log('🎓 Initializing academic progress section...');
 
   try {
-    if (allStudents.length === 0) {
-      showAlert('No students found', 'info');
+    if (!allStudents || allStudents.length === 0) {
+      console.warn('⚠️ No students found');
+      showAlert('No students found. Please add children first.', 'info');
       return;
     }
 
@@ -1902,20 +2138,29 @@ async function initializeAcademicProgress() {
 
     // Load grades for first child
     currentSelectedStudent = allStudents[0]._id;
+    console.log('Loading grades for first student:', currentSelectedStudent);
+    
     await loadAcademicProgress();
+
+    console.log('✅ Academic progress initialized');
 
   } catch (err) {
     console.error('❌ Error initializing academic progress:', err);
-    showAlert('Failed to load academic progress', 'error');
+    showAlert('Failed to initialize academic progress: ' + err.message, 'error');
   }
 }
+
 
 /**
  * Populate Child Selector Dropdown
  */
 function populateChildSelector() {
   const selector = document.getElementById('gradesChildSelect');
-  if (!selector) return;
+  
+  if (!selector) {
+    console.error('❌ Child selector element not found');
+    return;
+  }
 
   selector.innerHTML = '<option value="">All Children</option>';
 
@@ -1929,8 +2174,13 @@ function populateChildSelector() {
   selector.addEventListener('change', async (e) => {
     currentSelectedStudent = e.target.value;
     currentGradeTerm = 1;
-    await loadAcademicProgress();
+    
+    if (currentSelectedStudent) {
+      await loadAcademicProgress();
+    }
   });
+
+  console.log('✓ Child selector populated with', allStudents.length, 'students');
 }
 
 /**
@@ -1938,36 +2188,183 @@ function populateChildSelector() {
  */
 async function loadAcademicProgress() {
   try {
+    console.log('📚 Loading academic progress for student:', currentSelectedStudent);
+
     if (!currentSelectedStudent) {
-      console.log('Loading all students grades');
-      // TODO: Load all students comparison
+      console.warn('⚠️ No student selected');
+      showAlert('Please select a student', 'info');
       return;
     }
 
     const url = `${API_BASE}/parents/me/students/${currentSelectedStudent}/grades?term=${currentGradeTerm}`;
 
+    console.log('🔗 API URL:', url);
+
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
-    if (!res.ok) throw new Error('Failed to fetch grades');
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
 
     const data = await res.json();
+    
+    console.log('✅ Grades loaded:', {
+      studentName: data.student?.name,
+      recordCount: data.recordCount,
+      term: data.term
+    });
 
     // Render grades table
     renderGradesTable(data.records || []);
 
-    // Update statistics
-    updateGradeStatistics(data);
+    // Update statistics - with error handling
+    if (document.getElementById('overallGPA')) {
+      updateGradeStatistics(data);
+    } else {
+      console.warn('⚠️ Grade statistics elements not found in DOM');
+    }
 
-    console.log('✓ Grades loaded:', data.recordCount, 'records');
+    // Load additional data
+    loadProgressTrend(data);
+    loadTeacherComments(data);
+    loadPerformanceSummary(data);
 
   } catch (err) {
     console.error('❌ Error loading grades:', err);
-    showAlert('Failed to load grades', 'error');
+    showAlert('Failed to load grades: ' + err.message, 'error');
+    
+    // Render empty state
+    const tbody = document.querySelector('#gradesTable tbody');
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <div class="empty-icon">📚</div>
+            <div class="empty-title">Unable to load grades</div>
+            <p>${err.message}</p>
+          </td>
+        </tr>
+      `;
+    }
   }
 }
+/**
+ * Load Progress Trend - FIXED
+ */
+function loadProgressTrend(data) {
+  const container = document.getElementById('progressTrendContainer');
+  if (!container) {
+    console.warn('⚠️ Progress trend container not found');
+    return;
+  }
 
+  const records = data.records || [];
+
+  if (records.length === 0) {
+    container.innerHTML = '<p style="color: var(--gray-600); text-align: center;">No trend data available</p>';
+    return;
+  }
+
+  // Simple text-based trend
+  let trend = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">';
+
+  records.forEach(record => {
+    const score = (record.ca1 || 0) + (record.ca2 || 0) + (record.exam || 0);
+    const percentage = Math.min((score / 100) * 100, 100);
+    const barColor = score >= 70 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
+
+    trend += `
+      <div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <strong style="font-size: 0.85rem;">${record.subject || 'Subject'}</strong>
+          <span style="font-size: 0.85rem;">${score}/100</span>
+        </div>
+        <div style="background: #f0f0f0; border-radius: 8px; height: 8px; overflow: hidden;">
+          <div style="background: ${barColor}; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+        </div>
+      </div>
+    `;
+  });
+
+  trend += '</div>';
+  container.innerHTML = trend;
+}
+
+/**
+ * Load Teacher Comments - FIXED
+ */
+function loadTeacherComments(data) {
+  const container = document.getElementById('commentsContainer');
+  if (!container) {
+    console.warn('⚠️ Comments container not found');
+    return;
+  }
+
+  const records = data.records || [];
+  const comments = records
+    .filter(r => r.remarks && r.remarks.trim() !== '')
+    .map(r => `<li>${r.subject}: "${r.remarks}"</li>`)
+    .join('');
+
+  if (!comments) {
+    container.innerHTML = '<p style="color: var(--gray-600); text-align: center;">No comments available</p>';
+    return;
+  }
+
+  container.innerHTML = `<ul style="margin-left: 20px;">${comments}</ul>`;
+}
+
+/**
+ * Load Performance Summary - FIXED
+ */
+function loadPerformanceSummary(data) {
+  const records = data.records || [];
+
+  const strengthsList = document.getElementById('strengthsList');
+  const improvementList = document.getElementById('improvementList');
+
+  if (!strengthsList || !improvementList) {
+    console.warn('⚠️ Performance summary elements not found');
+    return;
+  }
+
+  if (records.length === 0) {
+    strengthsList.textContent = 'N/A';
+    improvementList.textContent = 'N/A';
+    return;
+  }
+
+  // Identify strengths (A, B grades)
+  const strengths = records
+    .filter(r => {
+      const score = (r.ca1 || 0) + (r.ca2 || 0) + (r.exam || 0);
+      return score >= 70;
+    })
+    .map(r => r.subject)
+    .slice(0, 3);
+
+  // Identify areas for improvement (D, E, F grades)
+  const improvements = records
+    .filter(r => {
+      const score = (r.ca1 || 0) + (r.ca2 || 0) + (r.exam || 0);
+      return score < 60;
+    })
+    .map(r => r.subject)
+    .slice(0, 3);
+
+  const strengthsHTML = strengths.length > 0
+    ? strengths.map(s => `<div style="padding: 4px 0;">✓ ${s}</div>`).join('')
+    : '<div style="color: #999;">No notable strengths</div>';
+
+  const improvementHTML = improvements.length > 0
+    ? improvements.map(s => `<div style="padding: 4px 0;">• ${s}</div>`).join('')
+    : '<div style="color: #999;">Great! Keep it up</div>';
+
+  strengthsList.innerHTML = strengthsHTML;
+  improvementList.innerHTML = improvementHTML;
+}
 /**
  * Render Grades Table
  */
