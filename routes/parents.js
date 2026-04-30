@@ -196,13 +196,20 @@ router.get('/me', async (req, res) => {
       },
       
       // Fees Stats
-      feesStats: {
-        total: (student.fees || []).length,
-        pending: (student.fees || []).filter(f => f.status === 'pending').length,
-        paid: (student.fees || []).filter(f => f.status === 'paid').length,
-        outstanding: calculateOutstandingFees(student.fees),
-        byTerm: groupFeesByTerm(student.fees)
-      }
+// Fees Stats
+feesStats: {
+  total: (student.fees || []).length,
+  pending: (student.fees || []).filter(f => {
+    const status = String(f.status || '').toLowerCase();
+    return status === 'unpaid' || status === 'pending';
+  }).length,
+  paid: (student.fees || []).filter(f => {
+    const status = String(f.status || '').toLowerCase();
+    return status === 'paid' || status === 'waived';
+  }).length,
+  outstanding: calculateOutstandingFees(student.fees),
+  byTerm: groupFeesByTerm(student.fees)
+}
     }));
 
     // Dashboard summary (aggregate across all children)
@@ -527,7 +534,10 @@ function calculateAverageAttendance(attendance) {
 function calculateOutstandingFees(fees) {
   if (!fees || fees.length === 0) return 0;
   return fees
-    .filter(f => f.status === 'pending')
+    .filter(f => {
+      const status = String(f.status || '').toLowerCase();
+      return status === 'unpaid' || status === 'pending';
+    })
     .reduce((sum, f) => sum + (f.amount || 0), 0);
 }
 
@@ -588,9 +598,10 @@ function groupFeesByTerm(fees) {
       };
     }
     grouped[record.term].total += record.amount || 0;
-    if (record.status === 'paid') {
+    const status = String(record.status || '').toLowerCase();
+    if (status === 'paid' || status === 'waived') {
       grouped[record.term].paid += record.amount || 0;
-    } else if (record.status === 'pending') {
+    } else if (status === 'unpaid' || status === 'pending') {
       grouped[record.term].pending += record.amount || 0;
     }
   });
