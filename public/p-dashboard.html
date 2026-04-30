@@ -1337,259 +1337,892 @@
 
   <!-- Script -->
 <script>
-    const API_BASE = "https://examguard-8rxe.onrender.com/api";
-    const token = localStorage.getItem('parentToken') || localStorage.getItem('token');
-    let parentData = null;
+// ============================================
+// PARENT DASHBOARD - MAIN SCRIPT
+// Fully aligned with backend API endpoints
+// ============================================
 
-    // Sidebar Toggle
-    const menuToggle = document.getElementById('menuToggle');
+const API_BASE = window.API_BASE || "https://examguard-8rxe.onrender.com/api";
+const token = localStorage.getItem('parentToken') || localStorage.getItem('token');
+
+// ====== GLOBAL STATE ======
+let parentData = null;
+let allStudents = [];
+let currentGradeTerm = 1;
+let currentSelectedStudent = null;
+
+// ====== INITIALIZATION ======
+
+/**
+ * Initialize Dashboard on Page Load
+ */
+async function initDashboard() {
+  console.log('🚀 Initializing Parent Dashboard...');
+
+  // Check authentication
+  if (!token) {
+    console.warn('⚠️ No token found, redirecting to login...');
+    window.location.href = 'login.html';
+    return;
+  }
+
+  try {
+    // Setup UI listeners
+    setupUIListeners();
+
+    // Load all dashboard data
+    await loadParentData();
+    await updateDashboard();
+
+    console.log('✅ Dashboard initialization complete');
+  } catch (err) {
+    console.error('❌ Dashboard initialization error:', err);
+    showAlert('Failed to initialize dashboard: ' + err.message, 'error');
+  }
+}
+
+/**
+ * Setup All UI Event Listeners
+ */
+function setupUIListeners() {
+  // Sidebar toggle
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+
+  if (menuToggle) {
+    menuToggle.addEventListener('click', () => {
+      sidebar?.classList.toggle('visible');
+      overlay?.classList.toggle('visible');
+    });
+  }
+
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      sidebar?.classList.remove('visible');
+      overlay?.classList.remove('visible');
+    });
+  }
+
+  // Nav items click
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const section = item.dataset.section;
+      if (section) navigateTo(section);
+    });
+  });
+
+  // Logout button
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+}
+
+// ====== NAVIGATION ======
+
+/**
+ * Navigate Between Sections
+ */
+function navigateTo(section) {
+  console.log(`📄 Navigating to: ${section}`);
+
+  // Hide all sections
+  document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+
+  // Show target section
+  const targetSection = document.getElementById(`${section}-section`);
+  if (targetSection) {
+    targetSection.style.display = 'block';
+  }
+
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.section === section);
+  });
+
+  // Update page title
+  const titles = {
+    'dashboard': 'Dashboard',
+    'children': 'My Children',
+    'fees': 'Fees & Payments',
+    'grades': 'Academic Progress',
+    'attendance': 'Attendance',
+    'communications': 'Communications',
+    'settings': 'Settings'
+  };
+  const pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) pageTitle.textContent = titles[section] || 'Dashboard';
+
+  // Close sidebar on mobile
+  if (window.innerWidth < 768) {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
+    sidebar?.classList.remove('visible');
+    overlay?.classList.remove('visible');
+  }
 
-    menuToggle.addEventListener('click', () => {
-      sidebar.classList.toggle('visible');
-      overlay.classList.toggle('visible');
-    });
+  // Load section-specific data
+  if (section === 'grades') {
+    initializeAcademicProgress();
+  } else if (section === 'attendance') {
+    loadAttendanceData();
+  }
+}
 
-    overlay.addEventListener('click', () => {
-      sidebar.classList.remove('visible');
-      overlay.classList.remove('visible');
-    });
+// ====== DATA LOADING ======
 
-    // Navigation
-    function navigateTo(section) {
-      // Hide all sections
-      document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-      // Show selected section
-      const targetSection = document.getElementById(`${section}-section`);
-      if (targetSection) targetSection.style.display = 'block';
+/**
+ * Load Complete Parent Data from Backend
+ * Endpoint: GET /api/parents/me
+ */
+async function loadParentData() {
+  try {
+    console.log('📥 Loading parent data from /parents/me...');
 
-      // Update nav items
-      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-      document.querySelector(`[data-section="${section}"]`).classList.add('active');
-
-      // Update page title
-      const titles = {
-        'dashboard': 'Dashboard',
-        'children': 'My Children',
-        'fees': 'Fees & Payments',
-        'grades': 'Academic Progress',
-        'attendance': 'Attendance',
-        'communications': 'Communications',
-        'settings': 'Settings'
-      };
-      document.getElementById('pageTitle').textContent = titles[section] || 'Dashboard';
-
-      // Close sidebar on mobile
-      if (window.innerWidth < 768) {
-        sidebar.classList.remove('visible');
-        overlay.classList.remove('visible');
+    const res = await fetch(`${API_BASE}/parents/me`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     }
 
-    // Nav item click
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-        navigateTo(item.dataset.section);
-      });
+    parentData = await res.json();
+
+    console.log('✅ Parent data loaded:', {
+      name: parentData.name,
+      email: parentData.email,
+      childrenCount: parentData.students?.length || 0,
+      dashboardSummary: parentData.dashboardSummary
     });
 
-    // Initialize
-    async function init() {
-      if (!token) {
-        alert('Please log in first');
-        window.location.href = 'login.html';
-        return;
-      }
+    // Extract and process students
+    allStudents = parentData.students || [];
 
-      // Load parent data
-      await loadParentData();
-      updateDashboard();
-    }
+    // Update profile UI
+    updateProfileUI();
 
-    // ✅ Load parent data from /parents/me endpoint
-    async function loadParentData() {
-      try {
-        const res = await fetch(API_BASE + "/parents/me", {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
+    return parentData;
 
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
+  } catch (err) {
+    console.error('❌ Error loading parent data:', err);
+    throw err;
+  }
+}
 
-        parentData = await res.json();
+/**
+ * Update Profile UI Elements
+ */
+function updateProfileUI() {
+  if (!parentData) return;
+
+  const userName = document.getElementById('userName');
+  const userEmail = document.getElementById('userEmail');
+  const welcomeName = document.getElementById('welcomeName');
+
+  if (userName) userName.textContent = parentData.name || 'Parent';
+  if (userEmail) userEmail.textContent = parentData.email || '';
+  if (welcomeName) {
+    const firstName = parentData.name?.split(' ')[0] || 'Parent';
+    welcomeName.textContent = firstName;
+  }
+}
+
+/**
+ * Update Dashboard Statistics and Content
+ */
+async function updateDashboard() {
+  if (!parentData) return;
+
+  console.log('📊 Updating dashboard...');
+
+  try {
+    // Update dashboard summary cards
+    updateDashboardCards();
+
+    // Render children list
+    renderChildrenList();
+
+    // Load fees summary
+    await loadFeesSummary();
+
+    // Load recent activities
+    await loadRecentActivities();
+
+    console.log('✅ Dashboard updated successfully');
+
+  } catch (err) {
+    console.error('❌ Error updating dashboard:', err);
+  }
+}
+
+/**
+ * Update Dashboard Statistics Cards
+ */
+function updateDashboardCards() {
+  const summary = parentData.dashboardSummary || {};
+
+  // Update card values
+  const childrenCountEl = document.getElementById('childrenCount');
+  if (childrenCountEl) {
+    childrenCountEl.textContent = summary.totalChildren || allStudents.length || 0;
+  }
+
+  const pendingFeesEl = document.getElementById('pendingFeesCount');
+  if (pendingFeesEl) {
+    pendingFeesEl.textContent = summary.allStudentsPending || 0;
+  }
+
+  const avgAttendanceEl = document.getElementById('avgAttendance');
+  if (avgAttendanceEl) {
+    avgAttendanceEl.textContent = (summary.averageAttendance || 0) + '%';
+  }
+
+  const avgGradeEl = document.getElementById('avgGrade');
+  if (avgGradeEl) {
+    avgGradeEl.textContent = summary.averageGrade || 0.0;
+  }
+
+  console.log('✓ Dashboard cards updated:', summary);
+}
+
+/**
+ * Render Children List
+ */
+function renderChildrenList() {
+  const container = document.getElementById('childrenList');
+  if (!container) return;
+
+  if (!allStudents || allStudents.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">👶</div>
+        <div class="empty-title">No children assigned</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = allStudents.map(child => {
+    const academicStats = child.academicStats || {};
+    const attendanceStats = child.attendanceStats || {};
+    const feesStats = child.feesStats || {};
+
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas fa-user"></i>
+            ${child.name}
+          </div>
+          <span class="badge badge-info">${child.class || 'N/A'}</span>
+        </div>
         
-        // Update profile info
-        document.getElementById('userName').textContent = parentData.name || 'Parent';
-        document.getElementById('userEmail').textContent = parentData.email || '';
-        document.getElementById('welcomeName').textContent = parentData.name?.split(' ')[0] || 'Parent';
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+          <!-- Student Details -->
+          <div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Student ID</div>
+            <div style="font-weight: 600;">${child.student_id || 'N/A'}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Reg No</div>
+            <div style="font-weight: 600;">${child.regNo || 'N/A'}</div>
+          </div>
+          
+          <!-- Academic Stats -->
+          <div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Average Grade</div>
+            <div style="font-weight: 600; color: var(--primary);">${academicStats.averageScore || 0.0}</div>
+          </div>
+          
+          <!-- Attendance Stats -->
+          <div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Attendance</div>
+            <div style="font-weight: 600; color: var(--success);">${attendanceStats.averageAttendancePercentage || 0}%</div>
+          </div>
+          
+          <!-- Fees Stats -->
+          <div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Outstanding Fees</div>
+            <div style="font-weight: 600; color: var(--danger);">${formatCurrency(feesStats.outstanding || 0)}</div>
+          </div>
+          
+          <!-- Pending Count -->
+          <div>
+            <div style="font-size: 0.85rem; color: var(--gray-600); margin-bottom: 4px;">Subjects</div>
+            <div style="font-weight: 600;">${academicStats.subjects?.length || 0}</div>
+          </div>
+        </div>
 
-        console.log('✓ Parent data loaded:', parentData);
-      } catch (err) {
-        console.error('Error loading parent data:', err);
-        alert('Failed to load parent data: ' + err.message);
-      }
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-primary btn-sm" onclick="viewChildDetails('${child._id}')">
+            <i class="fas fa-eye"></i> View Details
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="navigateTo('grades')">
+            <i class="fas fa-chart-line"></i> Grades
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="navigateTo('attendance')">
+            <i class="fas fa-calendar-check"></i> Attendance
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Load Fees Summary and Render Fees Table
+ */
+async function loadFeesSummary() {
+  try {
+    console.log('💰 Loading fees summary...');
+
+    if (!allStudents || allStudents.length === 0) {
+      console.warn('No students to load fees for');
+      renderFeesTable([]);
+      return;
     }
 
-    // ✅ Update dashboard with parent's children data
-    function updateDashboard() {
-      if (!parentData) return;
+    // Aggregate fees from all students
+    let allFees = [];
+    let totalPaid = 0;
+    let totalOutstanding = 0;
 
-      // Children count
-      const children = parentData.studentIds || [];
-      document.getElementById('childrenCount').textContent = children.length;
+    allStudents.forEach(student => {
+      const studentFees = student.feesStats || {};
+      totalPaid += studentFees.paid || 0;
+      totalOutstanding += studentFees.outstanding || 0;
 
-      // Calculate fees statistics from children's fees
-      let totalFees = 0;
-      let paidFees = 0;
-      let unpaidFees = 0;
-      let allFees = [];
-
-      children.forEach(child => {
-        const childFees = child.fees || [];
-        childFees.forEach(fee => {
-          totalFees += fee.amount || 0;
-          if (fee.status === 'Paid' || fee.status === 'Waived') {
-            paidFees += fee.amount || 0;
-          } else {
-            unpaidFees += fee.amount || 0;
-          }
+      if (student.fees && Array.isArray(student.fees)) {
+        student.fees.forEach(fee => {
           allFees.push({
-            childName: `${child.firstname} ${child.surname}`,
+            childName: student.name,
+            childId: student._id,
             ...fee
           });
         });
-      });
-
-      document.getElementById('pendingFeesCount').textContent = allFees.filter(f => f.status !== 'Paid').length;
-      
-      // Update fee summary if showing fees section
-      updateFeesSummary(totalFees, paidFees, unpaidFees);
-      
-      // Render fees table
-      renderFeesTable(allFees);
-      
-      // Render children list
-      renderChildrenList(children);
-    }
-
-    // ✅ Update fees summary cards
-    function updateFeesSummary(total, paid, unpaid) {
-      // Find the fees section and update it
-      const feesSection = document.getElementById('fees-section');
-      if (!feesSection) return;
-
-      const summaryCards = feesSection.querySelectorAll('.stat-card');
-      if (summaryCards.length >= 3) {
-        summaryCards[0].innerHTML = `
-          <div class="stat-value">${formatCurrency(paid)}</div>
-          <div class="stat-label">Total Paid</div>
-        `;
-        summaryCards[1].innerHTML = `
-          <div class="stat-value">${formatCurrency(unpaid)}</div>
-          <div class="stat-label">Outstanding</div>
-        `;
-        summaryCards[2].innerHTML = `
-          <div class="stat-value">${formatCurrency(total)}</div>
-          <div class="stat-label">Total Fees</div>
-        `;
       }
-    }
-
-    // ✅ Format currency
-    function formatCurrency(value) {
-      return '₦' + (value || 0).toLocaleString();
-    }
-
-    // ✅ Render fees table
-    function renderFeesTable(fees) {
-      const tbody = document.querySelector('#feesTable tbody');
-      if (!tbody) return;
-
-      if (!fees || fees.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="6" class="empty-state">
-              <div class="empty-icon">📭</div>
-              <div class="empty-title">No fees assigned</div>
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = fees.map(fee => `
-        <tr>
-          <td>${fee.childName}</td>
-          <td>${fee.type}</td>
-          <td>${formatCurrency(fee.amount)}</td>
-          <td><span class="badge badge-${fee.status.toLowerCase()}">${fee.status}</span></td>
-          <td>${fee.date ? new Date(fee.date).toLocaleDateString() : '—'}</td>
-          <td><button class="btn btn-primary btn-sm">Pay</button></td>
-        </tr>
-      `).join('');
-    }
-
-    // ✅ Render children list
-    function renderChildrenList(children) {
-      const container = document.getElementById('childrenList');
-      if (!container) return;
-
-      if (!children || children.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">👶</div>
-            <div class="empty-title">No children assigned</div>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = children.map(child => `
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              ${child.firstname} ${child.surname}
-            </div>
-            <span class="badge badge-info">${child.class}</span>
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-            <div>
-              <strong>Student ID:</strong> ${child.student_id}
-            </div>
-            <div>
-              <strong>Reg No:</strong> ${child.regNo}
-            </div>
-            <div>
-              <strong>Class:</strong> ${child.class}
-            </div>
-            <div>
-              <strong>Active Fees:</strong> ${child.fees ? child.fees.length : 0}
-            </div>
-          </div>
-          <div style="margin-top: 16px; display: flex; gap: 8px;">
-            <button class="btn btn-primary btn-sm" onclick="navigateTo('fees')">
-              View Fees
-            </button>
-            <button class="btn btn-secondary btn-sm" onclick="navigateTo('attendance')">
-              Attendance
-            </button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Logout
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-      localStorage.removeItem('parentToken');
-      localStorage.removeItem('token');
-      window.location.href = 'login.html';
     });
 
-    // Initialize on load
-    window.addEventListener('DOMContentLoaded', init);
+    // Update fees cards
+    updateFeesSummaryCards(totalPaid, totalOutstanding, totalPaid + totalOutstanding);
+
+    // Render fees table
+    renderFeesTable(allFees);
+
+    console.log('✓ Fees summary loaded:', {
+      totalFees: allFees.length,
+      totalPaid,
+      totalOutstanding
+    });
+
+  } catch (err) {
+    console.error('❌ Error loading fees:', err);
+  }
+}
+
+/**
+ * Update Fees Summary Cards
+ */
+function updateFeesSummaryCards(paid, outstanding, total) {
+  const feesSection = document.getElementById('fees-section');
+  if (!feesSection) return;
+
+  const cards = feesSection.querySelectorAll('.stat-card');
+  
+  if (cards.length >= 1) {
+    cards[0].innerHTML = `
+      <div class="stat-value">${formatCurrency(paid)}</div>
+      <div class="stat-label">Total Paid</div>
+    `;
+  }
+  if (cards.length >= 2) {
+    cards[1].innerHTML = `
+      <div class="stat-value">${formatCurrency(outstanding)}</div>
+      <div class="stat-label">Outstanding</div>
+    `;
+  }
+  if (cards.length >= 3) {
+    cards[2].innerHTML = `
+      <div class="stat-value">${formatCurrency(total)}</div>
+      <div class="stat-label">Total Fees</div>
+    `;
+  }
+}
+
+/**
+ * Render Fees Table
+ */
+function renderFeesTable(fees) {
+  const tbody = document.querySelector('#feesTable tbody');
+  if (!tbody) return;
+
+  if (!fees || fees.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">No fees assigned</div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = fees.map((fee, idx) => {
+    const statusClass = (fee.status || '').toLowerCase().replace(/\s+/g, '');
+    const statusBadgeClass = statusClass === 'paid' || statusClass === 'waived' 
+      ? 'badge-success' 
+      : 'badge-warning';
+
+    return `
+      <tr>
+        <td><strong>${fee.childName || 'N/A'}</strong></td>
+        <td>${fee.type || 'General Fee'}</td>
+        <td>${formatCurrency(fee.amount || 0)}</td>
+        <td><span class="badge ${statusBadgeClass}">${fee.status || 'Pending'}</span></td>
+        <td>${fee.date ? new Date(fee.date).toLocaleDateString() : '—'}</td>
+        <td>
+          <button class="btn btn-primary btn-sm" onclick="processFeePayment('${fee.childId}', '${fee._id}')">
+            Pay
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/**
+ * Load Recent Activities
+ */
+async function loadRecentActivities() {
+  try {
+    console.log('📋 Loading recent activities...');
+
+    const tbody = document.querySelector('#activitiesTable tbody');
+    if (!tbody) return;
+
+    // Aggregate recent activities from all students
+    let activities = [];
+
+    allStudents.forEach(student => {
+      // Recent grades
+      if (student.academicStats?.byTerm) {
+        const latestTerm = Object.keys(student.academicStats.byTerm).pop();
+        if (latestTerm) {
+          activities.push({
+            childName: student.name,
+            activity: `Grades updated for ${latestTerm}`,
+            type: 'grades',
+            date: new Date(),
+            status: 'Completed'
+          });
+        }
+      }
+
+      // Recent attendance
+      if (student.attendanceStats?.byTerm) {
+        const latestTerm = Object.keys(student.attendanceStats.byTerm).pop();
+        if (latestTerm) {
+          activities.push({
+            childName: student.name,
+            activity: `Attendance marked for ${latestTerm}`,
+            type: 'attendance',
+            date: new Date(),
+            status: 'Completed'
+          });
+        }
+      }
+
+      // Pending fees
+      if (student.feesStats?.pending > 0) {
+        activities.push({
+          childName: student.name,
+          activity: `${student.feesStats.pending} fee(s) pending`,
+          type: 'fees',
+          date: new Date(),
+          status: 'Action Required'
+        });
+      }
+    });
+
+    // Sort by date (most recent first)
+    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Render
+    if (activities.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="empty-state">
+            <p>No recent activities</p>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = activities.slice(0, 5).map(activity => `
+      <tr>
+        <td><strong>${activity.childName}</strong></td>
+        <td>${activity.activity}</td>
+        <td>${activity.date.toLocaleDateString()}</td>
+        <td><span class="badge ${activity.status === 'Completed' ? 'badge-success' : 'badge-warning'}">${activity.status}</span></td>
+      </tr>
+    `).join('');
+
+    console.log('✓ Activities loaded:', activities.length);
+
+  } catch (err) {
+    console.error('❌ Error loading activities:', err);
+  }
+}
+
+// ====== ACADEMIC PROGRESS ======
+
+/**
+ * Initialize Academic Progress Section
+ */
+async function initializeAcademicProgress() {
+  console.log('📚 Initializing academic progress...');
+
+  try {
+    if (allStudents.length === 0) {
+      showAlert('No students found', 'info');
+      return;
+    }
+
+    // Populate child selector
+    populateChildSelector();
+
+    // Load grades for first child
+    currentSelectedStudent = allStudents[0]._id;
+    await loadAcademicProgress();
+
+  } catch (err) {
+    console.error('❌ Error initializing academic progress:', err);
+    showAlert('Failed to load academic progress', 'error');
+  }
+}
+
+/**
+ * Populate Child Selector Dropdown
+ */
+function populateChildSelector() {
+  const selector = document.getElementById('gradesChildSelect');
+  if (!selector) return;
+
+  selector.innerHTML = '<option value="">All Children</option>';
+
+  allStudents.forEach(student => {
+    const option = document.createElement('option');
+    option.value = student._id;
+    option.textContent = student.name || `${student.firstname} ${student.surname}`;
+    selector.appendChild(option);
+  });
+
+  selector.addEventListener('change', async (e) => {
+    currentSelectedStudent = e.target.value;
+    currentGradeTerm = 1;
+    await loadAcademicProgress();
+  });
+}
+
+/**
+ * Load Academic Progress
+ */
+async function loadAcademicProgress() {
+  try {
+    if (!currentSelectedStudent) {
+      console.log('Loading all students grades');
+      // TODO: Load all students comparison
+      return;
+    }
+
+    const url = `${API_BASE}/parents/me/students/${currentSelectedStudent}/grades?term=${currentGradeTerm}`;
+
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch grades');
+
+    const data = await res.json();
+
+    // Render grades table
+    renderGradesTable(data.records || []);
+
+    // Update statistics
+    updateGradeStatistics(data);
+
+    console.log('✓ Grades loaded:', data.recordCount, 'records');
+
+  } catch (err) {
+    console.error('❌ Error loading grades:', err);
+    showAlert('Failed to load grades', 'error');
+  }
+}
+
+/**
+ * Render Grades Table
+ */
+function renderGradesTable(records) {
+  const tbody = document.querySelector('#gradesTable tbody');
+  if (!tbody) return;
+
+  if (!records || records.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-state">
+          <div class="empty-icon">📚</div>
+          <div class="empty-title">No grades available</div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = records.map(record => {
+    const ca1 = record.ca1 || 0;
+    const ca2 = record.ca2 || 0;
+    const exam = record.exam || 0;
+    const total = ca1 + ca2 + exam;
+    const grade = record.grade || getGradeLetter(total);
+    const gradeClass = `grade-${grade.toLowerCase()}`;
+
+    return `
+      <tr>
+        <td><strong>${record.subject}</strong></td>
+        <td>${ca1}</td>
+        <td>${ca2}</td>
+        <td>${exam}</td>
+        <td><strong>${total}</strong></td>
+        <td><span class="badge ${gradeClass}">${grade}</span></td>
+        <td>${record.remarks || '—'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/**
+ * Update Grade Statistics
+ */
+function updateGradeStatistics(data) {
+  const records = data.records || [];
+
+  if (records.length === 0) {
+    document.getElementById('overallGPA').textContent = '0.0';
+    document.getElementById('highestScore').textContent = '0';
+    document.getElementById('averageScore').textContent = '0';
+    document.getElementById('lowestScore').textContent = '0';
+    return;
+  }
+
+  const scores = records.map(r => (r.ca1 || 0) + (r.ca2 || 0) + (r.exam || 0));
+  const average = (scores.reduce((a, b) => a + b, 0) / records.length).toFixed(1);
+
+  document.getElementById('overallGPA').textContent = (average / 20).toFixed(2);
+  document.getElementById('highestScore').textContent = Math.max(...scores);
+  document.getElementById('averageScore').textContent = Math.round(average);
+  document.getElementById('lowestScore').textContent = Math.min(...scores);
+}
+
+/**
+ * Get Grade Letter from Score
+ */
+function getGradeLetter(score) {
+  if (score >= 90) return 'A';
+  if (score >= 80) return 'B';
+  if (score >= 70) return 'C';
+  if (score >= 60) return 'D';
+  if (score >= 50) return 'E';
+  return 'F';
+}
+
+/**
+ * Switch Grade Term
+ */
+async function switchGradeTerm(term, event) {
+  event?.preventDefault();
+  currentGradeTerm = term;
+
+  // Update active tab
+  document.querySelectorAll('.tabs .tab').forEach((tab, idx) => {
+    tab.classList.toggle('active', idx === term - 1);
+  });
+
+  await loadAcademicProgress();
+}
+
+// ====== ATTENDANCE ======
+
+/**
+ * Load Attendance Data
+ */
+async function loadAttendanceData() {
+  try {
+    console.log('📅 Loading attendance data...');
+
+    if (allStudents.length === 0) {
+      showAlert('No students found', 'info');
+      return;
+    }
+
+    // Load attendance for first student or selected student
+    const studentId = currentSelectedStudent || allStudents[0]._id;
+
+    const url = `${API_BASE}/parents/me/students/${studentId}/attendance`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch attendance');
+
+    const data = await res.json();
+
+    console.log('✓ Attendance data loaded:', data.stats);
+
+    // Render attendance summary
+    renderAttendanceSummary(data);
+
+  } catch (err) {
+    console.error('❌ Error loading attendance:', err);
+    showAlert('Failed to load attendance data', 'error');
+  }
+}
+
+/**
+ * Render Attendance Summary
+ */
+function renderAttendanceSummary(data) {
+  const container = document.querySelector('#attendance-section .card-header');
+  if (!container) return;
+
+  const stats = data.stats || {};
+
+  const summary = `
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-top: 16px;">
+      <div style="padding: 12px; background: var(--gray-100); border-radius: 8px;">
+        <div style="font-size: 0.85rem; color: var(--gray-600);">Total Days</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${stats.totalDays || 0}</div>
+      </div>
+      <div style="padding: 12px; background: var(--gray-100); border-radius: 8px;">
+        <div style="font-size: 0.85rem; color: var(--gray-600);">Days Present</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">${stats.totalPresent || 0}</div>
+      </div>
+      <div style="padding: 12px; background: var(--gray-100); border-radius: 8px;">
+        <div style="font-size: 0.85rem; color: var(--gray-600);">Attendance %</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--info);">${stats.overallPercentage || 0}%</div>
+      </div>
+    </div>
+  `;
+
+  container.insertAdjacentHTML('afterend', summary);
+}
+
+// ====== UTILITY FUNCTIONS ======
+
+/**
+ * Format Currency
+ */
+function formatCurrency(value) {
+  return '₦' + (value || 0).toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+/**
+ * Show Alert Message
+ */
+function showAlert(message, type = 'info') {
+  const alertClass = {
+    'success': 'alert-success',
+    'error': 'alert-error',
+    'info': 'alert-info'
+  }[type] || 'alert-info';
+
+  const alert = document.createElement('div');
+  alert.className = `alert ${alertClass}`;
+  alert.innerHTML = `
+    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+    <span>${message}</span>
+  `;
+
+  alert.style.position = 'fixed';
+  alert.style.top = '20px';
+  alert.style.right = '20px';
+  alert.style.zIndex = '9999';
+  alert.style.minWidth = '300px';
+  alert.style.boxShadow = 'var(--shadow-lg)';
+
+  document.body.appendChild(alert);
+
+  setTimeout(() => alert.remove(), 5000);
+}
+
+/**
+ * Logout
+ */
+function logout() {
+  console.log('🚪 Logging out...');
+  localStorage.removeItem('parentToken');
+  localStorage.removeItem('token');
+  window.location.href = 'login.html';
+}
+
+/**
+ * View Child Details (Placeholder)
+ */
+function viewChildDetails(childId) {
+  console.log('👁️ Viewing child details:', childId);
+  showAlert('Feature coming soon', 'info');
+}
+
+/**
+ * Process Fee Payment (Placeholder)
+ */
+function processFeePayment(childId, feeId) {
+  console.log('💳 Processing payment:', { childId, feeId });
+  showAlert('Payment gateway coming soon', 'info');
+}
+
+/**
+ * Download Grades Report
+ */
+function downloadGradesReport() {
+  console.log('📥 Downloading grades report...');
+  
+  const table = document.getElementById('gradesTable');
+  if (!table) return;
+
+  let csv = 'Subject,CA1,CA2,Exam,Total,Grade,Remarks\n';
+
+  table.querySelectorAll('tbody tr').forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td'));
+    if (cells.length > 1) {
+      const rowData = cells.map(cell => `"${cell.textContent.trim()}"`).join(',');
+      csv += rowData + '\n';
+    }
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `grades-term${currentGradeTerm}-${new Date().getTime()}.csv`;
+  link.click();
+
+  showAlert('Report downloaded successfully', 'success');
+}
+
+// ====== INITIALIZATION ON DOM READY ======
+
+document.addEventListener('DOMContentLoaded', initDashboard);
 </script>
 </body>
 </html>
