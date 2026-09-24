@@ -90,6 +90,12 @@ const StudentSchema = new mongoose.Schema({
   genotype: { type: String, default: '' },
   medical: { type: String, default: '' },
   password: { type: String, required: true },
+  schoolId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'School',
+    default: null,
+    index: true
+  },
   // NEW: Reference to parent account
   parentId: {
     type: mongoose.Schema.Types.ObjectId,
