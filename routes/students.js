@@ -7,7 +7,26 @@ const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const studentAuthMiddleware = require('../middleware/studentAuth');
 const adminAuth = require('../middleware/adminAuth');
-const Student = require('../models/Student'); // Mongoose model
+const { authMiddleware } = require('./auth');
+const Student = require('../models/Student');
+function getSchoolId(req) {
+  if (!req.user) return null;
+  if (req.user.role === 'superadmin') {
+    return null;
+  }
+  return req.user.schoolId || null;
+}
+
+function applySchoolFilter(req, query = {}) {
+  const schoolId = getSchoolId(req);
+  if (req.user?.role !== 'superadmin') {
+    if (!schoolId) {
+      throw new Error('Your account is not assigned to a school.');
+    }
+    query.schoolId = schoolId;
+  }
+  return query;
+}
 
 // Multer setup for photo uploads (limit size to 2MB, accept only images/docs)
 const storage = multer.memoryStorage();
@@ -76,12 +95,20 @@ const studentSchema = Joi.object({
   medical: Joi.string().allow('')
 });
 
-// --- Enroll a new student ---
-router.post('/', upload.single('photo'), async (req, res) => {
+router.post('/', authMiddleware, upload.single('photo'), async (req, res) => {
   try {
+    const schoolId = getSchoolId(req);
+
+    if (req.user.role !== 'superadmin' && !schoolId) {
+      return res.status(403).json({
+        error: 'Your account is not assigned to a school.'
+      });
+    }
+
     if (!req.body.scratchCard || req.body.scratchCard.length !== 8) {
       req.body.scratchCard = generateScratchCard();
     }
+
     if (req.body.regNo) delete req.body.regNo;
 
     const { error, value: data } = studentSchema.validate(req.body);
@@ -89,9 +116,15 @@ router.post('/', upload.single('photo'), async (req, res) => {
 
     const year = new Date().getFullYear();
     // Get highest regNo for this year
-    const lastStudent = await Student.findOne({ regNo: { $regex: `^${year}/` } })
-      .sort({ regNo: -1 })
-      .exec();
+    const regNoQuery = {
+  regNo: { $regex: `^${year}/` }
+};
+
+applySchoolFilter(req, regNoQuery);
+
+const lastStudent = await Student.findOne(regNoQuery)
+  .sort({ regNo: -1 })
+  .exec();
 
     let nextSerial = 1;
     if (lastStudent && lastStudent.regNo) {
@@ -136,8 +169,9 @@ if (data.parentId && mongoose.Types.ObjectId.isValid(data.parentId)) {
   parentObjectId = new mongoose.Types.ObjectId(data.parentId);
 }
     const studentDoc = {
-      student_id,
-      surname: data.surname,
+  schoolId: schoolId || null,
+  student_id,
+  surname: data.surname,
       firstname: data.firstname,
       othernames: data.othernames || '',
       dob: data.dob,
