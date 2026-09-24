@@ -28,7 +28,19 @@ const validateSchool = (req, res, next) => {
 
   next();
 };
+async function generateUniqueSubdomain(schoolName) {
+    const base = generateSubdomain(schoolName);
 
+    let subdomain = base;
+    let counter = 2;
+
+    while (await School.exists({ subdomain })) {
+        subdomain = `${base}-${counter}`;
+        counter++;
+    }
+
+    return subdomain;
+}
 // ===== PUBLIC ENDPOINTS =====
 
 /**
