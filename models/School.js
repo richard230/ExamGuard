@@ -454,7 +454,14 @@ const schoolSchema = new Schema(
       type: Date,
       sparse: true
     },
-
+subdomain: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true,
+    index: true
+},
     storageUsed: { type: Number, default: 0 },
     storageLimit: { type: Number, default: 5000 },
     maxUsers: { type: Number, default: 100 },
