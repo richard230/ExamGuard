@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const StaffSchema = new mongoose.Schema({
-  photo: String, // base64 image string
+  photo: String,
   first_name: String,
   last_name: String,
   other_names: String,
@@ -22,7 +22,7 @@ const StaffSchema = new mongoose.Schema({
   specialization: String,
   id_type: String,
   id_number: String,
-  id_upload: String, // base64 or file url
+  id_upload: String,
   kin_name: String,
   kin_relationship: String,
   kin_phone: String,
@@ -37,10 +37,9 @@ const StaffSchema = new mongoose.Schema({
   emergency_phone: { type: String },
   emergency_relationship: { type: String },
   login_email: { type: String, required: true, unique: true },
-  login_password: { type: String, required: true }, // hashed
-  access_level: { type: String, required: true, enum: [
-    'Teacher', 'Head Teacher', 'Principal', 'HR', 'Account/Admin'
-  ] },
+  login_password: { type: String, required: true },
+  access_level: { type: String, required: true, enum: ['Teacher', 'Head Teacher', 'Principal', 'HR', 'Account/Admin'] },
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', default: null, index: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Staff', StaffSchema);
