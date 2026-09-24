@@ -495,10 +495,6 @@ router.get('/admin/all', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
-/**
- * POST /api/schools
- * Create new school (Admin)
- */
 router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => {
   try {
     const {
@@ -506,24 +502,85 @@ router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => 
       schoolType,
       studentCount,
       staffCount,
+      foundedYear,
+      regNumber,
+      motto,
+      abbreviation,
       country,
       state,
       city,
       address,
+      postalCode,
       email,
       phone,
+      secondaryEmail,
+      altPhone,
       website,
+      principal,
+      principalEmail,
       adminName,
       adminEmail,
       adminPhone,
-      principal,
-      abbreviation,
+      description,
+      programs = [],
+      logoUrl,
       subscriptionPlan,
       subscriptionStatus
     } = req.body;
 
-    // Check if email already exists
-    const existingEmail = await School.findOne({ email: email.toLowerCase() });
+    const requiredFields = [
+      'schoolName',
+      'country',
+      'email',
+      'phone',
+      'adminName',
+      'adminEmail',
+      'adminPhone'
+    ];
+
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid school email format'
+      });
+    }
+
+    if (!emailRegex.test(adminEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid admin email format'
+      });
+    }
+
+    if (principalEmail && !emailRegex.test(principalEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid principal email format'
+      });
+    }
+
+    if (secondaryEmail && !emailRegex.test(secondaryEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid secondary email format'
+      });
+    }
+
+    const existingEmail = await School.findOne({
+      email: email.toLowerCase().trim()
+    });
+
     if (existingEmail) {
       return res.status(409).json({
         success: false,
@@ -531,33 +588,51 @@ router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => 
       });
     }
 
-    // Create new school
+    const existingAdminEmail = await School.findOne({
+      adminEmail: adminEmail.toLowerCase().trim()
+    });
+
+    if (existingAdminEmail) {
+      return res.status(409).json({
+        success: false,
+        error: 'This admin email is already associated with another school'
+      });
+    }
+
     const newSchool = new School({
       schoolName: schoolName.trim(),
       schoolType: schoolType || 'secondary',
       studentCount: parseInt(studentCount) || 0,
       staffCount: parseInt(staffCount) || 0,
+      foundedYear: foundedYear ? parseInt(foundedYear) : null,
+      regNumber: regNumber?.trim() || '',
+      motto: motto?.trim() || '',
+      abbreviation: (abbreviation || schoolName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 3)).trim().toUpperCase(),
       country: country.trim(),
-      state: state?.trim() || null,
-      city: city?.trim() || null,
-      address: address?.trim() || null,
+      state: state?.trim() || '',
+      city: city?.trim() || '',
+      address: address?.trim() || '',
+      postalCode: postalCode?.trim() || '',
       email: email.toLowerCase().trim(),
       phone: phone.trim(),
-      website: website?.trim() || null,
+      secondaryEmail: secondaryEmail?.toLowerCase().trim() || '',
+      altPhone: altPhone?.trim() || '',
+      website: website?.trim() || '',
+      principal: principal?.trim() || '',
+      principalEmail: principalEmail?.toLowerCase().trim() || '',
       adminName: adminName.trim(),
       adminEmail: adminEmail.toLowerCase().trim(),
       adminPhone: adminPhone.trim(),
-      principal: principal?.trim() || null,
-      abbreviation: (abbreviation || schoolName.substring(0, 3)).trim().toUpperCase(),
+      description: description?.trim() || '',
+      programs: Array.isArray(programs) ? programs : [],
+      logoUrl: logoUrl?.trim() || '',
       subscriptionPlan: subscriptionPlan || 'starter',
       subscriptionStatus: subscriptionStatus || 'trial',
       createdBy: req.user._id,
       status: 'active'
     });
 
-    // Generate schoolId
     newSchool.generateSchoolId();
-
     await newSchool.save();
 
     res.status(201).json({
@@ -567,13 +642,23 @@ router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => 
     });
   } catch (err) {
     console.error('Error creating school:', err);
+
     if (err.code === 11000) {
-      const field = Object.keys(err.keyPattern)[0];
+      const field = Object.keys(err.keyPattern || {})[0] || 'field';
       return res.status(409).json({
         success: false,
         error: `${field} already exists`
       });
     }
+
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map(error => error.message);
+      return res.status(400).json({
+        success: false,
+        error: `Validation error: ${messages.join(', ')}`
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Error creating school',
@@ -581,6 +666,7 @@ router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => 
     });
   }
 });
+
 
 /**
  * GET /api/schools/:id
