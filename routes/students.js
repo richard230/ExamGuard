@@ -136,23 +136,35 @@ const lastStudent = await Student.findOne(regNoQuery)
     const regNo = `${year}/${String(nextSerial).padStart(4, '0')}`;
 
     // Ensure regNo and student_id are unique
-    if (await Student.exists({ regNo })) {
+    const regNoExistsQuery = { regNo };
+applySchoolFilter(req, regNoExistsQuery);
+
+if (await Student.exists(regNoExistsQuery)) {
       return res.status(400).json({ error: 'A student with that registration number already exists. Please try again.' });
     }
 
     // Ensure scratchCard is unique
     let scratchCard = data.scratchCard;
     let tries = 0;
-    while (await Student.exists({ scratchCard }) && tries < 5) {
+    const scratchCardExists = async (card) => {
+  const query = { scratchCard };
+  applySchoolFilter(req, query);
+  return Student.exists(query);
+};
+
+while (await scratchCardExists(scratchCard) && tries < 5) {
       scratchCard = generateScratchCard();
       tries++;
     }
-    if (tries === 5 && await Student.exists({ scratchCard })) {
+    if (tries === 5 && await scratchCardExists(scratchCard)) {
       return res.status(400).json({ error: 'Could not generate a unique scratch card. Please try again.' });
     }
 
     let student_id = data.student_id || generateStudentId();
-    if (await Student.exists({ student_id })) {
+    const studentIdExistsQuery = { student_id };
+applySchoolFilter(req, studentIdExistsQuery);
+
+if (await Student.exists(studentIdExistsQuery)) {
       return res.status(400).json({ error: 'A student with that student ID already exists.' });
     }
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -348,10 +360,10 @@ router.patch('/bulk/promote', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// --- Get students (with filtering, pagination) ---
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
     let query = {};
+applySchoolFilter(req, query);
     let directLookup = false;
 
     if (req.query.student_id) {
@@ -514,10 +526,13 @@ router.get('/mni', async (req, res) => {
   }
 });
 // --- Get a student profile by regNo (admin only) ---
-router.get('/:regNo', adminAuth, async (req, res) => {
+router.get('/:regNo', authMiddleware, adminAuth, async (req, res) => {
   try {
     const regNo = req.params.regNo;
-    const profile = await Student.findOne({ regNo });
+    const profileQuery = { regNo };
+applySchoolFilter(req, profileQuery);
+
+const profile = await Student.findOne(profileQuery);
     if (!profile) return res.status(404).json({ error: 'Student not found' });
 
     const { password, ...safeProfile } = profile.toObject();
