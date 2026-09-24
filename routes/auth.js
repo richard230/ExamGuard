@@ -2,20 +2,18 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-// Mongoose models
 const User = require('../models/User');
 const Staff = require('../models/Staff');
 const Student = require('../models/Student');
 
-// --- UNIFIED LOGIN ROUTE ---
 router.post('/login', async (req, res) => {
   const { email, regNo, password } = req.body;
   if ((!email && !regNo) || !password) {
-    return res.status(400).json({ error: 'Email/registration number and password are required.' });
+    return res.status(400).json({
+      error: 'Email/registration number and password are required.'
+    });
   }
   try {
-    // 1. Try User (admin/superadmin)
     let user = null;
     if (email) {
       user = await User.findOne({ email });
@@ -28,7 +26,8 @@ router.post('/login', async (req, res) => {
           id: user._id,
           role: user.role,
           email: user.email,
-          regNo: user.regNo || null
+          regNo: user.regNo || null,
+          schoolId: user.schoolId || null
         },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
@@ -40,23 +39,22 @@ router.post('/login', async (req, res) => {
           name: user.name,
           email: user.email,
           regNo: user.regNo || null,
-          role: user.role
+          role: user.role,
+          schoolId: user.schoolId || null
         }
       });
     }
-
-    // 2. Try Staff (by login_email or email)
     let staff = null;
     if (email) {
       staff = await Staff.findOne({ login_email: email }) || await Staff.findOne({ email });
     }
-    // Staff can ONLY login with email (not regNo)
     if (staff && await bcrypt.compare(password, staff.login_password)) {
       const token = jwt.sign(
         {
           id: staff._id,
           role: staff.access_level || 'staff',
-          email: staff.login_email || staff.email
+          email: staff.login_email || staff.email,
+          schoolId: staff.schoolId || null
         },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
@@ -69,12 +67,11 @@ router.post('/login', async (req, res) => {
           email: staff.login_email || staff.email,
           role: staff.access_level || 'staff',
           department: staff.department,
-          designation: staff.designation
+          designation: staff.designation,
+          schoolId: staff.schoolId || null
         }
       });
     }
-
-    // 3. Try Student (by regNo or studentEmail)
     let student = null;
     if (regNo) {
       student = await Student.findOne({ regNo });
@@ -86,7 +83,8 @@ router.post('/login', async (req, res) => {
         {
           id: student._id,
           role: 'student',
-          regNo: student.regNo
+          regNo: student.regNo,
+          schoolId: student.schoolId || null
         },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
@@ -97,30 +95,32 @@ router.post('/login', async (req, res) => {
           id: student._id,
           name: `${student.firstname} ${student.surname}`,
           regNo: student.regNo,
-          role: 'student'
+          role: 'student',
+          schoolId: student.schoolId || null
         }
       });
     }
-
-    // If none matched, invalid credentials
-    return res.status(401).json({ error: 'Invalid credentials.' });
+    return res.status(401).json({
+      error: 'Invalid credentials.'
+    });
   } catch (err) {
     console.error('[LOGIN ERROR]', err);
-    res.status(500).json({ error: 'Server error.' });
+    res.status(500).json({
+      error: 'Server error.'
+    });
   }
 });
 
-// --- AUTH MIDDLEWARE ---
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No token provided.' });
+    return res.status(401).json({
+      error: 'No token provided.'
+    });
   }
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // 1. Try fetching user (admin/superadmin)
     let user = await User.findById(decoded.id);
     if (user) {
       req.user = {
@@ -128,11 +128,11 @@ async function authMiddleware(req, res, next) {
         name: user.name,
         email: user.email,
         regNo: user.regNo || null,
-        role: user.role
+        role: user.role,
+        schoolId: user.schoolId || null
       };
       return next();
     }
-    // 2. Try fetching staff
     let staff = await Staff.findById(decoded.id);
     if (staff) {
       req.user = {
@@ -141,30 +141,38 @@ async function authMiddleware(req, res, next) {
         email: staff.login_email || staff.email,
         role: staff.access_level || 'staff',
         department: staff.department,
-        designation: staff.designation
+        designation: staff.designation,
+        schoolId: staff.schoolId || null
       };
       return next();
     }
-    // 3. Fallback: Try fetching student
     let student = await Student.findById(decoded.id);
     if (student) {
       req.user = {
         id: student._id,
         name: `${student.firstname} ${student.surname}`,
         regNo: student.regNo,
-        role: 'student'
+        role: 'student',
+        schoolId: student.schoolId || null
       };
       return next();
     }
-    return res.status(401).json({ error: 'User not found.' });
+    return res.status(401).json({
+      error: 'User not found.'
+    });
   } catch (err) {
-    res.status(401).json({ error: 'Invalid or expired token.' });
+    console.error('[AUTH ERROR]', err);
+    return res.status(401).json({
+      error: 'Invalid or expired token.'
+    });
   }
 }
 
-// --- GET CURRENT USER ROUTE ---
 router.get('/me', authMiddleware, (req, res) => {
   res.json(req.user);
 });
 
-module.exports = { router, authMiddleware };
+module.exports = {
+  router,
+  authMiddleware
+};
