@@ -139,12 +139,308 @@ router.get('/search/:query', async (req, res) => {
   }
 });
 
-// ===== AUTHENTICATED ADMIN ENDPOINTS =====
+router.get('/config', async (req, res) => {
+  try {
+    const { schoolId, domain, subdomain } = req.query;
 
-/**
- * GET /api/schools/admin/all
- * Get all schools (Admin)
- */
+    if (!schoolId && !domain && !subdomain) {
+      return res.status(400).json({
+        success: false,
+        error: 'A schoolId, domain, or subdomain query parameter is required.'
+      });
+    }
+
+    const query = {
+      status: 'active',
+      isDeleted: { $ne: true }
+    };
+
+    if (schoolId) {
+      query.schoolId = schoolId.trim();
+    } else if (subdomain) {
+      query.subdomain = subdomain.trim().toLowerCase();
+    } else if (domain) {
+      const cleanDomain = domain.trim().toLowerCase();
+      query.$or = [
+        { customDomain: cleanDomain },
+        { subdomain: cleanDomain }
+      ];
+    }
+
+    const school = await School.findOne(query)
+      .select(`
+        _id
+        schoolId
+        schoolName
+        abbreviation
+        motto
+        tagline
+        schoolType
+        ownershipType
+        establishedYear
+        registrationNumber
+        subdomain
+        customDomain
+        country
+        state
+        city
+        address
+        postalCode
+        coordinates
+        email
+        phone
+        altPhone
+        website
+        principal
+        branding
+        academicConfig
+        localization
+        authSettings
+        portalAccess
+        featuresEnabled
+        paymentConfig
+        communication
+        pwaSettings
+        settings
+      `)
+      .lean();
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School configuration not found or account is currently inactive.'
+      });
+    }
+
+    let bankDetails = school.paymentConfig?.bankTransferDetails || [];
+    if (bankDetails.length === 0 && (school.paymentConfig?.bankName || school.paymentConfig?.accountNumber)) {
+      bankDetails = [{
+        bankName: school.paymentConfig.bankName || '',
+        accountName: school.paymentConfig.accountName || '',
+        accountNumber: school.paymentConfig.accountNumber || '',
+        sortCode: school.paymentConfig.sortCode || ''
+      }];
+    }
+
+    const config = {
+      school: {
+        id: school._id,
+        schoolId: school.schoolId,
+        name: school.schoolName,
+        abbreviation: school.abbreviation || '',
+        motto: school.motto || school.settings?.motto || '',
+        tagline: school.tagline || school.settings?.tagline || '',
+        schoolType: school.schoolType || 'K-12',
+        ownershipType: school.ownershipType || 'Private',
+        establishedYear: school.establishedYear || null,
+        registrationNumber: school.registrationNumber || '',
+        domains: {
+          subdomain: school.subdomain || '',
+          customDomain: school.customDomain || ''
+        },
+        contact: {
+          email: school.email || '',
+          phone: school.phone || '',
+          altPhone: school.altPhone || '',
+          website: school.website || ''
+        },
+        location: {
+          country: school.country || '',
+          state: school.state || '',
+          city: school.city || '',
+          address: school.address || '',
+          postalCode: school.postalCode || '',
+          coordinates: {
+            latitude: school.coordinates?.latitude ?? null,
+            longitude: school.coordinates?.longitude ?? null
+          }
+        },
+        principal: {
+          name: typeof school.principal === 'object' ? (school.principal?.name || '') : (school.principal || ''),
+          title: school.principal?.title || 'Principal',
+          email: school.principal?.email || '',
+          signatureUrl: school.principal?.signatureUrl || ''
+        }
+      },
+
+      branding: {
+        logos: {
+          main: school.branding?.logo || '',
+          dark: school.branding?.darkLogo || school.branding?.logo || '',
+          light: school.branding?.lightLogo || school.branding?.logo || '',
+          monochrome: school.branding?.monochromeLogo || '',
+          watermark: school.branding?.watermark || school.branding?.logo || '',
+          stamp: school.branding?.schoolStamp || ''
+        },
+        favicon: school.branding?.favicon || '',
+        colors: {
+          primary: school.branding?.primaryColor || '#1E3A8A',
+          secondary: school.branding?.secondaryColor || '#F59E0B',
+          accent: school.branding?.accentColor || '#10B981',
+          dark: school.branding?.darkColor || '#111827',
+          light: school.branding?.lightColor || '#F9FAFB',
+          sidebarBg: school.branding?.sidebarBg || '#1E293B',
+          headerBg: school.branding?.headerBg || '#FFFFFF'
+        },
+        typography: {
+          fontFamily: school.branding?.fontFamily || 'Inter, sans-serif',
+          headingFont: school.branding?.headingFont || 'Inter, sans-serif'
+        },
+        customCssUrl: school.branding?.customCssUrl || ''
+      },
+
+      academic: {
+        currentSession: school.academicConfig?.currentSession || '',
+        currentTerm: school.academicConfig?.currentTerm || '',
+        dates: {
+          termStartDate: school.academicConfig?.termStartDate || null,
+          termEndDate: school.academicConfig?.termEndDate || null,
+          nextTermBeginDate: school.academicConfig?.nextTermBeginDate || null
+        },
+        assessmentStructure: {
+          caWeight: school.academicConfig?.assessmentStructure?.caWeight ?? 30,
+          examWeight: school.academicConfig?.assessmentStructure?.examWeight ?? 70,
+          caBreakdown: school.academicConfig?.assessmentStructure?.caBreakdown || [
+            { name: 'CA 1', maxScore: 15 },
+            { name: 'CA 2', maxScore: 15 }
+          ]
+        },
+        gradingScale: school.academicConfig?.gradingScale || [
+          { grade: 'A', minScore: 70, maxScore: 100, remark: 'Excellent' },
+          { grade: 'B', minScore: 60, maxScore: 69, remark: 'Very Good' },
+          { grade: 'C', minScore: 50, maxScore: 59, remark: 'Good' },
+          { grade: 'D', minScore: 45, maxScore: 49, remark: 'Fair' },
+          { grade: 'E', minScore: 40, maxScore: 44, remark: 'Pass' },
+          { grade: 'F', minScore: 0, maxScore: 39, remark: 'Fail' }
+        ],
+        attendanceMode: school.academicConfig?.attendanceMode || 'daily',
+        reportCardSettings: {
+          showPosition: school.academicConfig?.reportCardSettings?.showPosition ?? true,
+          showClassAverage: school.academicConfig?.reportCardSettings?.showClassAverage ?? true,
+          showPrincipalComment: school.academicConfig?.reportCardSettings?.showPrincipalComment ?? true,
+          showTeacherComment: school.academicConfig?.reportCardSettings?.showTeacherComment ?? true,
+          showPsychomotorDomain: school.academicConfig?.reportCardSettings?.showPsychomotorDomain ?? true
+        }
+      },
+
+      localization: {
+        timezone: school.localization?.timezone || 'Africa/Lagos',
+        currency: {
+          code: school.localization?.currency?.code || 'NGN',
+          symbol: school.localization?.currency?.symbol || '₦',
+          name: school.localization?.currency?.name || 'Nigerian Naira'
+        },
+        dateFormat: school.localization?.dateFormat || 'DD/MM/YYYY',
+        timeFormat: school.localization?.timeFormat || '12h',
+        primaryLanguage: school.localization?.primaryLanguage || 'en',
+        supportedLanguages: school.localization?.supportedLanguages || ['en']
+      },
+
+      authentication: {
+        allowStudentRegistration: school.authSettings?.allowStudentRegistration ?? false,
+        allowParentRegistration: school.authSettings?.allowParentRegistration ?? false,
+        loginMethods: {
+          email: school.authSettings?.loginMethods?.email ?? true,
+          usernameOrRegNo: school.authSettings?.loginMethods?.usernameOrRegNo ?? true,
+          phone: school.authSettings?.loginMethods?.phone ?? false
+        },
+        passwordPolicy: {
+          minLength: school.authSettings?.passwordPolicy?.minLength || 8,
+          requireNumbers: school.authSettings?.passwordPolicy?.requireNumbers ?? true,
+          requireSymbols: school.authSettings?.passwordPolicy?.requireSymbols ?? false
+        },
+        sessionTimeoutMinutes: school.authSettings?.sessionTimeoutMinutes || 120,
+        mfaRequired: school.authSettings?.mfaRequired ?? false
+      },
+
+      portals: {
+        studentPortal: school.portalAccess?.studentPortal ?? school.settings?.studentPortalEnabled ?? true,
+        parentPortal: school.portalAccess?.parentPortal ?? school.settings?.parentPortalEnabled ?? true,
+        teacherPortal: school.portalAccess?.teacherPortal ?? true,
+        staffPortal: school.portalAccess?.staffPortal ?? true,
+        alumniPortal: school.portalAccess?.alumniPortal ?? false,
+        applicantPortal: school.portalAccess?.applicantPortal ?? true
+      },
+
+      features: {
+        onlineExamsAndCbt: school.featuresEnabled?.onlineExamsAndCbt ?? school.settings?.onlineExamsEnabled ?? true,
+        feesAndAccounting: school.featuresEnabled?.feesAndAccounting ?? school.settings?.feesEnabled ?? true,
+        onlinePayments: school.featuresEnabled?.onlinePayments ?? true,
+        hostelAndBoarding: school.featuresEnabled?.hostelAndBoarding ?? school.settings?.hostelEnabled ?? false,
+        transportation: school.featuresEnabled?.transportation ?? school.settings?.transportEnabled ?? false,
+        libraryManagement: school.featuresEnabled?.libraryManagement ?? false,
+        inventoryAndAssets: school.featuresEnabled?.inventoryAndAssets ?? false,
+        payrollAndHr: school.featuresEnabled?.payrollAndHr ?? false,
+        messagingAndSms: school.featuresEnabled?.messagingAndSms ?? true,
+        medicalAndHealth: school.featuresEnabled?.medicalAndHealth ?? false,
+        eventsAndCalendar: school.featuresEnabled?.eventsAndCalendar ?? true,
+        assignmentsAndLms: school.featuresEnabled?.assignmentsAndLms ?? true,
+        alumniManagement: school.featuresEnabled?.alumniManagement ?? false,
+        idCardGenerator: school.featuresEnabled?.idCardGenerator ?? true,
+        resultProcessing: school.featuresEnabled?.resultProcessing ?? true
+      },
+
+      payments: {
+        allowPartialPayments: school.paymentConfig?.allowPartialPayments ?? true,
+        allowInstallments: school.paymentConfig?.allowInstallments ?? false,
+        enabledGateways: school.paymentConfig?.enabledGateways || ['paystack'],
+        publicKeys: {
+          paystackPublicKey: school.paymentConfig?.publicKeys?.paystackPublicKey || '',
+          flutterwavePublicKey: school.paymentConfig?.publicKeys?.flutterwavePublicKey || '',
+          stripePublicKey: school.paymentConfig?.publicKeys?.stripePublicKey || '',
+          remitaMerchantId: school.paymentConfig?.publicKeys?.remitaMerchantId || ''
+        },
+        bankTransferDetails: bankDetails
+      },
+
+      communication: {
+        supportEmail: school.communication?.supportEmail || school.email || '',
+        supportPhone: school.communication?.supportPhone || school.phone || '',
+        helpdeskUrl: school.communication?.helpdeskUrl || '',
+        activeAnnouncementBanner: {
+          enabled: school.communication?.announcementBanner?.enabled ?? false,
+          message: school.communication?.announcementBanner?.message || '',
+          type: school.communication?.announcementBanner?.type || 'info',
+          link: school.communication?.announcementBanner?.link || ''
+        },
+        socialLinks: {
+          facebook: school.communication?.socialLinks?.facebook || '',
+          twitter: school.communication?.socialLinks?.twitter || '',
+          instagram: school.communication?.socialLinks?.instagram || '',
+          linkedin: school.communication?.socialLinks?.linkedin || '',
+          youtube: school.communication?.socialLinks?.youtube || '',
+          whatsappSupport: school.communication?.socialLinks?.whatsappSupport || ''
+        }
+      },
+
+      pwa: {
+        name: school.pwaSettings?.name || school.schoolName,
+        shortName: school.pwaSettings?.shortName || school.abbreviation || school.schoolName,
+        themeColor: school.pwaSettings?.themeColor || school.branding?.primaryColor || '#1E3A8A',
+        backgroundColor: school.pwaSettings?.backgroundColor || '#FFFFFF',
+        displayMode: school.pwaSettings?.displayMode || 'standalone',
+        icon192: school.pwaSettings?.icon192 || school.branding?.logo || '',
+        icon512: school.pwaSettings?.icon512 || school.branding?.logo || ''
+      }
+    };
+
+    return res.json({
+      success: true,
+      data: config
+    });
+
+  } catch (error) {
+    console.error('[SCHOOL CONFIG ERROR]', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load school configuration.'
+    });
+  }
+});
+
+
+
 router.get('/admin/all', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { status, subscriptionStatus, search, page = 1, limit = 10 } = req.query;
