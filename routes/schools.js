@@ -5,7 +5,7 @@ const DemoRequest = require('../models/DemoRequest');
 const { authMiddleware } = require('./auth');
 const adminAuth = require('../middleware/adminAuth');
 const crypto = require('crypto');
-import postmark from "postmark";
+const postmark = require('postmark');
 
 // ===== VALIDATION MIDDLEWARE =====
 const validateSchool = (req, res, next) => {
