@@ -28,18 +28,27 @@ const validateSchool = (req, res, next) => {
 
   next();
 };
+function createSubdomainSlug(schoolName) {
+  return schoolName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 50);
+}
+
 async function generateUniqueSubdomain(schoolName) {
-    const base = generateSubdomain(schoolName);
+  const baseSlug = createSubdomainSlug(schoolName);
 
-    let subdomain = base;
-    let counter = 2;
+  let subdomain = baseSlug;
+  let counter = 2;
 
-    while (await School.exists({ subdomain })) {
-        subdomain = `${base}-${counter}`;
-        counter++;
-    }
+  while (await School.exists({ subdomain })) {
+    subdomain = `${baseSlug}-${counter}`;
+    counter++;
+  }
 
-    return subdomain;
+  return subdomain;
 }
 // ===== PUBLIC ENDPOINTS =====
 
@@ -157,6 +166,7 @@ router.post("/register", async (req, res) => {
         error: "This admin email is already associated with another school."
       });
     }
+    const subdomain = await generateUniqueSubdomain(schoolName);
 
     // ===== CREATE SCHOOL =====
     const newSchool = new School({
@@ -164,6 +174,7 @@ router.post("/register", async (req, res) => {
       schoolType: schoolType || "secondary",
       studentCount: parseInt(studentCount) || 0,
       staffCount: parseInt(staffCount) || 0,
+      subdomain,
       foundedYear: foundedYear ? parseInt(foundedYear) : null,
       regNumber: regNumber?.trim() || "",
       motto: motto?.trim() || "",
@@ -373,10 +384,13 @@ router.post("/register", async (req, res) => {
 
     // ===== SUCCESS RESPONSE =====
     res.status(201).json({
-      success: true,
-      message: "School registered successfully! Check your email for confirmation details.",
-      data: newSchool.toJSON()
-    });
+  success: true,
+  message: "School registered successfully! Check your email for confirmation details.",
+  data: {
+    ...newSchool.toJSON(),
+    schoolUrl: `https://${newSchool.subdomain}.examguard.com.ng`
+  }
+});
 
   } catch (err) {
     console.error("❌ School registration error:", err);
