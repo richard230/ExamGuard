@@ -1,0 +1,3873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.85">
+    <title>Gold and Linc Schools | Faculty LMS & Multi-Editor Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7', 
+                            800: '#075985', 
+                            900: '#0c4a6e', 
+                        },
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#d97706',
+                            600: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .parabolic-top {
+            border-top-left-radius: 50% 40px;
+            border-top-right-radius: 50% 40px;
+        }
+        .sidebar-btn-active {
+            background: linear-gradient(to right, #075985, #0284c7) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .sidebar-btn-inactive:hover {
+            background-color: rgba(15, 23, 42, 0.2);
+            color: #ffffff;
+        }
+        .ql-container {
+            height: 100px;
+            font-size: 13px;
+            border-bottom-left-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+        .option-editor-container .ql-container {
+            height: 60px;
+        }
+        .explanation-editor-container .ql-container {
+            height: 80px;
+        }
+        .assignment-editor-container .ql-container {
+            height: 120px;
+        }
+        .ql-toolbar {
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+            background-color: #f8fafc;
+            padding: 4px 8px !important;
+        }
+        .ql-snow .ql-picker.ql-image::before {
+            content: '🖼️';
+        }
+        .image-upload-input {
+            display: none;
+        }
+        .ql-custom-image-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+    /* Loading Spinner */
+    .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 1;
+        transition: opacity 0.3s ease;
+    }
+
+    .loading-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .spinner-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .spinner-ring {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top: 4px solid #0284c7;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .spinner-text {
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-align: center;
+        line-height: 1.5;
+    }
+
+    .spinner-status {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.85rem;
+        margin-top: 8px;
+    }
+
+    /* Pulse animation for skeleton loading */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .skeleton {
+        background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+        background-size: 200% 100%;
+        animation: pulse 2s infinite;
+    }
+</style>
+</head>
+<body class="bg-[#f8fafc] text-slate-800 font-sans antialiased min-h-screen flex flex-col md:flex-row overflow-x-hidden" onload="initSystemNode();">
+
+    <aside class="hidden md:flex flex-col w-72 bg-brand-900 text-white shrink-0 shadow-2xl relative z-30 border-r border-brand-800">
+        <div class="p-6 border-b border-brand-800/60 bg-brand-950/20 flex items-center space-x-3">
+            <div class="bg-white p-1 rounded-xl shadow-inner flex items-center justify-center shrink-0">
+                <img src="https://res.cloudinary.com/da7o22rnq/image/upload/v1779961202/editor-uploads/frngf21mg4fcrnmccobm.png" class="h-9 w-auto object-contain" alt="Gold and Linc Logo">
+            </div>
+            <div>
+                <span class="block text-base font-extrabold tracking-tight uppercase font-serif">Gold & Linc</span>
+                <span class="block text-[10px] text-brand-500 uppercase tracking-widest font-extrabold -mt-0.5">Faculty Terminal</span>
+            </div>
+        </div>
+
+        <div class="p-4 mx-4 my-4 bg-brand-800/50 rounded-2xl border border-brand-500/30 backdrop-blur-sm text-xs">
+            <p class="text-[10px] font-bold text-brand-500 uppercase tracking-wider mb-1 px-1">Department</p>
+            <p id="sidebarDept" class="text-sm font-bold text-white px-1">Senior Biological Sciences</p>
+            <p id="sidebarLevels" class="text-[10px] text-brand-100/70 px-1 mt-0.5">Assigned: SS1, SS2, SS3 Track</p>
+        </div>
+
+        <nav class="flex-grow px-4 space-y-1 overflow-y-auto pb-4" id="lmsMenu">
+            <p class="text-[10px] font-bold text-brand-500 uppercase tracking-widest px-3 mb-2">LMS Components</p>
+            
+            <button id="btn-overview" onclick="switchPanel('overview')" type="button" class="sidebar-btn-active w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-left transition">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 10a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm11-5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zm0 10a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                Course Performance Desk
+            </button>
+
+            <button id="btn-assessments" onclick="switchPanel('assessments')" type="button" class="sidebar-btn-inactive w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-left transition">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9m0 0a2 2 0 00-2-2m2 2v2m0-6V5a2 2 0 012-2h6a2 2 0 012 2v2m0 0V7a2 2 0 012-2h-.5a3.5 3.5 0 00-3.5 3.5V9"></path></svg>
+                Question Bank Categories
+            </button>
+
+            <button id="btn-assignments" onclick="switchPanel('assignments')" type="button" class="sidebar-btn-inactive w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-left transition">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Assignments Hub
+            </button>
+
+            <button id="btn-students" onclick="switchPanel('students')" type="button" class="sidebar-btn-inactive w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-left transition">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-2a6 6 0 0112 0v2zm0 0h6v-2a6 6 0 00-9-5.656v2a4 4 0 013 3.656z"></path></svg>
+                Student Rosters
+            </button>
+            
+            <button id="btn-grading" onclick="switchPanel('grading')" type="button" class="sidebar-btn-inactive w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-left transition">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                Gradebook & Mark Sheet
+            </button>
+            
+            <button id="btn-profile" onclick="switchPanel('profile')" type="button" class="sidebar-btn-inactive w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-left transition">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                Faculty Profile Desk
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-brand-800/60 bg-brand-950/20 text-[11px] text-center text-brand-100/60">
+            System Node: <strong class="text-white font-semibold" id="systemNode">Faculty_LMS_2026</strong>
+        </div>
+    </aside>
+
+    <header class="md:hidden w-full bg-brand-900 text-white h-16 px-4 flex items-center justify-between shadow-md sticky top-0 z-40">
+        <div class="flex items-center space-x-2.5">
+            <img src="https://res.cloudinary.com/da7o22rnq/image/upload/v1779961202/editor-uploads/frngf21mg4fcrnmccobm.png" class="h-7 w-auto bg-white p-0.5 rounded-lg" alt="Logo">
+            <span class="font-serif font-bold text-sm tracking-wide">Gold & Linc LMS</span>
+        </div>
+        <button type="button" onclick="openBottomNav()" class="bg-brand-800 border border-brand-500/40 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition active:scale-95 flex items-center">
+            <span>LMS Menu</span>
+            <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+    </header>
+
+    <div id="bottomDrawerOverlay" onclick="closeBottomNav(event)" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden transition-opacity duration-300 opacity-0">
+        <div id="bottomDrawerCard" class="absolute bottom-0 inset-x-0 bg-brand-900 text-white parabolic-top transform translate-y-full transition-transform duration-300 border-t-2 border-gold-400 p-6">
+            <div class="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-brand-800 rounded-full"></div>
+            <div class="grid grid-cols-1 gap-2 text-sm font-bold pt-4">
+                <button onclick="switchPanel('overview'); closeBottomNav(event);" class="w-full bg-brand-800 p-3.5 rounded-xl flex items-center justify-between"><span>Course Performance Desk</span> &rarr;</button>
+                <button onclick="switchPanel('assessments'); closeBottomNav(event);" class="w-full bg-brand-800 p-3.5 rounded-xl flex items-center justify-between"><span>Question Bank Categories</span> &rarr;</button>
+                <button onclick="switchPanel('assignments'); closeBottomNav(event);" class="w-full bg-brand-800 p-3.5 rounded-xl flex items-center justify-between"><span>Assignments Hub</span> &rarr;</button>
+                <button onclick="switchPanel('students'); closeBottomNav(event);" class="w-full bg-brand-800 p-3.5 rounded-xl flex items-center justify-between"><span>Student Rosters</span> &rarr;</button>
+                <button onclick="switchPanel('grading'); closeBottomNav(event);" class="w-full bg-brand-800 p-3.5 rounded-xl flex items-center justify-between"><span>Gradebook & Mark Sheet</span> &rarr;</button>
+                <button onclick="switchPanel('profile'); closeBottomNav(event);" class="w-full bg-brand-800 p-3.5 rounded-xl flex items-center justify-between"><span>Faculty Profile Desk</span> &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-grow p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full overflow-hidden" id="lmsPanels">
+        
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                <div class="p-2.5 bg-brand-50 rounded-lg text-brand-800 shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <div class="text-xs">
+                    <p class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Active Faculty Staff</p>
+                    <p id="headerTeacherName" class="text-sm font-black text-slate-900">Loading...</p>
+                    <p id="headerTeacherTitle" class="text-slate-500 text-[11px]">—</p>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                <div class="p-2.5 bg-amber-50 rounded-lg text-gold-600 shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </div>
+                <div class="text-xs">
+                    <p class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Academic Term Node</p>
+                    <p class="text-sm font-black text-slate-900">2025/2026 Session &bull; First Term</p>
+                    <span class="inline-flex bg-brand-50 text-brand-800 font-bold px-1.5 py-0.5 rounded text-[10px] mt-0.5">Continuous Assessment Cycle</span>
+                </div>
+            </div>
+        </section>
+
+        <div id="panel-overview" class="space-y-6">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Assigned Total Class Roll</p>
+                    <p class="text-xl font-black text-brand-900 mt-1" id="statTotalStudents">--</p>
+                    <p class="text-[10px] text-slate-400 font-medium mt-1">Across all assigned classes</p>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Overall Test Average</p>
+                    <p class="text-xl font-black text-emerald-600 mt-1">71.5%</p>
+                    <span class="inline-flex bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-1">Class Standing: Good</span>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Active Categories</p>
+                    <p id="overviewCollectionCount" class="text-xl font-black text-amber-600 mt-1">0 Saved Collections</p>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div class="p-4 border-b border-slate-100 bg-slate-50/60">
+                    <h3 class="text-xs font-bold text-brand-900 uppercase tracking-wider">Assigned Form Class Cohort Summaries</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-100">
+                                <th class="p-3 pl-4">Target Form Level Class</th>
+                                <th class="p-3">Subject Focus</th>
+                                <th class="p-3 text-center">Active Tests Tracked</th>
+                                <th class="p-3 text-center">Current Class Mean</th>
+                            </tr>
+                        </thead>
+                        <tbody id="classCohortsBody" class="divide-y divide-slate-100 text-slate-700 font-medium"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel-assessments" class="space-y-6 hidden">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                
+                <div id="collectionControlHeader" class="flex flex-col gap-4 border-b border-slate-100 pb-4">
+    <div>
+        <h2 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Question Bank Categorization Deck</h2>
+        <p class="text-xs text-slate-500">Isolate focus tracks to run standard objective items evaluation updates safely.</p>
+    </div>
+    
+    <!-- Collection Creation Form -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+        <!-- Collection Name -->
+        <div class="md:col-span-2">
+            <input type="text" id="newCollectionName" placeholder="e.g., SS2 BIOLOGY TEST 1" class="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold p-2.5 focus:bg-white focus:ring-1 focus:ring-brand-500 outline-none">
+        </div>
+        
+        <!-- Class Select -->
+        <div>
+            <select id="collectionClassSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 p-2.5 focus:bg-white focus:ring-1 focus:ring-brand-500 outline-none">
+                <option value="">Select Class</option>
+            </select>
+        </div>
+        
+        <!-- Subject Select -->
+        <div>
+            <select id="collectionSubjectSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 p-2.5 focus:bg-white focus:ring-1 focus:ring-brand-500 outline-none">
+                <option value="">Select Subject</option>
+            </select>
+        </div>
+        
+        <!-- Create Button -->
+        <div>
+            <button onclick="createCollection()" class="w-full bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider transition whitespace-nowrap">
+                Create Collection
+            </button>
+        </div>
+    </div>
+</div>
+
+                <div id="collectionsContainer" class="space-y-4"></div>
+            </div>
+        </div>
+
+        <div id="panel-assignments" class="space-y-6 hidden">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Term Project & Assignments Deployment</h2>
+                        <p class="text-xs text-slate-500">Track current terminal task pushes and target submission close points.</p>
+                    </div>
+                    <button onclick="openAssignmentModal()" class="bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2 rounded-xl uppercase tracking-wider shadow-sm transition">
+                        + Open Deployment Modal
+                    </button>
+                </div>
+                <div id="assignmentsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+        </div>
+
+<div id="panel-students" class="space-y-6 hidden">
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-100 pb-3">
+            <div>
+                <h2 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Secondary Form Cohort Registry</h2>
+                <p class="text-xs text-slate-500">Review assigned class lines and student system codes cleanly.</p>
+            </div>
+            <div class="flex gap-2 items-center w-full sm:w-auto">
+                <select id="studentClassFilter" onchange="renderStudents()" class="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 p-2 outline-none focus:ring-1 focus:ring-brand-500 flex-1 sm:flex-none">
+                    <option value="ALL">Display All Assigned Classes</option>
+                </select>
+                <button onclick="redirectToAttendance()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl uppercase tracking-wider transition flex items-center gap-1 whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Mark Attendance
+                </button>
+            </div>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-slate-100">
+            <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-100">
+                        <th class="p-3 pl-4">Admission Code</th>
+                        <th class="p-3">Student Fullname</th>
+                        <th class="p-3">Assigned Class</th>
+                        <th class="p-3 text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="studentTableBody" class="divide-y divide-slate-100 text-slate-700 font-medium"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+        <div id="panel-grading" class="space-y-6 hidden">
+
+    <!-- Progress Analytics -->
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h3 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                    Result Upload Analytics
+                </h3>
+                <p class="text-base font-black text-brand-900 mt-0.5">
+                    Roster Capture Progress
+                </p>
+            </div>
+
+            <div class="text-right text-xs">
+                <span class="font-bold text-slate-500">
+                    Completed Data Cells:
+                </span>
+
+                <span
+                    id="progressStatsCount"
+                    class="font-mono font-black text-brand-900 bg-slate-100 px-2 py-0.5 rounded-md">
+                    0 / 0
+                </span>
+
+                <span
+                    id="progressStatsLeft"
+                    class="ml-2 font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                    0 Cells Left
+                </span>
+            </div>
+        </div>
+
+        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner">
+            <div
+                id="progressBarFill"
+                class="bg-gradient-to-r from-brand-500 to-emerald-500 h-full w-0 transition-all duration-300">
+            </div>
+        </div>
+    </div>
+
+    <!-- Gradebook -->
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
+
+            <div>
+                <h2 class="text-sm font-bold text-brand-900 uppercase tracking-wider">
+                    Secondary Gradebook Mark Sheet Matrix
+                </h2>
+
+                <p class="text-xs text-slate-500">
+                    Pushes score modifications straight to parent profile views.
+                    Weights: CA1 (20%), CA2 (20%), Exam (60%).
+                </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2 shrink-0">
+
+                <!-- Session -->
+                <select
+                    id="gb-session-select"
+                    required
+                    class="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 p-2 outline-none focus:ring-1 focus:ring-brand-500">
+
+                    <option value="">Session</option>
+                    <option value="2024-2025">2024–2025</option>
+                    <option value="2025-2026" selected>2025–2026</option>
+                    <option value="2026-2027">2026–2027</option>
+                </select>
+
+                <!-- Term -->
+                <select
+                    id="gb-term-select"
+                    required
+                    class="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 p-2 outline-none focus:ring-1 focus:ring-brand-500">
+
+                    <option value="">Term</option>
+                    <option value="FIRST TERM">FIRST TERM</option>
+                    <option value="SECOND TERM">SECOND TERM</option>
+                    <option value="THIRD TERM">THIRD TERM</option>
+                </select>
+
+                <!-- Result Type -->
+                <select
+                    id="gb-result-type-select"
+                    required
+                    class="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 p-2 outline-none focus:ring-1 focus:ring-brand-500">
+
+                    <option value="">Result Type</option>
+                    <option value="exam">Examination</option>
+                    <option value="ca1">Continuous Assessment 1</option>
+                    <option value="ca2">Continuous Assessment 2</option>
+                </select>
+
+                <!-- Class -->
+                <select
+                    id="gradebookClassFilter"
+                    onchange="renderGradebook()"
+                    class="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 p-2 outline-none focus:ring-1 focus:ring-brand-500">
+                </select>
+
+                <!-- Save -->
+                <button
+                    onclick="saveGradebookChanges(event)"
+                    class="bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2 rounded-xl uppercase tracking-wider shadow transition">
+
+                    Bulk Save Class
+                </button>
+
+            </div>
+        </div>
+
+        <!-- Scrollable Gradebook -->
+        <div
+            class="rounded-xl border border-slate-100"
+            style="
+                overflow:auto;
+                max-height:75vh;
+                position:relative;
+                -webkit-overflow-scrolling:touch;
+            ">
+
+            <table
+                class="text-left text-xs border-collapse"
+                style="
+                    min-width:max-content;
+                    width:100%;
+                ">
+
+                <thead
+    style="
+        position:sticky;
+        top:0;
+        z-index:10;
+        background:#f8fafc;
+    ">
+    <tr
+        id="gradebookSubjectsHeader"
+        class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-100">
+    </tr>
+</thead>
+
+                <tbody
+                    id="gradebookTableBody"
+                    class="divide-y divide-slate-100 text-slate-700 font-medium">
+                </tbody>
+
+            </table>
+        </div>
+
+    </div>
+</div>
+
+        <div id="panel-profile" class="space-y-6 hidden">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                <div class="border-b border-slate-100 pb-3">
+                    <h2 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Faculty Profile Management Desk</h2>
+                </div>
+                <form id="profileForm" onsubmit="updateTeacherProfile(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                        <label class="block font-bold text-slate-400 mb-1">Full Instructor Name</label>
+                        <input type="text" id="profileName" value="" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-400 mb-1">Faculty Rank Title</label>
+                        <input type="text" id="profileTitle" value="" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-400 mb-1">Assigned Subject Department</label>
+                        <input type="text" id="profileDept" value="" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-400 mb-1">Assigned Form Class Tracks</label>
+                        <input type="text" id="profileLevels" value="" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                    </div>
+                    <div class="sm:col-span-2 flex justify-end">
+                        <button type="submit" class="bg-brand-900 text-white font-bold px-5 py-2 rounded-xl uppercase transition hover:bg-brand-800">Update Profile</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <div id="questionModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 w-full max-w-3xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div>
+                    <h3 id="modalTitle" class="text-xs font-extrabold text-brand-900 uppercase tracking-wider">Configure Assessment Item</h3>
+                    <p class="text-[11px] text-slate-500">Edit stems, diagrams, multi-editor response spaces, and answer keys.</p>
+                </div>
+                <button onclick="closeQuestionModal()" class="text-slate-400 hover:text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md font-bold text-lg">&times;</button>
+            </div>
+            <div class="p-5 space-y-4 overflow-y-auto text-xs">
+                <div>
+                    <label class="block font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Question Stem Body (Rich Text with Images)</label>
+                    <div class="mb-2 flex gap-1">
+                        <input type="file" id="stemImageUpload" accept="image/*" class="hidden" onchange="insertImageFromFile(this, 'stem')">
+                        <button type="button" onclick="document.getElementById('stemImageUpload').click()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-[11px] uppercase transition">📁 Upload</button>
+                        <input type="text" id="stemImageUrl" placeholder="Paste image URL..." class="flex-grow bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-[11px] outline-none focus:ring-1 focus:ring-brand-500">
+                        <button type="button" onclick="insertImageFromUrl('stem')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-[11px] uppercase transition">Insert</button>
+                    </div>
+                    <div id="quillQuestionStem" class="bg-white rounded-xl"></div>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <label class="block font-extrabold text-slate-400 uppercase tracking-wider">Dynamic Response Option Fields</label>
+                        <button onclick="appendBlankOptionField()" class="text-brand-800 hover:text-brand-900 font-bold text-[11px] bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200 transition">+ Add Option</button>
+                    </div>
+                    <div id="modalOptionsWrapper" class="space-y-4"></div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block font-extrabold text-slate-400 uppercase tracking-wider">Optional Grading Explanation & Marking Rationale</label>
+                    <div class="mb-2 flex gap-1">
+                        <input type="file" id="explanationImageUpload" accept="image/*" class="hidden" onchange="insertImageFromFile(this, 'explanation')">
+                        <button type="button" onclick="document.getElementById('explanationImageUpload').click()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-[11px] uppercase transition">📁 Upload</button>
+                        <input type="text" id="explanationImageUrl" placeholder="Paste image URL..." class="flex-grow bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-[11px] outline-none focus:ring-1 focus:ring-brand-500">
+                        <button type="button" onclick="insertImageFromUrl('explanation')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-[11px] uppercase transition">Insert</button>
+                    </div>
+                    <div class="explanation-editor-container">
+                        <div id="quillExplanation" class="bg-white rounded-xl"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3.5 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+                <button onclick="closeQuestionModal()" class="bg-white border border-slate-200 text-slate-600 font-bold px-4 py-1.5 rounded-xl text-[11px] uppercase">Cancel</button>
+                <button onclick="saveModalQuestionData()" class="bg-brand-900 hover:bg-brand-800 text-white font-bold px-5 py-1.5 rounded-xl text-[11px] uppercase">Commit Changes</button>
+            </div>
+        </div>
+    </div>
+
+<div id="assignmentModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 w-full max-w-4xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
+
+        <!-- Header -->
+        <div class="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div>
+                <h3 class="text-xs font-extrabold text-brand-900 uppercase tracking-wider">
+                    Deploy New Assignment Portfolio
+                </h3>
+                <p class="text-[11px] text-slate-500">
+                    Configure parameters, distribute tasks, or select MCQ rows from core categories.
+                </p>
+            </div>
+
+            <button
+                onclick="closeAssignmentModal()"
+                class="text-slate-400 hover:text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md font-bold text-lg">
+                &times;
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-5 space-y-4 overflow-y-auto text-xs">
+
+            <!-- Main Details -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+
+                <!-- Assignment Title -->
+                <div>
+                    <label class="block font-bold text-slate-400 mb-1">
+                        Assignment Title
+                    </label>
+                    <input
+                        type="text"
+                        id="asmModalTitle"
+                        placeholder="e.g., Photosynthesis Pathways"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                </div>
+
+                <div class="mb-3">
+    <label class="block font-bold text-slate-400 mb-1">
+        Select CBT
+    </label>
+
+    <select
+        id="asmModalCBT"
+        class="w-full bg-white border border-slate-200 rounded-xl p-2 font-bold">
+        <option value="">Select CBT</option>
+    </select>
+                </div>
+                <!-- Class -->
+                <div>
+                    <label class="block font-bold text-slate-400 mb-1">
+                        Target Class Cohort
+                    </label>
+                    <select
+                        id="asmModalClass"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                    </select>
+                </div>
+
+                <!-- Subject -->
+                <div>
+                    <label class="block font-bold text-slate-400 mb-1">
+                        Subject
+                    </label>
+                    <select
+                        id="asmModalSubject"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                        <option value="">Select Subject</option>
+                    </select>
+                </div>
+
+                <!-- Due Date -->
+                <div>
+                    <label class="block font-bold text-slate-400 mb-1">
+                        Submission Deadline
+                    </label>
+                    <input
+                        type="date"
+                        id="asmModalDue"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+                </div>
+
+            </div>
+
+            <!-- Assignment Type -->
+            <div>
+                <label class="block font-bold text-slate-400 mb-1">
+                    Task Deployment Routing Type
+                </label>
+
+                <select
+                    id="asmModalType"
+                    onchange="toggleAssignmentTypeSection()"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold outline-none focus:bg-white focus:ring-1 focus:ring-brand-500">
+
+                    <option value="STANDARD">
+                        Standard Task Portfolio (Rich Text & Instructions)
+                    </option>
+
+                    <option value="QUESTION_BANK">
+                        Question Bank Evaluation (Allocate Dynamic MCQs)
+                    </option>
+
+                </select>
+            </div>
+
+            <!-- Standard Assignment -->
+            <div id="asmTypeStandardWrapper" class="space-y-1.5">
+
+                <label class="block font-extrabold text-slate-400 uppercase tracking-wider">
+                    Task Guidelines & Instructions (Rich Text)
+                </label>
+
+                <div class="assignment-editor-container">
+                    <div id="quillAssignmentBody" class="bg-white rounded-xl"></div>
+                </div>
+
+            </div>
+
+            <!-- Question Bank Assignment -->
+            <div
+                id="asmTypeQuestionBankWrapper"
+                class="space-y-3 hidden p-4 bg-slate-50 border border-slate-200 rounded-xl">
+
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-slate-200 pb-2">
+
+                    <div>
+                        <h4 class="font-extrabold text-brand-900 text-xs uppercase tracking-wide">
+                            Question Bank Matrix Mapper
+                        </h4>
+
+                        <p class="text-[11px] text-slate-500">
+                            Select which objective questions to link with this task assignment.
+                        </p>
+                    </div>
+
+                    <select
+                        id="asmBankCategorySelector"
+                        onchange="loadQuestionsForAllocation()"
+                        class="bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 p-1.5 outline-none focus:ring-1 focus:ring-brand-500">
+                    </select>
+
+                </div>
+
+                <div
+                    id="asmAllocationQuestionsContainer"
+                    class="space-y-3 max-h-60 overflow-y-auto pt-1">
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="p-3.5 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+
+            <button
+                onclick="closeAssignmentModal()"
+                class="bg-white border border-slate-200 text-slate-600 font-bold px-4 py-1.5 rounded-xl text-[11px] uppercase">
+                Cancel
+            </button>
+
+            <button
+                onclick="commitAssignmentDeployment()"
+                class="bg-brand-900 hover:bg-brand-800 text-white font-bold px-5 py-1.5 rounded-xl text-[11px] uppercase tracking-wider transition">
+                Deploy
+            </button>
+
+        </div>
+
+    </div>
+</div>
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner-container">
+        <div class="spinner-ring"></div>
+        <div class="spinner-text">
+            <div id="spinnerMainText">Loading Dashboard</div>
+            <div id="spinnerStatus" class="spinner-status">Initializing system...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    // ============ ATTENDANCE REDIRECT FUNCTION ============
+function redirectToAttendance() {
+    const selectedClass = document.getElementById('studentClassFilter').value;
+    
+    if (selectedClass === 'ALL') {
+        showCustomModal({ 
+            title: 'Class Selection Required', 
+            message: 'Please select a specific class to mark attendance. You cannot mark attendance for all classes at once.',
+            type: 'alert', 
+            icon: '⚠️' 
+        });
+        return;
+    }
+    
+    // Pass the selected class ID as a URL parameter
+    const attendanceUrl = `stu-attend.html?classId=${encodeURIComponent(selectedClass)}`;
+    window.location.href = attendanceUrl;
+}
+    // ============ API CONFIGURATION ============
+    const API_BASE_URL = "https://goldlincschools.onrender.com";
+    const token = localStorage.getItem('teacherToken') || localStorage.getItem('token') || "";
+// ============ LOADING SPINNER SYSTEM ============
+function showLoadingSpinner(message = 'Loading Dashboard', status = 'Initializing system...') {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        document.getElementById('spinnerMainText').textContent = message;
+        document.getElementById('spinnerStatus').textContent = status;
+        overlay.classList.remove('hidden');
+    }
+}
+
+function hideLoadingSpinner() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+    }
+}
+
+function updateLoadingStatus(status) {
+    const statusEl = document.getElementById('spinnerStatus');
+    if (statusEl) {
+        statusEl.textContent = status;
+    }
+}
+    // ============ DATA CONTAINERS ============
+    let teacher = null;
+    let studentsByClass = {};
+    let subjectsByClass = {};
+    let allAssignments = [];
+    let assignmentSubmissions = {};
+    let editingAssignmentId = null;
+    let activeIsolatedCollectionId = null;
+    let activeTargetModalMode = 'CREATE';
+    let contextualTargetQuestionId = null;
+
+    let stemQuillInstance = null;
+    let explanationQuillInstance = null;
+    let assignmentQuillInstance = null;
+    let optionQuillRegistry = {};
+    let activeMediaTargetQuillInstance = null;
+
+    // STATE DATABASES
+    let assessmentDatabase = [];
+    let studentRegistry = [];
+    let assignmentsDatabase = [];
+
+    // ============ AUTH HEADERS ============
+    function authHeaders() {
+        return token 
+            ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } 
+            : { 'Content-Type': 'application/json' };
+    }
+
+    // ============ SPINNER & LOADING HELPERS ============
+    function setButtonLoading(button, isLoading) {
+        if (!button) return;
+        if (isLoading) {
+            button.classList.add('btn-loading');
+            button.disabled = true;
+            const originalText = button.innerHTML;
+            button.dataset.originalText = originalText;
+            button.innerHTML = '<span class="btn-loading-text"><span class="spinner"></span>Processing...</span>';
+        } else {
+            button.classList.remove('btn-loading');
+            button.disabled = false;
+            button.innerHTML = button.dataset.originalText || 'Save';
+        }
+    }
+
+    async function executeWithLoading(button, asyncFunction) {
+        try {
+            setButtonLoading(button, true);
+            const result = await asyncFunction();
+            setButtonLoading(button, false);
+            return result;
+        } catch (err) {
+            setButtonLoading(button, false);
+            throw err;
+        }
+    }
+    function calculateGrade(score) {
+    score = Number(score) || 0;
+
+    if (score >= 70) return 'A';
+    if (score >= 60) return 'B';
+    if (score >= 50) return 'C';
+    if (score >= 45) return 'D';
+    if (score >= 40) return 'E';
+
+    return 'F';
+    }
+function updateGradebookProgress() {
+    const inputs = document.querySelectorAll(
+        '#gradebookTableBody input[type="number"]'
+    );
+
+    const totalCells = inputs.length;
+
+    let completedCells = 0;
+
+    inputs.forEach(input => {
+        if (input.value.trim() !== '') {
+            completedCells++;
+        }
+    });
+
+    const remainingCells = totalCells - completedCells;
+
+    const percentage =
+        totalCells === 0
+            ? 0
+            : Math.round((completedCells / totalCells) * 100);
+
+    const countElement =
+        document.getElementById('progressStatsCount');
+
+    const leftElement =
+        document.getElementById('progressStatsLeft');
+
+    const progressBar =
+        document.getElementById('progressBarFill');
+
+    if (countElement) {
+        countElement.textContent =
+            `${completedCells} / ${totalCells}`;
+    }
+
+    if (leftElement) {
+        leftElement.textContent =
+            `${remainingCells} Cells Left`;
+    }
+
+    if (progressBar) {
+        progressBar.style.width = `${percentage}%`;
+    }
+}
+    // ==========================================
+    // NOTIFICATION MODAL INJECTION & ENGINE
+    // ==========================================
+    (function injectCustomModal() {
+        if (document.getElementById('notificationModal')) return;
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            .notification-overlay {
+                position: fixed;
+                top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(15, 23, 42, 0.6);
+                backdrop-filter: blur(4px);
+                display: flex; justify-content: center; align-items: center;
+                z-index: 99999; opacity: 1; transition: opacity 0.2s ease;
+                font-family: system-ui, -apple-system, sans-serif;
+            }
+            .notification-overlay.hidden { opacity: 0; pointer-events: none; display: none; }
+            .notification-card {
+                background: #ffffff; padding: 24px; border-radius: 12px;
+                width: 90%; max-width: 400px; text-align: center;
+                box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+                transform: scale(1); transition: transform 0.2s ease;
+            }
+            .notification-overlay.hidden .notification-card { transform: scale(0.95); }
+            .notification-icon { font-size: 3rem; margin-bottom: 12px; display: block; }
+            .notification-card h3 { margin: 0 0 8px 0; font-size: 1.25rem; color: #1e293b; font-weight: 600; }
+            .notification-card p { margin: 0 0 24px 0; color: #64748b; font-size: 0.95rem; line-height: 1.5; white-space: pre-line; }
+            .notification-actions { display: flex; gap: 12px; justify-content: center; }
+            .notification-btn {
+                padding: 10px 20px; border-radius: 6px; border: none;
+                font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: background 0.15s;
+            }
+            .notification-btn-secondary { background: #f1f5f9; color: #475569; }
+            .notification-btn-secondary:hover { background: #e2e8f0; }
+            .notification-btn-primary { background: #2563eb; color: #ffffff; }
+            .notification-btn-primary:hover { background: #1d4ed8; }
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            .spinner {
+                display: inline-block;
+                width: 14px;
+                height: 14px;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-top-color: #ffffff;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+                margin-right: 6px;
+            }
+            .btn-loading {
+                pointer-events: none;
+                opacity: 0.7;
+            }
+            .btn-loading-text {
+                display: inline-flex;
+                align-items: center;
+            }
+        `;
+        document.head.appendChild(style);
+
+        const modalHtml = `
+            <div id="notificationModal" class="notification-overlay hidden">
+                <div class="notification-card">
+                    <span id="notificationIcon" class="notification-icon">❓</span>
+                    <h3 id="notificationTitle">Confirm Action</h3>
+                    <p id="notificationMessage">Are you sure you want to proceed?</p>
+                    <div class="notification-actions">
+                        <button id="notificationCancelBtn" class="notification-btn notification-btn-secondary">Cancel</button>
+                        <button id="notificationConfirmBtn" class="notification-btn notification-btn-primary">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    })();
+
+    function showCustomModal({ title, message, type = 'confirm', icon = '❓' }) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('notificationModal');
+        const titleEl = document.getElementById('notificationTitle');
+        const msgEl = document.getElementById('notificationMessage');
+        const iconEl = document.getElementById('notificationIcon');
+        const confirmBtn = document.getElementById('notificationConfirmBtn');
+        const cancelBtn = document.getElementById('notificationCancelBtn');
+
+        titleEl.textContent = title;
+        iconEl.textContent = icon;
+
+        // Support both text and HTML elements
+        msgEl.innerHTML = '';
+
+        if (message instanceof HTMLElement) {
+            msgEl.appendChild(message);
+        } else {
+            msgEl.textContent = message;
+        }
+
+        if (type === 'alert') {
+            cancelBtn.style.display = 'none';
+            confirmBtn.textContent = 'OK';
+        } else {
+            cancelBtn.style.display = 'inline-block';
+            confirmBtn.textContent = 'Confirm';
+        }
+
+        modal.classList.remove('hidden');
+
+        function close(result) {
+            modal.classList.add('hidden');
+
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+
+            resolve(result);
+        }
+
+        function onConfirm() {
+            close(true);
+        }
+
+        function onCancel() {
+            close(false);
+        }
+
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
+    // ============ IMAGE UPLOAD HANDLERS ============
+    function insertImageFromFile(fileInput, target) {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageUrl = e.target.result;
+            insertImageToQuill(target, imageUrl);
+            fileInput.value = '';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function insertImageFromUrl(target) {
+        const urlInput = document.getElementById(`${target}ImageUrl`);
+        const imageUrl = urlInput.value.trim();
+        if (!imageUrl) {
+            await showCustomModal({ title: 'Validation Warning', message: 'Please enter an image URL', type: 'alert', icon: '⚠️' });
+            return;
+        }
+        insertImageToQuill(target, imageUrl);
+        urlInput.value = '';
+    }
+
+    function insertImageToQuill(target, imageUrl) {
+        let quillInstance;
+        if (target === 'stem') {
+            quillInstance = stemQuillInstance;
+        } else if (target === 'explanation') {
+            quillInstance = explanationQuillInstance;
+        } else if (target === 'option') {
+            const optionDivs = document.querySelectorAll('#modalOptionsWrapper .option-editor-container');
+            if (optionDivs.length > 0) {
+                const lastOptionDiv = optionDivs[optionDivs.length - 1];
+                const quillDiv = lastOptionDiv.querySelector('.quill-option-editor');
+                Object.values(optionQuillRegistry).forEach(item => {
+                    if (item.quill && item.quill.root === quillDiv) {
+                        quillInstance = item.quill;
+                    }
+                });
+            }
+        }
+
+        if (quillInstance) {
+            const range = quillInstance.getSelection(true);
+            quillInstance.insertEmbed(range.index, 'image', imageUrl);
+            quillInstance.setSelection(range.index + 1);
+        }
+    }
+
+    // ============ API CALLS ============
+    async function fetchTeacherProfile() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teachers/me`, { headers: authHeaders() });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            console.error('Error fetching teacher profile:', e);
+            return null;
+        }
+    }
+
+    async function fetchTeacherClasses() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teachers/classes`, { headers: authHeaders() });
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
+        } catch (e) {
+            console.error('Error fetching classes:', e);
+            return [];
+        }
+    }
+
+    async function fetchStudentsByClass(classId) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teachers/students?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
+        } catch (e) {
+            console.error('Error fetching students:', e);
+            return [];
+        }
+    }
+
+    async function fetchSubjectsByClass(classId) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teachers/subjects?classId=${encodeURIComponent(classId)}`, { headers: authHeaders() });
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
+        } catch (e) {
+            console.error('Error fetching subjects:', e);
+            return [];
+        }
+    }
+
+    async function fetchTeacherAssignments() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/assignments`, { headers: authHeaders() });
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data.assignments) ? data.assignments : [];
+        } catch (e) {
+            console.error('Error fetching assignments:', e);
+            return [];
+        }
+    }
+
+    async function fetchUnifiedQuestionBank() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/question-bank`, { 
+                headers: authHeaders() 
+            });
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data.questionBanks) ? data.questionBanks : [];
+        } catch (e) {
+            console.error('Error fetching unified question bank:', e);
+            return [];
+        }
+    }
+
+async function createCollection() {
+    const collectionName = document.getElementById('newCollectionName').value.trim();
+    
+    if (!collectionName) {
+        showCustomModal({
+            title: 'Input Required',
+            message: 'Please enter a collection name (e.g., SS2 BIOLOGY TEST 1)',
+            type: 'alert',
+            icon: '⚠️'
+        });
+        return;
+    }
+
+    // Show modal to select class and subject
+    showCollectionClassSubjectModal(collectionName);
+}
+
+function showCollectionClassSubjectModal(collectionName) {
+    const modalHTML = `
+        <div id="collectionModalOverlay" class="notification-overlay" onclick="if(event.target === this) closeCollectionModal()">
+            <div class="notification-card" style="max-width: 500px; text-align: left;">
+                <h3 style="text-align: center; margin-bottom: 20px; color: #1e293b;">Select Class & Subject</h3>
+                
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-weight: 600; color: #475569; margin-bottom: 8px; font-size: 0.9rem;">
+                        Class <span style="color: #ef4444;">*</span>
+                    </label>
+                    <select id="collectionClassSelect" style="
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 6px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        outline: none;
+                    ">
+                        <option value="">-- Select a Class --</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; color: #475569; margin-bottom: 8px; font-size: 0.9rem;">
+                        Subject <span style="color: #ef4444;">*</span>
+                    </label>
+                    <select id="collectionSubjectSelect" style="
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 6px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        outline: none;
+                    ">
+                        <option value="">-- Select a Subject --</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button onclick="closeCollectionModal()" style="
+                        padding: 10px 20px;
+                        border: 1px solid #cbd5e1;
+                        background: #f8fafc;
+                        color: #475569;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-size: 0.9rem;
+                    ">
+                        Cancel
+                    </button>
+                    <button onclick="submitCollectionWithClassSubject('${collectionName}')" style="
+                        padding: 10px 20px;
+                        background: #2563eb;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-size: 0.9rem;
+                    ">
+                        Create Collection
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('collectionModalOverlay');
+    if (existingModal) existingModal.remove();
+
+    // Insert modal into page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Populate classes
+    populateCollectionClasses();
+}
+
+async function populateCollectionClasses() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/classes`, {
+            headers: authHeaders()
+        });
+        
+        const classes = await response.json();
+        const classSelect = document.getElementById('collectionClassSelect');
+        
+        if (Array.isArray(classes)) {
+            classes.forEach(cls => {
+                const option = document.createElement('option');
+                option.value = cls._id;
+                option.textContent = cls.name || cls.className;
+                classSelect.appendChild(option);
+            });
+        }
+
+        // Load subjects when class is selected
+        classSelect.addEventListener('change', populateCollectionSubjects);
+
+    } catch (error) {
+        console.error('Error loading classes:', error);
+        showCustomModal({
+            title: 'Error',
+            message: 'Failed to load classes',
+            type: 'alert',
+            icon: '❌'
+        });
+    }
+}
+
+async function populateCollectionSubjects() {
+    const classId = document.getElementById('collectionClassSelect').value;
+    const subjectSelect = document.getElementById('collectionSubjectSelect');
+    
+    // Clear previous subjects
+    subjectSelect.innerHTML = '<option value="">-- Select a Subject --</option>';
+
+    if (!classId) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/subjects`, {
+            headers: authHeaders()
+        });
+        
+        const subjects = await response.json();
+        
+        if (Array.isArray(subjects)) {
+            subjects.forEach(subj => {
+                const option = document.createElement('option');
+                option.value = subj._id || subj.id;
+                option.textContent = subj.name;
+                subjectSelect.appendChild(option);
+            });
+        }
+
+    } catch (error) {
+        console.error('Error loading subjects:', error);
+    }
+}
+
+async function submitCollectionWithClassSubject(collectionName) {
+    const classId = document.getElementById('collectionClassSelect').value;
+    const subjectId = document.getElementById('collectionSubjectSelect').value;
+
+    if (!classId || !subjectId) {
+        showCustomModal({
+            title: 'Selection Required',
+            message: 'Please select both a class and a subject.',
+            type: 'alert',
+            icon: '⚠️'
+        });
+        return;
+    }
+
+    closeCollectionModal();
+
+    try {
+        showLoadingSpinner('Creating Collection', 'Processing...');
+        
+        const collection = await createCollectionAPI(collectionName, classId, subjectId);
+        hideLoadingSpinner();
+
+        if (!collection) {
+            showCustomModal({
+                title: 'Creation Failed',
+                message: 'Failed to create collection. Please try again.',
+                type: 'alert',
+                icon: '❌'
+            });
+            return;
+        }
+
+        // Clear input
+        document.getElementById('newCollectionName').value = '';
+
+        // Show success
+        showCustomModal({
+            title: 'Collection Created',
+            message: `"${collectionName}" has been created successfully.`,
+            type: 'success',
+            icon: '✅'
+        });
+
+        // Reload collections
+        loadCollections();
+
+    } catch (error) {
+        hideLoadingSpinner();
+        console.error('Collection creation error:', error);
+        showCustomModal({
+            title: 'Error',
+            message: 'Network error: ' + error.message,
+            type: 'alert',
+            icon: '⚠️'
+        });
+    }
+}
+
+function closeCollectionModal() {
+    const modal = document.getElementById('collectionModalOverlay');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 200);
+    }
+}
+
+// Updated API function to accept class and subject
+async function createCollectionAPI(name, classId, subjectId) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ 
+                name: name,
+                class: classId,
+                subject: subjectId
+            })
+        });
+        if (!res.ok) throw new Error('Failed to create collection');
+        const data = await res.json();
+        return data.collection;
+    } catch (e) {
+        console.error('Error creating collection:', e);
+        return null;
+    }
+}
+                    
+
+
+
+    async function addQuestionToCollectionAPI(collectionId, questionData) {
+        try {
+            const res = await fetch(
+                `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections/${collectionId}/questions`,
+                {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify(questionData)
+                }
+            );
+            if (!res.ok) throw new Error('Failed to save question');
+            return await res.json();
+        } catch (e) {
+            console.error('Error saving question:', e);
+            return null;
+        }
+    }
+
+    async function updateQuestionAPI(collectionId, questionId, questionData) {
+        try {
+            const res = await fetch(
+                `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections/${collectionId}/questions/${questionId}`,
+                {
+                    method: 'PATCH',
+                    headers: authHeaders(),
+                    body: JSON.stringify(questionData)
+                }
+            );
+            if (!res.ok) throw new Error('Failed to update question');
+            return await res.json();
+        } catch (e) {
+            console.error('Error updating question:', e);
+            return null;
+        }
+    }
+
+    async function deleteQuestionAPI(collectionId, questionId) {
+        try {
+            const res = await fetch(
+                `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections/${collectionId}/questions/${questionId}`,
+                {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                }
+            );
+            if (!res.ok) throw new Error('Failed to delete question');
+            return true;
+        } catch (e) {
+            console.error('Error deleting question:', e);
+            return false;
+        }
+    }
+
+    async function deleteCollectionAPI(collectionId) {
+        try {
+            const res = await fetch(
+                `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections/${collectionId}`,
+                {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                }
+            );
+            if (!res.ok) throw new Error('Failed to delete collection');
+            return true;
+        } catch (e) {
+            console.error('Error deleting collection:', e);
+            return false;
+        }
+    }
+
+    // ============ MAIN INITIALIZATION ============
+    async function initSystemNode() {
+    try {
+        showLoadingSpinner('Loading Faculty Dashboard', 'Initializing system...');
+
+        // Step 1: Load teacher profile
+        updateLoadingStatus('Loading teacher information...');
+        teacher = await fetchTeacherProfile();
+        if (!teacher) {
+            hideLoadingSpinner();
+            await showCustomModal({ 
+                title: 'Authentication Failed', 
+                message: 'Failed to load teacher profile. Please check your login credentials.', 
+                type: 'alert', 
+                icon: '🔒' 
+            });
+            return;
+        }
+
+        document.getElementById('headerTeacherName').textContent = teacher.name || 'Teacher';
+        document.getElementById('headerTeacherTitle').textContent = teacher.designation || 'Faculty Member';
+        document.getElementById('sidebarDept').textContent = teacher.department || 'Department';
+        document.getElementById('profileName').value = teacher.name || '';
+        document.getElementById('profileTitle').value = teacher.designation || '';
+        document.getElementById('profileDept').value = teacher.department || '';
+
+        // Step 2: Load classes and students
+        updateLoadingStatus('Loading class data...');
+        teacher.classes = await fetchTeacherClasses();
+        
+        for (const cls of teacher.classes) {
+            updateLoadingStatus(`Loading students for ${cls.name}...`);
+            studentsByClass[cls.id] = await fetchStudentsByClass(cls.id);
+            subjectsByClass[cls.id] = await fetchSubjectsByClass(cls.id);
+        }
+
+        // Step 3: Load assignments
+        updateLoadingStatus('Loading assignments...');
+        allAssignments = await fetchTeacherAssignments() || [];
+
+        // Step 4: Load assessment collections
+        updateLoadingStatus('Loading assessment collections...');
+        assessmentDatabase = await fetchUnifiedQuestionBank() || [];
+
+        // Step 5: Populate dropdown filters
+        updateLoadingStatus('Populating filters and controls...');
+        
+        const asmModalClass = document.getElementById('asmModalClass');
+        const gradebookClassFilter = document.getElementById('gradebookClassFilter');
+        const studentClassFilter = document.getElementById('studentClassFilter');
+        const asmBankCategorySelector = document.getElementById('asmBankCategorySelector');
+
+        // Clear existing options (keeping the first placeholder)
+        if (asmModalClass) {
+            asmModalClass.innerHTML = '<option value="">Select Class</option>';
+        }
+        if (gradebookClassFilter) {
+            gradebookClassFilter.innerHTML = '<option value="">Select Class</option>';
+        }
+        if (studentClassFilter) {
+            studentClassFilter.innerHTML = '<option value="ALL">Display All Assigned Classes</option>';
+        }
+
+        // Populate class filters
+        teacher.classes.forEach(cls => {
+            if (asmModalClass) {
+                const opt1 = document.createElement('option');
+                opt1.value = cls.id;
+                opt1.textContent = cls.name;
+                asmModalClass.appendChild(opt1);
+            }
+
+            if (gradebookClassFilter) {
+                const opt2 = document.createElement('option');
+                opt2.value = cls.id;
+                opt2.textContent = cls.name;
+                gradebookClassFilter.appendChild(opt2);
+            }
+
+            if (studentClassFilter) {
+                const opt3 = document.createElement('option');
+                opt3.value = cls.name;
+                opt3.textContent = cls.name;
+                studentClassFilter.appendChild(opt3);
+            }
+        });
+
+        // Populate assessment bank categories
+        if (asmBankCategorySelector) {
+            asmBankCategorySelector.innerHTML = '<option value="">-- Select Category --</option>';
+            assessmentDatabase.forEach(bank => {
+                const opt = document.createElement('option');
+                opt.value = bank._id;
+                opt.textContent = bank.name + (bank.isMigrated ? '' : ' [Legacy]');
+                asmBankCategorySelector.appendChild(opt);
+            });
+        }
+
+        // Step 6: Render all dashboard sections
+        updateLoadingStatus('Rendering dashboard components...');
+        renderOverview();
+        renderCollections();
+        populateCollectionSelects();
+        renderAssignments();
+        renderStudents();
+        renderGradebook();
+
+        // Step 7: Hide spinner and show dashboard
+        hideLoadingSpinner();
+        
+        // Show initial panel
+        switchPanel('overview');
+
+    } catch (err) {
+        console.error('Initialization error:', err);
+        hideLoadingSpinner();
+        await showCustomModal({ 
+            title: 'System Error', 
+            message: 'Dashboard initialization failed: ' + err.message, 
+            type: 'alert', 
+            icon: '❌' 
+        });
+    }
+}
+
+    // ============ RENDER FUNCTIONS ============
+    function renderOverview() {
+        const totalStudents = (teacher.classes || []).reduce((s, c) => s + (studentsByClass[c.id] ? studentsByClass[c.id].length : 0), 0);
+        document.getElementById('statTotalStudents').textContent = totalStudents;
+        
+        const tbody = document.getElementById('classCohortsBody');
+        tbody.innerHTML = '';
+
+        (teacher.classes || []).forEach(cls => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-3 pl-4 font-bold text-brand-900">${cls.name}</td>
+                <td class="p-3">General Subjects</td>
+                <td class="p-3 text-center">1 Active Batch</td>
+                <td class="p-3 text-center font-bold text-slate-900 font-mono">73.8%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderCollections() {
+        const container = document.getElementById('collectionsContainer');
+        container.innerHTML = '';
+        document.getElementById('overviewCollectionCount').innerText = `${assessmentDatabase.length} Saved Collections`;
+
+        if (assessmentDatabase.length === 0) {
+            container.innerHTML = `<div class="text-center p-8 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 text-xs font-bold">No active evaluation collections registered.</div>`;
+            return;
+        }
+
+        assessmentDatabase.forEach((collection) => {
+            const isSomeActive = activeIsolatedCollectionId !== null;
+            const isThisActive = activeIsolatedCollectionId === collection._id;
+
+            if (isSomeActive && !isThisActive) return;
+
+            const questionCount = collection.questions ? collection.questions.length : 0;
+
+            let questionsHtml = '';
+            if (isThisActive) {
+                if (!collection.questions || collection.questions.length === 0) {
+                    questionsHtml = `<div class="text-center p-6 bg-white border border-slate-150 rounded-xl text-slate-400 text-[11px] font-bold">No active objective questions inside this category.</div>`;
+                } else {
+                    collection.questions.forEach((q, index) => {
+                        let choicesMarkup = '';
+                        if (q.options && q.options.length > 0) {
+                            q.options.forEach((opt, oIdx) => {
+                                const letter = String.fromCharCode(65 + oIdx);
+                                const isCorrect = opt.isCorrect === true;
+                                const optionText = typeof opt === 'string' ? opt : (opt.text || '');
+                                choicesMarkup += `
+                                    <div class="p-2.5 rounded-lg border ${isCorrect ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900 font-bold' : 'bg-slate-50 border-slate-100'} text-xs">
+                                        <div class="flex items-start"><span class="font-bold mr-1.5">${letter}.</span> <div class="w-full">${optionText}</div></div>
+                                    </div>`;
+                            });
+                        }
+
+                        const stemDisplay = typeof q.text === 'string' ? q.text.replace(/<[^>]*>/g, '').substring(0, 150) : '';
+
+                        questionsHtml += `
+                            <div class="p-5 bg-white border border-slate-200 rounded-xl space-y-3 relative shadow-inner">
+                                <div class="flex justify-between items-center text-[11px]">
+                                    <span class="font-extrabold text-brand-500 font-mono">OBJECTIVE QUESTION ${index + 1}</span>
+                                    <div class="flex space-x-1.5">
+                                        <button onclick="openEditQuestionModal('${collection._id}', '${q.id}')" class="text-brand-800 hover:text-white hover:bg-brand-800 font-bold uppercase text-[10px] bg-brand-50 px-2 py-1 rounded transition">Edit</button>
+                                        <button onclick="deleteQuestion(event, '${collection._id}', '${q.id}')" class="text-rose-600 hover:text-white hover:bg-rose-600 font-bold uppercase text-[10px] bg-rose-50 px-2 py-1 rounded transition">Delete</button>
+                                    </div>
+                                </div>
+                                <div class="text-xs font-bold text-slate-900 leading-relaxed">${stemDisplay}...</div>
+                                ${q.imageUrl ? `<img src="${q.imageUrl}" class="max-h-36 w-auto object-contain rounded border border-slate-200 bg-slate-50 p-1">` : ''}
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">${choicesMarkup}</div>
+                                ${q.explanation ? `<div class="p-2.5 bg-amber-50/60 border border-amber-200 text-amber-900 rounded-lg text-[11px] font-medium"><strong class="font-bold">Rationale: </strong>${typeof q.explanation === 'string' ? q.explanation.replace(/<[^>]*>/g, '').substring(0, 100) : ''}</div>` : ''}
+                            </div>`;
+                    });
+                }
+            }
+
+            const sourceLabel = collection.source === 'CBT' 
+                ? '<span class="inline-block text-[9px] font-black tracking-widest bg-amber-600 text-white px-2 py-0.5 rounded uppercase font-mono ml-2">LEGACY CBT</span>'
+                : '';
+
+            const actionButtonHtml = isThisActive 
+                ? `<button onclick="toggleCollectionFocus(null)" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[11px] px-3 py-2 rounded-xl transition uppercase tracking-wide">Collapse</button>`
+                : `<button onclick="toggleCollectionFocus('${collection._id}')" class="bg-brand-900 hover:bg-brand-800 text-white font-bold text-[11px] px-3 py-2 rounded-xl transition uppercase tracking-wide">Expand</button>`;
+
+            container.innerHTML += `
+                <div class="p-5 border border-slate-200 rounded-2xl bg-slate-50/60 space-y-4 shadow-sm relative">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+                        <div>
+                            <div class="flex items-center">
+                                <span class="inline-block text-[9px] font-black tracking-widest bg-brand-900 text-white px-2 py-0.5 rounded uppercase font-mono">Category Track</span>
+                                ${sourceLabel}
+                            </div>
+                            <h3 class="text-sm font-black text-slate-900 mt-1 uppercase tracking-wide font-serif">${collection.name}</h3>
+                            <p class="text-[11px] text-slate-500 mt-0.5 font-semibold">${questionCount} Question${questionCount !== 1 ? 's' : ''}</p>
+                        </div>
+                        <div class="flex items-center space-x-1.5 self-end sm:self-auto">
+                            ${isThisActive && collection.source !== 'CBT' ? `
+                            <button onclick="openCreateQuestionModal('${collection._id}')" class="bg-brand-50 border border-brand-200 hover:bg-brand-100 text-brand-900 font-bold text-[11px] px-3 py-2 rounded-xl transition uppercase">
+                                + Insert Question
+                            </button>` : ''}
+                            ${actionButtonHtml}
+                            ${collection.source === 'Collection' ? `
+                            <button onclick="pushCollectionToCBT(event, '${collection._id}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-[11px] px-3 py-2 rounded-xl transition uppercase">
+                                Push to CBT
+                            </button>
+                            ` : ''}
+                            ${collection.source !== 'CBT' ? `<button onclick="deleteCollection(event, '${collection._id}')" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[11px] px-3 py-2 rounded-xl transition uppercase">Delete</button>` : ''}
+                        </div>
+                    </div>
+                    ${isThisActive ? `<div class="space-y-3 pt-2 animate-[fadeIn_0.25s_ease-out]">${questionsHtml}</div>` : ''}
+                </div>`;
+        });
+    }
+
+    function renderAssignments() {
+
+    const container =
+        document.getElementById(
+            'assignmentsContainer'
+        );
+
+    container.innerHTML = '';
+
+    if (!allAssignments.length) {
+
+        container.innerHTML = `
+            <div class="col-span-full text-center p-8 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 text-xs font-bold">
+                No assignments deployed yet.
+            </div>
+        `;
+
+        return;
+    }
+
+    allAssignments.forEach(assignment => {
+
+        const dueDate =
+            new Date(
+                assignment.dueDate
+            ).toLocaleDateString(
+                'en-US',
+                {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                }
+            );
+
+        container.innerHTML += `
+            <div class="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-4 shadow-sm">
+
+                <div class="flex justify-between items-start mb-3">
+
+                    <div>
+                        <h3 class="text-sm font-bold text-brand-900">
+                            ${assignment.title || 'Untitled'}
+                        </h3>
+
+                        <p class="text-[11px] text-slate-500 mt-0.5">
+                            ${assignment.class?.name || 'No Class'}
+                        </p>
+                    </div>
+
+                    <span class="inline-block text-[9px] font-black tracking-widest bg-brand-100 text-brand-800 px-2 py-1 rounded uppercase">
+                        ${assignment.type || 'STANDARD'}
+                    </span>
+
+                </div>
+
+                <p class="text-xs text-slate-600 mb-3">
+                    Due:
+                    <strong class="font-bold">
+                        ${dueDate}
+                    </strong>
+                </p>
+
+                <div class="grid grid-cols-2 gap-2">
+
+                    <button
+                        onclick="viewAssignment('${assignment._id}')"
+                        class="bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs px-3 py-1.5 rounded-lg transition uppercase">
+                        View
+                    </button>
+
+                    <button
+                        onclick="viewAssignmentSubmissions('${assignment._id}')"
+                        class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-lg transition uppercase">
+                        Submissions
+                    </button>
+
+                    <button
+                        onclick="editAssignment('${assignment._id}')"
+                        class="bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-xs px-3 py-1.5 rounded-lg transition uppercase">
+                        Edit
+                    </button>
+
+                    <button
+                        onclick="deleteAssignment(event, '${assignment._id}')"
+                        class="bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold text-xs px-3 py-1.5 rounded-lg transition uppercase">
+                        Delete
+                    </button>
+
+                </div>
+
+            </div>
+        `;
+    });
+}
+async function viewAssignmentSubmissions(assignmentId) {
+    try {
+        const res = await fetch(
+            `${API_BASE_URL}/api/teachers/${encodeURIComponent(
+                teacher.id
+            )}/assignments/${assignmentId}/submissions`,
+            {
+                headers: authHeaders()
+            }
+        );
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to load submissions');
+        }
+
+        const submissions = data.submissions || [];
+
+        if (!submissions.length) {
+            return showCustomModal({
+                title: 'Submissions',
+                message: 'No submissions have been received yet.',
+                type: 'alert',
+                icon: '📥'
+            });
+        }
+
+        // Main modern container with Flowbite styling & scrollbar control
+        let html = `
+            <div class="space-y-3 text-left max-h-[450px] overflow-y-auto pr-1 Custom-scrollbar">
+        `;
+
+        submissions.forEach(submission => {
+            html += `
+                <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:border-gray-700">
+                    <div class="flex justify-between items-start gap-4">
+                        
+                        <!-- Left Side: Student Info & Submission Details -->
+                        <div class="space-y-1.5 flex-1 min-w-0">
+                            <p class="text-sm font-bold text-slate-900 truncate dark:text-white">
+                                ${submission.studentName}
+                            </p>
+                            
+                            <!-- Timestamp Metadata Container -->
+                            <div class="flex items-center text-xs text-slate-500 dark:text-gray-400">
+                                <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400 dark:text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 0a10 10 0 1 0 10 10A10.011 10.011 0 0 0 10 0Zm3.982 13.982a1 1 0 0 1-1.414 0l-3.274-3.274A1.012 1.012 0 0 1 9 10V6a1 1 0 0 1 2 0v3.586l2.982 2.982a1 1 0 0 1 0 1.414Z"/>
+                                </svg>
+                                <span>Submitted: ${new Date(submission.submittedAt).toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <!-- Right Side: Conditional Grade/Score Flowbite Badge Layout -->
+                        <div class="flex-shrink-0">
+                            ${
+                                submission.score !== undefined
+                                    ? `
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 rounded-lg dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
+                                        <span class="font-bold mr-1">Score:</span> 
+                                        <span class="font-mono">${submission.score}</span>
+                                    </span>
+                                `
+                                    : `
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-slate-500 bg-slate-100 rounded-lg dark:bg-gray-700 dark:text-gray-400">
+                                        Pending
+                                    </span>
+                                `
+                            }
+                        </div>
+
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+
+        showCustomModal({
+            title: 'Assignment Submissions',
+            message: html,
+            type: 'alert',
+            icon: '📥'
+        });
+
+    } catch (err) {
+        showCustomModal({
+            title: 'Error',
+            message: err.message,
+            type: 'alert',
+            icon: '❌'
+        });
+    }
+}
+
+// ============ VIEW ASSIGNMENT FUNCTION - OPENS DEDICATED PAGE ============
+async function viewAssignment(assignmentId) {
+    const assignment = allAssignments.find(a => a._id === assignmentId);
+
+    if (!assignment) {
+        return showCustomModal({
+            title: 'Error',
+            message: 'Assignment not found',
+            type: 'alert',
+            icon: '❌'
+        });
+    }
+
+    // Store assignment data in sessionStorage so it can be retrieved on the assignment-view page
+    sessionStorage.setItem('currentAssignmentId', assignmentId);
+    sessionStorage.setItem('currentAssignmentData', JSON.stringify(assignment));
+
+    // Navigate to dedicated assignment view page
+    window.location.href = `assignment-view.html?id=${encodeURIComponent(assignmentId)}`;
+}
+    
+    function renderStudents() {
+        const classFilter = document.getElementById('studentClassFilter')?.value || 'ALL';
+        const tbody = document.getElementById('studentTableBody');
+        tbody.innerHTML = '';
+
+        let studentsToShow = [];
+        if (classFilter === 'ALL') {
+            Object.values(studentsByClass).forEach(students => {
+                studentsToShow.push(...students);
+            });
+        } else {
+            teacher.classes.forEach(cls => {
+                if (cls.name === classFilter) {
+                    studentsToShow = studentsByClass[cls.id] || [];
+                }
+            });
+        }
+
+        if (studentsToShow.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 text-xs">No students found</td></tr>`;
+            return;
+        }
+
+        studentsToShow.forEach(student => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-3 pl-4 font-bold text-brand-900">${student.regNo || '—'}</td>
+                <td class="p-3">${student.name || '—'}</td>
+                <td class="p-3">Secondary Form</td>
+                <td class="p-3 text-center"><span class="inline-block text-[9px] font-bold tracking-widest bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded uppercase">Active</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+async function renderGradebook() {
+
+    const classId = document.getElementById('gradebookClassFilter')?.value;
+    const tbody = document.getElementById('gradebookTableBody');
+
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    const students = studentsByClass[classId] || [];
+    const subjects = subjectsByClass[classId] || [];
+
+    // -------------------------------
+    // TABLE HEADER
+    // -------------------------------
+
+    const theadRow = document.querySelector('#gradebookSubjectsHeader');
+
+    if (theadRow) {
+
+        theadRow.innerHTML = `
+
+            <!-- S/N -->
+            <th style="
+                position:sticky;
+                left:0;
+                z-index:10;
+                background:#f8fafc;
+                width:25px;
+                min-width:25px;
+                padding:6px;
+                border-right:1px solid #e2e8f0;
+            ">
+                #
+            </th>
+
+            <!-- Admission -->
+            <th style="
+                position:sticky;
+                left:30px;
+                z-index:10;
+                background:#f8fafc;
+                width:90px;
+                min-width:90px;
+                max-width:90px;
+                padding:6px;
+                border-right:1px solid #e2e8f0;
+            ">
+                ADM
+            </th>
+
+            <!-- Student -->
+            <th style="
+                position:sticky;
+                left:110px;
+                z-index:10;
+                background:#f8fafc;
+                width:100px;
+                min-width:100px;
+                max-width:100px;
+                padding:6px;
+                border-right:1px solid #e2e8f0;
+            ">
+                STUDENT
+            </th>
+        `;
+
+        subjects.forEach(subject => {
+
+            theadRow.innerHTML += `
+                <th style="
+                    min-width:70px;
+                    width:70px;
+                    padding:8px;
+                    text-align:center;
+                    background:#f8fafc;
+                    font-size:11px;
+                    border-right:1px solid #e2e8f0;
+                ">
+                    ${subject.name || subject}
+                </th>
+            `;
+        });
+
+        theadRow.innerHTML += `
+            <th style="
+                min-width:80px;
+                width:80px;
+                padding:8px;
+                text-align:center;
+                background:#f8fafc;
+            ">
+                Action
+            </th>
+        `;
+    }
+
+    // -------------------------------
+    // EMPTY STATE
+    // -------------------------------
+
+    if (!students.length) {
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="${subjects.length + 4}"
+                    style="
+                        padding:20px;
+                        text-align:center;
+                        color:#94a3b8;
+                    ">
+                    No students found for this class
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    // -------------------------------
+    // STUDENT ROWS
+    // -------------------------------
+
+    students.forEach((student, index) => {
+
+        const studentMongoId = student._id || student.id;
+
+        let subjectCells = '';
+
+        subjects.forEach(subject => {
+
+            const subjectName = subject.name || subject;
+
+            subjectCells += `
+                <td style="
+                    padding:8px;
+                    text-align:center;
+                    min-width:70px;
+                    width:70px;
+                ">
+                    <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                        data-student-id="${studentMongoId}"
+                        data-subject="${subjectName}"
+                        style="
+                            width:55px;
+                            text-align:center;
+                            border:1px solid #cbd5e1;
+                            border-radius:6px;
+                            padding:4px;
+                            font-size:11px;
+                            background:white;
+                        ">
+                </td>
+            `;
+        });
+
+        const tr = document.createElement('tr');
+
+        tr.setAttribute('data-student-id', studentMongoId);
+
+        tr.innerHTML = `
+
+            <!-- S/N -->
+            <td style="
+                position:sticky;
+                left:0;
+                background:white;
+                z-index:20;
+                width:30px;
+                min-width:30px;
+                padding:6px;
+                font-weight:700;
+                border-right:1px solid #e2e8f0;
+            ">
+                ${index + 1}
+            </td>
+
+            <!-- Admission -->
+            <td style="
+                position:sticky;
+                left:30px;
+                background:white;
+                z-index:20;
+                width:80px;
+                min-width:80px;
+                max-width:80px;
+                padding:6px;
+                font-weight:700;
+                color:#0f4c75;
+                white-space:nowrap;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                border-right:1px solid #e2e8f0;
+            ">
+                ${student.regNo || student.student_id || '—'}
+            </td>
+
+            <!-- Student -->
+            <td style="
+                position:sticky;
+                left:110px;
+                background:white;
+                z-index:20;
+                width:100px;
+                min-width:100px;
+                max-width:100px;
+                padding:6px;
+                font-weight:600;
+                white-space:nowrap;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                border-right:1px solid #e2e8f0;
+            ">
+                ${student.name || '—'}
+            </td>
+
+            ${subjectCells}
+
+            <!-- Action -->
+            <td style="
+                min-width:80px;
+                width:80px;
+                padding:8px;
+                text-align:center;
+            ">
+                <button
+                    onclick="syncStudentResults('${studentMongoId}', '${(student.name || '').replace(/'/g, "\\'")}')"
+                    style="
+                        font-size:11px;
+                        font-weight:700;
+                        color:#0f4c75;
+                        background:#eff6ff;
+                        border:1px solid #bfdbfe;
+                        padding:5px 10px;
+                        border-radius:6px;
+                        cursor:pointer;
+                    ">
+                    Sync
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+
+    // -------------------------------
+    // PROGRESS TRACKING
+    // -------------------------------
+
+    document.querySelectorAll(
+        '#gradebookTableBody input[type="number"]'
+    ).forEach(input => {
+
+        input.addEventListener(
+            'input',
+            updateGradebookProgress
+        );
+
+        input.addEventListener(
+            'change',
+            updateGradebookProgress
+        );
+    });
+
+    updateGradebookProgress();
+}    
+
+    
+
+async function syncStudentResults(studentId, studentName) {
+    try {
+        // Ensure teacher profile is loaded
+        if (!teacher || !teacher.id) {
+            console.log('⏳ Reloading teacher profile...');
+            teacher = await fetchTeacherProfile();
+        }
+
+        if (!teacher || !teacher.id) {
+            await showCustomModal({
+                title: 'Error',
+                message: 'Teacher profile not loaded. Please refresh the page and try again.',
+                type: 'alert',
+                icon: '❌'
+            });
+            return;
+        }
+
+        // Get selected filters
+        const classId = document.getElementById('gradebookClassFilter')?.value;
+        const sessionId = document.getElementById('gb-session-select')?.value;
+        const termId = document.getElementById('gb-term-select')?.value;
+        const resultType = document.getElementById('gb-result-type-select')?.value;
+
+        if (!classId || !sessionId || !termId || !resultType) {
+            await showCustomModal({
+                title: 'Selection Required',
+                message: 'Please select Class, Session, Term, and Result Type.',
+                type: 'alert',
+                icon: '⚠️'
+            });
+            return;
+        }
+
+        console.log('🔄 Syncing results:', {
+            studentId,
+            studentName,
+            classId,
+            sessionId,
+            termId,
+            resultType,
+            teacherId: teacher.id
+        });
+
+        // Build API URL
+        const resultsUrl =
+            `${API_BASE_URL}/api/teachers/${teacher.id}/results?` +
+            `class=${encodeURIComponent(classId)}&` +
+            `student=${encodeURIComponent(studentId)}&` +
+            `session=${encodeURIComponent(sessionId)}&` +
+            `term=${encodeURIComponent(termId)}`;
+
+        console.log('📡 Fetching from:', resultsUrl);
+
+        const res = await fetch(resultsUrl, {
+            method: 'GET',
+            headers: authHeaders()
+        });
+
+        let responseData = {};
+
+        try {
+            responseData = await res.json();
+        } catch (e) {
+            console.warn('⚠️ Could not parse JSON response');
+        }
+
+        if (!res.ok) {
+            console.error('❌ API Error:', responseData);
+
+            await showCustomModal({
+                title: 'No Results Found',
+                message:
+                    responseData?.error ||
+                    `No results found for ${studentName}.`,
+                type: 'alert',
+                icon: 'ℹ️'
+            });
+
+            return;
+        }
+
+        console.log('✅ Results received:', responseData);
+
+        if (!responseData.results || responseData.results.length === 0) {
+            await showCustomModal({
+                title: 'No Results Found',
+                message: `No uploaded results were found for ${studentName}.`,
+                type: 'alert',
+                icon: 'ℹ️'
+            });
+            return;
+        }
+
+        // Locate student row
+        const studentRow = document.querySelector(
+            `tr[data-student-id="${studentId}"]`
+        );
+
+        if (!studentRow) {
+            console.error('❌ Student row not found:', studentId);
+
+            await showCustomModal({
+                title: 'Error',
+                message: 'Student row could not be located in the gradebook.',
+                type: 'alert',
+                icon: '❌'
+            });
+
+            return;
+        }
+
+        const inputs = studentRow.querySelectorAll('input[type="number"]');
+
+        let populatedCount = 0;
+
+        responseData.results.forEach((result, index) => {
+            if (!inputs[index]) return;
+
+            let score = 0;
+
+            switch (resultType.toLowerCase()) {
+                case 'ca1':
+                    score = Number(result.ca1_score || 0);
+                    break;
+
+                case 'ca2':
+                    score = Number(result.ca2_score || 0);
+                    break;
+
+                case 'midterm':
+                    score = Number(result.midterm_score || 0);
+                    break;
+
+                case 'exam':
+                    score = Number(result.exam_score || 0);
+                    break;
+
+                default:
+                    score = Number(result.score || 0);
+            }
+
+            inputs[index].value = score;
+            populatedCount++;
+
+            console.log(
+                `✅ ${result.subject?.name || 'Subject'} => ${score}`
+            );
+        });
+
+        // Trigger input events so totals update automatically
+        inputs.forEach(input => {
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        if (typeof updateGradebookProgress === 'function') {
+            updateGradebookProgress();
+        }
+
+        await showCustomModal({
+            title: '✅ Sync Successful',
+            message:
+                `Loaded ${populatedCount} score(s) for ${studentName}\n\n` +
+                `Result Type: ${resultType.toUpperCase()}`,
+            type: 'alert',
+            icon: '✅'
+        });
+
+    } catch (err) {
+        console.error('❌ Sync error:', err);
+
+        await showCustomModal({
+            title: 'Error',
+            message: `Failed to sync results.\n\n${err.message}`,
+            type: 'alert',
+            icon: '❌'
+        });
+    }
+}
+
+        
+// Helper function to update student row with results
+function updateStudentRow(studentId, studentName, results) {
+    const studentRow = document.querySelector(`tr[data-student-id="${studentId}"]`);
+    if (studentRow) {
+        const inputs = studentRow.querySelectorAll('input[type="number"]');
+        let updatedCount = 0;
+        
+        inputs.forEach(input => {
+            const subjectName = input.getAttribute('data-subject');
+            
+            // Find result for this subject
+            const result = results.find(r => {
+                const rSubjectName = r.subject?.name || r.subject;
+                return rSubjectName === subjectName;
+            });
+
+            if (result) {
+                const score = result.exam_score || result.score || 0;
+                input.value = score;
+                input.style.backgroundColor = '#e0f2fe';
+                updatedCount++;
+                
+                // Remove highlight after 2 seconds
+                setTimeout(() => {
+                    input.style.backgroundColor = '#ffffff';
+                }, 2000);
+            }
+        });
+
+        updateGradebookProgress();
+
+        if (updatedCount > 0) {
+            showCustomModal({
+                title: 'Success',
+                message: `✅ Synced ${updatedCount} result(s) for ${studentName}`,
+                type: 'alert',
+                icon: '✅'
+            });
+        } else {
+            showCustomModal({
+                title: 'No Scores Found',
+                message: `No scores found for ${studentName} in selected subjects`,
+                type: 'alert',
+                icon: 'ℹ️'
+            });
+        }
+    }
+}
+    
+    // ============ MODAL FUNCTIONS ============
+    function openQuestionModal() {
+        if (!stemQuillInstance) {
+            stemQuillInstance = new Quill('#quillQuestionStem', {
+                theme: 'snow',
+                placeholder: 'Enter question text...',
+                modules: {
+                    toolbar: [['bold', 'italic', 'underline', 'code'], ['image']]
+                }
+            });
+        }
+
+        if (!explanationQuillInstance) {
+            explanationQuillInstance = new Quill('#quillExplanation', {
+                theme: 'snow',
+                placeholder: 'Enter explanation (optional)...',
+                modules: {
+                    toolbar: [['bold', 'italic', 'underline'], ['image']]
+                }
+            });
+        }
+
+        activeTargetModalMode = 'CREATE';
+        contextualTargetQuestionId = null;
+        stemQuillInstance.setContents({ ops: [{ insert: '' }] });
+        explanationQuillInstance.setContents({ ops: [{ insert: '' }] });
+        document.getElementById('modalOptionsWrapper').innerHTML = '';
+        appendBlankOptionField();
+        document.getElementById('questionModal').classList.remove('hidden');
+        document.getElementById('modalTitle').textContent = 'Create Assessment Item';
+    }
+
+    function closeQuestionModal() {
+        document.getElementById('questionModal').classList.add('hidden');
+        document.getElementById('modalOptionsWrapper').innerHTML = '';
+        optionQuillRegistry = {};
+    }
+
+    async function openEditQuestionModal(collectionId, questionId) {
+        try {
+            activeIsolatedCollectionId = collectionId;
+            activeTargetModalMode = 'EDIT';
+            contextualTargetQuestionId = questionId;
+
+            // Find the question from assessmentDatabase
+            const collection = assessmentDatabase.find(c => c._id === collectionId);
+            if (!collection) {
+                throw new Error('Collection not found');
+            }
+
+            const question = collection.questions.find(
+    q => (q._id || q.id)?.toString() === questionId.toString()
+);
+            if (!question) {
+                throw new Error('Question not found');
+            }
+
+            // Initialize Quill if needed
+            if (!stemQuillInstance) {
+                stemQuillInstance = new Quill('#quillQuestionStem', {
+                    theme: 'snow',
+                    placeholder: 'Enter question text...',
+                    modules: {
+                        toolbar: [['bold', 'italic', 'underline', 'code'], ['image']]
+                    }
+                });
+            }
+
+            if (!explanationQuillInstance) {
+                explanationQuillInstance = new Quill('#quillExplanation', {
+                    theme: 'snow',
+                    placeholder: 'Enter explanation (optional)...',
+                    modules: {
+                        toolbar: [['bold', 'italic', 'underline'], ['image']]
+                    }
+                });
+            }
+
+            // Clear previous content
+            stemQuillInstance.root.innerHTML = '';
+            explanationQuillInstance.root.innerHTML = '';
+            document.getElementById('modalOptionsWrapper').innerHTML = '';
+            optionQuillRegistry = {};
+
+            // Set stem content - PARSE HTML PROPERLY
+            if (question.text) {
+                stemQuillInstance.root.innerHTML = question.text;
+            }
+
+            // Rebuild options seamlessly via returned tracker instances
+            if (question.options && question.options.length > 0) {
+                for (let i = 0; i < question.options.length; i++) {
+                    const opt = question.options[i];
+                    
+                    // Direct generation link setup
+                    const newOptionObj = appendBlankOptionField();
+                    const optionText = typeof opt === 'string' ? opt : (opt.text || '');
+                    
+                    if (newOptionObj && newOptionObj.quill) {
+                        newOptionObj.quill.root.innerHTML = optionText;
+                        
+                        // Mark checking configuration values matches accurately
+                        const checkbox = newOptionObj.element.querySelector('input[type="checkbox"]');
+                        if (checkbox && (opt.isCorrect === true)) {
+                            checkbox.checked = true;
+                        }
+                    }
+                }
+            } else {
+                appendBlankOptionField();
+            }
+
+            // Set explanation - PARSE HTML PROPERLY
+            if (question.explanation) {
+                explanationQuillInstance.root.innerHTML = question.explanation;
+            }
+
+            // Show modal
+            document.getElementById('questionModal').classList.remove('hidden');
+            document.getElementById('modalTitle').textContent = 'Edit Assessment Item';
+
+        } catch (err) {
+            console.error('Error opening edit modal:', err);
+            await showCustomModal({ title: 'Error', message: 'Failed to load question for editing: ' + err.message, type: 'alert', icon: '❌' });
+        }
+    }
+
+    function appendBlankOptionField() {
+        const wrapper = document.getElementById('modalOptionsWrapper');
+        const optionId = `option_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'option-editor-container p-4 border border-slate-200 rounded-xl bg-white space-y-2';
+        optionDiv.innerHTML = `
+            <div class="flex justify-between items-center mb-2">
+                <label class="text-[11px] font-bold text-slate-600 uppercase">Response Option</label>
+                <label class="flex items-center space-x-1.5 text-xs">
+                    <input type="checkbox" class="w-4 h-4 rounded cursor-pointer">
+                    <span class="font-bold text-slate-600">Mark as Correct</span>
+                </label>
+            </div>
+            <div class="quill-option-editor bg-white rounded-lg border border-slate-150"></div>
+            <button type="button" onclick="removeOptionField('${optionId}')" class="text-xs font-bold text-rose-600 hover:text-rose-800 mt-2">Remove Option</button>
+        `;
+        optionDiv.id = optionId;
+        wrapper.appendChild(optionDiv);
+
+        // Initialize Quill for this option
+        const quillDiv = optionDiv.querySelector('.quill-option-editor');
+        const quillInstance = new Quill(quillDiv, {
+            theme: 'snow',
+            placeholder: 'Enter option text...',
+            modules: {
+                toolbar: [['bold', 'italic', 'underline'], ['image']]
+            }
+        });
+
+        optionQuillRegistry[optionId] = {
+            quill: quillInstance,
+            element: optionDiv
+        };
+
+        // Return registration mapping context details directly
+        return optionQuillRegistry[optionId];
+    }
+
+    function removeOptionField(optionId) {
+        const element = document.getElementById(optionId);
+        if (element) {
+            element.remove();
+        }
+        delete optionQuillRegistry[optionId];
+    }
+
+    async function saveModalQuestionData(event) {
+    if (event) event.preventDefault();
+
+    const button = event
+        ? event.target
+        : document.querySelector('#questionModal button[onclick*="saveModalQuestionData"]');
+
+    try {
+        await executeWithLoading(button, async () => {
+
+            if (!stemQuillInstance) {
+                throw new Error('Question editor is not initialized');
+            }
+
+            const stemHtml = stemQuillInstance.root.innerHTML.trim();
+
+            if (!stemHtml || stemHtml === '<p><br></p>') {
+                throw new Error('Question stem cannot be empty');
+            }
+
+            const options = [];
+
+            document.querySelectorAll('#modalOptionsWrapper .option-editor-container')
+                .forEach((div) => {
+
+                    const checkbox = div.querySelector('input[type="checkbox"]');
+
+                    let optionQuillInstance = null;
+
+                    Object.values(optionQuillRegistry).forEach(item => {
+                        if (
+                            item &&
+                            item.element === div &&
+                            item.quill
+                        ) {
+                            optionQuillInstance = item.quill;
+                        }
+                    });
+
+                    if (!optionQuillInstance) {
+                        return;
+                    }
+
+                    const optionHtml = optionQuillInstance.root.innerHTML.trim();
+
+                    if (
+                        optionHtml &&
+                        optionHtml !== '<p><br></p>'
+                    ) {
+                        options.push({
+                            text: optionHtml,
+                            isCorrect: checkbox ? checkbox.checked : false
+                        });
+                    }
+                });
+
+            if (options.length === 0) {
+                throw new Error('Please add at least one option');
+            }
+
+            if (!options.some(opt => opt.isCorrect)) {
+                throw new Error('Please mark at least one option as correct');
+            }
+
+            const explanationHtml = explanationQuillInstance
+                ? explanationQuillInstance.root.innerHTML
+                : '';
+
+            let result = null;
+
+            if (activeTargetModalMode === 'CREATE') {
+
+                result = await addQuestionToCollectionAPI(
+                    activeIsolatedCollectionId,
+                    {
+                        text: stemHtml,
+                        options,
+                        imageUrl: null,
+                        explanation: explanationHtml
+                    }
+                );
+
+            } else if (activeTargetModalMode === 'EDIT') {
+
+                result = await updateQuestionAPI(
+                    activeIsolatedCollectionId,
+                    contextualTargetQuestionId,
+                    {
+                        text: stemHtml,
+                        options,
+                        imageUrl: null,
+                        explanation: explanationHtml
+                    }
+                );
+            }
+
+            if (!result) {
+                throw new Error(
+                    'The server did not confirm the save operation.'
+                );
+            }
+
+            assessmentDatabase = await fetchUnifiedQuestionBank();
+
+            renderCollections();
+            closeQuestionModal();
+
+            await showCustomModal({
+                title: 'Success',
+                message: activeTargetModalMode === 'CREATE'
+                    ? 'Question created successfully.'
+                    : 'Question updated successfully.',
+                type: 'alert',
+                icon: '✅'
+            });
+        });
+
+    } catch (err) {
+
+        console.error('saveModalQuestionData error:', err);
+
+        await showCustomModal({
+            title: 'Save Failed',
+            message: err.message || 'An unexpected error occurred.',
+            type: 'alert',
+            icon: '⚠️'
+        });
+    }
+}
+
+    function openCreateQuestionModal(collectionId) {
+        activeIsolatedCollectionId = collectionId;
+        openQuestionModal();
+    }
+
+    async function deleteQuestion(event, collectionId, questionId) {
+        if (event) event.stopPropagation();
+        const confirmed = await showCustomModal({ 
+            title: 'Confirm Delete', 
+            message: 'Are you sure you want to delete this question?', 
+            type: 'confirm', 
+            icon: '⚠️' 
+        });
+
+        if (!confirmed) return;
+
+        const button = event ? event.target : null;
+        const actionTask = async () => {
+            const success = await deleteQuestionAPI(collectionId, questionId);
+            if (success) {
+                assessmentDatabase = await fetchUnifiedQuestionBank();
+                renderCollections();
+                await showCustomModal({ title: 'Success', message: 'Question deleted successfully', type: 'alert', icon: '✅' });
+            } else {
+                throw new Error('Failed to delete question');
+            }
+        };
+
+        if (button) {
+            await executeWithLoading(button, actionTask);
+        } else {
+            await actionTask();
+        }
+    }
+
+    async function createCollection(event) {
+        if (event) event.preventDefault();
+        const button = event ? event.target : null;
+        const nameInput = document.getElementById('newCollectionName');
+        const name = nameInput.value.trim();
+
+        if (!name) {
+            await showCustomModal({ title: 'Validation', message: 'Please enter a collection name', type: 'alert', icon: '⚠️' });
+            return;
+        }
+
+        const actionTask = async () => {
+            const collection = await createCollectionAPI(name);
+            if (collection) {
+                nameInput.value = '';
+                assessmentDatabase = await fetchUnifiedQuestionBank();
+                renderCollections();
+                await showCustomModal({ title: 'Success', message: 'Collection created successfully', type: 'alert', icon: '✅' });
+            } else {
+                throw new Error('Failed to create collection');
+            }
+        };
+
+        if (button) {
+            await executeWithLoading(button, actionTask);
+        } else {
+            await actionTask();
+        }
+    }
+
+    async function deleteCollection(event, collectionId) {
+        if (event) event.stopPropagation();
+        const confirmed = await showCustomModal({ 
+            title: 'Confirm Delete', 
+            message: 'Are you sure you want to delete this entire collection? This action cannot be undone.', 
+            type: 'confirm', 
+            icon: '⚠️' 
+        });
+
+        if (!confirmed) return;
+
+        const button = event ? event.target : null;
+        const actionTask = async () => {
+            const success = await deleteCollectionAPI(collectionId);
+            if (success) {
+                assessmentDatabase = await fetchUnifiedQuestionBank();
+                renderCollections();
+                await showCustomModal({ title: 'Success', message: 'Collection deleted successfully', type: 'alert', icon: '✅' });
+            } else {
+                throw new Error('Failed to delete collection');
+            }
+        };
+
+        if (button) {
+            await executeWithLoading(button, actionTask);
+        } else {
+            await actionTask();
+        }
+    }
+
+    async function pushCollectionToCBT(event, collectionId) {
+        if (event) event.stopPropagation();
+        const confirmed = await showCustomModal({ 
+            title: 'Confirm Action', 
+            message: 'This will convert the collection to CBT format and make it available for assignments. Continue?', 
+            type: 'confirm', 
+            icon: 'ℹ️' 
+        });
+
+        if (!confirmed) return;
+
+        const button = event ? event.target : null;
+        const actionTask = async () => {
+            const res = await fetch(
+                `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections/${collectionId}/push`,
+                {
+                    method: 'POST',
+                    headers: authHeaders()
+                }
+            );
+            if (!res.ok) throw new Error('Failed to push collection');
+            
+            assessmentDatabase = await fetchUnifiedQuestionBank();
+            renderCollections();
+            await showCustomModal({ title: 'Success', message: 'Collection successfully converted to CBT format', type: 'alert', icon: '✅' });
+        };
+
+        if (button) {
+            await executeWithLoading(button, actionTask);
+        } else {
+            await actionTask();
+        }
+    }
+
+    function toggleCollectionFocus(collectionId) {
+        activeIsolatedCollectionId = collectionId;
+        renderCollections();
+    }
+
+// ============ ASSIGNMENT MODAL ============
+function openAssignmentModal() {
+
+    // Clear edit mode
+    editingAssignmentId = null;
+
+    if (!assignmentQuillInstance) {
+
+        assignmentQuillInstance = new Quill(
+            '#quillAssignmentBody',
+            {
+                theme: 'snow',
+                placeholder: 'Enter assignment instructions...',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline', 'code'],
+                        ['image']
+                    ]
+                }
+            }
+        );
+    }
+
+    // Reset editor
+    assignmentQuillInstance.setContents([
+        { insert: '\n' }
+    ]);
+
+    // Reset form fields
+    document.getElementById('asmModalTitle').value = '';
+
+    document.getElementById('asmModalClass').value = '';
+
+    document.getElementById('asmModalSubject').innerHTML =
+        '<option value="">Select Subject</option>';
+
+    document.getElementById('asmModalSubject').value = '';
+
+    document.getElementById('asmModalDue').value = '';
+
+    document.getElementById('asmModalType').value =
+        'STANDARD';
+
+    // Reset Question Bank selector
+    const bankSelector =
+        document.getElementById(
+            'asmBankCategorySelector'
+        );
+
+    if (bankSelector) {
+        bankSelector.selectedIndex = 0;
+    }
+
+    // Clear allocated questions
+    const questionContainer =
+        document.getElementById(
+            'asmAllocationQuestionsContainer'
+        );
+
+    if (questionContainer) {
+        questionContainer.innerHTML = '';
+    }
+
+    // Restore button text
+    const submitBtn =
+        document.querySelector(
+            '#assignmentModal button[onclick*="commitAssignmentDeployment"]'
+        );
+
+    if (submitBtn) {
+        submitBtn.textContent = 'Deploy';
+    }
+
+    // Show standard section
+    toggleAssignmentTypeSection();
+
+    // Open modal
+    const modal =
+        document.getElementById(
+            'assignmentModal'
+        );
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    // Focus title field
+    setTimeout(() => {
+        document
+            .getElementById('asmModalTitle')
+            ?.focus();
+    }, 100);
+}
+
+    function closeAssignmentModal() {
+
+    const modal =
+        document.getElementById('assignmentModal');
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+    function toggleAssignmentTypeSection() {
+        const type = document.getElementById('asmModalType').value;
+        document.getElementById('asmTypeStandardWrapper').classList.toggle('hidden', type !== 'STANDARD');
+        document.getElementById('asmTypeQuestionBankWrapper').classList.toggle('hidden', type !== 'QUESTION_BANK');
+    }
+
+    function loadQuestionsForAllocation() {
+        const categoryId = document.getElementById('asmBankCategorySelector').value;
+        const container = document.getElementById('asmAllocationQuestionsContainer');
+        container.innerHTML = '';
+
+        if (!categoryId) {
+            container.innerHTML = '<p class="text-center text-slate-400 text-xs">Select a category</p>';
+            return;
+        }
+
+        const category = assessmentDatabase.find(c => c._id === categoryId);
+        if (!category || !category.questions) {
+            container.innerHTML = '<p class="text-center text-slate-400 text-xs">No questions found</p>';
+            return;
+        }
+
+        category.questions.forEach((q, index) => {
+            const questionText = typeof q.text === 'string' ? q.text.replace(/<[^>]*>/g, '').substring(0, 60) : '';
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'p-3 bg-white border border-slate-150 rounded-lg flex items-start space-x-3';
+            questionDiv.innerHTML = `
+                <input type="checkbox" value="${q.id}" class="w-4 h-4 rounded mt-1 cursor-pointer">
+                <div class="flex-grow">
+                    <p class="text-xs font-bold text-slate-900">${questionText}...</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">Question ${index + 1}</p>
+                </div>
+            `;
+            container.appendChild(questionDiv);
+        });
+    }
+// ============ POPULATE CLASS AND SUBJECT SELECTS ============
+function populateCollectionSelects() {
+    const classSelect = document.getElementById('collectionClassSelect');
+    const subjectSelect = document.getElementById('collectionSubjectSelect');
+
+    classSelect.innerHTML = '<option value="">Select Class</option>';
+    subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+
+    if (!teacher || !Array.isArray(teacher.classes)) return;
+
+    // Populate classes
+    teacher.classes.forEach(cls => {
+        const option = document.createElement('option');
+        option.value = cls.id;
+        option.textContent = cls.name;
+        classSelect.appendChild(option);
+    });
+
+    // Load subjects when a class is selected
+    classSelect.onchange = function () {
+        subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+
+        const subjects = subjectsByClass[this.value] || [];
+
+        subjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject.id || subject._id;
+            option.textContent = subject.name;
+            subjectSelect.appendChild(option);
+        });
+    };
+}
+// ============ CREATE COLLECTION FUNCTION ============
+async function createCollection() {
+    const nameInput = document.getElementById('newCollectionName');
+    const classSelect = document.getElementById('collectionClassSelect');
+    const subjectSelect = document.getElementById('collectionSubjectSelect');
+    
+    const collectionName = nameInput.value.trim();
+    const selectedClass = classSelect.value;
+    const selectedSubject = subjectSelect.value;
+    
+    if (!collectionName) {
+        showCustomModal({
+            title: 'Input Required',
+            message: 'Please enter a collection name.',
+            type: 'alert',
+            icon: '⚠️'
+        });
+        return;
+    }
+    
+    if (!selectedClass) {
+        showCustomModal({
+            title: 'Class Selection Required',
+            message: 'Please select a class for this collection.',
+            type: 'alert',
+            icon: '⚠️'
+        });
+        return;
+    }
+    
+    if (!selectedSubject) {
+        showCustomModal({
+            title: 'Subject Selection Required',
+            message: 'Please select a subject for this collection.',
+            type: 'alert',
+            icon: '⚠️'
+        });
+        return;
+    }
+    
+    try {
+        showLoadingSpinner('Creating Collection', 'Setting up question bank...');
+        
+        const payload = {
+            name: collectionName,
+            classId: selectedClass,
+            subjectId: selectedSubject,
+            teacherId: teacher?.id || teacher?._id
+        };
+        
+        const response = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) throw new Error('Failed to create collection');
+        
+        const result = await response.json();
+        activeIsolatedCollectionId = result.id || result._id;
+        
+        showCustomModal({
+            title: 'Success',
+            message: 'Collection created successfully!',
+            type: 'success',
+            icon: '✓'
+        });
+        
+        nameInput.value = '';
+        classSelect.value = '';
+        subjectSelect.value = '';
+        
+        await loadCollections();
+        hideLoadingSpinner();
+    } catch (error) {
+        hideLoadingSpinner();
+        showCustomModal({
+            title: 'Error',
+            message: `Failed to create collection: ${error.message}`,
+            type: 'error',
+            icon: '✕'
+        });
+    }
+}
+    
+async function commitAssignmentDeployment(event) {
+  if (event) event.preventDefault();
+
+  const button = event
+    ? event.target
+    : document.querySelector(
+        '#assignmentModal button[onclick*="commitAssignmentDeployment"]'
+      );
+
+  await executeWithLoading(button, async () => {
+    const title =
+      document.getElementById('asmModalTitle').value.trim();
+
+    const classId =
+      document.getElementById('asmModalClass').value;
+
+    const subjectId =
+      document.getElementById('asmModalSubject').value;
+
+    const dueDate =
+      document.getElementById('asmModalDue').value;
+
+    const type =
+      document.getElementById('asmModalType').value;
+
+    // Validation
+    if (
+      !title ||
+      !classId ||
+      !subjectId ||
+      !dueDate
+    ) {
+      throw new Error(
+        'Please fill in all required fields'
+      );
+    }
+
+    let assignmentBody = '';
+    let allocatedQuestions = [];
+    let cbtId = null;
+
+    if (type === 'STANDARD') {
+      assignmentBody =
+        assignmentQuillInstance.root.innerHTML;
+
+      if (
+        !assignmentBody.trim() ||
+        assignmentBody === '<p><br></p>'
+      ) {
+        throw new Error(
+          'Please enter assignment instructions'
+        );
+      }
+
+    } else if (type === 'QUESTION_BANK') {
+
+    const selectedCategory =
+        document.getElementById(
+            'asmBankCategorySelector'
+        ).value;
+
+    if (!selectedCategory) {
+        throw new Error(
+            'Please select a question category'
+        );
+    }
+
+    const selectedQuestions =
+        document.querySelectorAll(
+            '#asmAllocationQuestionsContainer input[type="checkbox"]:checked'
+        );
+
+    if (selectedQuestions.length === 0) {
+        throw new Error(
+            'Please select at least one question'
+        );
+    }
+
+    allocatedQuestions =
+        Array.from(selectedQuestions)
+             .map(cb => cb.value);
+
+    cbtId = selectedCategory;
+
+    assignmentBody =
+        'Question Bank Assignment';
+}
+
+    const payload = {
+      class: classId,
+      subject: subjectId,
+      title,
+      description: assignmentBody,
+      dueDate,
+      type,
+      questionsAllocated: allocatedQuestions
+    };
+
+    // Add CBT ID for QUESTION_BANK type
+    if (type === 'QUESTION_BANK') {
+      payload.cbt = cbtId;
+    }
+
+    // CREATE vs UPDATE
+    const isEditing =
+      !!editingAssignmentId;
+
+    const endpoint = isEditing
+      ? `${API_BASE_URL}/api/teachers/${encodeURIComponent(
+          teacher.id
+        )}/assignments/${editingAssignmentId}`
+      : `${API_BASE_URL}/api/teachers/${encodeURIComponent(
+          teacher.id
+        )}/assignments`;
+
+    const method =
+      isEditing ? 'PUT' : 'POST';
+
+    const res = await fetch(
+      endpoint,
+      {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        `Failed to ${isEditing ? 'update' : 'create'} assignment`
+      );
+    }
+
+    // Refresh assignments
+    allAssignments =
+      await fetchTeacherAssignments();
+
+    renderAssignments();
+
+    // Exit edit mode
+    editingAssignmentId = null;
+
+    closeAssignmentModal();
+
+    await showCustomModal({
+      title: 'Success',
+      message: isEditing
+        ? 'Assignment updated successfully'
+        : 'Assignment deployed successfully',
+      type: 'alert',
+      icon: '✅'
+    });
+  });
+}
+    document
+    .getElementById('asmModalClass')
+    .addEventListener('change', async function () {
+
+        const classId = this.value;
+
+        const subjectSelect =
+            document.getElementById('asmModalSubject');
+
+        subjectSelect.innerHTML =
+            '<option value="">Loading...</option>';
+
+        try {
+
+            const res = await fetch(
+                `${API_BASE_URL}/api/teachers/subjects?classId=${classId}`,
+                {
+                    headers: authHeaders()
+                }
+            );
+
+            const subjects = await res.json();
+
+            subjectSelect.innerHTML =
+                '<option value="">Select Subject</option>';
+
+            subjects.forEach(subject => {
+
+                subjectSelect.innerHTML += `
+                    <option value="${subject.id}">
+                        ${subject.name}
+                    </option>
+                `;
+            });
+
+        } catch (err) {
+
+            subjectSelect.innerHTML =
+                '<option value="">Failed to load subjects</option>';
+        }
+    });
+    
+    async function editAssignment(assignmentId) {
+
+    const assignment = allAssignments.find(
+        a => a._id === assignmentId
+    );
+
+    if (!assignment) {
+        return showCustomModal({
+            title: 'Error',
+            message: 'Assignment not found',
+            type: 'alert',
+            icon: '❌'
+        });
+    }
+
+    editingAssignmentId = assignmentId;
+
+    openAssignmentModal();
+
+    // Basic fields
+    document.getElementById('asmModalTitle').value =
+        assignment.title || '';
+
+    const classId =
+        assignment.class?._id ||
+        assignment.class ||
+        '';
+
+    document.getElementById('asmModalClass').value =
+        classId;
+
+    // Load subjects first
+    await loadAssignmentSubjects();
+
+    const subjectId =
+        assignment.subject?._id ||
+        assignment.subject ||
+        '';
+
+    const subjectSelect =
+        document.getElementById('asmModalSubject');
+
+    subjectSelect.value = subjectId;
+
+    // If subject isn't found in options, log it
+    if (subjectId && subjectSelect.value !== subjectId) {
+        console.warn(
+            'Saved subject not found in loaded subjects:',
+            subjectId
+        );
+    }
+
+    document.getElementById('asmModalDue').value =
+        assignment.dueDate
+            ? new Date(assignment.dueDate)
+                  .toISOString()
+                  .split('T')[0]
+            : '';
+
+    document.getElementById('asmModalType').value =
+        assignment.type || 'STANDARD';
+
+    toggleAssignmentTypeSection();
+
+    if (
+        (assignment.type || 'STANDARD') ===
+        'STANDARD'
+    ) {
+
+        assignmentQuillInstance.root.innerHTML =
+            assignment.description || '';
+
+    } else {
+
+        const allocated =
+            assignment.questionsAllocated || [];
+
+        console.log(
+            'Allocated Questions:',
+            allocated
+        );
+
+        await loadQuestionsForAllocation();
+
+        // Wait for DOM to finish rendering checkboxes
+        await new Promise(resolve =>
+            requestAnimationFrame(resolve)
+        );
+
+        const checkboxes =
+            document.querySelectorAll(
+                '#asmAllocationQuestionsContainer input[type="checkbox"]'
+            );
+
+        console.log(
+            'Rendered Checkbox Values:',
+            Array.from(checkboxes).map(
+                cb => cb.value
+            )
+        );
+
+        checkboxes.forEach(cb => {
+
+            cb.checked =
+                allocated.includes(cb.value);
+
+        });
+    }
+
+    const submitBtn =
+        document.querySelector(
+            '#assignmentModal button[onclick*="commitAssignmentDeployment"]'
+        );
+
+    if (submitBtn) {
+        submitBtn.textContent =
+            'Update Assignment';
+    }
+
+    console.log(
+        'Editing Assignment:',
+        assignment
+    );
+}
+
+    async function deleteAssignment(event, assignmentId) {
+        if (event) event.stopPropagation();
+        const confirmed = await showCustomModal({ 
+            title: 'Confirm Delete', 
+            message: 'Are you sure you want to delete this assignment?', 
+            type: 'confirm', 
+            icon: '⚠️' 
+        });
+
+        if (!confirmed) return;
+
+        const button = event ? event.target : null;
+        const actionTask = async () => {
+            const res = await fetch(
+                `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/assignments/${assignmentId}`,
+                {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                }
+            );
+            if (!res.ok) throw new Error('Failed to delete assignment');
+
+            allAssignments = await fetchTeacherAssignments();
+            renderAssignments();
+            await showCustomModal({ title: 'Success', message: 'Assignment deleted successfully', type: 'alert', icon: '✅' });
+        };
+
+        if (button) {
+            await executeWithLoading(button, actionTask);
+        } else {
+            await actionTask();
+        }
+    }
+
+    // ============ PANEL SWITCHING ============
+    function switchPanel(panelName) {
+        document.querySelectorAll('[id^="panel-"]').forEach(panel => {
+            panel.classList.add('hidden');
+        });
+        document.getElementById(`panel-${panelName}`).classList.remove('hidden');
+
+        document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+            btn.classList.remove('sidebar-btn-active');
+            btn.classList.add('sidebar-btn-inactive');
+        });
+        document.getElementById(`btn-${panelName}`).classList.remove('sidebar-btn-inactive');
+        document.getElementById(`btn-${panelName}`).classList.add('sidebar-btn-active');
+
+        closeBottomNav();
+    }
+
+    function openBottomNav() {
+        const overlay = document.getElementById('bottomDrawerOverlay');
+        const card = document.getElementById('bottomDrawerCard');
+        overlay.classList.remove('hidden');
+        setTimeout(() => {
+            overlay.classList.remove('opacity-0');
+            card.classList.remove('translate-y-full');
+        }, 10);
+    }
+
+    function closeBottomNav(event) {
+        if (event && event.target.id !== 'bottomDrawerOverlay') return;
+        const overlay = document.getElementById('bottomDrawerOverlay');
+        const card = document.getElementById('bottomDrawerCard');
+        overlay.classList.add('opacity-0');
+        card.classList.add('translate-y-full');
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+        }, 300);
+    }
+
+    // ============ PROFILE FUNCTIONS ============
+    async function updateTeacherProfile(event) {
+        if (event) event.preventDefault();
+        const button = event ? event.target.querySelector('button[type="submit"]') : null;
+        
+        const actionTask = async () => {
+            const updateData = {};
+            const nameValue = document.getElementById('profileName').value;
+            const titleValue = document.getElementById('profileTitle').value;
+            const deptValue = document.getElementById('profileDept').value;
+
+            if (nameValue && nameValue !== teacher.name) {
+                updateData.first_name = nameValue.split(' ')[0];
+                updateData.last_name = nameValue.split(' ').slice(1).join(' ');
+            }
+            if (titleValue && titleValue !== teacher.designation) {
+                updateData.designation = titleValue;
+            }
+            if (deptValue && deptValue !== teacher.department) {
+                updateData.department = deptValue;
+            }
+
+            if (Object.keys(updateData).length === 0) {
+                throw new Error('No changes to save');
+            }
+
+            const res = await fetch(`${API_BASE_URL}/api/teachers/me`, {
+                method: 'PATCH',
+                headers: authHeaders(),
+                body: JSON.stringify(updateData)
+            });
+
+            if (!res.ok) throw new Error('Failed to update profile');
+
+            teacher = await fetchTeacherProfile();
+            document.getElementById('headerTeacherName').textContent = teacher.name || 'Teacher';
+            document.getElementById('headerTeacherTitle').textContent = teacher.designation || 'Faculty Member';
+            document.getElementById('sidebarDept').textContent = teacher.department || 'Department';
+
+            await showCustomModal({ title: 'Success', message: 'Profile updated successfully', type: 'alert', icon: '✅' });
+        };
+
+        if (button) {
+            await executeWithLoading(button, actionTask);
+        } else {
+            await actionTask();
+        }
+    }
+async function saveGradebookChanges(event) {
+    const button = event ? event.target : null;
+
+    if (button) {
+        setButtonLoading(button, true);
+    }
+
+    try {
+        const classId = document.getElementById('gradebookClassFilter').value;
+        const className = document.querySelector('#gradebookClassFilter option:checked')?.textContent || classId;
+        const session = document.getElementById('gb-session-select').value;
+        const term = document.getElementById('gb-term-select').value;
+        const resultType = document.getElementById('gb-result-type-select').value;
+
+        // ✅ VALIDATION
+        if (!classId) throw new Error('Please select a class');
+        if (!session) throw new Error('Please select a session');
+        if (!term) throw new Error('Please select a term');
+        if (!resultType) throw new Error('Please select a result type');
+
+        console.log('Fetching student data for class:', className);
+        
+        // Step 1: Fetch full student data for the class
+        const studentRes = await fetch(`${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`, {
+            headers: authHeaders()
+        });
+        
+        if (!studentRes.ok) {
+            throw new Error('Failed to fetch student data');
+        }
+        
+        const studentData = await studentRes.json();
+        const fullStudents = Array.isArray(studentData) ? studentData : (studentData.students || []);
+
+        if (!fullStudents || fullStudents.length === 0) {
+            throw new Error('No student data found for this class');
+        }
+
+        console.log('Fetched students:', fullStudents);
+
+        const subjects = subjectsByClass[classId] || [];
+        if (subjects.length === 0) {
+            throw new Error('No subjects found for the selected class');
+        }
+
+        const tbody = document.getElementById('gradebookTableBody');
+        const rows = tbody.querySelectorAll('tr');
+
+        if (rows.length === 0) {
+            throw new Error('No student records found');
+        }
+
+        // Organize results by subject
+        const resultsBySubject = {};
+
+        subjects.forEach(subj => {
+            const subjectName = subj.name || subj;
+            resultsBySubject[subjectName] = [];
+        });
+
+        // Step 2: Collect grades from gradebook table
+        rows.forEach((row, rowIdx) => {
+            const cells = row.querySelectorAll('td');
+            const studentNameCell = cells[1];
+            
+            if (!studentNameCell) return;
+
+            const studentName = studentNameCell.textContent.trim();
+
+            // Find the full student object from fetched data
+            const fullStudent = fullStudents.find(s => {
+                const fullName = `${s.firstname || ''} ${s.surname || ''}`.trim();
+                return fullName === studentName || s.name === studentName;
+            });
+
+            if (!fullStudent) {
+                console.warn('Full student data not found for:', studentName);
+                return;
+            }
+
+            // Get all input fields in this row (scores for each subject)
+            const inputs = row.querySelectorAll('input[type="number"]');
+
+            inputs.forEach((input, inputIdx) => {
+                if (inputIdx < subjects.length) {
+                    const score = input.value.trim();
+                    
+                    // Only add if score is entered
+                    if (score !== '' && score !== null && score !== undefined) {
+                        const subjectName = subjects[inputIdx].name || subjects[inputIdx];
+
+                        resultsBySubject[subjectName].push({
+                            student_id: fullStudent.student_id || fullStudent._id,
+                            student_name: studentName,
+                            score: parseInt(score) || 0,
+                            grade: calculateGrade(parseInt(score) || 0),
+                            remarks: '',
+                            resultType: resultType
+                        });
+                    }
+                }
+            });
+        });
+
+        console.log('Results by subject:', resultsBySubject);
+
+        // Check if any results were entered
+        const hasAnyResults = Object.values(resultsBySubject).some(arr => arr.length > 0);
+        if (!hasAnyResults) {
+            throw new Error('Please enter at least one score before saving');
+        }
+
+        // Step 3: Send results for each subject
+        let totalUploaded = 0;
+        let totalUpdated = 0;
+        const failedSubjects = [];
+
+        for (const [subjectName, subjectResults] of Object.entries(resultsBySubject)) {
+            if (subjectResults.length === 0) continue;
+
+            const payload = {
+                session: session,
+                term: term,
+                class: className,
+                subject: subjectName,
+                resultType: resultType,
+                results: subjectResults,
+                upsert: true
+            };
+
+            console.log(`Sending results for ${subjectName}:`, payload);
+
+            try {
+                // Try the upsert endpoint first
+                let res = await fetch(`${API_BASE_URL}/api/results/upsert`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify(payload)
+                });
+
+                // If upsert endpoint doesn't exist, fall back to regular upload
+                if (res.status === 404) {
+                    console.log('Upsert endpoint not found, trying regular upload...');
+                    res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+                        method: 'POST',
+                        headers: authHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const data = await res.json();
+                console.log(`Response for ${subjectName}:`, data);
+
+                if (data.success) {
+                    totalUploaded += data.inserted || 0;
+                    totalUpdated += data.updated || 0;
+                } else if (res.ok && (data.inserted || data.updated)) {
+                    totalUploaded += data.inserted || 0;
+                    totalUpdated += data.updated || 0;
+                } else {
+                    failedSubjects.push(`${subjectName}: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                failedSubjects.push(`${subjectName}: ${error.message}`);
+            }
+        }
+
+        // Step 4: Show results
+        if (totalUploaded > 0 || totalUpdated > 0) {
+            let message = '✅ Success! ';
+            if (totalUploaded > 0) message += `Created ${totalUploaded} new result(s). `;
+            if (totalUpdated > 0) message += `Updated ${totalUpdated} existing result(s).`;
+            if (failedSubjects.length > 0) {
+                message += `\n⚠️ Failed subjects:\n${failedSubjects.slice(0, 3).join('\n')}`;
+            }
+
+            showCustomModal({
+                title: 'Upload Successful',
+                message: message,
+                type: 'alert',
+                icon: '✅'
+            });
+        } else {
+            throw new Error(`All uploads failed:\n${failedSubjects.join('\n')}`);
+        }
+
+    } catch (err) {
+        console.error('Error uploading results:', err);
+        showCustomModal({
+            title: 'Upload Failed',
+            message: err.message,
+            type: 'alert',
+            icon: '❌'
+        });
+    } finally {
+        if (button) {
+            setButtonLoading(button, false);
+        }
+    }
+}
+
+</script>
+</body>
+</html>

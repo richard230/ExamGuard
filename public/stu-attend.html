@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold & Linc | Faculty Attendance Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="antialiased min-h-screen text-slate-800 flex flex-col">
+
+    <header class="bg-brand-900 text-white shadow-sm border-b border-brand-800 sticky top-0 z-40 shrink-0">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 bg-white text-brand-900 rounded-xl flex items-center justify-center font-black text-sm tracking-tighter shadow-inner">
+                    G&L
+                </div>
+                <div>
+                    <h1 class="text-xs font-black tracking-widest uppercase text-brand-200">Faculty Terminal</h1>
+                    <p class="text-xs font-medium opacity-80">Institutional Attendance Management Deck</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="text-right hidden md:block border-r border-brand-800 pr-6">
+                    <p id="headerTeacherName" class="text-xs font-bold text-white">Loading...</p>
+                    <p id="headerTeacherDept" class="text-[10px] font-mono text-brand-200">Loading...</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div id="headerInitials" class="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center font-bold text-xs text-white border border-brand-200">
+                        --
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col space-y-6 overflow-hidden">
+        
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm shrink-0">
+            <div class="flex items-center space-x-4">
+                <button onclick="returnToTeacherDashboard()" type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 uppercase tracking-wider">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    Return to Hub
+                </button>
+                <div>
+                    <h2 class="text-base font-black text-brand-900 uppercase tracking-wide">Daily Roll Call Registry</h2>
+                    <div class="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] font-bold text-slate-500">
+                        <span id="classNameBadge" class="bg-brand-50 text-brand-800 px-2 py-0.5 rounded">Loading...</span>
+                        <span id="subjectBadge" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded">--</span>
+                        <span class="text-slate-300">|</span>
+                        <span class="flex items-center text-brand-600 font-extrabold">
+                            <svg class="w-3.5 h-3.5 mr-1 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Today: <span id="currentDateLabel" class="ml-1 text-slate-900">Loading...</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <button id="saveButton" onclick="saveTodayAttendanceData()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl uppercase tracking-wider transition flex items-center gap-1.5 justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                <span id="saveButtonText">Commit Daily Logs</span>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Cohort Enrolled</p>
+                <p class="text-2xl font-black text-slate-900 mt-0.5" id="metricTotal">0</p>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                <p class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">Present Today</p>
+                <p class="text-2xl font-black text-emerald-600 mt-0.5" id="metricPresent">0</p>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                <p class="text-[10px] font-extrabold text-rose-600 uppercase tracking-wider">Absent Today</p>
+                <p class="text-2xl font-black text-rose-600 mt-0.5" id="metricAbsent">0</p>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                <p class="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">Excused Leaves</p>
+                <p class="text-2xl font-black text-amber-600 mt-0.5" id="metricExcused">0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 overflow-hidden">
+            
+            <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col max-h-[680px] overflow-hidden">
+                <div class="pb-3 border-b border-slate-100 flex justify-between items-center shrink-0">
+                    <div>
+                        <h3 class="text-xs font-bold text-brand-900 uppercase tracking-wider">Roster Registry Sheets</h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Click rows to pull profile calendar structures into desktop sidecar monitor view.</p>
+                    </div>
+                    <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold" id="rosterCountBadge">0 Registered</span>
+                </div>
+
+                <div class="overflow-y-auto mt-4 border border-slate-100 rounded-xl flex-1">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-100 sticky top-0 z-10">
+                                <th class="p-3 pl-4">Student Identification</th>
+                                <th class="p-3 text-center">Status Action Toggles</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rosterTableBody" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col max-h-[680px] overflow-hidden">
+                
+                <div id="inspectorEmptyState" class="py-24 px-6 text-center text-slate-400 flex flex-col items-center justify-center my-auto">
+                    <div class="text-5xl mb-3">📅</div>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-700">No Student Selected</h4>
+                    <p class="text-[11px] mt-2 text-slate-400 max-w-sm leading-relaxed">Select a student record entry from the roster to view attendance history and profile details.</p>
+                </div>
+
+                <div id="inspectorProfileContainer" class="hidden flex flex-col h-full overflow-hidden space-y-4">
+                    
+                    <div class="flex items-start justify-between pb-3 border-b border-slate-100 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div id="inspectAvatarInitials" class="h-12 w-12 bg-brand-900 text-white rounded-xl flex items-center justify-center font-black text-sm tracking-wider shadow-sm">
+                                --
+                            </div>
+                            <div>
+                                <h3 id="inspectFullName" class="text-sm font-black text-slate-900 uppercase tracking-tight">Student Name</h3>
+                                <p id="inspectAdmissionCode" class="text-[10px] font-mono text-slate-400 mt-0.5">GL-202X-0000</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span id="inspectTermAverage" class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold px-2.5 py-1 rounded-lg block">0%</span>
+                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Term Ratio</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100 text-[11px] shrink-0">
+                        <div>
+                            <span class="block text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Guardian Contact</span>
+                            <span id="inspectParentContact" class="font-bold text-slate-700 block mt-0.5">--</span>
+                        </div>
+                        <div>
+                            <span class="block text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Classroom Allocation</span>
+                            <span id="inspectCohort" class="font-bold text-brand-900 block mt-0.5">--</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col flex-1 overflow-hidden space-y-2">
+                        <div class="flex justify-between items-center shrink-0 pt-2">
+                            <h4 class="text-[10px] font-extrabold text-brand-900 uppercase tracking-wider">Attendance History</h4>
+                            <span class="text-[9px] font-mono text-rose-600 font-extrabold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">Weekdays Only</span>
+                        </div>
+
+                        <div class="grid grid-cols-5 gap-2 text-center text-[9px] font-extrabold text-slate-400 uppercase tracking-wider bg-slate-50/80 py-1.5 rounded-lg border border-slate-100 shrink-0">
+                            <div>Mon</div>
+                            <div>Tue</div>
+                            <div>Wed</div>
+                            <div>Thu</div>
+                            <div>Fri</div>
+                        </div>
+
+                        <div id="calendarGridBlocks" class="grid grid-cols-5 gap-2 flex-1 overflow-y-auto p-1 bg-slate-50/40 border border-slate-100 rounded-xl min-h-[220px]">
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <div id="customAlertModal" class="fixed inset-0 bg-slate-900/60 items-center justify-center z-50 flex hidden backdrop-blur-sm transition-all duration-300">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-xl border border-slate-200 mx-4 transform transition-all scale-95 opacity-0 duration-300" id="customAlertBox">
+            <div id="modalIcon" class="text-4xl mb-3">✅</div>
+            <h3 id="modalTitle" class="text-sm font-black uppercase text-slate-900 tracking-wide">System Feedback</h3>
+            <p id="modalMessage" class="text-xs text-slate-500 font-medium mt-2 leading-relaxed">Action parsed correctly.</p>
+            <button onclick="closeAlertNotification()" class="mt-5 w-full bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition uppercase tracking-wider">
+                Acknowledge
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ============ API CONFIGURATION ============
+        const API_BASE_URL = "https://goldlincschools.onrender.com";
+        const token = localStorage.getItem('teacherToken') || localStorage.getItem('token') || "";
+
+        // ============ STATE MANAGEMENT ============
+        let teacher = null;
+        let selectedClass = null;
+        let classStudents = [];
+        let currentClassData = null;
+        let workingSessionAttendanceState = {};
+        let attendanceHistory = {};
+        let activeSelectedStudentId = null;
+
+        // ============ AUTH HEADERS ============
+        function authHeaders() {
+            return token 
+                ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } 
+                : { 'Content-Type': 'application/json' };
+        }
+
+        // ============ INITIALIZATION ============
+        async function initializeAttendancePage() {
+            try {
+                // Get class identifier from URL parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                let classIdentifier = urlParams.get('classId');
+
+                if (!classIdentifier) {
+                    await showCustomModal({ 
+                        title: 'Invalid Request', 
+                        message: 'No class selected. Redirecting to dashboard...', 
+                        type: 'alert', 
+                        icon: '⚠️' 
+                    });
+                    setTimeout(() => window.location.href = 'rt.html', 2000);
+                    return;
+                }
+
+                console.log('Class identifier from URL:', classIdentifier);
+
+                // Fetch teacher profile first
+                teacher = await fetchTeacherProfile();
+                if (!teacher) {
+                    await showCustomModal({ 
+                        title: 'Authentication Failed', 
+                        message: 'Failed to load teacher profile. Please login again.', 
+                        type: 'alert', 
+                        icon: '🔒' 
+                    });
+                    return;
+                }
+
+                // Update header with teacher info
+                updateHeaderInfo();
+
+                // Resolve class identifier to MongoDB ID
+                const resolvedClassId = await resolveClassToId(classIdentifier);
+                if (!resolvedClassId) {
+                    await showCustomModal({ 
+                        title: 'Class Not Found', 
+                        message: `The class "${classIdentifier}" could not be found. Redirecting to dashboard...`, 
+                        type: 'alert', 
+                        icon: '⚠️' 
+                    });
+                    setTimeout(() => window.location.href = 'rt.html', 2000);
+                    return;
+                }
+
+                selectedClass = resolvedClassId;
+                console.log('Selected class ID:', selectedClass);
+
+                // Fetch class students using resolved ID
+                const studentLoadResult = await loadClassStudents();
+                if (!studentLoadResult || classStudents.length === 0) {
+                    console.warn('No students found for this class');
+                }
+
+                // Set today's date
+                setTodayDate();
+
+                // Initialize attendance state
+                initializeAttendanceState();
+
+                // Populate roster
+                populateRosterLedgerView();
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                await showCustomModal({ 
+                    title: 'Error', 
+                    message: 'Failed to initialize attendance page. Check console for details.', 
+                    type: 'alert', 
+                    icon: '❌' 
+                });
+            }
+        }
+
+        // ============ CLASS RESOLUTION ============
+        async function resolveClassToId(classIdentifier) {
+            try {
+                // First, fetch all teacher's classes
+                const res = await fetch(`${API_BASE_URL}/api/teachers/classes`, { 
+                    headers: authHeaders() 
+                });
+                
+                if (!res.ok) {
+                    console.error('Failed to fetch classes, status:', res.status);
+                    return null;
+                }
+
+                const classes = await res.json();
+                console.log('All classes fetched:', classes);
+
+                if (!Array.isArray(classes)) {
+                    console.error('Invalid classes response');
+                    return null;
+                }
+
+                let foundClass = null;
+
+                // Try exact ID match (check both _id and id fields)
+                foundClass = classes.find(c => c._id === classIdentifier || c.id === classIdentifier);
+                if (foundClass) {
+                    console.log('Found by ID:', foundClass);
+                    updateClassBadges(foundClass);
+                    return foundClass._id || foundClass.id;
+                }
+
+                // Try matching against class name (case-insensitive)
+                foundClass = classes.find(c => 
+                    c.name && c.name.toLowerCase().trim() === classIdentifier.toLowerCase().trim()
+                );
+                if (foundClass) {
+                    console.log('Found by class name:', foundClass);
+                    updateClassBadges(foundClass);
+                    return foundClass._id || foundClass.id;
+                }
+
+                // Try matching against class code (case-insensitive)
+                foundClass = classes.find(c => 
+                    c.code && c.code.toLowerCase().trim() === classIdentifier.toLowerCase().trim()
+                );
+                if (foundClass) {
+                    console.log('Found by class code:', foundClass);
+                    updateClassBadges(foundClass);
+                    return foundClass._id || foundClass.id;
+                }
+
+                // Try matching against arms array
+                for (let classItem of classes) {
+                    if (classItem.arms && Array.isArray(classItem.arms)) {
+                        const armMatch = classItem.arms.find(arm => 
+                            (typeof arm === 'string' && arm.toLowerCase().trim() === classIdentifier.toLowerCase().trim()) ||
+                            (typeof arm === 'object' && arm.name && arm.name.toLowerCase().trim() === classIdentifier.toLowerCase().trim())
+                        );
+                        if (armMatch) {
+                            console.log('Found by arm:', classItem, armMatch);
+                            const armName = typeof armMatch === 'string' ? armMatch : armMatch.name;
+                            updateClassBadges(classItem, armName);
+                            return classItem._id || classItem.id;
+                        }
+                    }
+                }
+
+                console.error('Class not found with identifier:', classIdentifier);
+                console.log('Available classes:', classes.map(c => ({ 
+                    id: c._id || c.id, 
+                    name: c.name, 
+                    code: c.code, 
+                    arms: c.arms 
+                })));
+                return null;
+
+            } catch (error) {
+                console.error('Error resolving class:', error);
+                return null;
+            }
+        }
+
+        // Helper function to update class badges
+        function updateClassBadges(classData, armName = null) {
+            const displayName = armName || classData.name || classData.code || 'Unknown Class';
+            document.getElementById('classNameBadge').textContent = displayName;
+            
+            if (classData.subject) {
+                document.getElementById('subjectBadge').textContent = classData.subject;
+            } else if (classData.subjectSpecialization) {
+                document.getElementById('subjectBadge').textContent = classData.subjectSpecialization;
+            }
+        }
+
+        // ============ API CALLS ============
+        async function fetchTeacherProfile() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/teachers/me`, { headers: authHeaders() });
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (e) {
+                console.error('Error fetching teacher profile:', e);
+                return null;
+            }
+        }
+
+        async function loadClassStudents() {
+            try {
+                console.log('Loading students for class:', selectedClass);
+                const res = await fetch(`${API_BASE_URL}/api/teachers/students?classId=${encodeURIComponent(selectedClass)}`, { 
+                    headers: authHeaders() 
+                });
+                if (!res.ok) {
+                    console.error('Failed to fetch students, status:', res.status);
+                    throw new Error('Failed to fetch students');
+                }
+                classStudents = await res.json();
+                if (!Array.isArray(classStudents)) classStudents = [];
+                console.log('Loaded students:', classStudents.length);
+                return classStudents;
+            } catch (e) {
+                console.error('Error fetching students:', e);
+                classStudents = [];
+                return [];
+            }
+        }
+
+        // ============ UI UPDATE FUNCTIONS ============
+        function updateHeaderInfo() {
+            if (!teacher) return;
+
+            const nameParts = teacher.name ? teacher.name.split(' ') : ['U'];
+            const initials = nameParts.length > 1 
+                ? `${nameParts[0][0]}${nameParts[1][0]}` 
+                : `${nameParts[0][0]}`;
+
+            document.getElementById('headerTeacherName').textContent = teacher.name || 'Teacher';
+            document.getElementById('headerTeacherDept').textContent = teacher.department || 'Faculty';
+            document.getElementById('headerInitials').textContent = initials;
+        }
+
+        function setTodayDate() {
+            const today = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dateString = today.toLocaleDateString('en-US', options);
+            document.getElementById('currentDateLabel').textContent = dateString;
+        }
+
+        function initializeAttendanceState() {
+            workingSessionAttendanceState = {};
+            classStudents.forEach(student => {
+                const studentId = student.id || student._id;
+                workingSessionAttendanceState[studentId] = 'PRESENT';
+            });
+        }
+
+        function populateRosterLedgerView() {
+            document.getElementById('rosterCountBadge').textContent = `${classStudents.length} Enrolled`;
+            
+            const tbody = document.getElementById('rosterTableBody');
+            tbody.innerHTML = "";
+
+            if (classStudents.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td colspan="2" class="p-4 text-center text-slate-400">No students found for this class</td>';
+                tbody.appendChild(tr);
+                return;
+            }
+
+            classStudents.forEach(student => {
+                const studentId = student.id || student._id;
+                const currentStatus = workingSessionAttendanceState[studentId] || "PRESENT";
+                
+                const tr = document.createElement('tr');
+                tr.id = `student-row-${studentId}`;
+                tr.className = "hover:bg-slate-50/80 transition-all border-l-4 border-transparent cursor-pointer";
+                
+                if (activeSelectedStudentId === studentId) {
+                    tr.classList.add('bg-brand-50/60', 'border-brand-500');
+                }
+
+                const studentName = student.fullName || student.name || 'Unknown';
+                // Try multiple possible field names for registration/admission number
+                const studentCode = student.admissionCode || student.regNo || student.registrationNumber || student.code || student.studentId || '--';
+
+                tr.innerHTML = `
+                    <td class="p-3 pl-4" onclick="inspectStudentCalendar('${studentId}')">
+                        <p class="font-bold text-slate-900">${studentName}</p>
+                        <span class="block text-[10px] font-mono text-slate-400 font-normal tracking-tight">${studentCode}</span>
+                    </td>
+                    <td class="p-3">
+                        <div class="flex items-center space-x-2 max-w-md mx-auto">
+                            <button onclick="overrideTodayStatus(event, '${studentId}', 'PRESENT')" 
+                                    class="text-[10px] font-extrabold px-3 py-2 rounded-xl uppercase flex-1 border transition-all ${currentStatus === 'PRESENT' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300'}">
+                                Present
+                            </button>
+                            <button onclick="overrideTodayStatus(event, '${studentId}', 'ABSENT')" 
+                                    class="text-[10px] font-extrabold px-3 py-2 rounded-xl uppercase flex-1 border transition-all ${currentStatus === 'ABSENT' ? 'bg-rose-600 text-white border-rose-600' : 'bg-white border-slate-200 text-slate-600 hover:border-rose-300'}">
+                                Absent
+                            </button>
+                            <button onclick="overrideTodayStatus(event, '${studentId}', 'EXCUSED')" 
+                                    class="text-[10px] font-extrabold px-3 py-2 rounded-xl uppercase flex-1 border transition-all ${currentStatus === 'EXCUSED' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300'}">
+                                Excused
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            syncStatisticalSummaryMetrics();
+        }
+
+        function syncStatisticalSummaryMetrics() {
+            let presentCount = 0, absentCount = 0, excusedCount = 0;
+
+            Object.values(workingSessionAttendanceState).forEach(status => {
+                if (status === "PRESENT") presentCount++;
+                if (status === "ABSENT") absentCount++;
+                if (status === "EXCUSED") excusedCount++;
+            });
+
+            document.getElementById('metricTotal').textContent = classStudents.length;
+            document.getElementById('metricPresent').textContent = presentCount;
+            document.getElementById('metricAbsent').textContent = absentCount;
+            document.getElementById('metricExcused').textContent = excusedCount;
+        }
+
+        // ============ STUDENT PROFILE INSPECTION ============
+        function inspectStudentCalendar(studentId) {
+            activeSelectedStudentId = studentId;
+
+            document.querySelectorAll('#rosterTableBody tr').forEach(r => r.classList.remove('bg-brand-50/60', 'border-brand-500'));
+            const rowElement = document.getElementById(`student-row-${studentId}`);
+            if (rowElement) {
+                rowElement.classList.add('bg-brand-50/60', 'border-brand-500');
+            }
+
+            const student = classStudents.find(s => {
+                const sId = s.id || s._id;
+                return sId === studentId;
+            });
+            
+            if (!student) return;
+
+            document.getElementById('inspectorEmptyState').classList.add('hidden');
+            document.getElementById('inspectorProfileContainer').classList.remove('hidden');
+
+            const studentName = student.fullName || student.name || 'Unknown';
+            // Try multiple possible field names for registration/admission number
+            const studentCode = student.admissionCode || student.regNo || student.registrationNumber || student.code || student.studentId || '--';
+
+            document.getElementById('inspectFullName').textContent = studentName;
+            document.getElementById('inspectAdmissionCode').textContent = studentCode;
+            
+            // Display class name instead of ID
+            const className = getClassDisplayName();
+            document.getElementById('inspectCohort').textContent = className;
+            
+            document.getElementById('inspectParentContact').textContent = student.parentContact || student.parentPhone || student.guardian || '--';
+
+            const nameParts = studentName.split(" ");
+            document.getElementById('inspectAvatarInitials').textContent = nameParts.length > 1 
+                ? `${nameParts[0][0]}${nameParts[1][0]}` 
+                : `${nameParts[0][0]}`;
+
+            generateCalendarPlaceholder(studentId);
+        }
+
+        // Helper function to get class display name
+        function getClassDisplayName() {
+            // Return the class name from the badge since we already resolved it
+            const badgeText = document.getElementById('classNameBadge').textContent;
+            return badgeText && badgeText !== 'Loading...' ? badgeText : selectedClass;
+        }
+
+        function generateCalendarPlaceholder(studentId) {
+            const gridContainer = document.getElementById('calendarGridBlocks');
+            gridContainer.innerHTML = "";
+
+            // Generate 4 weeks of weekday calendar
+            const today = new Date();
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            
+            // Find the first Monday
+            let firstMonday = new Date(startOfMonth);
+            while (firstMonday.getDay() !== 1) {
+                firstMonday.setDate(firstMonday.getDate() + 1);
+            }
+
+            // Generate 4 weeks from Monday to Friday
+            for (let week = 0; week < 4; week++) {
+                for (let day = 0; day < 5; day++) {
+                    const currentDate = new Date(firstMonday);
+                    currentDate.setDate(currentDate.getDate() + (week * 7) + day);
+
+                    const isToday = currentDate.toDateString() === today.toDateString();
+                    const isInPast = currentDate < today;
+
+                    const dayCard = document.createElement('div');
+                    const colorClass = isInPast ? 'bg-slate-50/50 border-slate-200 text-slate-600' : 'bg-emerald-50/80 border-emerald-200 text-emerald-900';
+                    
+                    dayCard.className = `border rounded-xl p-2 flex flex-col justify-between transition-all min-h-[54px] shadow-sm ${colorClass} ${isToday ? 'ring-2 ring-brand-500' : ''}`;
+                    
+                    dayCard.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <span class="text-[10px] font-mono font-bold">${currentDate.getDate()}</span>
+                            <span class="h-1.5 w-1.5 rounded-full ${isInPast ? 'bg-slate-400' : 'bg-emerald-500'}"></span>
+                        </div>
+                        <div class="text-[8px] font-extrabold uppercase tracking-wide opacity-80 mt-1 truncate">
+                            ${isToday ? 'TODAY' : (isInPast ? 'PAST' : 'PRESENT')}
+                        </div>
+                    `;
+                    gridContainer.appendChild(dayCard);
+                }
+            }
+
+            document.getElementById('inspectTermAverage').textContent = '0%';
+        }
+
+        // ============ ACTION HANDLERS ============
+        function overrideTodayStatus(event, studentId, newStatus) {
+            event.stopPropagation();
+            workingSessionAttendanceState[studentId] = newStatus;
+            populateRosterLedgerView();
+
+            if (activeSelectedStudentId === studentId) {
+                inspectStudentCalendar(studentId);
+            }
+        }
+
+        async function saveTodayAttendanceData() {
+            try {
+                // Disable button during submission
+                const saveBtn = document.getElementById('saveButton');
+                const saveBtnText = document.getElementById('saveButtonText');
+                saveBtn.disabled = true;
+                saveBtnText.textContent = 'Saving...';
+
+                // Prepare attendance data for submission
+                const today = new Date();
+                const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+                const attendanceData = {
+                    classId: selectedClass,
+                    date: dateStr,
+                    attendance: workingSessionAttendanceState
+                };
+
+                console.log('Submitting attendance:', attendanceData);
+
+                // Get teacher ID
+                let teacherId = teacher ? teacher.id : localStorage.getItem('teacherId');
+                
+                if (!teacherId) {
+                    throw new Error('Teacher ID not found. Please login again.');
+                }
+
+                // Submit attendance to backend
+                const submitRes = await fetch(
+                    `${API_BASE_URL}/api/teachers/${teacherId}/attendance`,
+                    {
+                        method: 'POST',
+                        headers: authHeaders(),
+                        body: JSON.stringify(attendanceData)
+                    }
+                );
+
+                if (!submitRes.ok) {
+                    const errorData = await submitRes.json();
+                    throw new Error(errorData.error || 'Failed to save attendance');
+                }
+
+                const result = await submitRes.json();
+
+                console.log('Attendance saved successfully:', result);
+
+                await showCustomModal({ 
+                    title: 'Attendance Saved ✅', 
+                    message: `Daily attendance records for ${result.recordsCount} students have been successfully saved to the system.`,
+                    type: 'alert', 
+                    icon: '💾' 
+                });
+
+                // Reset button
+                saveBtn.disabled = false;
+                saveBtnText.textContent = 'Commit Daily Logs';
+
+                // Redirect after success
+                setTimeout(() => {
+                    window.location.href = 'rt.html';
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error saving attendance:', error);
+
+                // Re-enable button
+                const saveBtn = document.getElementById('saveButton');
+                const saveBtnText = document.getElementById('saveButtonText');
+                saveBtn.disabled = false;
+                saveBtnText.textContent = 'Commit Daily Logs';
+
+                await showCustomModal({ 
+                    title: 'Error ❌', 
+                    message: `Failed to save attendance records: ${error.message}`,
+                    type: 'alert', 
+                    icon: '❌' 
+                });
+            }
+        }
+
+        function returnToTeacherDashboard() {
+            window.location.href = 'rt.html';
+        }
+
+        // ============ MODAL FUNCTIONS ============
+        function showCustomModal({ title, message, type = 'alert', icon = '❓' }) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('customAlertModal');
+                const titleEl = document.getElementById('modalTitle');
+                const msgEl = document.getElementById('modalMessage');
+                const iconEl = document.getElementById('modalIcon');
+                const confirmBtn = modal.querySelector('button');
+
+                titleEl.textContent = title;
+                iconEl.textContent = icon;
+                msgEl.textContent = message;
+
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    const box = document.getElementById('customAlertBox');
+                    box.classList.remove('scale-95', 'opacity-0');
+                    box.classList.add('scale-100', 'opacity-100');
+                }, 10);
+
+                function close(result) {
+                    const box = document.getElementById('customAlertBox');
+                    box.classList.remove('scale-100', 'opacity-100');
+                    box.classList.add('scale-95', 'opacity-0');
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                        resolve(result);
+                    }, 200);
+                }
+
+                confirmBtn.onclick = () => close(true);
+            });
+        }
+
+        function triggerAlertNotification(title, message, icon) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalIcon').textContent = icon || "✅";
+            
+            const overlay = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.remove('scale-95', 'opacity-0');
+                box.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeAlertNotification() {
+            const overlay = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            
+            box.classList.remove('scale-100', 'opacity-100');
+            box.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => overlay.classList.add('hidden'), 200);
+        }
+
+        // ============ PAGE INITIALIZATION ============
+        document.addEventListener("DOMContentLoaded", () => {
+            initializeAttendancePage();
+        });
+    </script>
+</body>
+</html>

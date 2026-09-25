@@ -48,6 +48,88 @@ function isPassingGrade(grade) {
   return passingGrades.includes(grade);
 }
 
+// ✅ NEW: Determine academic status based on percentage and failures
+function determineAcademicStatus(percentage, failCount) {
+  if (failCount > 0) {
+    return 'At Risk';
+  } else if (percentage >= 85) {
+    return 'Honors';
+  } else if (percentage >= 75) {
+    return 'Excellent';
+  } else if (percentage >= 65) {
+    return 'Good';
+  } else if (percentage >= 50) {
+    return 'Satisfactory';
+  } else {
+    return 'Needs Support';
+  }
+}
+
+// ✅ NEW: Calculate attendance percentage
+function calculateAttendancePercentage(attendance) {
+  if (!attendance || !attendance.timesPresent || !attendance.schoolOpened) {
+    return 0;
+  }
+  
+  const present = parseInt(attendance.timesPresent) || 0;
+  const total = parseInt(attendance.schoolOpened) || 0;
+  
+  if (total === 0) return 0;
+  return ((present / total) * 100).toFixed(1);
+}
+
+// ✅ NEW: Calculate overall grade based on percentage using grade scale
+function calculateGradeFromPercentage(percentage) {
+  const pct = parseFloat(percentage);
+  
+  if (pct >= 85) return 'A1';
+  else if (pct >= 75) return 'B2';
+  else if (pct >= 70) return 'B3';
+  else if (pct >= 65) return 'C4';
+  else if (pct >= 60) return 'C5';
+  else if (pct >= 50) return 'C6';
+  else if (pct >= 45) return 'D7';
+  else if (pct >= 40) return 'E8';
+  else return 'F9';
+}
+
+// ✅ NEW: Safely extract remark from various possible sources
+function extractRemark(data, fieldPath) {
+  const paths = fieldPath.split('.');
+  let value = data;
+  
+  for (const path of paths) {
+    if (value && typeof value === 'object') {
+      value = value[path];
+    } else {
+      return '-';
+    }
+  }
+  
+  // Check if it's an object (means we got [Object Object])
+  if (typeof value === 'object' && value !== null) {
+    console.warn('⚠️ Got object instead of string:', value);
+    
+    // Try to extract text or content field
+    if (value.text) return String(value.text).trim();
+    if (value.content) return String(value.content).trim();
+    if (value.remark) return String(value.remark).trim();
+    if (value.comment) return String(value.comment).trim();
+    if (value.value) return String(value.value).trim();
+    
+    // If all else fails, convert to string and trim
+    return String(value).trim();
+  }
+  
+  // If it's a string, return it
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  
+  // If it's empty or undefined
+  return value ? String(value).trim() : '-';
+}
+
 // Load report data from sessionStorage
 function loadReportData() {
   try {
@@ -74,7 +156,9 @@ function loadReportData() {
       hasSkills: !!data.skills,
       hasAttendance: !!data.attendance,
       skillsKeys: data.skills ? Object.keys(data.skills) : [],
-      attendanceKeys: data.attendance ? Object.keys(data.attendance) : []
+      attendanceKeys: data.attendance ? Object.keys(data.attendance) : [],
+      hasTeacherRemark: !!data.teacherComment || !!data.teacherRemark,
+      hasPrincipalRemark: !!data.principalComment || !!data.principalRemark
     });
     return data;
   } catch (error) {
@@ -94,7 +178,7 @@ function applyDynamicFontSizing(resultCount) {
     table.classList.add('subjects-6-8');
   } else if (resultCount <= 11) {
     table.classList.add('subjects-9-11');
-    } else if (resultCount <= 12) {
+  } else if (resultCount <= 12) {
     table.classList.add('subjects-12');
   } else {
     table.classList.add('subjects-13-plus');
@@ -160,7 +244,6 @@ function populateReport() {
   const attendance = data.attendance || {};
   const skillsReport = data.skillsReport || {};
   
-  const classSize = data.classSize || 0;
   const term = data.term || '';
 
   console.log('📊 Populating report with:');
@@ -169,6 +252,8 @@ function populateReport() {
   console.log('   - Skills object:', skills);
   console.log('   - Attendance:', attendance);
   console.log('   - SkillsReport:', skillsReport);
+  console.log('   - Teacher comment:', data.teacherComment);
+  console.log('   - Principal comment:', data.principalComment);
 
   // Apply dynamic sizing based on number of results
   applyDynamicFontSizing(results.length);
@@ -182,7 +267,6 @@ function populateReport() {
   document.getElementById('profileAge').textContent = calculateAge(student.DOB);
   document.getElementById('profileSex').textContent = student.gender || '-';
   document.getElementById('profileEmail').textContent = student.email || '-';
-  document.getElementById('classSize').textContent = classSize;
 
   const photoEl = document.getElementById('profilePhoto');
   if (student.photoBase64) {
@@ -216,6 +300,23 @@ function populateReport() {
   const totalObtainable = results.length * 100;
   const percentage = totalObtainable > 0 ? ((totalScore / totalObtainable) * 100).toFixed(2) : 0;
 
+  // ✅ Calculate Attendance Rate
+  const attendancePercentage = calculateAttendancePercentage(attendance);
+  
+  // ✅ Determine Academic Status
+  const academicStatus = determineAcademicStatus(percentage, failCount);
+
+  // ✅ Calculate overall grade based on percentage
+  const overallGrade = calculateGradeFromPercentage(percentage);
+
+  console.log('📊 Calculated values:');
+  console.log('   - Percentage:', percentage);
+  console.log('   - Overall Grade:', overallGrade);
+  console.log('   - Attendance Rate:', attendancePercentage);
+  console.log('   - Academic Status:', academicStatus);
+  console.log('   - Pass Count:', passCount);
+  console.log('   - Fail Count:', failCount);
+
   // Populate term info
   document.getElementById('reportTitleEl').textContent = `${data.term || 'TERM'} STUDENT'S PERFORMANCE REPORT`;
   document.getElementById('termLabelProfile').textContent = data.term || 'TERM';
@@ -230,7 +331,6 @@ function populateReport() {
       <td style="text-align:left;">${r.subject || '-'}</td>
       <td class="tc">${r.ca1_score || '-'}</td>
       <td class="tc">${r.ca2_score || '-'}</td>
-      <td class="tc">${r.midterm_score || '-'}</td>
       <td class="tc">${r.exam_score || '-'}</td>
       <td class="tc" style="font-weight:700;">${r.total || 0}</td>
       <td class="tc" style="font-weight:700;">${r.grade || '-'}</td>
@@ -271,22 +371,24 @@ function populateReport() {
   statusElement.textContent = statusText;
   statusElement.className = `pass-status ${statusClass}`;
 
+  // ✅ Populate NEW profile stats with calculated grade
+  document.getElementById('overallPercentage').textContent = percentage + '%';
+  document.getElementById('overallGrade').textContent = overallGrade;
+  document.getElementById('attendanceRate').textContent = attendancePercentage + '%';
+  document.getElementById('academicStatus').textContent = academicStatus;
+
   // Populate performance summary
   document.getElementById('totalObtained').textContent = totalScore.toFixed(1);
   document.getElementById('totalObtainable').textContent = totalObtainable;
   document.getElementById('totalSubjectsPerf').textContent = results.length;
   document.getElementById('percentagePerf').textContent = percentage + '%';
-  document.getElementById('overallPercentage').textContent = percentage + '%';
 
-  // Get overall grade
-  const overallGrade = results.length > 0 ? results[0].grade : '-';
+  // Get overall grade (using calculated grade)
   document.getElementById('gradePerf').textContent = overallGrade;
-  document.getElementById('overallGrade').textContent = overallGrade;
 
-  // Position
-  const position = data.studentPosition ? `${data.studentPosition} of ${classSize}` : `-`;
+  // Position (kept for compatibility)
+  const position = data.studentPosition ? `${data.studentPosition}` : `-`;
   document.getElementById('positionPerf').textContent = position;
-  document.getElementById('overallPosition').textContent = data.studentPosition || '-';
 
   // Grade analysis
   const distribution = getGradeDistribution(results);
@@ -376,10 +478,25 @@ function populateReport() {
   document.getElementById('timesAbsent').textContent = attendance.timesAbsent || '-';
 
   // ============================================
-  // POPULATE REMARKS
+  // ✅ POPULATE REMARKS (WITH FIX FOR [Object Object])
   // ============================================
-  const teacherRemarkValue = data.teacherComment || skillsReport.teacherRemark || data.teacherRemark || 'No remark';
-  const principalRemarkValue = data.principalComment || skillsReport.comment || skillsReport.principalComment || data.principalRemark || 'No remark';
+  console.log('💬 Processing remarks...');
+  
+  // Try multiple paths for teacher remark
+  let teacherRemarkValue = extractRemark(data, 'teacherComment') ||
+                           extractRemark(data, 'teacherRemark') ||
+                           extractRemark(skillsReport, 'teacherRemark') ||
+                           'No remark';
+  
+  // Try multiple paths for principal remark
+  let principalRemarkValue = extractRemark(data, 'principalComment') ||
+                             extractRemark(data, 'principalRemark') ||
+                             extractRemark(skillsReport, 'principalComment') ||
+                             extractRemark(skillsReport, 'comment') ||
+                             'No remark';
+  
+  console.log('✅ Teacher Remark:', teacherRemarkValue);
+  console.log('✅ Principal Remark:', principalRemarkValue);
   
   document.getElementById('teacherRemark').textContent = teacherRemarkValue;
   document.getElementById('principalRemark').textContent = principalRemarkValue;
