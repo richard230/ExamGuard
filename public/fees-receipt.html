@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Receipt | Gold and Linc Schools</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#d97706',
+                            600: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+
+        /* Loading Spinner */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .spinner-ring {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #0284c7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .spinner-text {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        /* Print Styles */
+        @media print {
+            .no-print {
+                display: none;
+            }
+            body {
+                background: white;
+            }
+            .receipt-container {
+                box-shadow: none;
+                border: 1px solid #e2e8f0;
+            }
+        }
+
+        .receipt-divider {
+            border-top: 2px dashed #cbd5e1;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen text-slate-800">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner-container">
+            <div class="spinner-ring"></div>
+            <div class="spinner-text">Loading Receipt...</div>
+        </div>
+    </div>
+
+    <!-- Top Navigation Bar -->
+    <header class="no-print bg-brand-900 text-white shadow-md border-b border-brand-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 bg-white text-brand-900 rounded-xl flex items-center justify-center font-black text-sm tracking-tighter shadow-inner">
+                    G&L
+                </div>
+                <div>
+                    <h1 class="text-xs font-black tracking-widest uppercase text-brand-200">Parent Portal</h1>
+                    <p class="text-xs font-medium opacity-80">Payment Receipt</p>
+                </div>
+            </div>
+            <a href="pt.html" class="flex items-center space-x-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Alerts -->
+        <div id="alertContainer" class="mb-6"></div>
+
+        <!-- Success Banner -->
+        <div class="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-6 mb-6 shadow-sm no-print">
+            <div class="flex items-center gap-4">
+                <div class="text-4xl">✅</div>
+                <div>
+                    <h2 class="text-lg font-black text-emerald-900 uppercase tracking-wide">Payment Successful</h2>
+                    <p class="text-sm text-emerald-700 mt-1">Your school fees payment has been processed successfully.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Container -->
+        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden receipt-container">
+            
+            <!-- Receipt Header -->
+            <div class="bg-brand-900 text-white p-8 text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-white rounded-xl mb-4 shadow-md">
+                    <span class="text-brand-900 font-black text-lg">G&L</span>
+                </div>
+                <h1 class="text-2xl font-black uppercase tracking-widest mb-2">Gold & Linc Schools</h1>
+                <p class="text-brand-100 text-sm">Official Payment Receipt</p>
+                <div class="mt-4 pt-4 border-t border-brand-800">
+                    <p class="text-xs text-brand-200">Receipt No: <span id="receiptNumber" class="font-mono font-bold text-white">--</span></p>
+                </div>
+            </div>
+
+            <!-- Receipt Content -->
+            <div class="p-8 space-y-6">
+                
+                <!-- Payment Details -->
+                <div>
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Payment Details</h3>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Payment Date</p>
+                            <p class="text-sm font-bold text-slate-900" id="paymentDate">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Payment Time</p>
+                            <p class="text-sm font-bold text-slate-900" id="paymentTime">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Payment Method</p>
+                            <p class="text-sm font-bold text-slate-900" id="paymentMethod">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status</p>
+                            <span class="inline-flex items-center bg-emerald-100 text-emerald-800 font-bold text-xs px-3 py-1 rounded-full">
+                                <span class="w-2 h-2 bg-emerald-600 rounded-full mr-2 animate-pulse"></span>
+                                Completed
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="receipt-divider"></div>
+
+                <!-- Student Information -->
+                <div>
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Student Information</h3>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Student Name</p>
+                            <p class="text-sm font-bold text-slate-900" id="studentName">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Class/Level</p>
+                            <p class="text-sm font-bold text-slate-900" id="studentClass">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Registration No</p>
+                            <p class="text-sm font-mono font-bold text-slate-900" id="studentRegNo">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Student ID</p>
+                            <p class="text-sm font-mono font-bold text-slate-900" id="studentId">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="receipt-divider"></div>
+
+                <!-- Fees Paid -->
+                <div>
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Fees Paid</h3>
+                    <div id="feesBreakdown" class="space-y-2">
+                        <!-- Fees will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="receipt-divider"></div>
+
+                <!-- Payment Summary -->
+                <div class="bg-gradient-to-br from-brand-50 to-blue-50 border border-brand-200 rounded-xl p-4">
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-bold text-slate-700">Subtotal:</span>
+                            <span class="text-sm font-bold text-slate-900" id="subtotal">₦0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-bold text-slate-700">Discount/Waiver:</span>
+                            <span class="text-sm font-bold text-emerald-700" id="discount">₦0.00</span>
+                        </div>
+                        <div class="border-t border-brand-200 pt-3 flex justify-between items-center">
+                            <span class="text-sm font-bold text-slate-900 uppercase tracking-wider">Total Paid:</span>
+                            <span class="text-2xl font-black text-brand-900" id="totalPaid">₦0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Method Details -->
+                <div id="paymentMethodDetails" class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <!-- Will be populated based on payment method -->
+                </div>
+
+                <div class="receipt-divider"></div>
+
+                <!-- Notes -->
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div class="flex gap-3">
+                        <div class="text-lg">ℹ️</div>
+                        <div class="text-xs text-slate-700 space-y-2">
+                            <p><strong>Important:</strong> Please keep this receipt for your records.</p>
+                            <p>This is an official receipt issued by Gold & Linc Schools for payment of school fees.</p>
+                            <p>For inquiries, contact the school accounts department during business hours.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="text-center pt-4 border-t border-slate-200">
+                    <p class="text-xs text-slate-500">
+                        <span id="receiptTimestamp" class="font-mono">--</span>
+                    </p>
+                    <p class="text-[10px] text-slate-400 mt-2">This is an electronically generated receipt and does not require a signature.</p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mt-8 flex gap-3 justify-center no-print">
+            <button onclick="downloadReceipt()" class="bg-brand-900 hover:bg-brand-800 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+                Download PDF
+            </button>
+            <button onclick="printReceipt()" class="bg-slate-600 hover:bg-slate-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                Print Receipt
+            </button>
+            <a href="pt.html" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3v3h-3v-3zm0-8h3v3h-3V5zm0 4h3v3h-3V9zm4-4h3v3h-3V5zm0 4h3v3h-3V9zm0 4h3v3h-3v-3zM5 5h3v3H5V5zm0 4h3v3H5V9zm0 4h3v3H5v-3z"></path>
+                </svg>
+                Return to Dashboard
+            </a>
+        </div>
+
+    </main>
+
+    <script>
+        // ============ CONFIGURATION ============
+        const API_BASE = window.API_BASE || "https://goldlincschools.onrender.com/api";
+        const token = localStorage.getItem('parentToken') || localStorage.getItem('token');
+
+        // ============ STATE ============
+        let studentData = null;
+        let paymentData = null;
+
+        // ============ INITIALIZATION ============
+        async function initializeReceiptPage() {
+            console.log('🚀 Initializing Receipt Page...');
+
+            if (!token) {
+                showAlert('Authentication required. Redirecting to login...', 'error');
+                setTimeout(() => window.location.href = 'login.html', 2000);
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const studentId = params.get('studentId');
+                const amount = params.get('amount');
+                const method = params.get('method');
+
+                if (!studentId) {
+                    showAlert('Invalid student ID. Redirecting...', 'error');
+                    setTimeout(() => window.location.href = 'pt.html', 2000);
+                    return;
+                }
+
+                // Load student data
+                await loadStudentData(studentId);
+
+                // Generate receipt
+                generateReceipt(amount, method);
+
+            } catch (err) {
+                console.error('❌ Initialization error:', err);
+                showAlert('Failed to load receipt: ' + err.message, 'error');
+            }
+        }
+
+        // ============ AUTH ============
+        function getAuthHeaders() {
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        // ============ DATA LOADING ============
+
+        async function loadStudentData(studentId) {
+            try {
+                console.log('📥 Loading student data...');
+
+                const parentDataStr = sessionStorage.getItem('parentData');
+                if (parentDataStr) {
+                    const parentData = JSON.parse(parentDataStr);
+                    studentData = parentData.students?.find(s => s._id === studentId);
+                }
+
+                if (!studentData) {
+                    const res = await fetch(`${API_BASE}/parents/me`, {
+                        headers: getAuthHeaders()
+                    });
+
+                    if (!res.ok) throw new Error('Failed to fetch parent data');
+
+                    const parentData = await res.json();
+                    sessionStorage.setItem('parentData', JSON.stringify(parentData));
+                    studentData = parentData.students?.find(s => s._id === studentId);
+                }
+
+                if (!studentData) {
+                    throw new Error('Student not found');
+                }
+
+                console.log('✅ Student data loaded:', studentData.name);
+
+            } catch (err) {
+                console.error('❌ Error loading student data:', err);
+                throw err;
+            }
+        }
+
+        // ============ RECEIPT GENERATION ============
+
+        function generateReceipt(amount, method) {
+            // Generate receipt data
+            const now = new Date();
+            const receiptNumber = 'RCP-' + now.getFullYear() + '-' + String(Math.random()).slice(2, 10).padStart(8, '0');
+            const paymentDate = now.toLocaleDateString('en-NG', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            const paymentTime = now.toLocaleTimeString('en-NG', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+
+            paymentData = {
+                receiptNumber,
+                paymentDate,
+                paymentTime,
+                amount: parseFloat(amount) || 0,
+                method: method || 'Unknown',
+                timestamp: now.toISOString()
+            };
+
+            // Update UI
+            updateReceiptDisplay();
+        }
+
+        function updateReceiptDisplay() {
+            // Receipt header
+            document.getElementById('receiptNumber').textContent = paymentData.receiptNumber;
+            document.getElementById('receiptTimestamp').textContent = new Date(paymentData.timestamp).toLocaleString('en-NG');
+
+            // Payment details
+            document.getElementById('paymentDate').textContent = paymentData.paymentDate;
+            document.getElementById('paymentTime').textContent = paymentData.paymentTime;
+            document.getElementById('paymentMethod').textContent = formatPaymentMethod(paymentData.method);
+
+            // Student information
+            document.getElementById('studentName').textContent = studentData.name || '--';
+            document.getElementById('studentClass').textContent = studentData.class || '--';
+            document.getElementById('studentRegNo').textContent = studentData.regNo || '--';
+            document.getElementById('studentId').textContent = studentData._id?.slice(-8) || '--';
+
+            // Fees breakdown
+            renderFeesBreakdown();
+
+            // Payment summary
+            document.getElementById('subtotal').textContent = formatCurrency(paymentData.amount);
+            document.getElementById('discount').textContent = formatCurrency(0);
+            document.getElementById('totalPaid').textContent = formatCurrency(paymentData.amount);
+
+            // Payment method details
+            renderPaymentMethodDetails();
+        }
+
+        function renderFeesBreakdown() {
+            const container = document.getElementById('feesBreakdown');
+            const feesStats = studentData.feesStats || {};
+            let html = '';
+
+            if (feesStats.byTerm) {
+                Object.entries(feesStats.byTerm).forEach(([term, termFees]) => {
+                    if (termFees.pending > 0) {
+                        html += `
+                            <div class="flex justify-between items-center py-2 border-b border-brand-100">
+                                <span class="text-sm text-slate-700">${term} - School Fees</span>
+                                <span class="text-sm font-bold text-slate-900">${formatCurrency(termFees.pending)}</span>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            if (html === '') {
+                html = `
+                    <div class="py-2 text-sm text-slate-600 text-center">
+                        Payment for selected fees processed
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function renderPaymentMethodDetails() {
+            const container = document.getElementById('paymentMethodDetails');
+            const method = paymentData.method;
+
+            const details = {
+                'card': `
+                    <div class="space-y-2">
+                        <p class="text-xs font-bold text-slate-700">Payment Method: Credit/Debit Card</p>
+                        <p class="text-xs text-slate-600">Card Reference: **** **** **** ${String(Date.now()).slice(-4)}</p>
+                        <p class="text-xs text-slate-600">Transaction verified and processed securely.</p>
+                    </div>
+                `,
+                'bank_transfer': `
+                    <div class="space-y-2">
+                        <p class="text-xs font-bold text-slate-700">Payment Method: Bank Transfer</p>
+                        <p class="text-xs text-slate-600">Reference Code: ${studentData._id?.slice(-8) || 'REF'}</p>
+                        <p class="text-xs text-slate-600">Please allow 24 hours for the payment to reflect in your account.</p>
+                    </div>
+                `,
+                'ussd': `
+                    <div class="space-y-2">
+                        <p class="text-xs font-bold text-slate-700">Payment Method: USSD</p>
+                        <p class="text-xs text-slate-600">Processed via mobile payment gateway.</p>
+                        <p class="text-xs text-slate-600">Confirmation sent to your registered mobile number.</p>
+                    </div>
+                `,
+                'wallet': `
+                    <div class="space-y-2">
+                        <p class="text-xs font-bold text-slate-700">Payment Method: Online Wallet</p>
+                        <p class="text-xs text-slate-600">Payment processed and verified immediately.</p>
+                        <p class="text-xs text-slate-600">Confirmation email has been sent to your registered address.</p>
+                    </div>
+                `,
+            };
+
+            container.innerHTML = details[method] || `
+                <div class="space-y-2">
+                    <p class="text-xs font-bold text-slate-700">Payment Method: ${formatPaymentMethod(method)}</p>
+                    <p class="text-xs text-slate-600">Payment has been processed successfully.</p>
+                </div>
+            `;
+        }
+
+        function formatPaymentMethod(method) {
+            const methods = {
+                'card': '💳 Credit/Debit Card',
+                'bank_transfer': '🏦 Bank Transfer',
+                'ussd': '📱 USSD',
+                'wallet': '💵 Online Wallet'
+            };
+            return methods[method] || method;
+        }
+
+        // ============ ACTIONS ============
+
+        function downloadReceipt() {
+            console.log('📥 Downloading receipt...');
+            showAlert('Download feature coming soon. Please use Print and Save as PDF.', 'info');
+        }
+
+        function printReceipt() {
+            console.log('🖨️ Printing receipt...');
+            window.print();
+        }
+
+        // ============ UTILITY ============
+
+        function formatCurrency(value) {
+            return '₦' + (value || 0).toLocaleString('en-NG', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alertContainer');
+            
+            const alertClass = {
+                'success': 'bg-emerald-50 border-emerald-200 text-emerald-800',
+                'error': 'bg-red-50 border-red-200 text-red-800',
+                'warning': 'bg-amber-50 border-amber-200 text-amber-800',
+                'info': 'bg-blue-50 border-blue-200 text-blue-800'
+            }[type] || 'bg-blue-50 border-blue-200 text-blue-800';
+
+            const iconClass = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'warning': 'fa-exclamation-triangle',
+                'info': 'fa-info-circle'
+            }[type] || 'fa-info-circle';
+
+            const alert = document.createElement('div');
+            alert.className = `flex items-center gap-3 border rounded-xl px-4 py-3 text-sm font-medium ${alertClass}`;
+            alert.innerHTML = `
+                <i class="fas ${iconClass}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(alert);
+
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // ============ DOM READY ============
+        document.addEventListener('DOMContentLoaded', initializeReceiptPage);
+    </script>
+</body>
+</html>

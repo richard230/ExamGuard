@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pay School Fees | Gold and Linc Schools</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#d97706',
+                            600: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+
+        /* Loading Spinner */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .spinner-ring {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #0284c7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .spinner-text {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen text-slate-800">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner-container">
+            <div class="spinner-ring"></div>
+            <div class="spinner-text">Processing Payment...</div>
+        </div>
+    </div>
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-brand-900 text-white shadow-md border-b border-brand-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 bg-white text-brand-900 rounded-xl flex items-center justify-center font-black text-sm tracking-tighter shadow-inner">
+                    G&L
+                </div>
+                <div>
+                    <h1 class="text-xs font-black tracking-widest uppercase text-brand-200">Parent Portal</h1>
+                    <p class="text-xs font-medium opacity-80">School Fees Payment</p>
+                </div>
+            </div>
+            <a href="pt.html" class="flex items-center space-x-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Alerts -->
+        <div id="alertContainer" class="mb-6"></div>
+
+        <!-- Breadcrumb -->
+        <div class="mb-6 flex items-center space-x-2 text-sm">
+            <a href="pt.html" class="text-brand-600 hover:text-brand-700 font-medium">Dashboard</a>
+            <span class="text-slate-400">/</span>
+            <span class="text-slate-600 font-medium">School Fees Payment</span>
+        </div>
+
+        <!-- Header Section -->
+        <div class="bg-white border border-slate-200 rounded-xl p-6 mb-6 shadow-sm">
+            <div class="flex items-center space-x-3 mb-2">
+                <div class="p-3 bg-brand-50 rounded-lg text-brand-900">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-black text-brand-900 uppercase tracking-wide">School Fees Payment</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Make secure payments for outstanding school fees</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            
+            <!-- Student Information Card -->
+            <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                <div class="border-b border-slate-100 pb-4 mb-4">
+                    <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Student Information</h3>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Full Name</p>
+                        <p class="text-sm font-bold text-slate-900 mt-2" id="studentName">--</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Class</p>
+                        <p class="text-sm font-bold text-slate-900 mt-2" id="studentClass">--</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Reg No</p>
+                        <p class="text-sm font-mono font-bold text-slate-900 mt-2" id="studentRegNo">--</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Student ID</p>
+                        <p class="text-sm font-mono font-bold text-slate-900 mt-2" id="studentId">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Summary Card -->
+            <div class="bg-gradient-to-br from-brand-900 to-brand-950 rounded-xl p-6 shadow-sm border border-brand-800 text-white">
+                <div class="mb-4">
+                    <p class="text-[10px] font-extrabold text-brand-200 uppercase tracking-wider">Total Outstanding</p>
+                    <p class="text-3xl font-black text-white mt-2" id="totalOutstanding">₦0.00</p>
+                </div>
+
+                <div class="border-t border-brand-800 pt-4 space-y-3">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-brand-200">Total Fees:</span>
+                        <span class="font-bold" id="totalAmount">₦0.00</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-brand-200">Already Paid:</span>
+                        <span class="font-bold text-green-400" id="totalPaid">₦0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fees Selection Section -->
+        <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-6">
+            <div class="border-b border-slate-100 pb-4 mb-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Outstanding Fees</h3>
+                    <span class="inline-flex items-center bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-xl" id="feesCount">0 Fees</span>
+                </div>
+            </div>
+
+            <div id="feesContent" class="space-y-3">
+                <!-- Fees will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Payment Method Section -->
+        <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-6">
+            <div class="border-b border-slate-100 pb-4 mb-4">
+                <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Payment Method</h3>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Payment Method</label>
+                <select id="paymentMethod" class="w-full bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 p-3 outline-none focus:ring-2 focus:ring-brand-500">
+                    <option value="">-- Choose Payment Method --</option>
+                    <option value="card">💳 Credit/Debit Card</option>
+                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                    <option value="ussd">📱 USSD (Mobile)</option>
+                    <option value="wallet">💵 Online Wallet</option>
+                </select>
+            </div>
+
+            <div id="paymentMethodDetails" class="bg-slate-50 rounded-xl p-4 min-h-20"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3 justify-end">
+            <a href="pt.html" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm px-6 py-2.5 rounded-xl transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Cancel
+            </a>
+            <button id="payBtn" onclick="processPayment()" disabled class="bg-brand-900 hover:bg-brand-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm px-6 py-2.5 rounded-xl transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                Proceed to Payment
+            </button>
+        </div>
+    </main>
+
+    <script>
+        // ============ CONFIGURATION ============
+        const API_BASE = window.API_BASE || "https://goldlincschools.onrender.com/api";
+        const token = localStorage.getItem('parentToken') || localStorage.getItem('token');
+
+        // ============ STATE ============
+        let studentData = null;
+        let selectedFees = [];
+        let totalPayableAmount = 0;
+
+        // ============ INITIALIZATION ============
+        async function initializePaymentPage() {
+            console.log('🚀 Initializing Payment Page...');
+
+            if (!token) {
+                showAlert('Authentication required. Redirecting to login...', 'error');
+                setTimeout(() => window.location.href = 'login.html', 2000);
+                return;
+            }
+
+            try {
+                showLoadingSpinner(true);
+
+                const params = new URLSearchParams(window.location.search);
+                const studentId = params.get('studentId');
+
+                if (!studentId) {
+                    showAlert('Invalid student ID. Redirecting...', 'error');
+                    setTimeout(() => window.location.href = 'pt.html', 2000);
+                    return;
+                }
+
+                await loadStudentData(studentId);
+                await loadStudentFees(studentId);
+                setupEventListeners();
+
+                showLoadingSpinner(false);
+
+            } catch (err) {
+                console.error('❌ Initialization error:', err);
+                showAlert('Failed to load payment page: ' + err.message, 'error');
+                showLoadingSpinner(false);
+            }
+        }
+
+        // ============ LOADING ============
+        function showLoadingSpinner(show = true) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.toggle('hidden', !show);
+            }
+        }
+
+        // ============ AUTH ============
+        function getAuthHeaders() {
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        // ============ DATA LOADING ============
+
+        async function loadStudentData(studentId) {
+            try {
+                console.log('📥 Loading student data...');
+
+                const parentDataStr = sessionStorage.getItem('parentData');
+                if (parentDataStr) {
+                    const parentData = JSON.parse(parentDataStr);
+                    studentData = parentData.students?.find(s => s._id === studentId);
+                }
+
+                if (!studentData) {
+                    const res = await fetch(`${API_BASE}/parents/me`, {
+                        headers: getAuthHeaders()
+                    });
+
+                    if (!res.ok) throw new Error('Failed to fetch parent data');
+
+                    const parentData = await res.json();
+                    sessionStorage.setItem('parentData', JSON.stringify(parentData));
+                    studentData = parentData.students?.find(s => s._id === studentId);
+                }
+
+                if (!studentData) {
+                    throw new Error('Student not found');
+                }
+
+                console.log('✅ Student data loaded:', studentData.name);
+                updateStudentInfoDisplay();
+
+            } catch (err) {
+                console.error('❌ Error loading student data:', err);
+                throw err;
+            }
+        }
+
+        function updateStudentInfoDisplay() {
+            document.getElementById('studentName').textContent = studentData.name || '--';
+            document.getElementById('studentClass').textContent = studentData.class || '--';
+            document.getElementById('studentRegNo').textContent = studentData.regNo || '--';
+            document.getElementById('studentId').textContent = studentData._id?.slice(-8) || '--';
+        }
+
+        async function loadStudentFees(studentId) {
+            try {
+                console.log('💰 Loading fees for student:', studentId);
+
+                const feesStats = studentData.feesStats || {};
+                let allFees = [];
+                let totalAmount = 0;
+                let totalPaid = 0;
+
+                if (feesStats.byTerm) {
+                    Object.entries(feesStats.byTerm).forEach(([term, termFees]) => {
+                        const termTotal = termFees.total || 0;
+                        const termPaid = termFees.paid || 0;
+                        const termPending = termFees.pending || 0;
+
+                        if (termPending > 0) {
+                            allFees.push({
+                                id: `${studentId}-${term}`,
+                                term: term,
+                                type: `${term} - School Fees`,
+                                amount: termTotal,
+                                paid: termPaid,
+                                pending: termPending,
+                                status: termPaid > 0 ? 'Partial' : 'Pending'
+                            });
+                        }
+
+                        totalAmount += termTotal;
+                        totalPaid += termPaid;
+                    });
+                }
+
+                if (studentData.fees && Array.isArray(studentData.fees)) {
+                    studentData.fees.forEach(fee => {
+                        const feeAmount = fee.amount || 0;
+                        const isPaid = (fee.status === 'paid' || fee.status === 'Paid');
+
+                        if (!isPaid && feeAmount > 0) {
+                            allFees.push({
+                                id: fee._id || `fee-${Date.now()}`,
+                                term: fee.term || 'General',
+                                type: fee.type || 'School Fee',
+                                amount: feeAmount,
+                                paid: 0,
+                                pending: feeAmount,
+                                status: 'Pending'
+                            });
+                        }
+
+                        totalAmount += feeAmount;
+                        if (isPaid) totalPaid += feeAmount;
+                    });
+                }
+
+                console.log('✅ Fees loaded:', { count: allFees.length, totalAmount, totalPaid });
+
+                updateFeesSummary(totalAmount, totalPaid);
+                renderFeesTable(allFees);
+
+            } catch (err) {
+                console.error('❌ Error loading fees:', err);
+                showAlert('Failed to load fees: ' + err.message, 'error');
+            }
+        }
+
+        function updateFeesSummary(totalAmount, totalPaid) {
+            const outstanding = totalAmount - totalPaid;
+
+            document.getElementById('totalAmount').textContent = formatCurrency(totalAmount);
+            document.getElementById('totalPaid').textContent = formatCurrency(totalPaid);
+            document.getElementById('totalOutstanding').textContent = formatCurrency(outstanding);
+
+            updatePayableAmount();
+        }
+
+        function renderFeesTable(fees) {
+            const container = document.getElementById('feesContent');
+            const countEl = document.getElementById('feesCount');
+
+            if (!fees || fees.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-4xl mb-3">✅</div>
+                        <h4 class="text-sm font-bold text-slate-900 mb-1">No Outstanding Fees</h4>
+                        <p class="text-xs text-slate-500">All fees are paid up. Congratulations!</p>
+                    </div>
+                `;
+                countEl.textContent = '0 Fees';
+                document.getElementById('payBtn').disabled = true;
+                return;
+            }
+
+            countEl.textContent = `${fees.length} Fee${fees.length !== 1 ? 's' : ''}`;
+
+            const html = fees.map(fee => `
+                <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:bg-slate-50/50 transition group">
+                    <div class="flex items-center gap-4 flex-grow">
+                        <input type="checkbox" class="fee-checkbox w-5 h-5 rounded text-brand-600 cursor-pointer" data-fee-id="${fee.id}" data-amount="${fee.pending}" onchange="updatePayableAmount()">
+                        <div class="flex-grow">
+                            <p class="text-sm font-bold text-slate-900">${fee.term}</p>
+                            <p class="text-xs text-slate-500">${fee.type}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-slate-900">${formatCurrency(fee.amount)}</p>
+                        <p class="text-xs text-slate-500">Pending: ${formatCurrency(fee.pending)}</p>
+                    </div>
+                    <button onclick="toggleFeeSelection('${fee.id}', ${fee.pending})" class="ml-4 bg-brand-50 text-brand-700 hover:bg-brand-100 font-bold text-xs px-3 py-1.5 rounded-lg transition">
+                        Select
+                    </button>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        // ============ FEE SELECTION ============
+
+        function toggleFeeSelection(feeId, amount) {
+            const checkbox = document.querySelector(`input[data-fee-id="${feeId}"]`);
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updatePayableAmount();
+            }
+        }
+
+        function updatePayableAmount() {
+            const feeCheckboxes = document.querySelectorAll('.fee-checkbox:checked');
+            selectedFees = [];
+            totalPayableAmount = 0;
+
+            feeCheckboxes.forEach(checkbox => {
+                selectedFees.push(checkbox.dataset.feeId);
+                totalPayableAmount += parseFloat(checkbox.dataset.amount);
+            });
+
+            document.getElementById('totalOutstanding').textContent = formatCurrency(totalPayableAmount);
+            document.getElementById('payBtn').disabled = selectedFees.length === 0;
+
+            console.log('Selected fees:', selectedFees, 'Total:', totalPayableAmount);
+        }
+
+        // ============ PAYMENT METHOD ============
+
+        function setupEventListeners() {
+            const paymentMethodSelect = document.getElementById('paymentMethod');
+            paymentMethodSelect.addEventListener('change', (e) => {
+                renderPaymentMethodDetails(e.target.value);
+            });
+        }
+
+        function renderPaymentMethodDetails(method) {
+            const container = document.getElementById('paymentMethodDetails');
+
+            const details = {
+                'card': `
+                    <div class="space-y-3">
+                        <p class="text-xs text-slate-600 font-medium">Credit/Debit Card information will be entered securely on the next page.</p>
+                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            Your payment is secure and encrypted.
+                        </div>
+                    </div>
+                `,
+                'bank_transfer': `
+                    <div class="space-y-3 text-xs">
+                        <div class="bg-white border border-slate-200 rounded-lg p-3">
+                            <p class="font-bold text-slate-900 mb-2">Bank Transfer Details</p>
+                            <div class="space-y-1.5 text-slate-700">
+                                <p><span class="font-bold">Bank Name:</span> Gold & Linc Bank</p>
+                                <p><span class="font-bold">Account Number:</span> <span class="font-mono">0123456789</span></p>
+                                <p><span class="font-bold">Account Name:</span> Gold and Linc Schools</p>
+                                <p><span class="font-bold">Amount:</span> <span class="font-bold text-brand-900">${formatCurrency(totalPayableAmount)}</span></p>
+                                <p><span class="font-bold">Reference:</span> <span class="font-mono">${studentData._id?.slice(-8) || 'REF'}</span></p>
+                            </div>
+                        </div>
+                        <p class="text-slate-500">Please use the reference code when transferring to ensure the payment is credited to the correct account.</p>
+                    </div>
+                `,
+                'ussd': `
+                    <div class="space-y-3 text-xs">
+                        <div class="bg-white border border-slate-200 rounded-lg p-3">
+                            <p class="font-bold text-slate-900 mb-2">USSD Payment Code</p>
+                            <div class="space-y-2 text-slate-700">
+                                <p><span class="font-bold">Dial:</span></p>
+                                <p class="font-mono font-bold text-base bg-slate-50 p-2 rounded text-center">*898*01*${studentData._id?.slice(-6) || '000001'}#</p>
+                                <p><span class="font-bold">Amount:</span> ${formatCurrency(totalPayableAmount)}</p>
+                            </div>
+                        </div>
+                        <p class="text-slate-500">Follow the prompts on your phone to complete the payment.</p>
+                    </div>
+                `,
+                'wallet': `
+                    <div class="space-y-3">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Wallet Provider</label>
+                        <select class="w-full bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-900 p-2 outline-none focus:ring-2 focus:ring-brand-500">
+                            <option>-- Select Wallet --</option>
+                            <option>Google Pay</option>
+                            <option>Apple Pay</option>
+                            <option>School Wallet</option>
+                        </select>
+                    </div>
+                `,
+                '': ''
+            };
+
+            container.innerHTML = details[method] || '';
+        }
+
+        // ============ PAYMENT PROCESSING ============
+
+        async function processPayment() {
+            try {
+                if (selectedFees.length === 0) {
+                    showAlert('Please select at least one fee to pay', 'warning');
+                    return;
+                }
+
+                const paymentMethod = document.getElementById('paymentMethod').value;
+                if (!paymentMethod) {
+                    showAlert('Please select a payment method', 'warning');
+                    return;
+                }
+
+                showLoadingSpinner(true);
+
+                console.log('💳 Processing payment:', {
+                    studentId: studentData._id,
+                    selectedFees,
+                    totalPayableAmount,
+                    paymentMethod
+                });
+
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                showLoadingSpinner(false);
+
+                showAlert('Payment request submitted! Please complete payment to finalize.', 'success');
+
+                setTimeout(() => {
+                    window.location.href = `fees-receipt.html?studentId=${studentData._id}&amount=${totalPayableAmount}&method=${paymentMethod}`;
+                }, 2000);
+
+            } catch (err) {
+                console.error('❌ Payment error:', err);
+                showAlert('Payment failed: ' + err.message, 'error');
+                showLoadingSpinner(false);
+            }
+        }
+
+        // ============ UTILITY ============
+
+        function formatCurrency(value) {
+            return '₦' + (value || 0).toLocaleString('en-NG', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alertContainer');
+            
+            const alertClass = {
+                'success': 'bg-emerald-50 border-emerald-200 text-emerald-800',
+                'error': 'bg-red-50 border-red-200 text-red-800',
+                'warning': 'bg-amber-50 border-amber-200 text-amber-800',
+                'info': 'bg-blue-50 border-blue-200 text-blue-800'
+            }[type] || 'bg-blue-50 border-blue-200 text-blue-800';
+
+            const iconClass = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'warning': 'fa-exclamation-triangle',
+                'info': 'fa-info-circle'
+            }[type] || 'fa-info-circle';
+
+            const alert = document.createElement('div');
+            alert.className = `flex items-center gap-3 border rounded-xl px-4 py-3 text-sm font-medium ${alertClass}`;
+            alert.innerHTML = `
+                <i class="fas ${iconClass}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(alert);
+
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // ============ DOM READY ============
+        document.addEventListener('DOMContentLoaded', initializePaymentPage);
+    </script>
+</body>
+</html>
