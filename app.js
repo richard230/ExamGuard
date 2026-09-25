@@ -8,22 +8,56 @@ const ensureSuperAdmin = require('./utils/ensureSuperAdmin');
 
 const app = express();
 
-/* ================= CORS ================= */
-
 const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  ? process.env.CORS_ORIGINS
+      .split(',')
+      .map(origin => origin.trim())
+      .filter(Boolean)
   : [];
+
+const schoolSubdomainRegex =
+  /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.goldlincschools\.com\.ng$/i;
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      return callback(null, true);
+    }
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    return callback(new Error('CORS not allowed for this origin'));
+    try {
+      const url = new URL(origin);
+
+      if (
+        url.protocol === 'https:' &&
+        schoolSubdomainRegex.test(url.hostname)
+      ) {
+        return callback(null, true);
+      }
+
+      if (
+        url.protocol === 'https:' &&
+        url.hostname === 'goldlincschools.com.ng'
+      ) {
+        return callback(null, true);
+      }
+
+      if (
+        url.protocol === 'https:' &&
+        url.hostname === 'www.goldlincschools.com.ng'
+      ) {
+        return callback(null, true);
+      }
+    } catch (error) {
+      console.error('Invalid CORS origin:', origin);
+    }
+
+    return callback(new Error(`CORS not allowed for this origin: ${origin}`));
   },
+
   credentials: true
 };
 
