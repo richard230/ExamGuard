@@ -611,14 +611,14 @@ router.get('/config', async (req, res) => {
       },
 
       branding: {
-        logos: {
-          main: school.branding?.logo || '',
-          dark: school.branding?.darkLogo || school.branding?.logo || '',
-          light: school.branding?.lightLogo || school.branding?.logo || '',
-          monochrome: school.branding?.monochromeLogo || '',
-          watermark: school.branding?.watermark || school.branding?.logo || '',
-          stamp: school.branding?.schoolStamp || ''
-        },
+    logos: {
+        main: school.branding?.logo || school.logoUrl || '',
+        dark: school.branding?.darkLogo || school.branding?.logo || school.logoUrl || '',
+        light: school.branding?.lightLogo || school.branding?.logo || school.logoUrl || '',
+        monochrome: school.branding?.monochromeLogo || school.logoUrl || '',
+        watermark: school.branding?.watermark || school.branding?.logo || school.logoUrl || '',
+        stamp: school.branding?.schoolStamp || ''
+    },
         favicon: school.branding?.favicon || '',
         colors: {
           primary: school.branding?.primaryColor || '#1E3A8A',
