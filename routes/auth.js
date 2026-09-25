@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Staff = require('../models/Staff');
 const Student = require('../models/Student');
@@ -13,11 +14,42 @@ function normalize(value) {
     : '';
 }
 
-function getSchoolIdFromRequest(req) {
+function normalizeSchoolKey(value) {
+  return typeof value === 'string'
+    ? value.trim()
+    : '';
+}
+
+async function resolveSchool(schoolKey) {
+  const key = normalizeSchoolKey(schoolKey);
+  if (!key) {
+    return null;
+  }
+  let school = null;
+  if (mongoose.Types.ObjectId.isValid(key)) {
+    school = await School.findById(key).select(
+      '_id schoolId name abbreviation motto status branding'
+    );
+  }
+  if (!school) {
+    school = await School.findOne({
+      schoolId: key
+    }).select(
+      '_id schoolId name abbreviation motto status branding'
+    );
+  }
+  return school;
+}
+
+function getSchoolKeyFromRequest(req) {
   return (
     req.body?.schoolId ||
+    req.body?.schoolCode ||
+    req.body?.schoolSubdomain ||
     req.query?.schoolId ||
+    req.query?.schoolCode ||
     req.headers['x-school-id'] ||
+    req.headers['x-school-code'] ||
     null
   );
 }
@@ -48,9 +80,9 @@ router.post('/login', async (req, res) => {
   const {
     email,
     regNo,
-    password,
-    schoolId
+    password
   } = req.body;
+  const suppliedSchoolKey = getSchoolKeyFromRequest(req);
   if ((!email && !regNo) || !password) {
     return res.status(400).json({
       success: false,
@@ -60,39 +92,45 @@ router.post('/login', async (req, res) => {
   try {
     const normalizedEmail = normalize(email);
     const normalizedRegNo = normalize(regNo);
-    let resolvedSchoolId = schoolId || null;
-    if (resolvedSchoolId) {
-      const school = await School.findById(resolvedSchoolId).select(
-        '_id status'
-      );
+    let school = null;
+    if (suppliedSchoolKey) {
+      school = await resolveSchool(suppliedSchoolKey);
       if (!school) {
         return res.status(404).json({
           success: false,
           error: 'School not found.'
         });
       }
-      if (school.status && school.status !== 'active') {
+      if (
+        school.status &&
+        school.status !== 'active'
+      ) {
         return res.status(403).json({
           success: false,
           error: 'This school portal is currently unavailable.'
         });
       }
     }
+    const resolvedSchoolId = school
+      ? school._id
+      : null;
     let user = null;
     if (normalizedEmail) {
-      user = await User.findOne({
-        email: normalizedEmail,
-        ...(resolvedSchoolId
-          ? { schoolId: resolvedSchoolId }
-          : {})
-      });
+      const query = {
+        email: normalizedEmail
+      };
+      if (resolvedSchoolId) {
+        query.schoolId = resolvedSchoolId;
+      }
+      user = await User.findOne(query);
     } else if (normalizedRegNo) {
-      user = await User.findOne({
-        regNo: normalizedRegNo,
-        ...(resolvedSchoolId
-          ? { schoolId: resolvedSchoolId }
-          : {})
-      });
+      const query = {
+        regNo: normalizedRegNo
+      };
+      if (resolvedSchoolId) {
+        query.schoolId = resolvedSchoolId;
+      }
+      user = await User.findOne(query);
     }
     if (user) {
       const passwordValid = await bcrypt.compare(
@@ -122,6 +160,16 @@ router.post('/login', async (req, res) => {
             error: 'This account is not associated with a school.'
           });
         }
+        if (
+          resolvedSchoolId &&
+          user.schoolId.toString() !==
+            resolvedSchoolId.toString()
+        ) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid credentials.'
+          });
+        }
         const token = createToken({
           id: user._id,
           role: user.role,
@@ -138,23 +186,24 @@ router.post('/login', async (req, res) => {
     }
     let staff = null;
     if (normalizedEmail) {
+      const query1 = {
+        login_email: normalizedEmail
+      };
+      const query2 = {
+        email: normalizedEmail
+      };
+      if (resolvedSchoolId) {
+        query1.schoolId = resolvedSchoolId;
+        query2.schoolId = resolvedSchoolId;
+      }
       staff =
-        await Staff.findOne({
-          login_email: normalizedEmail,
-          ...(resolvedSchoolId
-            ? { schoolId: resolvedSchoolId }
-            : {})
-        }) ||
-        await Staff.findOne({
-          email: normalizedEmail,
-          ...(resolvedSchoolId
-            ? { schoolId: resolvedSchoolId }
-            : {})
-        });
+        await Staff.findOne(query1) ||
+        await Staff.findOne(query2);
     }
     if (staff) {
       const passwordHash =
-        staff.login_password || staff.password;
+        staff.login_password ||
+        staff.password;
       if (
         passwordHash &&
         await bcrypt.compare(password, passwordHash)
@@ -165,11 +214,25 @@ router.post('/login', async (req, res) => {
             error: 'This staff account is not associated with a school.'
           });
         }
-        const role = staff.access_level || 'staff';
+        if (
+          resolvedSchoolId &&
+          staff.schoolId.toString() !==
+            resolvedSchoolId.toString()
+        ) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid credentials.'
+          });
+        }
+        const role =
+          staff.access_level ||
+          'staff';
         const token = createToken({
           id: staff._id,
           role,
-          email: staff.login_email || staff.email,
+          email:
+            staff.login_email ||
+            staff.email,
           schoolId: staff.schoolId
         });
         return res.json({
@@ -177,42 +240,68 @@ router.post('/login', async (req, res) => {
           token,
           user: {
             id: staff._id,
-            name: `${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
-            email: staff.login_email || staff.email || null,
+            name:
+              `${staff.first_name || ''} ${staff.last_name || ''}`
+                .trim(),
+            email:
+              staff.login_email ||
+              staff.email ||
+              null,
             role,
-            department: staff.department || null,
-            designation: staff.designation || null,
-            schoolId: staff.schoolId
+            department:
+              staff.department ||
+              null,
+            designation:
+              staff.designation ||
+              null,
+            schoolId:
+              staff.schoolId
           }
         });
       }
     }
     let student = null;
     if (normalizedRegNo) {
-      student = await Student.findOne({
-        regNo: normalizedRegNo,
-        ...(resolvedSchoolId
-          ? { schoolId: resolvedSchoolId }
-          : {})
-      });
+      const query = {
+        regNo: normalizedRegNo
+      };
+      if (resolvedSchoolId) {
+        query.schoolId = resolvedSchoolId;
+      }
+      student = await Student.findOne(query);
     } else if (normalizedEmail) {
-      student = await Student.findOne({
-        studentEmail: normalizedEmail,
-        ...(resolvedSchoolId
-          ? { schoolId: resolvedSchoolId }
-          : {})
-      });
+      const query = {
+        studentEmail: normalizedEmail
+      };
+      if (resolvedSchoolId) {
+        query.schoolId = resolvedSchoolId;
+      }
+      student = await Student.findOne(query);
     }
     if (student) {
-      const passwordHash = student.password;
+      const passwordHash =
+        student.password;
       if (
         passwordHash &&
-        await bcrypt.compare(password, passwordHash)
+        await bcrypt.compare(
+          password,
+          passwordHash
+        )
       ) {
         if (!student.schoolId) {
           return res.status(403).json({
             success: false,
             error: 'This student account is not associated with a school.'
+          });
+        }
+        if (
+          resolvedSchoolId &&
+          student.schoolId.toString() !==
+            resolvedSchoolId.toString()
+        ) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid credentials.'
           });
         }
         const token = createToken({
@@ -226,11 +315,17 @@ router.post('/login', async (req, res) => {
           token,
           user: {
             id: student._id,
-            name: `${student.firstname || ''} ${student.surname || ''}`.trim(),
-            email: student.studentEmail || null,
-            regNo: student.regNo,
+            name:
+              `${student.firstname || ''} ${student.surname || ''}`
+                .trim(),
+            email:
+              student.studentEmail ||
+              null,
+            regNo:
+              student.regNo,
             role: 'student',
-            schoolId: student.schoolId
+            schoolId:
+              student.schoolId
           }
         });
       }
@@ -240,7 +335,10 @@ router.post('/login', async (req, res) => {
       error: 'Invalid credentials.'
     });
   } catch (err) {
-    console.error('[LOGIN ERROR]', err);
+    console.error(
+      '[LOGIN ERROR]',
+      err
+    );
     return res.status(500).json({
       success: false,
       error: 'Server error during login.'
@@ -249,7 +347,8 @@ router.post('/login', async (req, res) => {
 });
 
 async function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
+  const authHeader =
+    req.headers.authorization;
   if (
     !authHeader ||
     !authHeader.startsWith('Bearer ')
@@ -259,46 +358,128 @@ async function authMiddleware(req, res, next) {
       error: 'No token provided.'
     });
   }
-  const token = authHeader.split(' ')[1];
+  const token =
+    authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-    let user = await User.findById(decoded.id);
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
+    let user =
+      await User.findById(decoded.id);
     if (user) {
+      if (user.role === 'superadmin') {
+        req.user = {
+          id: user._id,
+          name: user.name,
+          email: user.email || null,
+          regNo: user.regNo || null,
+          role: user.role,
+          schoolId: null
+        };
+        return next();
+      }
+      if (!user.schoolId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Account is not associated with a school.'
+        });
+      }
+      if (
+        decoded.schoolId &&
+        user.schoolId.toString() !==
+          decoded.schoolId.toString()
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid school context.'
+        });
+      }
       req.user = {
         id: user._id,
         name: user.name,
         email: user.email || null,
         regNo: user.regNo || null,
         role: user.role,
-        schoolId: user.schoolId || null
+        schoolId: user.schoolId
       };
       return next();
     }
-    let staff = await Staff.findById(decoded.id);
+    let staff =
+      await Staff.findById(decoded.id);
     if (staff) {
+      if (!staff.schoolId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Staff account is not associated with a school.'
+        });
+      }
+      if (
+        decoded.schoolId &&
+        staff.schoolId.toString() !==
+          decoded.schoolId.toString()
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid school context.'
+        });
+      }
       req.user = {
         id: staff._id,
-        name: `${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
-        email: staff.login_email || staff.email || null,
-        role: staff.access_level || 'staff',
-        department: staff.department || null,
-        designation: staff.designation || null,
-        schoolId: staff.schoolId || null
+        name:
+          `${staff.first_name || ''} ${staff.last_name || ''}`
+            .trim(),
+        email:
+          staff.login_email ||
+          staff.email ||
+          null,
+        role:
+          staff.access_level ||
+          'staff',
+        department:
+          staff.department ||
+          null,
+        designation:
+          staff.designation ||
+          null,
+        schoolId:
+          staff.schoolId
       };
       return next();
     }
-    let student = await Student.findById(decoded.id);
+    let student =
+      await Student.findById(decoded.id);
     if (student) {
+      if (!student.schoolId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Student account is not associated with a school.'
+        });
+      }
+      if (
+        decoded.schoolId &&
+        student.schoolId.toString() !==
+          decoded.schoolId.toString()
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid school context.'
+        });
+      }
       req.user = {
         id: student._id,
-        name: `${student.firstname || ''} ${student.surname || ''}`.trim(),
-        email: student.studentEmail || null,
-        regNo: student.regNo,
+        name:
+          `${student.firstname || ''} ${student.surname || ''}`
+            .trim(),
+        email:
+          student.studentEmail ||
+          null,
+        regNo:
+          student.regNo,
         role: 'student',
-        schoolId: student.schoolId || null
+        schoolId:
+          student.schoolId
       };
       return next();
     }
@@ -307,7 +488,10 @@ async function authMiddleware(req, res, next) {
       error: 'User not found.'
     });
   } catch (err) {
-    console.error('[AUTH ERROR]', err);
+    console.error(
+      '[AUTH ERROR]',
+      err
+    );
     return res.status(401).json({
       success: false,
       error: 'Invalid or expired token.'
@@ -315,29 +499,38 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-router.get('/me', authMiddleware, async (req, res) => {
-  try {
-    let school = null;
-    if (req.user.schoolId) {
-      school = await School.findById(
-        req.user.schoolId
-      ).select(
-        '_id name abbreviation motto status branding'
+router.get(
+  '/me',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      let school = null;
+      if (req.user.schoolId) {
+        school =
+          await School.findById(
+            req.user.schoolId
+          ).select(
+            '_id schoolId name abbreviation motto status branding'
+          );
+      }
+      return res.json({
+        success: true,
+        user: req.user,
+        school
+      });
+    } catch (err) {
+      console.error(
+        '[AUTH ME ERROR]',
+        err
       );
+      return res.status(500).json({
+        success: false,
+        error:
+          'Unable to retrieve account information.'
+      });
     }
-    return res.json({
-      success: true,
-      user: req.user,
-      school
-    });
-  } catch (err) {
-    console.error('[AUTH ME ERROR]', err);
-    return res.status(500).json({
-      success: false,
-      error: 'Unable to retrieve account information.'
-    });
   }
-});
+);
 
 module.exports = {
   router,
