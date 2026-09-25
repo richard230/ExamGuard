@@ -1,5 +1,5 @@
 // ============ CONFIGURATION ============
-const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+const API_BASE_URL = "https://goldlincschools.onrender.com";
 const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
 
 // ============ STATE MANAGEMENT ============

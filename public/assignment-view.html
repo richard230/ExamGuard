@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.850">
+    <title>Gold & Linc | Assignment Evaluation Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        
+        /* Spinner Styles */
+        .spinner {
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #0284c7;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner-sm {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #0284c7;
+        }
+
+        /* Pulse animation for loading states */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* PDF/File preview styles */
+        .file-preview-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .file-icon {
+            font-size: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen text-slate-800">
+
+    <!-- LOADING SPINNER OVERLAY -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-60 hidden backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-xs mx-4">
+            <div class="flex justify-center mb-4">
+                <div class="spinner"></div>
+            </div>
+            <h3 class="text-sm font-black text-slate-900 uppercase tracking-wide">Loading Data</h3>
+            <p id="loadingStatus" class="text-xs text-slate-500 font-medium mt-2">Please wait while we fetch your information...</p>
+        </div>
+    </div>
+
+    <!-- Top Navigation Bar Header -->
+    <header class="bg-brand-900 text-white shadow-md border-b border-brand-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 bg-white text-brand-900 rounded-xl flex items-center justify-center font-black text-sm tracking-tighter shadow-inner">
+                    G&L
+                </div>
+                <div>
+                    <h1 class="text-xs font-black tracking-widest uppercase text-brand-200">Faculty Terminal</h1>
+                    <p class="text-xs font-medium opacity-80">Assignment Grading & Analytics Suite</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden sm:block">
+                    <p id="headerTeacherName" class="text-xs font-bold text-white">Loading...</p>
+                    <p id="headerTeacherDept" class="text-[10px] font-mono text-brand-200">—</p>
+                </div>
+                <div id="headerTeacherAvatar" class="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center font-bold text-xs text-white border-2 border-brand-200 shadow-sm">
+                    —
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div id="panel-view-assignment" class="space-y-6">
+            
+            <!-- Breadcrumb Navigation & Action Ribbon Bar -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <div class="flex items-center space-x-4">
+                    <button onclick="returnToHub()" type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        Return to Hub
+                    </button>
+                    <div>
+                        <h2 id="viewAsmMainTitle" class="text-base font-black text-brand-900 uppercase tracking-wide">Loading Assignment...</h2>
+                        <div class="flex flex-wrap items-center gap-2 mt-1 text-[11px] font-bold text-slate-500">
+                            <span id="viewAsmClassBadge" class="bg-brand-50 text-brand-800 px-2 py-0.5 rounded">...</span>
+                            <span id="viewAsmSubjectBadge" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded">...</span>
+                            <span class="text-slate-400">&bull;</span>
+                            <span class="flex items-center">
+                                <svg class="w-3.5 h-3.5 mr-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Deadline: <span id="viewAsmDeadline" class="ml-1 text-rose-600 font-extrabold">...</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button onclick="requestAssignmentDeletion()" type="button" class="bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 font-bold text-xs px-4 py-2 rounded-xl uppercase tracking-wider transition shadow-sm">
+                        Delete Task
+                    </button>
+                </div>
+            </div>
+
+            <!-- Performance Metrics & Analytics Deck -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Class Size</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1" id="viewAsmStatTotal">0</p>
+                    <p class="text-[9px] text-slate-400 font-medium mt-0.5">Assigned Students</p>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Turned In</p>
+                    <p class="text-2xl font-black text-brand-600 mt-1" id="viewAsmStatSubmitted">0</p>
+                    <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1.5 shadow-inner">
+                        <div id="viewAsmTurnedInBar" class="bg-brand-500 h-full w-0 transition-all duration-500"></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Pending Grading</p>
+                    <p class="text-2xl font-black text-amber-600 mt-1" id="viewAsmStatPending">0</p>
+                    <p class="text-[9px] text-amber-600/80 font-bold mt-0.5 bg-amber-50 rounded px-1 inline-block">Requires Action</p>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm text-center">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Graded Base</p>
+                    <p class="text-2xl font-black text-emerald-600 mt-1" id="viewAsmStatGraded">0</p>
+                    <p class="text-[9px] text-slate-400 font-medium mt-0.5">Marks Uploaded</p>
+                </div>
+            </div>
+
+            <!-- Balanced Workspace Layout Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Left Hand Column Component: Portfolio Guidelines Content Details (1/3 width) -->
+                <div class="space-y-4 lg:col-span-1">
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                        <div class="border-b border-slate-100 pb-2">
+                            <h3 class="text-xs font-bold text-brand-900 uppercase tracking-wider">Task Guidelines Portfolio</h3>
+                            <p id="viewAsmRoutingType" class="text-[10px] font-mono mt-0.5 font-bold uppercase tracking-wider text-slate-400">Type: Standard</p>
+                        </div>
+                        <div id="viewAsmMetaBodyContent" class="text-xs text-slate-600 font-medium leading-relaxed max-h-96 overflow-y-auto pr-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div class="flex items-center justify-center space-x-2">
+                                <div class="spinner-sm"></div>
+                                <span>Loading instructions...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Hand Column Component: Submission Roster & Evaluation Matrix (2/3 width) -->
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="text-xs font-bold text-brand-900 uppercase tracking-wider">Student Submission Tracker</h3>
+                                <p class="text-[11px] text-slate-500">View real-time workspace items and apply marks to core CA sheets instantly.</p>
+                            </div>
+                            <div>
+                                <span class="inline-flex bg-slate-100 text-slate-700 font-mono font-bold px-2 py-0.5 rounded text-[11px]" id="viewAsmClassTotalCounter">0 Records Found</span>
+                            </div>
+                        </div>
+
+                        <!-- Data Table Ledger -->
+                        <div class="overflow-x-auto rounded-xl border border-slate-100">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-400 font-extrabold uppercase border-b border-slate-100">
+                                        <th class="p-3 pl-4">Student Fullname</th>
+                                        <th class="p-3">Status</th>
+                                        <th class="p-3">Attached Deliverable</th>
+                                        <th class="p-3 text-center w-28">Score / 100</th>
+                                        <th class="p-3 text-center w-36">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="viewAsmSubmissionsTableBody" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                                    <tr>
+                                        <td colspan="5" class="p-8 text-center">
+                                            <div class="flex items-center justify-center space-x-2">
+                                                <div class="spinner-sm"></div>
+                                                <span class="text-slate-400 text-xs">Loading submissions...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </main>
+
+    <!-- UI MODAL 1: ALERT & NOTIFICATION SYSTEM OVERLAY -->
+    <div id="customAlertModal" class="fixed inset-0 bg-slate-900/60 items-center justify-center z-50 flex hidden backdrop-blur-sm transition-all duration-300">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-xl border border-slate-200/80 mx-4 transform transition-all scale-95 opacity-0 duration-300" id="customAlertBox">
+            <div id="modalIcon" class="text-4xl mb-3">✅</div>
+            <h3 id="modalTitle" class="text-sm font-black uppercase text-slate-900 tracking-wide">Action Successful</h3>
+            <p id="modalMessage" class="text-xs text-slate-500 font-medium mt-2 leading-relaxed">The data state has loaded correctly.</p>
+            <button onclick="closeAlertNotification()" class="mt-5 w-full bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition uppercase tracking-wider shadow-sm">
+                Acknowledge
+            </button>
+        </div>
+    </div>
+
+    <!-- UI MODAL 2: CONFIRMATION PROMPT DIALOG -->
+    <div id="customConfirmModal" class="fixed inset-0 bg-slate-900/60 items-center justify-center z-50 flex hidden backdrop-blur-sm transition-all duration-300">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-xl border border-slate-200/80 mx-4 transform transition-all scale-95 opacity-0 duration-300" id="customConfirmBox">
+            <div id="confirmIcon" class="text-4xl mb-3 text-rose-500">⚠️</div>
+            <h3 id="confirmTitle" class="text-sm font-black uppercase text-slate-900 tracking-wide">Confirm Action</h3>
+            <p id="confirmMessage" class="text-xs text-slate-500 font-medium mt-2 leading-relaxed">Are you completely sure you want to proceed with this destructive operation?</p>
+            <div class="grid grid-cols-2 gap-3 mt-5">
+                <button id="confirmCancelBtn" onclick="closeConfirmDialog()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition uppercase tracking-wider shadow-sm">
+                    Cancel
+                </button>
+                <button id="confirmActionBtn" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition uppercase tracking-wider shadow-sm">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI MODAL 3: FILE PREVIEW MODAL -->
+    <div id="filePreviewModal" class="fixed inset-0 bg-slate-900/60 items-center justify-center z-50 flex hidden backdrop-blur-sm transition-all duration-300">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-96 shadow-xl border border-slate-200/80 mx-4 transform transition-all scale-95 opacity-0 duration-300 overflow-hidden flex flex-col" id="filePreviewBox">
+            <!-- Header -->
+            <div class="flex justify-between items-center p-5 border-b border-slate-100">
+                <div>
+                    <h3 id="previewFileName" class="text-sm font-black uppercase text-slate-900 tracking-wide">File Preview</h3>
+                    <p id="previewFileSize" class="text-[11px] text-slate-400 mt-1">Size: --</p>
+                </div>
+                <button onclick="closeFilePreview()" class="text-slate-400 hover:text-slate-600 font-bold text-2xl leading-none">×</button>
+            </div>
+
+            <!-- Preview Content -->
+            <div id="previewContent" class="flex-1 overflow-y-auto bg-slate-50 p-6">
+                <div class="text-center">
+                    <div class="text-4xl mb-3">📄</div>
+                    <p class="text-slate-500 text-xs">Loading preview...</p>
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="flex gap-2 p-5 border-t border-slate-100 bg-white">
+                <button onclick="downloadCurrentFile()" class="flex-1 bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition uppercase tracking-wider shadow-sm flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download
+                </button>
+                <button onclick="closeFilePreview()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition uppercase tracking-wider">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DATA INTEGRATION ENGINE & RUNTIME SIMULATOR SCRIPT -->
+    <script>
+        // ============ API CONFIGURATION ============
+        const API_BASE_URL = "https://goldlincschools.onrender.com";
+        const token = localStorage.getItem('teacherToken') || localStorage.getItem('token') || "";
+
+        // ============ DATA STATE ============
+        let currentAssignment = null;
+        let currentTeacher = null;
+        let submissions = [];
+        let classStudents = [];
+        let activeConfirmCallback = null;
+        let currentPreviewFile = null;
+
+        // ============ UTILITY FUNCTIONS ============
+        function showLoadingSpinner(status = "Loading data...") {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingStatus').textContent = status;
+        }
+
+        function hideLoadingSpinner() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        function getFileIcon(filename) {
+            if (!filename) return '📄';
+            const ext = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'pdf': '📕',
+                'doc': '📗', 'docx': '📗',
+                'xls': '📊', 'xlsx': '📊',
+                'ppt': '📈', 'pptx': '📈',
+                'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
+                'txt': '📝',
+                'zip': '📦', 'rar': '📦',
+                'mp4': '🎬', 'avi': '🎬', 'mov': '🎬'
+            };
+            return icons[ext] || '📄';
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return '--';
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function extractFileName(path) {
+            if (!path) return 'Unknown File';
+            if (typeof path === 'string') {
+                return path.split('/').pop().split('?')[0];
+            }
+            return path.filename || path.originalName || 'Unknown File';
+        }
+
+        // ============ AUTH HEADERS ============
+        function authHeaders() {
+            return token 
+                ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } 
+                : { 'Content-Type': 'application/json' };
+        }
+
+        // ============ MODAL FUNCTIONS ============
+        function triggerAlertNotification(title, message, icon = "✅") {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalIcon').textContent = icon;
+            
+            const overlay = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.remove('scale-95', 'opacity-0');
+                box.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeAlertNotification() {
+            const overlay = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            
+            box.classList.remove('scale-100', 'opacity-100');
+            box.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => overlay.classList.add('hidden'), 200);
+        }
+
+        function triggerConfirmDialog(title, message, icon, confirmCallback) {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('confirmIcon').textContent = icon || "⚠️";
+            
+            activeConfirmCallback = confirmCallback;
+
+            const overlay = document.getElementById('customConfirmModal');
+            const box = document.getElementById('customConfirmBox');
+            
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.remove('scale-95', 'opacity-0');
+                box.classList.add('scale-100', 'opacity-100');
+            }, 10);
+
+            document.getElementById('confirmActionBtn').onclick = () => {
+                if (typeof activeConfirmCallback === "function") activeConfirmCallback();
+            };
+        }
+
+        function closeConfirmDialog() {
+            const overlay = document.getElementById('customConfirmModal');
+            const box = document.getElementById('customConfirmBox');
+            
+            box.classList.remove('scale-100', 'opacity-100');
+            box.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                activeConfirmCallback = null;
+            }, 200);
+        }
+
+        // ============ FILE PREVIEW FUNCTIONS ============
+        async function openFilePreview(fileUrl, fileName) {
+            if (!fileUrl) {
+                triggerAlertNotification('Error', 'File URL not available', '❌');
+                return;
+            }
+
+            currentPreviewFile = { url: fileUrl, name: fileName };
+            
+            const overlay = document.getElementById('filePreviewModal');
+            const box = document.getElementById('filePreviewBox');
+            const previewContent = document.getElementById('previewContent');
+
+            document.getElementById('previewFileName').textContent = extractFileName(fileName);
+            document.getElementById('previewFileSize').textContent = 'Size: Loading...';
+
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.remove('scale-95', 'opacity-0');
+                box.classList.add('scale-100', 'opacity-100');
+            }, 10);
+
+            // Attempt to load preview
+            try {
+                const ext = extractFileName(fileName).split('.').pop().toLowerCase();
+                
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                    previewContent.innerHTML = `
+                        <div class="flex justify-center">
+                            <img src="${fileUrl}" alt="Preview" class="max-w-full max-h-96 rounded-lg shadow-md" onerror="document.getElementById('previewContent').innerHTML='<p class=\"text-slate-500\">Unable to load image preview</p>'">
+                        </div>
+                    `;
+                } else if (ext === 'pdf') {
+                    previewContent.innerHTML = `
+                        <div class="text-center">
+                            <div class="text-6xl mb-3">📕</div>
+                            <p class="text-slate-600 font-bold">PDF Document</p>
+                            <p class="text-slate-400 text-xs mt-2">Click download to view the full PDF</p>
+                        </div>
+                    `;
+                } else if (['txt', 'log'].includes(ext)) {
+                    const response = await fetch(fileUrl);
+                    const text = await response.text();
+                    previewContent.innerHTML = `
+                        <pre class="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-auto max-h-96">${text.slice(0, 1000)}</pre>
+                    `;
+                } else {
+                    previewContent.innerHTML = `
+                        <div class="text-center">
+                            <div class="text-6xl mb-3">${getFileIcon(fileName)}</div>
+                            <p class="text-slate-600 font-bold">${ext.toUpperCase()} File</p>
+                            <p class="text-slate-400 text-xs mt-2">Preview not available for this file type</p>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('previewFileSize').textContent = 'Size: Available';
+            } catch (error) {
+                console.error('Error loading preview:', error);
+                previewContent.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-6xl mb-3">❌</div>
+                        <p class="text-slate-600">Unable to load preview</p>
+                        <p class="text-slate-400 text-xs mt-2">Click download to open the file</p>
+                    </div>
+                `;
+            }
+        }
+
+        function closeFilePreview() {
+            const overlay = document.getElementById('filePreviewModal');
+            const box = document.getElementById('filePreviewBox');
+            
+            box.classList.remove('scale-100', 'opacity-100');
+            box.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                currentPreviewFile = null;
+            }, 200);
+        }
+
+        function downloadCurrentFile() {
+            if (!currentPreviewFile) return;
+            
+            const link = document.createElement('a');
+            link.href = currentPreviewFile.url;
+            link.download = extractFileName(currentPreviewFile.name) || 'download';
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // ============ INITIALIZATION ============
+        async function initializeAssignmentView() {
+            try {
+                showLoadingSpinner('Loading assignment view...');
+
+                // Get assignment ID from URL or sessionStorage
+                const urlParams = new URLSearchParams(window.location.search);
+                const assignmentId = urlParams.get('id');
+                const sessionData = sessionStorage.getItem('currentAssignmentData');
+
+                if (!assignmentId && !sessionData) {
+                    hideLoadingSpinner();
+                    triggerAlertNotification('Error', 'No assignment selected', '❌');
+                    setTimeout(() => returnToHub(), 2000);
+                    return;
+                }
+
+                // LOAD TEACHER INFO FIRST
+                showLoadingSpinner('Loading teacher information...');
+                await loadTeacherInfo();
+
+                if (!currentTeacher || !currentTeacher.id) {
+                    hideLoadingSpinner();
+                    triggerAlertNotification('Error', 'Failed to load teacher information', '❌');
+                    return;
+                }
+
+                // THEN load assignment
+                showLoadingSpinner('Loading assignment data...');
+                if (sessionData) {
+                    currentAssignment = JSON.parse(sessionData);
+                    sessionStorage.removeItem('currentAssignmentData');
+                } else if (assignmentId) {
+                    await fetchAssignmentData(assignmentId);
+                }
+
+                if (currentAssignment) {
+                    renderAssignmentDetails();
+                    
+                    // Load questions FIRST if QUESTION_BANK type
+                    if (currentAssignment.type === 'QUESTION_BANK') {
+                        showLoadingSpinner('Loading exam questions...');
+                        await loadQuestions();
+                    }
+                    
+                    // Then load submissions AND class students
+                    showLoadingSpinner('Loading submissions and class data...');
+                    await loadSubmissions();
+                    await loadClassStudents();
+                    updateStatistics();
+                    
+                    hideLoadingSpinner();
+                }
+            } catch (error) {
+                console.error('Initialization error:', error);
+                hideLoadingSpinner();
+                triggerAlertNotification('Error', 'Failed to load assignment', '❌');
+            }
+        }
+
+        async function loadTeacherInfo() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teachers/me`, {
+                    headers: authHeaders()
+                });
+                if (!response.ok) throw new Error('Failed to fetch teacher info');
+                const data = await response.json();
+                currentTeacher = data;
+                
+                // Update header
+                const initials = `${data.name.split(' ')[0][0]}${data.name.split(' ')[1]?.[0] || ''}`.toUpperCase();
+                document.getElementById('headerTeacherName').textContent = data.name;
+                document.getElementById('headerTeacherDept').textContent = data.department || 'Faculty';
+                document.getElementById('headerTeacherAvatar').textContent = initials;
+            } catch (error) {
+                console.error('Error loading teacher info:', error);
+                throw error;
+            }
+        }
+
+        async function fetchAssignmentData(assignmentId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/teachers/${currentTeacher.id}/assignments`, {
+                    headers: authHeaders()
+                });
+                if (!response.ok) throw new Error('Failed to fetch assignments');
+                const data = await response.json();
+                currentAssignment = data.assignments.find(a => a._id === assignmentId);
+                if (!currentAssignment) throw new Error('Assignment not found');
+            } catch (error) {
+                console.error('Error fetching assignment:', error);
+                triggerAlertNotification('Error', 'Failed to load assignment data', '❌');
+            }
+        }
+
+        function renderAssignmentDetails() {
+            if (!currentAssignment) return;
+
+            const dueDate = currentAssignment.dueDate 
+                ? new Date(currentAssignment.dueDate).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                })
+                : 'N/A';
+
+            document.getElementById('viewAsmMainTitle').textContent = currentAssignment.title;
+            document.getElementById('viewAsmClassBadge').textContent = currentAssignment.class?.name || '—';
+            document.getElementById('viewAsmSubjectBadge').textContent = currentAssignment.subject?.name || currentAssignment.subject || '—';
+            document.getElementById('viewAsmDeadline').textContent = dueDate;
+            
+            // Only show description if NOT a QUESTION_BANK
+            if (currentAssignment.type !== 'QUESTION_BANK') {
+                document.getElementById('viewAsmMetaBodyContent').innerHTML = currentAssignment.description || 'No instructions provided';
+            } else {
+                // For QUESTION_BANK, show loading message - questions will be loaded separately
+                document.getElementById('viewAsmMetaBodyContent').innerHTML = '<div class="flex items-center justify-center space-x-2"><div class="spinner-sm"></div><span>Loading questions...</span></div>';
+            }
+            
+            document.getElementById('viewAsmRoutingType').textContent = `Type: ${currentAssignment.type || 'STANDARD'}`;
+        }
+
+        async function loadQuestions() {
+            try {
+                if (!currentAssignment) {
+                    console.log('No assignment');
+                    return;
+                }
+
+                console.log('Assignment type:', currentAssignment.type);
+                console.log('CBT ID:', currentAssignment.cbt);
+                console.log('Questions Allocated:', currentAssignment.questionsAllocated);
+
+                if (currentAssignment.type === 'QUESTION_BANK') {
+                    let examId = currentAssignment.cbt;
+
+                    // If no direct CBT ID, try to extract from questionsAllocated
+                    if (!examId && currentAssignment.questionsAllocated && currentAssignment.questionsAllocated.length > 0) {
+                        const allocated = currentAssignment.questionsAllocated[0];
+                        // Format: "cbt_69307fd5a9335dea83b94d30_0"
+                        const match = allocated.match(/cbt_([a-f0-9]+)_/);
+                        if (match) {
+                            examId = match[1];
+                            console.log('Extracted exam ID from questionsAllocated:', examId);
+                        }
+                    }
+
+                    if (!examId) {
+                        document.getElementById('viewAsmMetaBodyContent').innerHTML = '<p class="text-red-600">No exam ID found for this question bank</p>';
+                        console.log('No exam ID found');
+                        return;
+                    }
+
+                    console.log('Fetching exam from:', `${API_BASE_URL}/api/exam/${examId}`);
+                    
+                    const response = await fetch(
+                        `${API_BASE_URL}/api/exam/${examId}`,
+                        { headers: authHeaders() }
+                    );
+
+                    console.log('Exam response status:', response.status);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Exam fetch error:', errorText);
+                        throw new Error(`Failed to load exam: ${response.status}`);
+                    }
+
+                    const examData = await response.json();
+                    console.log('Exam data:', examData);
+                    
+                    let questions = examData.questions || [];
+                    console.log('Questions count:', questions.length);
+                    
+                    // If questionsAllocated is specified, filter to only those questions
+                    if (currentAssignment.questionsAllocated && currentAssignment.questionsAllocated.length > 0) {
+                        console.log('Questions allocated:', currentAssignment.questionsAllocated);
+                        const allocatedIndices = currentAssignment.questionsAllocated.map(q => {
+                            const match = q.match(/_(\d+)$/);
+                            return match ? match[1] : null;
+                        }).filter(q => q !== null);
+                        
+                        console.log('Allocated indices:', allocatedIndices);
+                        questions = questions.filter((_, index) => 
+                            allocatedIndices.includes(index.toString())
+                        );
+                        console.log('Filtered questions count:', questions.length);
+                    }
+                    
+                    renderQuestionsPanel(questions);
+                } else {
+                    console.log('Not a QUESTION_BANK type');
+                }
+            } catch (error) {
+                console.error('Error loading questions:', error);
+                document.getElementById('viewAsmMetaBodyContent').innerHTML = `<p class="text-red-600">Failed to load questions: ${error.message}</p>`;
+            }
+        }
+
+        function renderQuestionsPanel(questions) {
+            const contentDiv = document.getElementById('viewAsmMetaBodyContent');
+            
+            if (!questions || questions.length === 0) {
+                contentDiv.innerHTML = '<p class="text-slate-600">No questions available</p>';
+                return;
+            }
+
+            let html = '<div class="space-y-4">';
+            
+            questions.forEach((question, qIndex) => {
+                html += `
+                    <div class="border border-slate-300 rounded-lg p-4 bg-slate-50 hover:bg-slate-100 transition">
+                        <p class="font-bold text-slate-900 mb-3">Q${qIndex + 1}: ${question.text || 'Question'}</p>
+                        <div class="space-y-2 ml-2">
+                `;
+
+                // Render options
+                if (question.options && Array.isArray(question.options)) {
+                    question.options.forEach((option, optIndex) => {
+                        const isCorrect = question.answer === optIndex;
+                        const badgeClass = isCorrect 
+                            ? 'bg-green-100 border-green-300 text-green-800' 
+                            : 'bg-slate-100 border-slate-300 text-slate-700';
+                        const checkmark = isCorrect ? ' ✓ CORRECT' : '';
+                        const fontWeight = isCorrect ? 'font-semibold' : 'font-normal';
+                        
+                        html += `
+                            <div class="${badgeClass} border px-3 py-2 rounded text-sm ${fontWeight}">
+                                <span class="font-bold">${String.fromCharCode(65 + optIndex)})</span> ${option.value || option}${checkmark}
+                            </div>
+                        `;
+                    });
+                }
+
+                if (question.score) {
+                    html += `<p class="text-xs text-slate-500 mt-2 italic">Points: ${question.score}</p>`;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            contentDiv.innerHTML = html;
+        }
+
+        async function loadClassStudents() {
+            try {
+                if (!currentAssignment || !currentAssignment.class) return;
+                
+                // Get all students in the class
+                const response = await fetch(
+                    `${API_BASE_URL}/api/teachers/students?classId=${currentAssignment.class._id || currentAssignment.class.id}`,
+                    { headers: authHeaders() }
+                );
+                
+                if (!response.ok) throw new Error('Failed to load class students');
+                const data = await response.json();
+                classStudents = data;
+            } catch (error) {
+                console.error('Error loading class students:', error);
+                classStudents = [];
+            }
+        }
+
+        async function loadSubmissions() {
+            try {
+                if (!currentTeacher || !currentAssignment) return;
+
+                const response = await fetch(
+                    `${API_BASE_URL}/api/teachers/${currentTeacher.id}/assignments/${currentAssignment._id}/submissions`,
+                    { headers: authHeaders() }
+                );
+                
+                if (!response.ok) throw new Error('Failed to load submissions');
+                const data = await response.json();
+                submissions = data.submissions || [];
+                renderSubmissionsTable();
+            } catch (error) {
+                console.error('Error loading submissions:', error);
+                triggerAlertNotification('Error', 'Failed to load submissions', '❌');
+            }
+        }
+
+        function updateStatistics() {
+            const totalStudents = classStudents.length;
+            const totalSubmitted = submissions.length;
+            const totalGraded = submissions.filter(s => s.score !== null && s.score !== undefined).length;
+            const totalPending = totalSubmitted - totalGraded;
+
+            document.getElementById('viewAsmStatTotal').textContent = totalStudents;
+            document.getElementById('viewAsmStatSubmitted').textContent = totalSubmitted;
+            document.getElementById('viewAsmStatPending').textContent = totalPending;
+            document.getElementById('viewAsmStatGraded').textContent = totalGraded;
+            document.getElementById('viewAsmClassTotalCounter').textContent = `${totalSubmitted} Records Found`;
+
+            const ratioPercentage = totalSubmitted > 0 ? (totalGraded / totalSubmitted) * 100 : 0;
+            document.getElementById('viewAsmTurnedInBar').style.width = `${ratioPercentage}%`;
+        }
+function renderSubmissionsTable() {
+    const tableBody = document.getElementById('viewAsmSubmissionsTableBody');
+    tableBody.innerHTML = '';
+
+    if (submissions.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="p-8 text-center text-slate-400 text-xs">
+                    No submissions yet
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    submissions.forEach(submission => {
+        const hasScore = submission.score !== null && submission.score !== undefined;
+        
+        const statusBadge = hasScore
+            ? `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center">Graded</span>`
+            : `<span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center">Pending Review</span>`;
+
+        let deliverableCell = '';
+        
+        if (currentAssignment.type === 'QUESTION_BANK') {
+            // For CBT assignments, check for answers
+            let answersArray = submission.answers;
+            
+            // Convert object to array if needed
+            if (answersArray && typeof answersArray === 'object' && !Array.isArray(answersArray)) {
+                answersArray = Object.values(answersArray);
+            }
+            
+            const hasAnswers = answersArray && Array.isArray(answersArray) && answersArray.length > 0;
+            
+            if (hasAnswers) {
+                const answerCount = answersArray.length;
+                const answeredQuestions = answersArray.filter(a => a !== null && a !== undefined && a !== '').length;
+                deliverableCell = `<div class="text-[11px] text-slate-600 bg-slate-100 p-1.5 rounded border border-slate-200/60">
+                    <span class="font-mono">✓ ${answeredQuestions}/${answerCount} Answered</span>
+                </div>`;
+            } else {
+                deliverableCell = `<span class="text-slate-400 italic font-normal text-[11px]">No answers submitted</span>`;
+            }
+        } else {
+            // For file-based assignments, show the file with preview/download
+            if (submission.submissionFile && submission.submissionFile.url) {
+                const fileName = submission.submissionFile.name || extractFileName(submission.submissionFile.url);
+                const fileIcon = getFileIcon(fileName);
+                deliverableCell = `<button onclick="openFilePreview('${submission.submissionFile.url.replace(/'/g, "\\'")}', '${fileName.replace(/'/g, "\\'")}'); return false;" class="text-[11px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-1.5 rounded font-mono border border-blue-200 max-w-xs truncate transition cursor-pointer" title="${fileName}">
+                    ${fileIcon} ${fileName}
+                </button>`;
+            } else {
+                deliverableCell = `<span class="text-slate-400 italic font-normal text-[11px]">No file submitted</span>`;
+            }
+        }
+
+        let scoreCell = '';
+        let actionCell = '';
+
+        if (currentAssignment.type === 'QUESTION_BANK') {
+            if (hasScore) {
+                scoreCell = `<div class="text-center">
+                    <div class="text-lg font-black text-emerald-600">${submission.score}</div>
+                    <div class="text-[9px] text-slate-400 font-mono">Auto-graded</div>
+                </div>`;
+            } else {
+                scoreCell = `<div class="text-center text-slate-400 text-xs">Pending</div>`;
+            }
+            actionCell = `<button onclick="viewStudentCBTAnswers('${submission._id}')" type="button" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg uppercase tracking-wide transition shadow-sm">
+                View Answers
+            </button>`;
+        } else {
+            scoreCell = `<input type="number" min="0" max="100" id="inlineScore-${submission._id}" value="${hasScore ? submission.score : ''}" placeholder="--" 
+                   class="w-16 bg-slate-50 border border-slate-300 rounded-lg p-1 text-center font-bold text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none transition">`;
+            actionCell = `<button onclick="commitInlineSubmissionScore(this, '${submission._id}')" type="button" 
+                    class="bg-brand-900 hover:bg-brand-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg uppercase tracking-wide transition shadow-sm">
+                Save Mark
+            </button>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50/80 transition-all text-slate-700";
+        tr.innerHTML = `
+            <td class="p-3 pl-4 font-bold text-slate-900">
+                ${submission.studentName} 
+                <span class="block text-[10px] text-slate-400 font-mono font-normal tracking-tight">${submission.regNo || '—'}</span>
+            </td>
+            <td class="p-3">${statusBadge}</td>
+            <td class="p-3">${deliverableCell}</td>
+            <td class="p-3 text-center">${scoreCell}</td>
+            <td class="p-3 text-center">${actionCell}</td>
+        `;
+        tableBody.appendChild(tr);
+    });
+}
+
+function viewStudentCBTAnswers(submissionId) {
+    const submission = submissions.find(s => s._id === submissionId);
+    if (!submission) {
+        triggerAlertNotification('Error', 'Submission not found', '❌');
+        return;
+    }
+
+    console.log('Viewing answers for submission:', submission);
+
+    // Convert to array format if needed
+    let answersArray = submission.answers;
+    if (answersArray && typeof answersArray === 'object' && !Array.isArray(answersArray)) {
+        answersArray = Object.values(answersArray);
+    }
+
+    // Build a detailed view of answers
+    let answerHTML = '<div class="space-y-4">';
+    
+    if (answersArray && Array.isArray(answersArray) && answersArray.length > 0) {
+        answersArray.forEach((studentAnswer, qIndex) => {
+            const answerLetter = studentAnswer !== null && studentAnswer !== undefined && studentAnswer !== '' 
+                ? String.fromCharCode(65 + parseInt(studentAnswer)) 
+                : 'Not Answered';
+            const answerClass = studentAnswer !== null && studentAnswer !== undefined && studentAnswer !== '' 
+                ? 'bg-blue-50 border border-blue-200 text-blue-800' 
+                : 'bg-red-50 border border-red-200 text-red-800';
+            
+            answerHTML += `
+                <div class="border border-slate-300 rounded-lg p-3 bg-white">
+                    <p class="font-bold text-slate-900 text-sm mb-2">Q${qIndex + 1}</p>
+                    <div class="pl-2 space-y-1">
+                        <p class="text-xs text-slate-600">
+                            <span class="font-bold">Student Answer:</span> 
+                            <span class="${answerClass} px-2 py-0.5 rounded font-mono font-bold">
+                                ${answerLetter}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        answerHTML += '<p class="text-slate-600 text-sm text-center py-4">No answer data available</p>';
+    }
+
+    answerHTML += '</div>';
+
+    // Show in alert modal with the answers
+    document.getElementById('modalTitle').textContent = `${submission.studentName}'s CBT Answers`;
+    document.getElementById('modalMessage').textContent = `Score: ${submission.score || 'Pending'} / 100`;
+    
+    const overlay = document.getElementById('customAlertModal');
+    const box = document.getElementById('customAlertBox');
+    
+    // Replace the modal content temporarily
+    const originalContent = box.innerHTML;
+    box.innerHTML = `
+        <div class="text-left max-h-96 overflow-y-auto mb-4">
+            <h3 class="text-sm font-black uppercase text-slate-900 tracking-wide mb-2">${submission.studentName}'s CBT Answers</h3>
+            <p class="text-xs text-slate-500 font-medium mb-4">Score: <span class="font-bold text-emerald-600">${submission.score || 'Pending'}</span> / 100</p>
+            ${answerHTML}
+        </div>
+        <button onclick="restoreAlertModal()" class="mt-5 w-full bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition uppercase tracking-wider">
+            Close
+        </button>
+    `;
+    
+    overlay.classList.remove('hidden');
+    setTimeout(() => {
+        box.classList.remove('scale-95', 'opacity-0');
+        box.classList.add('scale-100', 'opacity-100');
+    }, 10);
+
+    // Store original content for restoration
+    window.alertOriginalContent = originalContent;
+    window.alertCloseCallback = () => {
+        box.innerHTML = originalContent;
+        window.alertOriginalContent = null;
+    };
+}
+
+function restoreAlertModal() {
+    if (window.alertCloseCallback) {
+        window.alertCloseCallback();
+    }
+    closeAlertNotification();
+}
+
+
+
+        async function commitInlineSubmissionScore(buttonElement, submissionId) {
+            const scoreInput = document.getElementById(`inlineScore-${submissionId}`);
+            if (!scoreInput) return;
+
+            const cleanValue = scoreInput.value.trim();
+            if (cleanValue === "" || isNaN(cleanValue) || parseFloat(cleanValue) < 0 || parseFloat(cleanValue) > 100) {
+                triggerAlertNotification("Input Validation Error", "Please assign a score between 0 and 100 points.", "⚠️");
+                return;
+            }
+
+            const originalText = buttonElement.textContent;
+            buttonElement.disabled = true;
+            buttonElement.textContent = "Saving...";
+
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/api/teachers/${currentTeacher.id}/assignments/${currentAssignment._id}/submissions/${submissionId}`,
+                    {
+                        method: 'PATCH',
+                        headers: authHeaders(),
+                        body: JSON.stringify({ score: parseFloat(cleanValue) })
+                    }
+                );
+
+                if (!response.ok) throw new Error('Failed to save score');
+
+                const submission = submissions.find(s => s._id === submissionId);
+                if (submission) {
+                    submission.score = parseFloat(cleanValue);
+                }
+
+                buttonElement.disabled = false;
+                buttonElement.textContent = originalText;
+
+                renderSubmissionsTable();
+                updateStatistics();
+                triggerAlertNotification("Grade Documented", "The score has been successfully saved.", "✅");
+            } catch (error) {
+                console.error('Error saving score:', error);
+                buttonElement.disabled = false;
+                buttonElement.textContent = originalText;
+                triggerAlertNotification("Error", "Failed to save score. Please try again.", "❌");
+            }
+        }
+
+        async function requestAssignmentDeletion() {
+            triggerConfirmDialog(
+                "Confirm Elimination",
+                "Are you completely sure you want to delete this assignment? All tracked marks will be deleted permanently.",
+                "🗑️",
+                executeDeletionWorkflow
+            );
+        }
+
+        async function executeDeletionWorkflow() {
+            closeConfirmDialog();
+
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/api/teachers/${currentTeacher.id}/assignments/${currentAssignment._id}`,
+                    {
+                        method: 'DELETE',
+                        headers: authHeaders()
+                    }
+                );
+
+                if (!response.ok) throw new Error('Failed to delete assignment');
+
+                document.getElementById('panel-view-assignment').innerHTML = `
+                    <div class="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm max-w-xl mx-auto my-12">
+                        <div class="text-5xl mb-4">🗑️</div>
+                        <h3 class="text-base font-black text-slate-900 uppercase tracking-wide">Assignment Deleted</h3>
+                        <p class="text-xs text-slate-500 font-medium mt-2">This assignment has been permanently removed.</p>
+                    </div>
+                `;
+                
+                triggerAlertNotification("Task Eliminated", "This assignment has been deleted cleanly from the registry.", "🗑️");
+                setTimeout(() => returnToHub(), 2000);
+            } catch (error) {
+                console.error('Error deleting assignment:', error);
+                triggerAlertNotification("Error", "Failed to delete assignment", "❌");
+            }
+        }
+
+        function returnToHub() {
+            window.location.href = 'teacher-dashboard';
+        }
+
+        // Boot initialization on page load
+        document.addEventListener("DOMContentLoaded", initializeAssignmentView);
+    </script>
+</body>
+</html>

@@ -28,7 +28,7 @@ document.querySelectorAll('#examTabs button').forEach(btn => {
 
 // ============ API CONFIGURATION ============
 
-const API_BASE = "https://examguard-8rxe.onrender.com/api/academics";
+const API_BASE = "https://goldlincschools.onrender.com/api/academics";
 const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
 
 // ============ UTILITY FUNCTIONS ============
@@ -53,7 +53,7 @@ async function fillDropdown(endpoint, selectId, valueKey = 'name') {
 // Fill teacher dropdown
 async function fillTeacherDropdown() {
   try {
-    const res = await fetch("https://examguard-8rxe.onrender.com/api/teachers", { 
+    const res = await fetch("https://goldlincschools.onrender.com/api/teachers", { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -120,7 +120,7 @@ function toggleTeacherDropdown() {
 // Fill teacher checkboxes for class form
 async function fillTeacherCheckboxes() {
   try {
-    const res = await fetch("https://examguard-8rxe.onrender.com/api/teachers", { 
+    const res = await fetch("https://goldlincschools.onrender.com/api/teachers", { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -909,7 +909,7 @@ async function loadResults(filter = {}) {
     let results = [];
     
     if (filter.type === "CBT") {
-      const res = await fetch("https://examguard-8rxe.onrender.com/api/result", { 
+      const res = await fetch("https://goldlincschools.onrender.com/api/result", { 
         headers: { Authorization: "Bearer " + token } 
       });
       if (!res.ok) throw new Error('Failed to fetch CBT results');
@@ -994,7 +994,7 @@ window.deleteCBTResult = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    let res = await fetch(`https://examguard-8rxe.onrender.com/api/result/${id}`, { 
+    let res = await fetch(`https://goldlincschools.onrender.com/api/result/${id}`, { 
       method: "DELETE", 
       headers: { Authorization: "Bearer " + token } 
     });
@@ -1024,7 +1024,7 @@ window.deleteCBTResult = async function(id, btn) {
 // Fill push CBT dropdowns
 async function fillPushCBTSessionDropdown() {
   try {
-    const res = await fetch("https://examguard-8rxe.onrender.com/api/academics/sessions", { 
+    const res = await fetch("https://goldlincschools.onrender.com/api/academics/sessions", { 
       headers: { Authorization: "Bearer " + token } 
     });
     if (!res.ok) return;
@@ -1040,7 +1040,7 @@ async function fillPushCBTSessionDropdown() {
 
 async function fillPushCBTTermDropdown() {
   try {
-    const res = await fetch("https://examguard-8rxe.onrender.com/api/academics/terms", { 
+    const res = await fetch("https://goldlincschools.onrender.com/api/academics/terms", { 
       headers: { Authorization: "Bearer " + token } 
     });
     if (!res.ok) return;
@@ -1090,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pushCBTModalFeedback) pushCBTModalFeedback.textContent = "Pushing CBT results...";
       
       try {
-        const res = await fetch("https://examguard-8rxe.onrender.com/api/results/push-cbt", {
+        const res = await fetch("https://goldlincschools.onrender.com/api/results/push-cbt", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1165,7 +1165,7 @@ async function loadUploadedSubjects() {
   tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Loading...</td></tr>';
   
   try {
-    const res = await fetch("https://examguard-8rxe.onrender.com/api/academics/classes", { 
+    const res = await fetch("https://goldlincschools.onrender.com/api/academics/classes", { 
       headers: { Authorization: "Bearer " + token } 
     });
     if (!res.ok) throw new Error('Failed to fetch classes');
@@ -1222,7 +1222,7 @@ window.deleteSubjectFromClass = async function(classId, subjectId, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    const res = await fetch(`https://examguard-8rxe.onrender.com/api/academics/classes/${classId}/subjects/${subjectId}`, {
+    const res = await fetch(`https://goldlincschools.onrender.com/api/academics/classes/${classId}/subjects/${subjectId}`, {
       method: "DELETE",
       headers: { Authorization: "Bearer " + token }
     });

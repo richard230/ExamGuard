@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>My Assignments | Gold and Linc Schools</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=0.86">
   <!-- Inter Font + FontAwesome -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -863,7 +863,7 @@
       <div class="brand" aria-hidden="false">
         <img src="mainlogo.png" alt="Logo">
         <div>
-          <div class="title">ExamGuard</div>
+          <div class="title">Gold and Linc Schools</div>
           <div class="subtitle" id="schoolSubtitle">Gold & Linc Schools</div>
         </div>
       </div>
@@ -1000,10 +1000,9 @@
       <div id="cbtQuizLoader" class="cbt-loader" style="display:none;"><i class="fa fa-spinner fa-spin"></i> Loading CBT...</div>
     </div>
   </div>
-
-  <script>
+<script>
     // Backend API
-    const API_BASE = "https://examguard-8rxe.onrender.com/api";
+    const API_BASE = "https://goldlincschools.onrender.com/api";
     const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
     let currentFilter = 'all';
 
@@ -1045,7 +1044,7 @@
     async function fetchAssignments() {
       try {
         // Student profile
-        const resProfile = await fetch(API_BASE + "/student/me", {
+        const resProfile = await fetch(API_BASE + "/students/me", {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const student = await resProfile.json();
@@ -1086,10 +1085,19 @@
 
           // Action button: CBT or regular
           let cbtId = (a.cbt && typeof a.cbt === 'object') ? a.cbt._id : a.cbt;
-          let cbtBtn = cbtId
-            ? `<a class="action-link success" onclick="openCbtModal('${cbtId}','${a.subject && a.subject.name ? a.subject.name : a.subject}','${a.title.replace(/'/g,"&#39;")}')"><i class='fa fa-desktop'></i> Take Test</a>`
-            : `<a class="action-link" onclick="openAssignmentModal(${i})"><i class="fa fa-eye"></i> View</a>`;
-
+          let cbtBtn;
+          
+          if (a.type === 'QUESTION_BANK') {
+            // Question Bank Assignment - take the test
+            cbtBtn = `<a class="action-link success" onclick="openCbtModal('${a._id}','${a.subject && a.subject.name ? a.subject.name : a.subject}','${a.title.replace(/'/g,"&#39;")}')"><i class='fa fa-desktop'></i> Take Test</a>`;
+          } else if (cbtId) {
+            // Direct CBT exam
+            cbtBtn = `<a class="action-link success" onclick="openCbtModal('${cbtId}','${a.subject && a.subject.name ? a.subject.name : a.subject}','${a.title.replace(/'/g,"&#39;")}')"><i class='fa fa-desktop'></i> Take Test</a>`;
+          } else {
+            // Regular assignment - upload file
+            cbtBtn = `<a class="action-link" onclick="openAssignmentModal(${i})"><i class="fa fa-eye"></i> View</a>`;
+          }
+          
           return `
             <tr>
               <td><strong>${a.title}</strong></td>
@@ -1259,14 +1267,19 @@
       }
     }
 
-    // --- CBT/Mock Modal Logic ---
-    let cbtTimerInterval = null;
-    let cbtStartTime = null;
-    let cbtDuration = 0;
-    let cbtQuestions = [];
-    let cbtAnswers = [];
-    let cbtAssignmentId = null;
-    let cbtExamId = null;
+/* =========================
+   CBT / MOCK EXAM STATE
+========================= */
+
+let cbtTimerInterval = null;
+let cbtStartTime = 0;
+
+let cbtDuration = 0;          // in minutes
+let cbtQuestions = [];
+let cbtAnswers = [];
+
+let cbtAssignmentId = null;
+let cbtExamId = null;
 
     async function openCbtModal(cbtId, subject, title) {
       cbtQuestions = [];
@@ -1274,60 +1287,146 @@
       cbtAssignmentId = null;
       cbtExamId = null;
 
-      document.getElementById('cbtModalHeader').innerHTML = `<i class="fa fa-lightbulb" style="color: #10b981; margin-right: 8px;"></i> ${subject} <span style="font-weight: 400; font-size: 0.9rem;">(${title})</span>`;
+      document.getElementById('cbtModalHeader').innerHTML =
+        `<i class="fa fa-lightbulb" style="color:#10b981;margin-right:8px;"></i>
+         ${subject}
+         <span style="font-weight:400;font-size:.9rem;">(${title})</span>`;
+
       document.getElementById('cbtQuestionsBlock').innerHTML = '';
       document.getElementById('cbtFeedback').innerHTML = '';
       document.getElementById('cbtSubmitBtn').disabled = false;
-      document.getElementById('cbtQuizLoader').style.display = '';
+      document.getElementById('cbtQuizLoader').style.display = 'flex';
       document.getElementById('cbtQuizForm').style.display = 'none';
       document.getElementById('cbtTimer').textContent = '--:--';
+
       document.getElementById('cbtModalBg').classList.add('active');
 
-      // Find assignment id
-      const a = (window._assignments||[]).find(ass=>ass.cbt && ass.cbt._id ? ass.cbt._id === cbtId : ass.cbt === cbtId);
-      cbtAssignmentId = a?._id || a?.id;
+      const assignment = (window._assignments || []).find(a =>
+        a._id === cbtId ||
+        a.cbt === cbtId ||
+        a.cbt?._id === cbtId
+      );
+
+      cbtAssignmentId = assignment?._id || assignment?.id;
       cbtExamId = cbtId;
 
-      // Fetch CBT
-      let cbt = null;
       try {
-        const res = await fetch(`${API_BASE}/exam/${cbtId}`, { headers: { 'Authorization': 'Bearer ' + token } });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        cbt = data.cbt || data;
-      } catch {
-        document.getElementById('cbtQuizLoader').innerHTML = `<span style="color: #e74c3c;">Failed to load CBT. Please try again.</span>`;
-        return;
+        let data;
+
+        /*
+         * QUESTION BANK ASSIGNMENT
+         */
+        if (assignment && assignment.type === "QUESTION_BANK") {
+          const res = await fetch(
+            `${API_BASE}/assignments/${assignment._id}/questions`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            }
+          );
+
+          if (!res.ok) {
+            throw new Error('Failed to load assignment questions');
+          }
+
+          data = await res.json();
+          cbtDuration = data.duration || 30;
+          cbtQuestions = data.questions || [];
+        }
+
+        /*
+         * NORMAL CBT EXAM
+         */
+        else {
+          const res = await fetch(
+            `${API_BASE}/exam/${cbtId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            }
+          );
+
+          if (!res.ok) {
+            throw new Error('Failed to load CBT');
+          }
+
+          data = await res.json();
+          const exam = data.cbt || data;
+
+          cbtDuration = exam.duration || 30;
+          cbtQuestions = exam.questions || [];
+        }
+
+        cbtAnswers = Array(cbtQuestions.length).fill(null);
+
+        if (!cbtQuestions.length) {
+          document.getElementById('cbtQuizLoader').innerHTML =
+            `<span style="color:#e74c3c;">No questions found.</span>`;
+          return;
+        }
+
+        document.getElementById('cbtQuizLoader').style.display = 'none';
+        document.getElementById('cbtQuizForm').style.display = 'block';
+
+        renderCBTQuiz();
+
+        cbtStartTime = Date.now();
+        clearInterval(cbtTimerInterval);
+        cbtTimerInterval = setInterval(updateCbtTimer, 1000);
+        updateCbtTimer();
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('cbtQuizLoader').innerHTML =
+          `<span style="color:#e74c3c;">Failed to load CBT questions: ${err.message}</span>`;
       }
+    }
 
-      cbtDuration = cbt.duration || 30;
-      cbtQuestions = cbt.questions || [];
-      cbtAnswers = Array(cbtQuestions.length).fill(null);
+    function renderCBTQuiz() {
+      const container = document.getElementById('cbtQuestionsBlock');
+      container.innerHTML = '';
 
-      // Render questions
-      let qHtml = cbtQuestions.map((q, i) => `
-        <div class="cbt-q-block">
-          <h4>Question ${i+1}</h4>
-          <div style="margin-bottom: 12px; color: var(--text-main);">${q.text}</div>
-          <div>
-            ${(q.options||[]).map((opt, oi) => `
+      cbtQuestions.forEach((q, qIndex) => {
+        const block = document.createElement('div');
+        block.className = 'cbt-q-block';
+        
+        // Strip HTML tags from question text
+        const questionText = typeof q.text === 'string' 
+          ? q.text.replace(/<[^>]*>/g, '').trim() 
+          : q.text || 'Question';
+        
+        let optionsHTML = '';
+        if (q.options && Array.isArray(q.options)) {
+          q.options.forEach((option, optIndex) => {
+            const optionText = typeof option === 'string' 
+              ? option 
+              : (option.value || option.text || '');
+            
+            optionsHTML += `
               <div class="cbt-opt-row">
-                <input type="radio" id="cbt-q${i}-opt${oi}" name="cbt-q${i}" value="${oi}" required onchange="cbtAnswers[${i}]=${oi}">
-                <label for="cbt-q${i}-opt${oi}">${opt.value || opt}</label>
+                <input 
+                  type="radio" 
+                  name="cbt-q${qIndex}" 
+                  value="${optIndex}" 
+                  id="opt${qIndex}_${optIndex}"
+                  ${cbtAnswers[qIndex] === optIndex ? 'checked' : ''}
+                  onchange="cbtAnswers[${qIndex}] = ${optIndex}">
+                <label for="opt${qIndex}_${optIndex}">
+                  ${String.fromCharCode(65 + optIndex)}) ${optionText}
+                </label>
               </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
-      document.getElementById('cbtQuestionsBlock').innerHTML = qHtml;
-      document.getElementById('cbtQuizLoader').style.display = 'none';
-      document.getElementById('cbtQuizForm').style.display = '';
+            `;
+          });
+        }
 
-      // Start timer
-      cbtStartTime = Date.now();
-      updateCbtTimer();
-      clearInterval(cbtTimerInterval);
-      cbtTimerInterval = setInterval(updateCbtTimer, 1000);
+        block.innerHTML = `
+          <h4>Question ${qIndex + 1}: ${questionText}</h4>
+          ${optionsHTML}
+        `;
+        container.appendChild(block);
+      });
     }
 
     function closeCbtModal() {
@@ -1337,14 +1436,15 @@
 
     function updateCbtTimer() {
       if (!cbtStartTime) return;
-      const elapsed = Math.floor((Date.now() - cbtStartTime)/1000);
-      const left = Math.max(0, cbtDuration*60 - elapsed);
-      const min = Math.floor(left/60), sec = left%60;
-      document.getElementById('cbtTimer').textContent = min.toString().padStart(2,'0')+':'+sec.toString().padStart(2,'0');
+      const elapsed = Math.floor((Date.now() - cbtStartTime) / 1000);
+      const left = Math.max(0, cbtDuration * 60 - elapsed);
+      const min = Math.floor(left / 60), sec = left % 60;
+      document.getElementById('cbtTimer').textContent = min.toString().padStart(2, '0') + ':' + sec.toString().padStart(2, '0');
+      
       if (left === 0) {
         clearInterval(cbtTimerInterval);
         document.getElementById('cbtFeedback').innerHTML = `<span style="color: #e74c3c;">⏱️ Time is up! Submitting...</span>`;
-        setTimeout(()=>{ submitCbtQuiz(); }, 1200);
+        setTimeout(() => { submitCbtQuiz(); }, 1200);
         document.getElementById('cbtSubmitBtn').disabled = true;
       }
     }
@@ -1358,13 +1458,14 @@
     async function submitCbtQuiz() {
       document.getElementById('cbtSubmitBtn').disabled = true;
       let answers = [];
-      for (let i=0; i<cbtQuestions.length; i++) {
+      
+      for (let i = 0; i < cbtQuestions.length; i++) {
         let sel = document.querySelector(`input[name="cbt-q${i}"]:checked`);
         answers[i] = sel ? Number(sel.value) : null;
       }
 
       let score = 0, total = cbtQuestions.length;
-      for (let i=0; i<cbtQuestions.length; i++) {
+      for (let i = 0; i < cbtQuestions.length; i++) {
         if (answers[i] !== null && answers[i] === cbtQuestions[i].answer) score++;
       }
 
@@ -1376,17 +1477,18 @@
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              cbt: cbtExamId,
               answers,
               score,
               totalScore: total,
               status: "Submitted"
             })
           });
-        } catch {}
+        } catch (err) {
+          console.error('Failed to save submission:', err);
+        }
       }
 
-      setTimeout(()=>{
+      setTimeout(() => {
         closeCbtModal();
         fetchAssignments();
       }, 2200);
