@@ -516,40 +516,41 @@ router.get('/config', async (req, res) => {
 
     const school = await School.findOne(query)
       .select(`
-        _id
-        schoolId
-        schoolName
-        abbreviation
-        motto
-        tagline
-        schoolType
-        ownershipType
-        establishedYear
-        registrationNumber
-        subdomain
-        customDomain
-        country
-        state
-        city
-        address
-        postalCode
-        coordinates
-        email
-        phone
-        altPhone
-        website
-        principal
-        branding
-        academicConfig
-        localization
-        authSettings
-        portalAccess
-        featuresEnabled
-        paymentConfig
-        communication
-        pwaSettings
-        settings
-      `)
+    _id
+    schoolId
+    schoolName
+    abbreviation
+    motto
+    tagline
+    schoolType
+    ownershipType
+    establishedYear
+    registrationNumber
+    logoUrl
+    subdomain
+    customDomain
+    country
+    state
+    city
+    address
+    postalCode
+    coordinates
+    email
+    phone
+    altPhone
+    website
+    principal
+    branding
+    academicConfig
+    localization
+    authSettings
+    portalAccess
+    featuresEnabled
+    paymentConfig
+    communication
+    pwaSettings
+    settings
+`)
       .lean();
 
     if (!school) {
