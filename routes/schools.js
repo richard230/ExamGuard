@@ -199,7 +199,7 @@ router.post("/register", async (req, res) => {
       // Initial subscription status
       subscriptionPlan: "starter",
       subscriptionStatus: "trial",
-      status: "pending" // Pending admin approval
+      status: "active" // Pending admin approval
     });
 
     // Auto-generate schoolId
@@ -388,7 +388,7 @@ router.post("/register", async (req, res) => {
   message: "School registered successfully! Check your email for confirmation details.",
   data: {
     ...newSchool.toJSON(),
-    schoolUrl: `https://${newSchool.subdomain}.examguard.com.ng`
+    schoolUrl: `https://${newSchool.subdomain}.goldlincschools.com.ng`
   }
 });
 
