@@ -215,7 +215,7 @@ router.post("/register", async (req, res) => {
       // Initial subscription status
       subscriptionPlan: "starter",
       subscriptionStatus: "trial",
-      status: "pending" // Pending admin approval
+      status: "active" // Pending admin approval
     });
 
     // Auto-generate schoolId
