@@ -370,15 +370,33 @@ async function authMiddleware(req, res, next) {
       await User.findById(decoded.id);
     if (user) {
       if (user.role === 'superadmin') {
-        req.user = {
-          id: user._id,
-          name: user.name,
-          email: user.email || null,
-          regNo: user.regNo || null,
-          role: user.role,
-          schoolId: null
-        };
-        return next();
+  if (!user.schoolId) {
+    return res.status(403).json({
+      success: false,
+      error: 'Superadmin account is not associated with a school.'
+    });
+  }
+
+  if (
+    decoded.schoolId &&
+    user.schoolId.toString() !== decoded.schoolId.toString()
+  ) {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid school context.'
+    });
+  }
+
+  req.user = {
+    id: user._id,
+    name: user.name,
+    email: user.email || null,
+    regNo: user.regNo || null,
+    role: user.role,
+    schoolId: user.schoolId
+  };
+
+  return next();
       }
       if (!user.schoolId) {
         return res.status(403).json({
