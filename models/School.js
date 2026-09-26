@@ -6,13 +6,14 @@ const { Schema, model } = mongoose;
 const schoolSchema = new Schema(
   {
     schoolId: {
-      type: String,
-      unique: true,
-      sparse: true,
-      index: true,
-      trim: true,
-      match: /^SCH-[A-Z0-9]+-[A-Z0-9]+$/
-    },
+  type: String,
+  unique: true,
+  sparse: true,
+  index: true,
+  trim: true,
+  uppercase: true,
+  match: /^SCH-[A-Z0-9]+-[A-Z0-9]+$/
+},
 
     abbreviation: {
       type: String,
