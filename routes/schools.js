@@ -411,16 +411,14 @@ router.post("/register", async (req, res) => {
     }
 
     // ===== SUCCESS RESPONSE =====
-res.status(201).json({
-  success: true,
-  message: "School registered successfully!",
-  data: {
-    ...newSchool.toJSON(),
-    schoolUrl: `https://${newSchool.subdomain}.goldlincschools.com.ng`,
-    adminEmail: adminEmail.toLowerCase().trim(),
-    temporaryPassword: initialSuperAdminPassword
-  }
-});
+    res.status(201).json({
+      success: true,
+      message: "School registered successfully! Check your email for confirmation details.",
+      data: {
+        ...newSchool.toJSON(),
+        schoolUrl: `https://${newSchool.subdomain}.goldlincschools.com.ng`
+      }
+    });
 
   } catch (err) {
     console.error("❌ School registration error:", err);
