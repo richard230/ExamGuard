@@ -505,24 +505,59 @@ router.get(
   async (req, res) => {
     try {
       let school = null;
+
       if (req.user.schoolId) {
-        school =
-          await School.findById(
-            req.user.schoolId
-          ).select(
-            '_id schoolId name abbreviation motto status branding'
-          );
+        school = await School.findById(
+          req.user.schoolId
+        ).select(
+          '_id schoolId schoolName subdomain abbreviation motto status logoUrl branding'
+        );
       }
+
+      // A school-scoped account must have a valid school
+      if (req.user.role === 'superadmin' && !school) {
+        return res.status(403).json({
+          success: false,
+          error: 'Your account is not linked to a valid school.'
+        });
+      }
+
       return res.json({
         success: true,
-        user: req.user,
-        school
+
+        user: {
+          id: req.user._id,
+          name: req.user.name,
+          email: req.user.email,
+          regNo: req.user.regNo,
+          role: req.user.role,
+
+          // MongoDB School ObjectId.
+          // Keep this for backend/API tenant identification.
+          schoolId: req.user.schoolId
+        },
+
+        school: school
+          ? {
+              _id: school._id,
+              schoolId: school.schoolId,
+              schoolName: school.schoolName,
+              subdomain: school.subdomain,
+              abbreviation: school.abbreviation,
+              motto: school.motto,
+              status: school.status,
+              logoUrl: school.logoUrl,
+              branding: school.branding
+            }
+          : null
       });
+
     } catch (err) {
       console.error(
         '[AUTH ME ERROR]',
         err
       );
+
       return res.status(500).json({
         success: false,
         error:
@@ -531,7 +566,6 @@ router.get(
     }
   }
 );
-
 module.exports = {
   router,
   authMiddleware
