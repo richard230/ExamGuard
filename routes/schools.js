@@ -6,6 +6,8 @@ const { authMiddleware } = require('./auth');
 const adminAuth = require('../middleware/adminAuth');
 const crypto = require('crypto');
 const postmark = require('postmark');
+const ensureSuperAdmin = require("../utils/ensureSuperAdmin");
+
 
 // ===== VALIDATION MIDDLEWARE =====
 const validateSchool = (req, res, next) => {
@@ -125,7 +127,17 @@ router.post("/register", async (req, res) => {
     } = req.body;
 
     // ===== VALIDATION =====
-    const requiredFields = ["schoolName", "schoolType", "studentCount", "country", "email", "phone", "adminName", "adminEmail", "adminPhone"];
+    const requiredFields = [
+      "schoolName",
+      "schoolType",
+      "studentCount",
+      "country",
+      "email",
+      "phone",
+      "adminName",
+      "adminEmail",
+      "adminPhone"
+    ];
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
@@ -166,7 +178,11 @@ router.post("/register", async (req, res) => {
         error: "This admin email is already associated with another school."
       });
     }
+
     const subdomain = await generateUniqueSubdomain(schoolName);
+
+    // ===== GENERATE INITIAL SUPERADMIN PASSWORD =====
+    const initialSuperAdminPassword = crypto.randomBytes(9).toString("base64url");
 
     // ===== CREATE SCHOOL =====
     const newSchool = new School({
@@ -199,7 +215,7 @@ router.post("/register", async (req, res) => {
       // Initial subscription status
       subscriptionPlan: "starter",
       subscriptionStatus: "trial",
-      status: "active" // Pending admin approval
+      status: "pending" // Pending admin approval
     });
 
     // Auto-generate schoolId
@@ -207,6 +223,14 @@ router.post("/register", async (req, res) => {
 
     // Save to database
     await newSchool.save();
+
+    // ===== CREATE SCHOOL SUPERADMIN =====
+    await ensureSuperAdmin({
+      schoolKey: newSchool.schoolId,
+      email: adminEmail,
+      password: initialSuperAdminPassword,
+      name: adminName
+    });
 
     // ===== SEND CONFIRMATION EMAILS =====
     try {
@@ -246,16 +270,20 @@ router.post("/register", async (req, res) => {
       <div class="details">
         <p><span class="label">School ID:</span> <span class="value"><strong>${newSchool.schoolId}</strong></span></p>
         <p><span class="label">School Name:</span> <span class="value">${schoolName}</span></p>
-        <p><span class="label">Email:</span> <span class="value">${email}</span></p>
+        <p><span class="label">Portal:</span> <span class="value"><a href="https://${newSchool.subdomain}.goldlincschools.com.ng">${newSchool.subdomain}.goldlincschools.com.ng</a></span></p>
+        <p><span class="label">Email:</span> <span class="value"><strong>${adminEmail}</strong></span></p>
+        <p><span class="label">Temporary Password:</span> <span class="value"><strong>${initialSuperAdminPassword}</strong></span></p>
         <p><span class="label">Location:</span> <span class="value">${city}, ${state}, ${country}</span></p>
         <p><span class="label">Students:</span> <span class="value">${studentCount}</span></p>
         <p><span class="label">Plan:</span> <span class="value">STARTER (Trial)</span></p>
       </div>
 
+      <p><strong>Important:</strong> Please change this temporary password immediately after your first login.</p>
+
       <p class="section-title">What Happens Next?</p>
       <ul class="list">
         <li>Our team will verify your school information within 24-48 hours</li>
-        <li>You'll receive an email with your login credentials and setup guide</li>
+        <li>Once approved, you will be able to log in using your credentials above</li>
         <li>Access all starter features to begin managing your school</li>
         <li>Optional: Upgrade to Professional or Enterprise plan for advanced features</li>
       </ul>
@@ -384,13 +412,13 @@ router.post("/register", async (req, res) => {
 
     // ===== SUCCESS RESPONSE =====
     res.status(201).json({
-  success: true,
-  message: "School registered successfully! Check your email for confirmation details.",
-  data: {
-    ...newSchool.toJSON(),
-    schoolUrl: `https://${newSchool.subdomain}.goldlincschools.com.ng`
-  }
-});
+      success: true,
+      message: "School registered successfully! Check your email for confirmation details.",
+      data: {
+        ...newSchool.toJSON(),
+        schoolUrl: `https://${newSchool.subdomain}.goldlincschools.com.ng`
+      }
+    });
 
   } catch (err) {
     console.error("❌ School registration error:", err);
@@ -418,6 +446,7 @@ router.post("/register", async (req, res) => {
     });
   }
 });
+
 
 router.get('/by-id/:schoolId', async (req, res) => {
   try {
