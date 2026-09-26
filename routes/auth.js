@@ -507,11 +507,21 @@ router.get(
       let school = null;
 
       if (req.user.schoolId) {
+        // First try to find by MongoDB ObjectId
         school = await School.findById(
           req.user.schoolId
         ).select(
           '_id schoolId schoolName subdomain abbreviation motto status logoUrl branding'
         );
+        
+        // If not found by ObjectId, try by schoolId field
+        if (!school) {
+          school = await School.findOne({
+            schoolId: req.user.schoolId
+          }).select(
+            '_id schoolId schoolName subdomain abbreviation motto status logoUrl branding'
+          );
+        }
       }
 
       // A school-scoped account must have a valid school
