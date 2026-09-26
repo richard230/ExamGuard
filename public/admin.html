@@ -296,21 +296,24 @@
             font-size: 15px;
         }
         .btn {
-            padding: 8px 12px;
+            padding: 8px 16px;
             border-radius: 8px;
             border: 0;
             background: linear-gradient(90deg, var(--accent-2), #3b82f6);
             color: #fff;
             font-weight: 700;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: opacity 0.2s, transform 0.1s;
         }
         .btn:hover {
             opacity: 0.9;
         }
+        .btn:active {
+            transform: scale(0.98);
+        }
         .btn.ghost {
             background: transparent;
-            border: 1px solid rgba(11, 66, 140, 0.08);
+            border: 1px solid rgba(11, 66, 140, 0.18);
             color: var(--accent-2);
         }
         #pageSpinnerOverlay {
@@ -335,12 +338,8 @@
             animation: spinner-spin 1s linear infinite;
         }
         @keyframes spinner-spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         #dashboardLoading {
             text-align: center;
@@ -365,10 +364,68 @@
         .icon-btn:hover {
             background: rgba(0, 0, 0, 0.05);
         }
+
+        /* --- ERROR MODAL STYLES --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-card {
+            background: #ffffff;
+            border-radius: 14px;
+            width: 90%;
+            max-width: 420px;
+            padding: 24px 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            text-align: center;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-card {
+            transform: scale(1);
+        }
+        .modal-icon {
+            font-size: 42px;
+            margin-bottom: 10px;
+            line-height: 1;
+        }
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        .modal-body {
+            font-size: 0.92rem;
+            color: #64748b;
+            margin-bottom: 22px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
         @media (max-width: 1024px) {
-            .grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            .grid { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 720px) {
             .sidebar {
@@ -381,30 +438,13 @@
                 transition: transform 0.3s ease;
                 z-index: 101;
             }
-            .sidebar.active {
-                transform: translateX(0);
-            }
-            .hamburger-btn {
-                display: block;
-            }
-            .topbar {
-                left: 0;
-                width: 100%;
-            }
-            .main {
-                margin-left: 0;
-                padding: 14px;
-                padding-top: 84px;
-            }
-            .grid {
-                grid-template-columns: 1fr;
-            }
-            .fees-section {
-                flex-direction: column;
-            }
-            .fees-card {
-                max-width: 100%;
-            }
+            .sidebar.active { transform: translateX(0); }
+            .hamburger-btn { display: block; }
+            .topbar { left: 0; width: 100%; }
+            .main { margin-left: 0; padding: 14px; padding-top: 84px; }
+            .grid { grid-template-columns: 1fr; }
+            .fees-section { flex-direction: column; }
+            .fees-card { max-width: 100%; }
         }
     </style>
 </head>
@@ -412,6 +452,20 @@
     <div id="pageSpinnerOverlay">
         <div class="spinner"></div>
     </div>
+
+    <!-- ERROR MODAL -->
+    <div class="modal-overlay" id="errorModal" role="dialog" aria-modal="true">
+        <div class="modal-card">
+            <div class="modal-icon" id="errorModalIcon">⚠️</div>
+            <div class="modal-title" id="errorModalTitle">An Error Occurred</div>
+            <div class="modal-body" id="errorModalMessage">Something went wrong. Please try again.</div>
+            <div class="modal-actions" id="errorModalActions">
+                <button class="btn ghost" id="errorModalSecondaryBtn" style="display:none;">Close</button>
+                <button class="btn" id="errorModalPrimaryBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="app" id="app">
         <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
@@ -524,17 +578,79 @@
             </div>
         </main>
     </div>
+
     <script>
     const API_BASE = 'https://examguard-8rxe.onrender.com';
     let currentUser = null;
     let currentSchool = null;
     let financeChartInstance = null;
+
+    /**
+     * Reusable Error Modal Display Function
+     */
+    function showErrorModal(title, message, options = {}) {
+        const modal = document.getElementById('errorModal');
+        const titleEl = document.getElementById('errorModalTitle');
+        const msgEl = document.getElementById('errorModalMessage');
+        const iconEl = document.getElementById('errorModalIcon');
+        const primaryBtn = document.getElementById('errorModalPrimaryBtn');
+        const secondaryBtn = document.getElementById('errorModalSecondaryBtn');
+
+        if (titleEl) titleEl.textContent = title || 'Error';
+        if (msgEl) msgEl.textContent = message || 'An unexpected error occurred.';
+        if (iconEl) iconEl.textContent = options.icon || '⚠️';
+
+        if (primaryBtn) {
+            primaryBtn.textContent = options.primaryBtnText || 'OK';
+            primaryBtn.onclick = () => {
+                modal.classList.remove('active');
+                if (typeof options.onPrimaryAction === 'function') {
+                    options.onPrimaryAction();
+                }
+            };
+        }
+
+        if (secondaryBtn) {
+            if (options.showSecondaryBtn) {
+                secondaryBtn.style.display = 'inline-block';
+                secondaryBtn.textContent = options.secondaryBtnText || 'Cancel';
+                secondaryBtn.onclick = () => {
+                    modal.classList.remove('active');
+                    if (typeof options.onSecondaryAction === 'function') {
+                        options.onSecondaryAction();
+                    }
+                };
+            } else {
+                secondaryBtn.style.display = 'none';
+            }
+        }
+
+        if (modal) modal.classList.add('active');
+
+        // Dismiss full page loading overlay if active
+        const spinner = document.getElementById('pageSpinnerOverlay');
+        if (spinner) {
+            spinner.style.opacity = '0';
+            setTimeout(() => { spinner.style.display = 'none'; }, 200);
+        }
+    }
+
     async function loadAuthenticatedUser() {
         const token = localStorage.getItem('token');
         if (!token) {
-            window.location.href = 'login.html';
+            showErrorModal(
+                'Authentication Required',
+                'No login session or auth token was found. Please log in to continue.',
+                {
+                    primaryBtnText: 'Go to Login',
+                    onPrimaryAction: () => { window.location.href = 'login.html'; },
+                    showSecondaryBtn: true,
+                    secondaryBtnText: 'Dismiss'
+                }
+            );
             return null;
         }
+
         try {
             const res = await fetch(`${API_BASE}/api/auth/me`, {
                 method: 'GET',
@@ -543,61 +659,78 @@
                     'Content-Type': 'application/json'
                 }
             });
+
             if (!res.ok) {
-                localStorage.removeItem('token');
-                window.location.href = 'login.html';
+                let errMessage = `Server error (${res.status})`;
+                try {
+                    const errBody = await res.json();
+                    errMessage = errBody.message || errBody.error || errMessage;
+                } catch (_) {}
+
+                showErrorModal(
+                    'Session Error',
+                    `Failed to authenticate token: ${errMessage}`,
+                    {
+                        primaryBtnText: 'Login Again',
+                        onPrimaryAction: () => {
+                            localStorage.removeItem('token');
+                            window.location.href = 'login.html';
+                        },
+                        showSecondaryBtn: true,
+                        secondaryBtnText: 'Stay on Page'
+                    }
+                );
                 return null;
             }
+
             const response = await res.json();
             currentUser = response.user || response;
-            currentSchool =
-                response.school ||
-                response.data?.school ||
-                null;
+            currentSchool = response.school || response.data?.school || null;
+
             if (!currentSchool && currentUser?.school) {
                 currentSchool = currentUser.school;
             }
-            if (
-                currentUser?.role !== 'superadmin' ||
-                !currentUser?.schoolId
-            ) {
-                localStorage.removeItem('token');
-                window.location.href = 'login.html';
+
+            if (currentUser?.role !== 'superadmin' || !currentUser?.schoolId) {
+                showErrorModal(
+                    'Access Denied',
+                    'Your account does not have sufficient superadmin privileges for this dashboard.',
+                    {
+                        primaryBtnText: 'Go to Login',
+                        onPrimaryAction: () => {
+                            localStorage.removeItem('token');
+                            window.location.href = 'login.html';
+                        },
+                        showSecondaryBtn: true,
+                        secondaryBtnText: 'Dismiss'
+                    }
+                );
                 return null;
             }
+
             applySchoolBranding();
             return currentUser;
         } catch (error) {
             console.error('Authentication error:', error);
-            localStorage.removeItem('token');
-            window.location.href = 'login.html';
+            showErrorModal(
+                'Network Error',
+                `Could not verify your session: ${error.message || 'Unknown network error'}`
+            );
             return null;
         }
     }
+
     function applySchoolBranding() {
-        const schoolName =
-            currentSchool?.schoolName ||
-            currentSchool?.name ||
-            'School';
-        const schoolLogo =
-            currentSchool?.logoUrl ||
-            currentSchool?.branding?.logo ||
-            currentSchool?.branding?.lightLogo ||
-            currentSchool?.branding?.darkLogo ||
-            'mainlogo.png';
-        const adminName =
-            currentUser?.name ||
-            currentUser?.email ||
-            'Administrator';
-        document.title =
-            `${schoolName} - Admin Dashboard`;
-        const brandTitle =
-            document.getElementById('schoolBrandName');
-        if (brandTitle) {
-            brandTitle.textContent = schoolName;
-        }
-        const brandLogo =
-            document.getElementById('schoolLogo');
+        const schoolName = currentSchool?.schoolName || currentSchool?.name || 'School';
+        const schoolLogo = currentSchool?.logoUrl || currentSchool?.branding?.logo || currentSchool?.branding?.lightLogo || currentSchool?.branding?.darkLogo || 'mainlogo.png';
+        const adminName = currentUser?.name || currentUser?.email || 'Administrator';
+
+        document.title = `${schoolName} - Admin Dashboard`;
+
+        const brandTitle = document.getElementById('schoolBrandName');
+        if (brandTitle) brandTitle.textContent = schoolName;
+
+        const brandLogo = document.getElementById('schoolLogo');
         if (brandLogo) {
             brandLogo.src = schoolLogo;
             brandLogo.alt = `${schoolName} Logo`;
@@ -605,41 +738,34 @@
                 this.src = 'mainlogo.png';
             };
         }
-        const adminNameElement =
-            document.getElementById('adminName');
-        if (adminNameElement) {
-            adminNameElement.textContent = adminName;
-        }
-        const schoolIdElement =
-            document.getElementById('sidebarSchoolId');
+
+        const adminNameElement = document.getElementById('adminName');
+        if (adminNameElement) adminNameElement.textContent = adminName;
+
+        const schoolIdElement = document.getElementById('sidebarSchoolId');
         if (schoolIdElement) {
-            schoolIdElement.textContent =
-                currentSchool?.schoolId ||
-                currentUser?.schoolId ||
-                '';
+            schoolIdElement.textContent = currentSchool?.schoolId || currentUser?.schoolId || '';
         }
-        const dashboardTitle =
-            document.getElementById('dashboardTitle');
-        if (dashboardTitle) {
-            dashboardTitle.textContent =
-                `${schoolName} Dashboard`;
-        }
+
+        const dashboardTitle = document.getElementById('dashboardTitle');
+        if (dashboardTitle) dashboardTitle.textContent = `${schoolName} Dashboard`;
     }
+
     function initializeNavigation() {
-        const hamburgerBtn =
-            document.getElementById('hamburgerBtn');
-        const sidebar =
-            document.getElementById('sidebar');
-        const sidebarOverlay =
-            document.getElementById('sidebarOverlay');
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
         hamburgerBtn?.addEventListener('click', () => {
             sidebar?.classList.toggle('active');
             sidebarOverlay?.classList.toggle('active');
         });
+
         sidebarOverlay?.addEventListener('click', () => {
             sidebar?.classList.remove('active');
             sidebarOverlay?.classList.remove('active');
         });
+
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', () => {
                 sidebar?.classList.remove('active');
@@ -647,434 +773,311 @@
             });
         });
     }
+
     async function fetchDashboardData() {
-        const loadingDiv =
-            document.getElementById('dashboardLoading');
+        const loadingDiv = document.getElementById('dashboardLoading');
         if (loadingDiv) {
             loadingDiv.style.display = 'block';
-            loadingDiv.textContent =
-                'Loading dashboard data...';
+            loadingDiv.textContent = 'Loading dashboard data...';
         }
-        const token =
-            localStorage.getItem('token');
+
+        const token = localStorage.getItem('token');
         if (!token) {
-            window.location.href = 'login.html';
+            showErrorModal('Token Missing', 'Cannot fetch dashboard metrics without an auth token.');
             return;
         }
+
         try {
-            const res = await fetch(
-                `${API_BASE}/api/dashboard/summary`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
+            const res = await fetch(`${API_BASE}/api/dashboard/summary`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
-            );
+            });
+
             if (!res.ok) {
-                if (res.status === 401 || res.status === 403) {
-                    localStorage.removeItem('token');
-                    window.location.href = 'login.html';
-                    return;
+                let errorMsg = `HTTP Error ${res.status}`;
+                try {
+                    const errData = await res.json();
+                    errorMsg = errData.message || errData.error || errorMsg;
+                } catch (_) {
+                    errorMsg = await res.text();
                 }
-                const errorText =
-                    await res.text();
-                console.error(
-                    'Dashboard API error:',
-                    res.status,
-                    errorText
-                );
+
                 if (loadingDiv) {
-                    loadingDiv.innerHTML =
-                        `❌ Failed to load dashboard data. (${res.status})`;
+                    loadingDiv.innerHTML = `❌ Failed to load dashboard data. (${res.status})`;
                 }
+
+                showErrorModal(
+                    'Dashboard Fetch Failed',
+                    `Error loading summary data: ${errorMsg}`,
+                    {
+                        primaryBtnText: 'Retry',
+                        onPrimaryAction: () => fetchDashboardData(),
+                        showSecondaryBtn: true,
+                        secondaryBtnText: 'Close'
+                    }
+                );
                 return;
             }
-            const response =
-                await res.json();
-            const data =
-                response.data ||
-                response;
-            console.log(
-                'SCHOOL DASHBOARD DATA:',
-                data
-            );
+
+            const response = await res.json();
+            const data = response.data || response;
+
+            console.log('SCHOOL DASHBOARD DATA:', data);
+
             if (loadingDiv) {
                 loadingDiv.style.display = 'none';
             }
+
             renderDashboardCards(data);
-            renderFinanceChart(
-                data.financeSummary
-            );
+            renderFinanceChart(data.financeSummary);
             updateSystemOverview(data);
+
             if (data.session) {
-                const sessionElement =
-                    document.getElementById(
-                        'financeSummarySession'
-                    );
+                const sessionElement = document.getElementById('financeSummarySession');
                 if (sessionElement) {
-                    sessionElement.textContent =
-                        data.session;
+                    sessionElement.textContent = data.session;
                 }
             }
         } catch (error) {
-            console.error(
-                'Dashboard fetch error:',
-                error
-            );
+            console.error('Dashboard fetch error:', error);
             if (loadingDiv) {
-                loadingDiv.innerHTML =
-                    '❌ Network or server error. Please try again.';
+                loadingDiv.innerHTML = '❌ Network or server error. Please try again.';
             }
+            showErrorModal('Network Error', `Unable to load dashboard metrics: ${error.message}`);
         }
     }
+
     function updateSystemOverview(data) {
-        const activeUsersEl =
-            document.getElementById(
-                'mActiveUsers'
-            );
-        const pendingAppsEl =
-            document.getElementById(
-                'mPendingApps'
-            );
-        const systemHealthEl =
-            document.getElementById(
-                'mSystemHealth'
-            );
+        const activeUsersEl = document.getElementById('mActiveUsers');
+        const pendingAppsEl = document.getElementById('mPendingApps');
+        const systemHealthEl = document.getElementById('mSystemHealth');
+
         if (activeUsersEl) {
-            const studentCount =
-                Number(
-                    data.totalStudents ||
-                    data.activeStudents ||
-                    0
-                );
-            const employeeCount =
-                Number(data.employees || 0);
-            const parentCount =
-                Number(data.parents || 0);
-            activeUsersEl.textContent =
-                studentCount +
-                employeeCount +
-                parentCount;
+            const studentCount = Number(data.totalStudents || data.activeStudents || 0);
+            const employeeCount = Number(data.employees || 0);
+            const parentCount = Number(data.parents || 0);
+            activeUsersEl.textContent = studentCount + employeeCount + parentCount;
         }
+
         if (pendingAppsEl) {
-            const pendingCount =
-                Number(
-                    data.ongoingAdmissions || 0
-                ) +
-                Number(
-                    data.hostelApplications || 0
-                ) +
-                Number(
-                    data.transportApplications || 0
-                );
-            pendingAppsEl.textContent =
-                pendingCount;
+            const pendingCount = Number(data.ongoingAdmissions || 0) +
+                Number(data.hostelApplications || 0) +
+                Number(data.transportApplications || 0);
+            pendingAppsEl.textContent = pendingCount;
         }
+
         if (systemHealthEl) {
             systemHealthEl.textContent = 'Good';
         }
     }
+
     function renderDashboardCards(data) {
         const cards = [
             {
                 class: 'green',
                 icon: '💵',
-                count:
-                    `(${data.todayPayments?.count || 0}) Payments`,
-                amount:
-                    `₦${Number(
-                        data.todayPayments?.amount || 0
-                    ).toLocaleString()}`,
+                count: `(${data.todayPayments?.count || 0}) Payments`,
+                amount: `₦${Number(data.todayPayments?.amount || 0).toLocaleString()}`,
                 desc: 'Received Today'
             },
             {
                 class: 'green',
                 icon: '💵',
-                count:
-                    `(${data.monthPayments?.count || 0}) Payments`,
-                amount:
-                    `₦${Number(
-                        data.monthPayments?.amount || 0
-                    ).toLocaleString()}`,
+                count: `(${data.monthPayments?.count || 0}) Payments`,
+                amount: `₦${Number(data.monthPayments?.amount || 0).toLocaleString()}`,
                 desc: 'Received in Last 30 Days'
             },
             {
                 class: 'teal',
                 icon: '💲',
                 count: 'Cash Requests',
-                amount:
-                    data.cashRequests || 0,
+                amount: data.cashRequests || 0,
                 desc: 'Total Awaiting Approval'
             },
             {
                 class: 'red',
                 icon: '⏳',
                 count: 'Expiring Subscriptions',
-                amount:
-                    data.expiringSubscriptions || 0,
+                amount: data.expiringSubscriptions || 0,
                 desc: 'Expiring Student Subscriptions'
             },
             {
                 class: 'blue',
                 icon: '👤',
                 count: 'Employees',
-                amount:
-                    data.employees || 0,
+                amount: data.employees || 0,
                 desc: 'Total Employees',
-                descSmall:
-                    `Total Employees: ${data.totalStaffs || 0}`
+                descSmall: `Total Employees: ${data.totalStaffs || 0}`
             },
             {
                 class: 'purple',
                 icon: '👪',
                 count: 'Parents / Guardians',
-                amount:
-                    data.parents || 0,
+                amount: data.parents || 0,
                 desc: 'Total Parents'
             },
             {
                 class: 'blue',
                 icon: '🎓',
                 count: 'Students',
-                amount:
-                    data.totalStudents ||
-                    data.activeStudents ||
-                    0,
+                amount: data.totalStudents || data.activeStudents || 0,
                 desc: 'Total Students'
             },
             {
                 class: 'red',
                 icon: '📝',
-                count:
-                    'Ongoing Admission Applications',
-                amount:
-                    data.ongoingAdmissions || 0,
+                count: 'Ongoing Admission Applications',
+                amount: data.ongoingAdmissions || 0,
                 desc: 'Submitted',
-                descSmall:
-                    `Total Started: ${data.totalAdmissions || 0}`
+                descSmall: `Total Started: ${data.totalAdmissions || 0}`
             },
             {
                 class: 'maroon',
                 icon: '🏛️',
                 count: 'Hostel Applications',
-                amount:
-                    data.hostelApplications || 0,
+                amount: data.hostelApplications || 0,
                 desc: 'Total Awaiting Approval'
             },
             {
                 class: 'orange',
                 icon: '🚌',
                 count: 'Transport Applications',
-                amount:
-                    data.transportApplications || 0,
+                amount: data.transportApplications || 0,
                 desc: 'Total Awaiting Approval'
             },
             {
                 class: 'grey',
                 icon: '📖',
                 count: 'Library Book Requests',
-                amount:
-                    data.libraryRequests || 0,
+                amount: data.libraryRequests || 0,
                 desc: 'Requests Awaiting Approval'
             },
             {
                 class: 'orange',
                 icon: '🏫',
-                count:
-                    'Inventory / Resource Requests',
-                amount:
-                    data.inventoryRequests || 0,
+                count: 'Inventory / Resource Requests',
+                amount: data.inventoryRequests || 0,
                 desc: 'Total Awaiting Approval'
             },
             {
                 class: 'blue',
                 icon: '❄️',
                 count: 'Leave Applications',
-                amount:
-                    data.leaveApplications || 0,
+                amount: data.leaveApplications || 0,
                 desc: 'Total Pending Approval'
             }
         ];
-        const cardsDiv =
-            document.getElementById(
-                'dashboardCards'
-            );
+
+        const cardsDiv = document.getElementById('dashboardCards');
         if (!cardsDiv) return;
-        cardsDiv.innerHTML =
-            cards.map(card => `
-                <div class="card ${card.class}">
-                    <div class="icon">
-                        <span>${card.icon}</span>
-                    </div>
-                    <div>
-                        <div class="count">
-                            ${card.count}
-                        </div>
-                        <div class="amount">
-                            ${card.amount}
-                        </div>
-                        <div class="desc">
-                            ${card.desc}
-                        </div>
-                        ${
-                            card.descSmall
-                            ? `
-                                <div class="desc small">
-                                    ${card.descSmall}
-                                </div>
-                              `
-                            : ''
-                        }
-                    </div>
+
+        cardsDiv.innerHTML = cards.map(card => `
+            <div class="card ${card.class}">
+                <div class="icon">
+                    <span>${card.icon}</span>
                 </div>
-            `).join('');
+                <div>
+                    <div class="count">${card.count}</div>
+                    <div class="amount">${card.amount}</div>
+                    <div class="desc">${card.desc}</div>
+                    ${card.descSmall ? `<div class="desc small">${card.descSmall}</div>` : ''}
+                </div>
+            </div>
+        `).join('');
     }
-    function renderFinanceChart(
-        financeSummary
-    ) {
-        const canvas =
-            document.getElementById(
-                'financeChart'
-            );
+
+    function renderFinanceChart(financeSummary) {
+        const canvas = document.getElementById('financeChart');
         if (!canvas) return;
-        const ctx =
-            canvas.getContext('2d');
-        const months =
-            financeSummary?.labels ||
-            [
-                'Jan',
-                'Feb',
-                'Mar',
-                'Apr',
-                'May',
-                'Jun',
-                'Jul',
-                'Aug',
-                'Sep',
-                'Oct',
-                'Nov',
-                'Dec'
-            ];
-        const incomes =
-            financeSummary?.incomes ||
-            new Array(months.length).fill(0);
-        const expenditures =
-            financeSummary?.expenditures ||
-            new Array(months.length).fill(0);
+
+        const ctx = canvas.getContext('2d');
+        const months = financeSummary?.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const incomes = financeSummary?.incomes || new Array(months.length).fill(0);
+        const expenditures = financeSummary?.expenditures || new Array(months.length).fill(0);
+
         if (financeChartInstance) {
             financeChartInstance.destroy();
         }
-        financeChartInstance =
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: months,
-                    datasets: [
-                        {
-                            label: 'Incomes',
-                            data: incomes,
-                            borderColor: '#28a745',
-                            backgroundColor:
-                                'rgba(40,167,69,0.06)',
-                            tension: 0.2,
-                            fill: false,
-                            pointRadius: 3,
-                            pointBackgroundColor:
-                                '#28a745'
-                        },
-                        {
-                            label: 'Expenditures',
-                            data: expenditures,
-                            borderColor: '#dc3545',
-                            backgroundColor:
-                                'rgba(220,53,69,0.06)',
-                            tension: 0.2,
-                            fill: false,
-                            pointRadius: 3,
-                            pointBackgroundColor:
-                                '#dc3545'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'bottom'
-                        }
+
+        financeChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [
+                    {
+                        label: 'Incomes',
+                        data: incomes,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40,167,69,0.06)',
+                        tension: 0.2,
+                        fill: false,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#28a745'
                     },
-                    scales: {
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Amount (₦)'
-                            },
-                            beginAtZero: true,
-                            grid: {
-                                color: '#e3e8ee'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                color: '#e3e8ee'
-                            }
-                        }
+                    {
+                        label: 'Expenditures',
+                        data: expenditures,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220,53,69,0.06)',
+                        tension: 0.2,
+                        fill: false,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#dc3545'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true, position: 'bottom' }
+                },
+                scales: {
+                    y: {
+                        title: { display: true, text: 'Amount (₦)' },
+                        beginAtZero: true,
+                        grid: { color: '#e3e8ee' }
+                    },
+                    x: {
+                        grid: { color: '#e3e8ee' }
                     }
                 }
-            });
-    }
-    document.addEventListener(
-        'DOMContentLoaded',
-        async () => {
-            const spinner =
-                document.getElementById(
-                    'pageSpinnerOverlay'
-                );
-            if (spinner) {
-                spinner.style.display = 'flex';
             }
-            initializeNavigation();
-            const user =
-                await loadAuthenticatedUser();
-            if (!user) return;
-            await fetchDashboardData();
-            if (spinner) {
-                spinner.style.opacity = '0';
-                setTimeout(() => {
-                    spinner.style.display = 'none';
-                }, 400);
-            }
-        }
-    );
-    document
-        .querySelectorAll('.nav-link')
-        .forEach(link => {
-            link.addEventListener(
-                'click',
-                (e) => {
-                    if (
-                        link.dataset.nav ===
-                        'dashboard'
-                    ) {
-                        e.preventDefault();
-                    }
-                    document
-                        .querySelectorAll(
-                            '.nav-link'
-                        )
-                        .forEach(
-                            l =>
-                                l.classList.remove(
-                                    'active'
-                                )
-                        );
-                    link.classList.add('active');
-                }
-            );
         });
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const spinner = document.getElementById('pageSpinnerOverlay');
+        if (spinner) {
+            spinner.style.display = 'flex';
+        }
+
+        initializeNavigation();
+
+        const user = await loadAuthenticatedUser();
+        if (!user) return;
+
+        await fetchDashboardData();
+
+        if (spinner) {
+            spinner.style.opacity = '0';
+            setTimeout(() => {
+                spinner.style.display = 'none';
+            }, 400);
+        }
+    });
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            if (link.dataset.nav === 'dashboard') {
+                e.preventDefault();
+            }
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+        });
+    });
     </script>
 </body>
 </html>
