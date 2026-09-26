@@ -110,18 +110,18 @@
         </div>
     </div>
 
-    <!-- Navigation -->
+    <!-- Navigation Header -->
     <nav class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-20 gap-2">
-                <div class="flex-1 min-w-0 flex items-center pr-2">
-                    <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 max-w-full">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex-shrink flex items-center min-w-0 pr-2">
+                    <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
                         <div class="bg-white p-1 rounded-lg shadow-sm border border-gray-100 flex items-center justify-center flex-shrink-0">
-                            <img data-school-logo src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIGZpbGw9IiNFNUU3RUJCIiByeT0iOCIvPjwvc3ZnPg==" class="h-9 w-auto sm:h-11 object-contain animate-pulse" alt="School Logo">
+                            <img data-school-logo src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIGZpbGw9IiNFNUU3RUJCIiByeT0iOCIvPjwvc3ZnPg==" class="h-10 sm:h-12 w-auto object-contain animate-pulse" alt="School Logo">
                         </div>
                         <div class="min-w-0 flex-1">
-                            <span data-school-name data-shorten="true" class="block text-xs sm:text-base lg:text-xl font-bold text-brand-900 tracking-tight uppercase font-serif truncate max-w-[200px] xs:max-w-[260px] sm:max-w-xs md:max-w-md lg:max-w-none"></span>
-                            <span data-school-abbreviation class="block text-[10px] sm:text-xs uppercase tracking-widest text-gray-500 truncate"></span>
+                            <span data-school-name class="block text-sm sm:text-base md:text-xl font-bold text-brand-900 tracking-tight uppercase font-serif truncate max-w-[200px] xs:max-w-[260px] sm:max-w-xs md:max-w-md lg:max-w-none animate-pulse rounded mb-0.5"></span>
+                            <span data-school-abbreviation class="block text-[10px] sm:text-xs uppercase tracking-widest text-gray-500 truncate max-w-[180px] sm:max-w-none animate-pulse rounded"></span>
                         </div>
                     </div>
                 </div>
@@ -157,7 +157,7 @@
                     </a>
                 </div>
                 <div class="flex items-center lg:hidden flex-shrink-0">
-                    <button data-collapse-toggle="mobile-menu" type="button" class="inline-flex items-center p-2 text-sm text-gray-500 rounded-lg lg:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200" aria-controls="mobile-menu" aria-expanded="false">
+                    <button data-collapse-toggle="mobile-menu" type="button" class="inline-flex items-center p-2 ml-1 text-sm text-gray-500 rounded-lg lg:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200" aria-controls="mobile-menu" aria-expanded="false">
                         <span class="sr-only">Open main menu</span>
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
@@ -860,6 +860,27 @@
         );
     }
 
+    // Smart helper to shorten long school names specifically for the navigation header
+    function getHeaderSchoolName(school) {
+        const fullName = school.name || '';
+        if (fullName.length <= 20) return fullName;
+
+        // 1. Use explicit short name if configured
+        if (school.shortName) return school.shortName;
+
+        // 2. Use abbreviation on small mobile views or when ultra long (>28 chars)
+        if (school.abbreviation && (window.innerWidth < 640 || fullName.length > 28)) {
+            return school.abbreviation;
+        }
+
+        // 3. Intelligently abbreviate common lengthy educational terms
+        return fullName
+            .replace(/International/gi, "Int'l")
+            .replace(/Secondary/gi, "Sec.")
+            .replace(/Primary/gi, "Pri.")
+            .replace(/Academy/gi, "Acad.");
+    }
+
     function applySchoolConfiguration(config) {
         const school = config.school || {};
         const branding = config.branding || {};
@@ -871,19 +892,13 @@
 
         document.title = `${school.name || 'School'} | ${school.motto || 'School Portal'}`;
 
-        const isMobile = window.innerWidth < 640;
-        const rawSchoolName = school.name || '';
-
         document.querySelectorAll('[data-school-name]').forEach(element => {
-            const shouldShorten = element.dataset.shorten === 'true';
-            
-            // Shorten for header elements if text is very long on mobile
-            if (shouldShorten && isMobile && rawSchoolName.length > 22 && school.abbreviation) {
-                element.textContent = school.abbreviation;
+            // Apply shortened version for top nav header, full name everywhere else
+            if (element.closest('nav')) {
+                element.textContent = getHeaderSchoolName(school);
             } else {
-                element.textContent = rawSchoolName;
+                element.textContent = school.name || '';
             }
-            element.title = rawSchoolName; // Preserve full name in tooltip
             removeSkeleton(element);
         });
 
