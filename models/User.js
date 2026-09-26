@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -16,7 +15,7 @@ const userSchema = new mongoose.Schema(
     regNo: {
       type: String,
       trim: true,
-      default: null
+      default: undefined
     },
     password: {
       type: String,
@@ -37,7 +36,7 @@ const userSchema = new mongoose.Schema(
     schoolId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'School',
-      default: null,
+      required: true,
       index: true
     },
     isActive: {
@@ -57,7 +56,6 @@ const userSchema = new mongoose.Schema(
     timestamps: true
   }
 );
-
 userSchema.pre('save', function (next) {
   if (this.email) {
     this.email = this.email.trim().toLowerCase();
@@ -67,7 +65,6 @@ userSchema.pre('save', function (next) {
   }
   next();
 });
-
 userSchema.index(
   { schoolId: 1, email: 1 },
   {
@@ -78,7 +75,6 @@ userSchema.index(
     }
   }
 );
-
 userSchema.index(
   { schoolId: 1, regNo: 1 },
   {
@@ -89,10 +85,8 @@ userSchema.index(
     }
   }
 );
-
 userSchema.index({
   schoolId: 1,
   role: 1
 });
-
 module.exports = mongoose.model('User', userSchema);
