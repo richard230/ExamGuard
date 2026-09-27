@@ -394,6 +394,26 @@
             </button>
         </div>
     </div>
+
+    <!-- Neat Error Modal -->
+    <div id="errorModal" class="modal" aria-modal="true" role="dialog">
+        <div class="modal-content bg-white rounded-2xl p-6 shadow-2xl w-full max-w-md relative border border-slate-200">
+            <button class="close absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-2xl font-bold" id="closeErrorModal" aria-label="Close" onclick="closeModal('errorModal')">&times;</button>
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-lg font-bold">
+                    <i class="fa fa-exclamation-triangle"></i>
+                </div>
+                <h3 id="errorModalTitle" class="text-lg font-bold text-slate-900">An Error Occurred</h3>
+            </div>
+            <p id="errorModalMessage" class="text-xs text-slate-600 mb-6 leading-relaxed break-words">
+                An unexpected error occurred.
+            </p>
+            <div class="modal-actions flex items-center justify-end gap-3">
+                <button type="button" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition shadow-sm" onclick="closeModal('errorModal')">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
     <div id="statisticsModal" class="modal" aria-modal="true" role="dialog">
         <div class="modal-content bg-white rounded-2xl p-6 shadow-2xl w-full max-w-lg relative border border-slate-200">
             <button class="close absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-2xl font-bold" id="closeStatsModal" aria-label="Close">&times;</button>
@@ -542,6 +562,14 @@
             if (spinner) spinner.style.display = 'none';
         }
 
+        function showErrorModal(message, title = "An Error Occurred") {
+            const modalTitle = document.getElementById('errorModalTitle');
+            const modalMsg = document.getElementById('errorModalMessage');
+            if (modalTitle) modalTitle.textContent = title;
+            if (modalMsg) modalMsg.textContent = message;
+            openModal('errorModal');
+        }
+
         function authHeaders() {
             return token
                 ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
@@ -582,7 +610,7 @@
 
         async function loadSchoolContext() {
             if (!token) {
-                window.location.href = 'login.html';
+                showErrorModal('No authentication token found. Please log in to continue.', 'Authentication Required');
                 return false;
             }
 
@@ -594,9 +622,7 @@
                 });
 
                 if (!res.ok) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('adminToken');
-                    window.location.href = 'login.html';
+                    showErrorModal(`Failed to load school context (HTTP ${res.status}).`, 'Authentication Error');
                     return false;
                 }
 
@@ -614,8 +640,7 @@
                 }
 
                 if (currentUser.role !== 'superadmin') {
-                    alert('You are not authorized to access Results Management.');
-                    window.location.href = 'login.html';
+                    showErrorModal('You are not authorized to access Results Management.', 'Access Denied');
                     return false;
                 }
 
@@ -629,11 +654,7 @@
 
             } catch (error) {
                 console.error('School context error:', error);
-
-                localStorage.removeItem('token');
-                localStorage.removeItem('adminToken');
-
-                window.location.href = 'login.html';
+                showErrorModal(error.message || 'An error occurred while loading school context.', 'System Error');
                 return false;
             }
         }
@@ -724,14 +745,7 @@
                 });
 
                 if (!res.ok) {
-                    if (res.status === 401 || res.status === 403) {
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('adminToken');
-                        window.location.href = 'login.html';
-                        return [];
-                    }
-
-                    throw new Error(`HTTP ${res.status}`);
+                    throw new Error(`Failed to fetch results (HTTP ${res.status})`);
                 }
 
                 const data = await res.json();
@@ -746,12 +760,8 @@
 
             } catch (err) {
                 console.error('Error fetching results:', err);
-
-                showStatus(
-                    'Error fetching results: ' + err.message,
-                    'error'
-                );
-
+                showErrorModal(err.message, 'Fetch Error');
+                showStatus('Error fetching results: ' + err.message, 'error');
                 return [];
 
             } finally {
@@ -1022,7 +1032,8 @@
                 closeModal('deleteResultModal');
                 showStatus('Result deleted successfully', 'success');
             } catch (err) {
-                showStatus('Error: ' + err.message, 'error');
+                closeModal('deleteResultModal');
+                showErrorModal('Failed to delete result: ' + err.message, 'Delete Error');
             }
         }
 
@@ -1036,7 +1047,8 @@
                 closeModal('publishResultModal');
                 showStatus('Result published successfully', 'success');
             } catch (err) {
-                showStatus('Error: ' + err.message, 'error');
+                closeModal('publishResultModal');
+                showErrorModal('Failed to publish result: ' + err.message, 'Publish Error');
             }
         }
 
@@ -1071,6 +1083,7 @@
                 closeModal('editResultModal');
                 showStatus('Result updated successfully', 'success');
             } catch (err) {
+                showErrorModal('Failed to update result: ' + err.message, 'Update Error');
                 document.getElementById('editResultStatus').innerHTML = 
                     `<div class="status-message status-error">Error: ${err.message}</div>`;
             }
@@ -1202,6 +1215,7 @@
             } catch (err) {
                 console.error('Initialization error:', err);
 
+                showErrorModal('Error initializing results data: ' + err.message, 'Initialization Error');
                 showStatus(
                     'Error initializing: ' + err.message,
                     'error'
@@ -1212,6 +1226,7 @@
             }
         }
 
+        document.getElementById('closeErrorModal')?.addEventListener('click', () => closeModal('errorModal'));
         document.getElementById('closeStatsModal').addEventListener('click', () => closeModal('statisticsModal'));
         document.getElementById('closeEditModal').addEventListener('click', () => closeModal('editResultModal'));
         document.getElementById('closeDeleteModal').addEventListener('click', () => closeModal('deleteResultModal'));
@@ -1222,7 +1237,7 @@
         });
         document.getElementById('exportCSVBtn').addEventListener('click', () => {
             if (filteredResults.length === 0) {
-                alert('No results to export');
+                showErrorModal('No results available to export.', 'Export Error');
                 return;
             }
             alert('Export feature coming soon!');
@@ -1241,7 +1256,7 @@
                     filterResults();
                     showStatus(`Selected results published successfully`, 'success');
                 } catch (err) {
-                    showStatus('Error publishing results: ' + err.message, 'error');
+                    showErrorModal('Error publishing results: ' + err.message, 'Publish Error');
                 } finally {
                     hideSpinner();
                 }
@@ -1260,7 +1275,7 @@
                     filterResults();
                     showStatus(`Selected results deleted successfully`, 'success');
                 } catch (err) {
-                    showStatus('Error deleting results: ' + err.message, 'error');
+                    showErrorModal('Error deleting results: ' + err.message, 'Delete Error');
                 } finally {
                     hideSpinner();
                 }
