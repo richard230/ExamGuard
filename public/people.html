@@ -1,784 +1,363 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8">
-  <title>People Directory - Admin Portal</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Modern Fonts -->
+  <title>People Directory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
+  <!-- Tailwind CSS CDN & Flowbite CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.css" rel="stylesheet" />
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#0f172a',
+              950: '#07102a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
   <style>
-    :root {
-      --bg-main: #f8fafc;
-      --bg-card: #ffffff;
-      --sidebar-bg: #0f172a;
-      --sidebar-hover: rgba(255, 255, 255, 0.08);
-      --sidebar-accent: #38bdf8;
-      
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --primary-light: #eff6ff;
-      
-      --student-accent: #0284c7;
-      --student-bg: #e0f2fe;
-      --parent-accent: #16a34a;
-      --parent-bg: #dcfce7;
-      --staff-accent: #d97706;
-      --staff-bg: #fef3c7;
-      
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      
-      --sidebar-w: 280px;
-      --radius-lg: 16px;
-      --radius-md: 10px;
-      --radius-sm: 6px;
-      
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-      --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
-      --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.12);
+    /* Parabola Bottom Navigation Dock Curve */
+    .dock-curve {
+      background: radial-gradient(circle at 50% 0%, transparent 36px, #ffffff 37px);
+    }
+    .dark .dock-curve {
+      background: radial-gradient(circle at 50% 0%, transparent 36px, #1f2937 37px);
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html, body {
-      height: 100%;
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-      background-color: var(--bg-main);
-      color: var(--text-main);
-      -webkit-font-smoothing: antialiased;
-      scroll-behavior: smooth;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .app {
-      display: flex;
-      min-height: 100vh;
-    }
-
-    /* ================= SIDEBAR ================= */
-    .sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-      color: #fff;
-      padding: 24px 16px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 100;
-      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      overflow-y: auto;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .sidebar-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(4px);
-      z-index: 95;
-      display: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .sidebar-overlay.active {
-      display: block;
-      opacity: 1;
-    }
-
-    .brand {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .brand img {
-      width: 44px;
-      height: 44px;
-      border-radius: var(--radius-md);
-      object-fit: cover;
-      background: #fff;
-      padding: 2px;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
-    }
-
-    .brand .title {
-      font-weight: 800;
-      font-size: 1.1rem;
-      color: #f8fafc;
-      letter-spacing: -0.3px;
-    }
-
-    .brand .subtitle {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      font-weight: 600;
-    }
-
-    .school-id {
-      color: var(--sidebar-accent);
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 4px 8px;
-      background: rgba(56, 189, 248, 0.1);
-      border-radius: var(--radius-sm);
-      display: inline-block;
-      width: fit-content;
-    }
-
-    .brand-close-btn {
-      display: none;
-      background: transparent;
-      border: none;
-      color: #94a3b8;
-      font-size: 20px;
-      cursor: pointer;
-      margin-left: auto;
-      padding: 4px 8px;
-      border-radius: var(--radius-sm);
-    }
-
-    .brand-close-btn:hover {
-      color: #fff;
-      background: rgba(255,255,255,0.1);
-    }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-top: 8px;
-      flex: 1;
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: var(--radius-md);
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: #cbd5e1;
-      transition: all 0.2s ease;
-    }
-
-    .nav a:hover {
-      background: var(--sidebar-hover);
-      color: #fff;
-      transform: translateX(2px);
-    }
-
-    .nav a.active {
-      background: var(--primary);
-      color: #fff;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-    }
-
-    .sidebar-footer {
-      margin-top: auto;
-      padding-top: 16px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 0.82rem;
-      color: #94a3b8;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .admin-badge {
-      font-weight: 700;
-      color: #f1f5f9;
-    }
-
-    /* ================= TOPBAR ================= */
-    .topbar {
-      position: fixed;
-      left: var(--sidebar-w);
-      top: 0;
-      width: calc(100% - var(--sidebar-w));
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 28px;
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border-color);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .hamburger-btn {
-      display: none;
-      background: transparent;
-      border: none;
-      font-size: 22px;
-      cursor: pointer;
-      color: var(--text-main);
-      padding: 6px;
-      border-radius: var(--radius-sm);
-    }
-
-    .page-title {
-      font-weight: 800;
-      font-size: 1.15rem;
-      color: var(--text-main);
-      letter-spacing: -0.3px;
-    }
-
-    .topbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .icon-btn {
-      background: #f1f5f9;
-      border: 1px solid var(--border-color);
-      font-size: 16px;
-      cursor: pointer;
-      padding: 8px 10px;
-      border-radius: var(--radius-md);
-      transition: all 0.2s ease;
-      color: var(--text-main);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .icon-btn:hover {
-      background: #e2e8f0;
-      transform: translateY(-1px);
-    }
-
-    /* ================= MAIN CONTENT ================= */
-    .main {
-      margin-left: var(--sidebar-w);
-      padding: 28px;
-      flex: 1;
-      min-height: 100vh;
-      padding-top: 90px;
-    }
-
-    /* Stats Banner */
-    .stats-overview {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .stat-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 16px 20px;
-      box-shadow: var(--shadow-sm);
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .stat-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-    }
-
-    .stat-icon.students { background: var(--student-bg); color: var(--student-accent); }
-    .stat-icon.parents { background: var(--parent-bg); color: var(--parent-accent); }
-    .stat-icon.staff { background: var(--staff-bg); color: var(--staff-accent); }
-
-    .stat-info .stat-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-    }
-
-    .stat-info .stat-value {
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: var(--text-main);
-    }
-
-    /* Header Title Bar */
-    .people-header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .people-title {
-      font-size: 1.5rem;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--text-main);
-      letter-spacing: -0.4px;
-    }
-
-    .global-search-wrapper {
-      position: relative;
-      min-width: 280px;
-    }
-
-    .global-search-input {
-      width: 100%;
-      padding: 10px 16px 10px 38px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-color);
-      background: var(--bg-card);
-      font-family: inherit;
-      font-size: 0.9rem;
-      color: var(--text-main);
-      box-shadow: var(--shadow-sm);
-      outline: none;
-      transition: all 0.2s ease;
-    }
-
-    .global-search-input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-    }
-
-    .search-icon-inside {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-
-    /* Directory Cards Grid */
-    .people-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-    }
-
-    .people-card {
-      background: var(--bg-card);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-      padding: 24px;
-      border: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .people-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .card-header {
-      font-size: 1.15rem;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      letter-spacing: -0.2px;
-      padding-bottom: 12px;
-      border-bottom: 2px solid var(--bg-main);
-    }
-
-    .card-header.students { color: var(--student-accent); }
-    .card-header.parents { color: var(--parent-accent); }
-    .card-header.staff { color: var(--staff-accent); }
-
-    .card-body {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .features-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .feature-link {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      border-radius: var(--radius-md);
-      transition: all 0.18s ease;
-      text-decoration: none;
-      color: #334155;
-      font-weight: 600;
-      font-size: 0.92rem;
-      border: 1px solid transparent;
-    }
-
-    .feature-link-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .feature-link:hover {
-      background: var(--primary-light);
-      color: var(--primary);
-      border-color: rgba(37, 99, 235, 0.1);
-      transform: translateX(3px);
-    }
-
-    .feature-arrow {
-      font-size: 12px;
-      opacity: 0;
-      transition: opacity 0.18s ease, transform 0.18s ease;
-    }
-
-    .feature-link:hover .feature-arrow {
-      opacity: 1;
-      transform: translateX(2px);
-    }
-
-    .no-results {
-      display: none;
-      text-align: center;
-      padding: 32px 16px;
-      color: var(--text-muted);
-      font-weight: 600;
-      grid-column: 1 / -1;
-      background: var(--bg-card);
-      border-radius: var(--radius-lg);
-      border: 1px dashed var(--border-color);
-    }
-
-    /* Floating Action Buttons */
-    .floating-btn-group {
-      position: fixed;
-      right: 24px;
-      bottom: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 200;
-    }
-
-    .fab {
-      border-radius: 50%;
-      background: var(--primary);
-      color: #fff;
-      width: 52px;
-      height: 52px;
-      font-size: 20px;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
-      border: none;
-      outline: none;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .fab:hover {
-      background: var(--primary-hover);
-      transform: scale(1.08);
-      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
-    }
-
-    /* Loading Spinner */
-    #pageSpinnerOverlay {
-      position: fixed;
-      inset: 0;
-      z-index: 99999;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.4s ease;
-    }
-
+    /* Custom Spinner */
     .spinner {
       border: 4px solid #e2e8f0;
-      border-top: 4px solid var(--primary);
+      border-top: 4px solid #2563eb;
       border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spinner-spin 0.8s linear infinite;
+      width: 48px;
+      height: 48px;
+      animation: spin 0.8s linear infinite;
     }
-
-    @keyframes spinner-spin {
+    @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-
-    /* ================= RESPONSIVE DESIGN ================= */
-    @media (max-width: 1024px) {
-      .people-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 768px) {
-      .sidebar {
-        transform: translateX(-100%);
-        width: 260px;
-      }
-      .sidebar.active {
-        transform: translateX(0);
-      }
-      .brand-close-btn {
-        display: block;
-      }
-      .hamburger-btn {
-        display: block;
-      }
-      .topbar {
-        left: 0;
-        width: 100%;
-        padding: 12px 16px;
-      }
-      .main {
-        margin-left: 0;
-        padding: 16px;
-        padding-top: 80px;
-      }
-      .people-grid {
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-      .global-search-wrapper {
-        width: 100%;
-      }
-    }
   </style>
 </head>
-<body>
+<body class="h-full font-sans antialiased text-slate-800 bg-slate-50 dark:bg-slate-900 dark:text-slate-100 selection:bg-brand-500 selection:text-white">
 
-  <!-- Fullscreen Loading Spinner -->
-  <div id="pageSpinnerOverlay">
-    <div class="spinner"></div>
+  <!-- Full Page Spinner Overlay -->
+  <div id="pageSpinnerOverlay" class="fixed inset-0 z-[99999] flex items-center justify-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm transition-opacity duration-300">
+    <div class="flex flex-col items-center gap-3">
+      <div class="spinner"></div>
+      <p class="text-xs font-semibold tracking-wider text-slate-500 uppercase">Loading Directory...</p>
+    </div>
   </div>
 
-  <div class="app" id="app">
-    
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
-      <div class="brand">
-        <img id="schoolLogo" src="mainlogo.png" alt="School Logo">
-        <div>
-          <div class="title" id="schoolBrandName">School</div>
-          <div class="subtitle">Admin Portal</div>
-        </div>
-        <button class="brand-close-btn" id="sidebarCloseMobile" title="Close Menu" aria-label="Close sidebar">✕</button>
-      </div>
-      
-      <div class="school-id" id="sidebarSchoolId">Loading ID...</div>
-      
-      <nav class="nav" aria-label="Primary">
-        <a href="admin.html" class="nav-link"><span>🏠</span> Dashboard</a>
-        <a href="admission.html" class="nav-link"><span>🎓</span> Admission</a>
-        <a href="more.html" class="nav-link"><span>🌐</span> Multi-location</a>
-        <a href="people.html" class="nav-link active"><span>👥</span> People</a>
-        <a href="academics.html" class="nav-link"><span>📚</span> Academics</a>
-        <a href="admin-cbt.html" class="nav-link"><span>💻</span> CBT Config</a>
-        <a href="results.html" class="nav-link"><span>📄</span> Results</a>
-        <a href="finance.html" class="nav-link"><span>💰</span> Finance</a>
-        <a href="adminfees.html" class="nav-link"><span>💳</span> Fees</a>
-        <a href="adminpayment.html" class="nav-link"><span>💸</span> Payments</a>
-        <a href="attendance.html" class="nav-link"><span>🗓️</span> Attendance</a>
-        <a href="#" class="nav-link"><span>⚙️</span> Settings</a>
-      </nav>
+  <div class="min-h-screen flex flex-col md:flex-row" id="app">
 
-      <div class="sidebar-footer">
-        <span>Logged in:</span>
-        <span class="admin-badge" id="adminName">Admin</span>
+    <!-- Mobile Overlay for Sidebar -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 hidden md:hidden transition-opacity"></div>
+
+    <!-- Desktop & Mobile Sidebar -->
+    <aside id="sidebar" class="fixed top-0 left-0 z-50 w-72 h-screen transition-transform -translate-x-full md:translate-x-0 bg-slate-950 text-white flex flex-col justify-between shadow-2xl border-r border-slate-800/80">
+      
+      <!-- Brand & Header -->
+      <div class="p-5 flex flex-col gap-4">
+        <div class="brand flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img id="schoolLogo" src="mainlogo.png" alt="School Logo" class="w-11 h-11 rounded-xl object-cover ring-2 ring-amber-400/30 bg-white p-0.5 shadow-md">
+            <div>
+              <div id="schoolBrandName" class="font-extrabold text-base text-amber-300 tracking-tight leading-tight truncate max-w-[140px]">
+                School
+              </div>
+              <div class="text-xs font-medium text-slate-400">Admin Portal</div>
+            </div>
+          </div>
+          <!-- Close Button for Mobile Sidebar -->
+          <button id="sidebarCloseMobile" title="Close Menu" aria-label="Close sidebar" class="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <div id="sidebarSchoolId" class="school-id text-[11px] font-mono text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded-md border border-slate-800 break-all"></div>
+
+        <!-- Navigation Links -->
+        <nav class="nav flex flex-col gap-1 mt-2 overflow-y-auto max-h-[calc(100vh-220px)] pr-1 custom-scrollbar" aria-label="Primary">
+          <a href="admin.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">🏠</span> Dashboard
+          </a>
+          <a href="admission.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">🎓</span> Admission
+          </a>
+          <a href="more.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">🌐</span> Multi-location
+          </a>
+          <a href="people.html" class="nav-link active flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold text-amber-300 bg-slate-900 border-l-4 border-amber-400 transition-all shadow-inner">
+            <span class="text-lg">👥</span> People
+          </a>
+          <a href="academics.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">📚</span> Academics
+          </a>
+          <a href="admin-cbt.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">💻</span> CBT Config
+          </a>
+          <a href="results.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">📄</span> Results
+          </a>
+          <a href="finance.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">💰</span> Finance
+          </a>
+          <a href="adminfees.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">💳</span> Fees
+          </a>
+          <a href="adminpayment.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">💸</span> Payments
+          </a>
+          <a href="attendance.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">🗓️</span> Attendance
+          </a>
+          <a href="#" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+            <span class="text-lg">⚙️</span> Settings
+          </a>
+        </nav>
+      </div>
+
+      <!-- Admin User Footer -->
+      <div class="p-4 border-t border-slate-800/80 bg-slate-900/50 flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-xs ring-2 ring-brand-400">
+          A
+        </div>
+        <div class="text-xs truncate">
+          <p class="text-slate-400">Signed in as</p>
+          <p id="adminName" class="font-bold text-white truncate">Admin</p>
+        </div>
       </div>
     </aside>
 
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- Topbar Navigation -->
-    <header class="topbar" role="banner">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <button id="sidebarToggle" class="hamburger-btn" aria-label="Toggle Sidebar" title="Toggle Menu">☰</button>
-        <div class="page-title" id="pageTitle">People Directory</div>
-      </div>
+    <!-- Main Wrapper Content -->
+    <div class="flex-1 md:ml-72 flex flex-col min-h-screen pb-20 md:pb-6">
       
-      <div class="topbar-actions">
-        <button class="icon-btn" title="Notifications">🔔</button>
-        <button class="icon-btn" title="Help">❓</button>
-        <button class="icon-btn" title="Settings">⚙️</button>
-      </div>
-    </header>
-
-    <!-- Main Content Area -->
-    <main class="main" id="main" role="main" tabindex="-1">
-      
-      <!-- Metric Quick Stats -->
-      <section class="stats-overview">
-        <div class="stat-card">
-          <div class="stat-icon students">🧑‍🎓</div>
-          <div class="stat-info">
-            <div class="stat-label">Students Module</div>
-            <div class="stat-value">Active Directory</div>
+      <!-- Top Navbar -->
+      <header class="topbar sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-xs">
+        <div class="flex items-center gap-3">
+          <button id="sidebarToggle" aria-label="Toggle Sidebar" title="Toggle Menu" class="hamburger-btn p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none md:hidden">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+          <div id="pageTitle" class="page-title text-base md:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+            People Directory
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon parents">👪</div>
-          <div class="stat-info">
-            <div class="stat-label">Guardians</div>
-            <div class="stat-value">Family Linking</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon staff">👔</div>
-          <div class="stat-info">
-            <div class="stat-label">Faculty & Staff</div>
-            <div class="stat-value">Personnel Hub</div>
-          </div>
-        </div>
-      </section>
 
-      <!-- Directory Header & Realtime Filter -->
-      <div class="people-header">
-        <h2 class="people-title">
-          <span>👥</span> Directory Overview
-        </h2>
-        <div class="global-search-wrapper">
-          <span class="search-icon-inside">🔍</span>
-          <input 
-            type="text" 
-            class="global-search-input" 
-            id="studentSearch" 
-            placeholder="Search features (Press '/' to focus)..." 
-            aria-label="Filter features"
-          >
+        <div class="flex items-center gap-1 md:gap-2">
+          <button class="icon-btn p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Notifications">
+            🔔
+          </button>
+          <button class="icon-btn p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Help">
+            ❓
+          </button>
+          <button class="icon-btn p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Settings">
+            ⚙️
+          </button>
+          <button class="icon-btn p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Search">
+            🔍
+          </button>
         </div>
-      </div>
+      </header>
 
-      <!-- Directory Content Grid -->
-      <section class="people-grid" id="peopleGrid">
+      <!-- Main Section -->
+      <main id="main" role="main" tabindex="-1" class="main p-4 md:p-8 flex-1 max-w-7xl w-full mx-auto outline-none">
         
-        <!-- Students Card -->
-        <div class="people-card" data-category="students">
-          <div class="card-header students">
-            <span>🧑‍🎓</span> Students
+        <!-- Header Banner -->
+        <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="people-title text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
+              <span>👥</span> People Directory
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage all accounts, students, parents, and administrative staff members.</p>
           </div>
-          <div class="card-body">
-            <div class="features-list">
-              <a href="students-view.html" class="feature-link">
-                <div class="feature-link-left"><span>📋</span> View Students</div>
-                <span class="feature-arrow">➔</span>
-              </a>
-              <a href="students-enroll.html" class="feature-link">
-                <div class="feature-link-left"><span>➕</span> Enroll Student</div>
-                <span class="feature-arrow">➔</span>
-              </a>
-              <a href="students-bulk.html" class="feature-link">
-                <div class="feature-link-left"><span>🗂️</span> Bulk-enroll (Excel)</div>
-                <span class="feature-arrow">➔</span>
-              </a>
-              <a href="students-promotion.html" class="feature-link">
-                <div class="feature-link-left"><span>🎯</span> Promotion / Transfer</div>
-                <span class="feature-arrow">➔</span>
-              </a>
-              <a href="students-alumni.html" class="feature-link">
-                <div class="feature-link-left"><span>🎓</span> Graduated (Alumni)</div>
-                <span class="feature-arrow">➔</span>
-              </a>
-              <a href="students-commbook.html" class="feature-link">
-                <div class="feature-link-left"><span>💬</span> Communication Book</div>
-                <span class="feature-arrow">➔</span>
-              </a>
-              <a href="students-birthdays.html" class="feature-link">
-                <div class="feature-link-left"><span>🎂</span> Birthday Anniversaries</div>
-                <span class="feature-arrow">➔</span>
-              </a>
+        </div>
+
+        <!-- Directory Cards Grid -->
+        <section class="people-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          <!-- Student Card -->
+          <div class="people-card bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+            <div>
+              <div class="card-header students text-blue-600 dark:text-blue-400 font-extrabold text-lg flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-700/60 mb-4">
+                <span class="text-2xl p-2 bg-blue-50 dark:bg-blue-950/50 rounded-xl">🧑‍🎓</span>
+                Students
+              </div>
+              <div class="card-body">
+                <div class="relative mb-4">
+                  <input type="text" id="studentSearch" placeholder="Search student modules..." aria-label="Search students" class="sub-search w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all">
+                  <svg class="w-4 h-4 absolute left-3 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <div class="features-list flex flex-col gap-1.5" id="studentsList">
+                  <a href="students-view.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 hover:text-blue-600 transition">
+                    <span>📋</span> View Students
+                  </a>
+                  <a href="students-enroll.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 hover:text-blue-600 transition">
+                    <span>➕</span> Enroll Student
+                  </a>
+                  <a href="students-bulk.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 hover:text-blue-600 transition">
+                    <span>🗂️</span> Bulk-enroll (Excel)
+                  </a>
+                  <a href="students-promotion.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 hover:text-blue-600 transition">
+                    <span>🎯</span> Promotion / Transfer
+                  </a>
+                  <a href="students-alumni.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 hover:text-blue-600 transition">
+                    <span>🎓</span> Graduated (Alumni)
+                  </a>
+                  <a href="students-commbook.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 hover:text-blue-600 transition">
+                    <span>💬</span> Communication Book
+                  </a>
+                  <a href="students-birthdays.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 hover:text-blue-600 transition">
+                    <span>🎂</span> Birthday Anniversaries
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Parents Card -->
-        <div class="people-card" data-category="parents">
-          <div class="card-header parents">
-            <span>👪</span> Parents & Guardians
-          </div>
-          <div class="card-body">
-            <div class="features-list">
-              <a href="parents-list.html" class="feature-link">
-                <div class="feature-link-left"><span>👨‍👩‍👧‍👦</span> Parents / Guardians List</div>
-                <span class="feature-arrow">➔</span>
-              </a>
-              <a href="families.html" class="feature-link">
-                <div class="feature-link-left"><span>🏡</span> Family Units</div>
-                <span class="feature-arrow">➔</span>
-              </a>
+          <!-- Parents Card -->
+          <div class="people-card bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+            <div>
+              <div class="card-header parents text-emerald-600 dark:text-emerald-400 font-extrabold text-lg flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-700/60 mb-4">
+                <span class="text-2xl p-2 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl">👪</span>
+                Parents
+              </div>
+              <div class="card-body">
+                <div class="features-list flex flex-col gap-1.5">
+                  <a href="parents-list.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-slate-700/60 hover:text-emerald-600 transition">
+                    <span>👨‍👩‍👧‍👦</span> Parents / Guardians
+                  </a>
+                  <a href="families.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-slate-700/60 hover:text-emerald-600 transition">
+                    <span>🏡</span> Families
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Staff Card -->
-        <div class="people-card" data-category="staff">
-          <div class="card-header staff">
-            <span>👔</span> Staff & Employees
-          </div>
-          <div class="card-body">
-            <div class="features-list">
-              <a href="teachers.html" class="feature-link">
-                <div class="feature-link-left"><span>👩‍🏫</span> Teaching Staff</div>
-                <span class="feature-arrow">➔</span>
-              </a>
+          <!-- Staff Card -->
+          <div class="people-card bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+            <div>
+              <div class="card-header staff text-amber-600 dark:text-amber-400 font-extrabold text-lg flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-700/60 mb-4">
+                <span class="text-2xl p-2 bg-amber-50 dark:bg-amber-950/50 rounded-xl">👔</span>
+                Staff / Employees
+              </div>
+              <div class="card-body">
+                <div class="features-list flex flex-col gap-1.5">
+                  <a href="teachers.html" class="feature-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-slate-700/60 hover:text-amber-600 transition">
+                    <span>👩‍🏫</span> Teachers & Staff
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- No Matching Results Placeholder -->
-        <div class="no-results" id="noResults">
-          🔍 No directory features matched your search term.
-        </div>
-
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
   </div>
 
-  <!-- Floating Action Toolbars -->
-  <div class="floating-btn-group">
-    <button class="fab" title="Support Portal" aria-label="Open Support">💬</button>
-    <button class="fab" title="e-Classroom Hub" aria-label="Open e-Class">📚</button>
+  <!-- Desktop Floating Action Buttons -->
+  <div class="hidden md:flex flex-col gap-3 fixed right-6 bottom-6 z-40">
+    <button class="support-tab w-12 h-12 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-xl flex items-center justify-center text-xl transition-transform hover:scale-105" aria-label="Open Support" title="Support">
+      💬
+    </button>
+    <button class="eclass-fab w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl flex items-center justify-center text-xl transition-transform hover:scale-105" aria-label="Open e-Class" title="e-Classroom">
+      📚
+    </button>
   </div>
 
-  <!-- JavaScript Logic -->
+  <!-- Mobile Bottom Toolbar with Parabola Dock Cut-out -->
+  <div class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-around">
+    
+    <a href="admin.html" class="flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400 hover:text-brand-600 text-[11px] font-medium">
+      <span class="text-lg">🏠</span> Home
+    </a>
+    
+    <a href="people.html" class="flex flex-col items-center gap-0.5 text-brand-600 dark:text-brand-400 text-[11px] font-bold">
+      <span class="text-lg">👥</span> People
+    </a>
+
+    <!-- Elevated Parabola FAB Button Triggering Bottom Drawer -->
+    <div class="relative -top-5">
+      <button data-drawer-target="parabola-drawer" data-drawer-show="parabola-drawer" data-drawer-placement="bottom" aria-controls="parabola-drawer" type="button" class="w-13 h-13 rounded-full bg-gradient-to-r from-brand-600 to-indigo-600 text-white shadow-lg flex items-center justify-center text-2xl ring-4 ring-slate-50 dark:ring-slate-900 transition-transform active:scale-95">
+        ⚡
+      </button>
+    </div>
+
+    <a href="academics.html" class="flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400 hover:text-brand-600 text-[11px] font-medium">
+      <span class="text-lg">📚</span> Academics
+    </a>
+
+    <a href="finance.html" class="flex flex-col items-center gap-0.5 text-slate-500 dark:text-slate-400 hover:text-brand-600 text-[11px] font-medium">
+      <span class="text-lg">💰</span> Finance
+    </a>
+  </div>
+
+  <!-- Bottom Parabola Drawer for Quick Actions (Flowbite Drawer) -->
+  <div id="parabola-drawer" class="fixed bottom-0 left-0 right-0 z-50 p-5 overflow-y-auto transition-transform translate-y-full bg-white dark:bg-slate-800 rounded-t-3xl border-t border-slate-200 dark:border-slate-700 max-h-[80vh]" tabindex="-1" aria-labelledby="drawer-bottom-label">
+    
+    <!-- Drawer Handle Indicator -->
+    <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4"></div>
+
+    <div class="flex items-center justify-between mb-4">
+      <h5 id="drawer-bottom-label" class="inline-flex items-center text-base font-extrabold text-slate-900 dark:text-white">
+        🚀 Quick Actions & Tools
+      </h5>
+      <button type="button" data-drawer-hide="parabola-drawer" aria-controls="parabola-drawer" class="text-slate-400 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center">
+        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/></svg>
+      </button>
+    </div>
+
+    <!-- Quick Action Grid Inside Drawer -->
+    <div class="grid grid-cols-2 gap-3 mb-2">
+      <a href="students-enroll.html" class="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700 text-center hover:bg-brand-50 dark:hover:bg-slate-700 transition">
+        <span class="text-2xl mb-1">➕</span>
+        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Enroll Student</span>
+      </a>
+      <a href="students-bulk.html" class="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700 text-center hover:bg-brand-50 dark:hover:bg-slate-700 transition">
+        <span class="text-2xl mb-1">🗂️</span>
+        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Excel Bulk-Enroll</span>
+      </a>
+      <button class="support-tab flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700 text-center hover:bg-brand-50 dark:hover:bg-slate-700 transition">
+        <span class="text-2xl mb-1">💬</span>
+        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Support Chat</span>
+      </button>
+      <button class="eclass-fab flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700 text-center hover:bg-brand-50 dark:hover:bg-slate-700 transition">
+        <span class="text-2xl mb-1">📚</span>
+        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">e-Classroom</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Flowbite JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
+
+  <!-- Complete Unaltered Backend Logic & Interactivity -->
   <script>
     const API_BASE = 'https://examguard-8rxe.onrender.com';
     const spinner = document.getElementById('pageSpinnerOverlay');
@@ -786,7 +365,9 @@
     function hideSpinner() {
       if (!spinner) return;
       spinner.style.opacity = '0';
-      setTimeout(() => { spinner.style.display = 'none'; }, 400);
+      setTimeout(() => {
+        spinner.style.display = 'none';
+      }, 300);
     }
 
     function showSpinner() {
@@ -795,7 +376,6 @@
       spinner.style.opacity = '1';
     }
 
-    /* Authentication & User Session */
     async function loadAuthenticatedUser() {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -810,44 +390,37 @@
             'Content-Type': 'application/json'
           }
         });
-
         if (!response.ok) {
           localStorage.removeItem('token');
           window.location.href = 'login.html';
           return null;
         }
-
         const result = await response.json();
         if (!result.success || !result.user) {
           localStorage.removeItem('token');
           window.location.href = 'login.html';
           return null;
         }
-
-        const { user, school } = result;
-
+        const user = result.user;
+        const school = result.school;
         if (user.role !== 'superadmin') {
           alert('You do not have permission to access the Admin Portal.');
           window.location.href = 'login.html';
           return null;
         }
-
         if (!user.schoolId || !school) {
           alert('Your account is not properly linked to a school.');
           localStorage.removeItem('token');
           window.location.href = 'login.html';
           return null;
         }
-
         if (school.status && school.status !== 'active') {
           alert(`This school account is currently ${school.status}.`);
           localStorage.removeItem('token');
           window.location.href = 'login.html';
           return null;
         }
-
         return { user, school };
-
       } catch (error) {
         console.error('[PEOPLE AUTH ERROR]', error);
         alert('Unable to connect to the school server. Please try again.');
@@ -855,117 +428,115 @@
       }
     }
 
-    /* Branding Application */
     function applySchoolBranding(user, school) {
       const schoolName = school.schoolName || 'School';
       const schoolLogo = school.logoUrl || school.branding?.logo || school.branding?.lightLogo || school.branding?.darkLogo || 'mainlogo.png';
-
+      
       const logo = document.getElementById('schoolLogo');
       if (logo) {
         logo.src = schoolLogo;
         logo.alt = `${schoolName} Logo`;
-        logo.onerror = function() {
+        logo.onerror = function () {
           this.onerror = null;
           this.src = 'mainlogo.png';
         };
       }
-
       const brandName = document.getElementById('schoolBrandName');
-      if (brandName) brandName.textContent = schoolName;
-
+      if (brandName) {
+        brandName.textContent = schoolName;
+      }
       const schoolId = document.getElementById('sidebarSchoolId');
-      if (schoolId) schoolId.textContent = school.schoolId ? `ID: ${school.schoolId}` : '';
-
+      if (schoolId) {
+        schoolId.textContent = school.schoolId ? `School ID: ${school.schoolId}` : '';
+      }
       const adminName = document.getElementById('adminName');
-      if (adminName) adminName.textContent = user.name || 'Admin';
-
-      document.title = `${schoolName} - People Directory`;
+      if (adminName) {
+        adminName.textContent = user.name || 'Admin';
+      }
+      document.title = `${schoolName} - People`;
+      const pageTitle = document.getElementById('pageTitle');
+      if (pageTitle) {
+        pageTitle.textContent = 'People Directory';
+      }
     }
 
-    /* Interactive Live Search Filtering */
-    function setupLiveSearch() {
-      const searchInput = document.getElementById('studentSearch');
-      const featureLinks = document.querySelectorAll('.feature-link');
-      const cards = document.querySelectorAll('.people-card');
-      const noResults = document.getElementById('noResults');
-
-      searchInput.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        let totalMatches = 0;
-
-        cards.forEach(card => {
-          let cardMatches = 0;
-          const linksInCard = card.querySelectorAll('.feature-link');
-
-          linksInCard.forEach(link => {
-            const text = link.textContent.toLowerCase();
-            if (text.includes(query)) {
-              link.style.display = 'flex';
-              cardMatches++;
-              totalMatches++;
-            } else {
-              link.style.display = 'none';
-            }
-          });
-
-          card.style.display = cardMatches > 0 ? 'flex' : 'none';
-        });
-
-        noResults.style.display = totalMatches === 0 ? 'block' : 'none';
-      });
-
-      // Shortcut key ('/') to focus search bar
-      document.addEventListener('keydown', (e) => {
-        if (e.key === '/' && document.activeElement !== searchInput) {
-          e.preventDefault();
-          searchInput.focus();
-        }
-      });
-    }
-
-    /* Mobile Sidebar Controller */
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
     const sidebarCloseMobile = document.getElementById('sidebarCloseMobile');
 
+    function handleResize() {
+      if (window.innerWidth <= 768) {
+        if (sidebarToggle) sidebarToggle.style.display = 'flex';
+      } else {
+        if (sidebarToggle) sidebarToggle.style.display = 'none';
+        if (sidebar) sidebar.classList.add('-translate-x-full');
+        if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+      }
+    }
+
     function openSidebar() {
-      sidebar.classList.add('active');
-      sidebarOverlay.classList.add('active');
+      if (sidebar) sidebar.classList.remove('-translate-x-full');
+      if (sidebarOverlay) sidebarOverlay.classList.remove('hidden');
     }
 
     function closeSidebar() {
-      sidebar.classList.remove('active');
-      sidebarOverlay.classList.remove('active');
+      if (sidebar) sidebar.classList.add('-translate-x-full');
+      if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
     }
 
-    sidebarToggle.addEventListener('click', openSidebar);
-    sidebarCloseMobile.addEventListener('click', closeSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
+    if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
+    if (sidebarCloseMobile) sidebarCloseMobile.addEventListener('click', closeSidebar);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeSidebar();
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+          closeSidebar();
+        }
+      });
     });
 
-    /* Highlight active navigation link */
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        closeSidebar();
+      }
+    });
+
+    window.addEventListener('resize', handleResize);
+
     function setActiveNavigation() {
       const currentPath = window.location.pathname;
       document.querySelectorAll('.nav-link').forEach(link => {
         const linkPath = new URL(link.href, window.location.origin).pathname;
-        link.classList.toggle('active', linkPath === currentPath);
+        if (linkPath === currentPath) {
+          link.classList.add('active');
+        }
       });
     }
 
-    /* Page Initialization Logic */
+    // Client-side quick filter for Student sub-search
+    const studentSearchInput = document.getElementById('studentSearch');
+    if (studentSearchInput) {
+      studentSearchInput.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const links = document.querySelectorAll('#studentsList .feature-link');
+        links.forEach(link => {
+          const text = link.textContent.toLowerCase();
+          link.style.display = text.includes(term) ? 'flex' : 'none';
+        });
+      });
+    }
+
     async function initializePage() {
       showSpinner();
+      handleResize();
       setActiveNavigation();
-      setupLiveSearch();
-
       const session = await loadAuthenticatedUser();
-      if (session) {
-        applySchoolBranding(session.user, session.school);
+      if (!session) {
+        return;
       }
+      applySchoolBranding(session.user, session.school);
       hideSpinner();
     }
 
