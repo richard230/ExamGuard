@@ -1,968 +1,590 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
     <title>Results Management - Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap">
+    
+    <!-- Fonts & Font Awesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+
+    <!-- Tailwind CSS & Flowbite -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        :root {
-            --bg-0: #f6f8ff;
-            --bg-1: #eef2ff;
-            --accent: #0f172a;
-            --accent-2: #1e40af;
-            --muted: #6b7280;
-            --card-bg: #ffffff;
-            --sidebar-w: 300px;
-            --radius: 10px;
-            --header-height: 60px;
-        }
-
-        * { box-sizing: border-box; }
-        html, body {
-            height: 100%;
-            margin: 0;
-            font-family: 'Inter', system-ui, Arial;
-            background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
-            -webkit-font-smoothing: antialiased;
-            color: #07102a;
-        }
-        a { color: inherit; text-decoration: none; }
-
-        .app {
-            display: flex;
-            min-height: 100vh;
-            align-items: stretch;
-        }
-
-        .sidebar {
-            width: var(--sidebar-w);
-            min-width: var(--sidebar-w);
-            background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
-            color: #fff;
-            padding: 20px 16px;
-            position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            z-index: 100;
-            box-shadow: 4px 0 28px rgba(2, 11, 24, 0.12);
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            overflow-y: auto;
-        }
-
-        .brand {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .brand img {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
-            object-fit: cover;
-            border: 3px solid rgba(255, 224, 102, 0.12);
-            background: #fff;
-        }
-
-        .brand .title {
-            font-weight: 800;
-            font-size: 1.05rem;
-            color: #ffe066;
-        }
-
-        .brand .muted-small {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.92rem;
-        }
-
-        .nav {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 6px;
-        }
-
-        .nav a {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.98rem;
-            color: #e6eefc;
-            text-decoration: none;
-        }
-
-        .nav a.active, .nav a:hover {
-            background: rgba(255, 255, 255, 0.04);
-            color: #ffe066;
-        }
-
-        .main-wrapper {
-            margin-left: var(--sidebar-w);
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .topbar {
-            position: fixed;
-            left: var(--sidebar-w);
-            top: 0;
-            width: calc(100% - var(--sidebar-w));
-            z-index: 90;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 20px;
-            background: rgba(255, 255, 255, 0.95);
-            border-bottom: 1px solid #eef3ff;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-            height: var(--header-height);
-        }
-
-        .page-title {
-            font-weight: 800;
-            font-size: 1.05rem;
-            color: var(--accent-2);
-        }
-
-        .flex {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .muted-small {
-            color: var(--muted);
-            font-size: 0.92rem;
-        }
-
-        .btn {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 0;
-            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
-            color: #fff;
-            font-weight: 700;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn.ghost {
-            background: transparent;
-            border: 1px solid rgba(11, 66, 140, 0.08);
-            color: var(--accent-2);
-        }
-
-        .main-content {
-            margin-top: var(--header-height);
-            padding: 20px;
-            flex: 1;
-            min-height: calc(100vh - var(--header-height));
-            overflow-y: auto;
-        }
-
-        .results-container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        /* Spinner */
+        /* Custom Spinner Overlay */
         #pageSpinnerOverlay {
-            display: none;
             position: fixed;
-            z-index: 9999;
-            left: 0;
-            top: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(255, 255, 255, 0.7);
+            inset: 0;
+            z-index: 99999;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            display: flex;
             align-items: center;
             justify-content: center;
+            transition: opacity 0.3s ease;
         }
-
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #007bff;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #2563eb;
             border-radius: 50%;
-            width: 38px;
-            height: 38px;
-            animation: spin 1s linear infinite;
+            width: 48px;
+            height: 48px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* Action Buttons */
-        .results-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .results-actions button {
-            padding: 10px 16px;
-            border-radius: 8px;
-            border: none;
-            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
-            color: #fff;
-            font-weight: 700;
-            cursor: pointer;
-            font-size: 0.95rem;
-            transition: opacity 0.2s;
-        }
-
-        .results-actions button:hover:not(:disabled) {
-            opacity: 0.9;
-        }
-
-        .results-actions button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Filter Section */
-        .results-filters {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
-            background: var(--card-bg);
-            padding: 16px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-        }
-
-        .results-filters select,
-        .results-filters input[type="text"] {
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ddeaff;
-            font-size: 0.95rem;
-            font-family: 'Inter', system-ui, Arial;
-        }
-
-        .results-filters select:focus,
-        .results-filters input[type="text"]:focus {
-            outline: none;
-            border-color: var(--accent-2);
-            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
-        }
-
-        .results-filters button {
-            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
-            color: #fff;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 8px;
-            font-weight: 700;
-            cursor: pointer;
-            align-self: end;
-        }
-
-        .results-filters button:hover {
-            opacity: 0.9;
-        }
-
-        /* Section Header */
-        .section-header {
-            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
-            color: #fff;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            font-weight: 700;
-            font-size: 1rem;
-        }
-
-        .section-header:first-of-type {
-            margin-top: 0;
-        }
-
-        /* Table Styles */
-        .results-table-container {
-            background: var(--card-bg);
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-            overflow-x: auto;
-            margin-bottom: 20px;
-        }
-
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 900px;
-        }
-
-        .results-table thead th {
-            background: #f1f6fb;
-            color: #2647a6;
-            font-weight: 700;
-            padding: 12px;
-            text-align: left;
-            border-bottom: 2px solid #e6eefc;
-        }
-
-        .results-table thead th:first-child {
-            width: 40px;
-        }
-
-        .results-table tbody tr {
-            border-bottom: 1px solid #f1f5fb;
-        }
-
-        .results-table tbody tr:hover {
-            background: #f7f9fc;
-        }
-
-        .results-table tbody td {
-            padding: 12px;
-            font-size: 0.95rem;
-        }
-
-        .checkbox-cell {
-            text-align: center;
-        }
-
-        .checkbox-cell input[type="checkbox"] {
-            cursor: pointer;
-            width: 18px;
-            height: 18px;
-        }
-
-        .row-number {
-            color: var(--muted);
-            font-weight: 600;
-            text-align: center;
-        }
-
-        .expand-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1.2rem;
-            color: var(--accent-2);
-            font-weight: bold;
-            padding: 0 8px;
-        }
-
-        .details-row {
-            background: #f7f9fc;
-        }
-
-        .details-row.hidden {
-            display: none;
-        }
-
-        .details-content {
-            padding: 12px 16px;
-        }
-
-        .details-content table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
-            margin: 8px 0;
-        }
-
-        .details-content th,
-        .details-content td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #e6eefc;
-            font-size: 0.9rem;
-        }
-
-        .details-content th {
-            background: #eef2ff;
-            font-weight: 700;
-            color: var(--accent-2);
-        }
-
-        .action-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1.1rem;
-            margin: 0 4px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
-
-        .action-btn.edit { color: #007bff; }
-        .action-btn.edit:hover { background: rgba(0, 123, 255, 0.1); }
-        .action-btn.delete { color: #dc3545; }
-        .action-btn.delete:hover { background: rgba(220, 53, 69, 0.1); }
-        .action-btn.publish { color: #20c997; }
-        .action-btn.publish:hover { background: rgba(32, 201, 151, 0.1); }
-
-        .status-published {
-            color: #20c997;
-            font-weight: 700;
-        }
-
-        .status-draft {
-            color: #888;
-            font-weight: 700;
-        }
-
-        .position-badge {
-            background: #eef2ff;
-            color: var(--accent-2);
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 700;
-        }
-
-        /* Modal Styles */
+        /* Modal active behavior */
         .modal {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.35);
-            z-index: 2000;
+            z-index: 50;
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
             align-items: center;
             justify-content: center;
-            padding: 12px;
+            padding: 1rem;
             overflow-y: auto;
         }
-
         .modal.active {
-            display: flex;
+            display: flex !important;
         }
 
-        .modal-content {
-            background: #fff;
-            border-radius: 12px;
-            max-width: 700px;
-            width: 100%;
-            padding: 24px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-            position: relative;
-            margin: auto;
+        /* Mobile Sidebar Toggle state */
+        .sidebar.mobile-open {
+            transform: translateX(0) !important;
         }
 
-        .modal-content h3 {
-            margin: 0 0 20px 0;
-            font-size: 1.25rem;
-            color: var(--accent-2);
-            font-weight: 800;
-        }
-
-        .modal-content h4 {
-            margin: 0 0 12px 0;
+        /* Generated Dynamic Table Styles */
+        .section-header {
             font-size: 1rem;
-            color: var(--accent-2);
-            font-weight: 700;
-        }
-
-        .modal-content label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 700;
-            color: var(--muted);
-            font-size: 0.9rem;
-        }
-
-        .modal-content input,
-        .modal-content select {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ddeaff;
-            font-size: 0.95rem;
-            font-family: 'Inter', system-ui, Arial;
-            box-sizing: border-box;
-            background: #fafcff;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            margin-bottom: 12px;
-        }
-
-        .modal-content input:focus,
-        .modal-content select:focus {
-            outline: none;
-            border-color: var(--accent-2);
-            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
-            background: #fff;
-        }
-
-        .modal-content input[readonly] {
-            background: #f7f9fc;
-            cursor: not-allowed;
-            border-color: #e6eefc;
-        }
-
-        .modal-content input[readonly]:focus {
-            box-shadow: none;
-            border-color: #e6eefc;
-        }
-
-        .info-section {
-            background: #f7f9fc;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #eef2ff;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .info-grid.three-col {
-            grid-template-columns: 1fr 1fr 1fr;
-        }
-
-        .info-grid.four-col {
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-        }
-
-        .close {
-            position: absolute;
-            top: 12px;
-            right: 16px;
-            font-size: 1.5rem;
-            color: var(--muted);
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-
-        .close:hover {
-            color: var(--accent);
-        }
-
-        .modal-actions {
+            font-weight: 800;
+            color: #1e293b;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
             display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eef3ff;
+            align-items: center;
+            gap: 0.5rem;
         }
-
-        .btn-primary {
-            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
-            color: #fff;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 8px;
+        .results-table-container {
+            overflow-x: auto;
+            background-color: #ffffff;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+            margin-bottom: 1.5rem;
+        }
+        .results-table {
+            width: 100%;
+            text-align: left;
+            font-size: 0.875rem;
+            color: #334155;
+            border-collapse: collapse;
+        }
+        .results-table th {
+            background-color: #f8fafc;
+            color: #475569;
             font-weight: 700;
-            cursor: pointer;
-            font-size: 0.95rem;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
         }
-
-        .btn-primary:hover {
-            opacity: 0.9;
+        .results-table td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
         }
-
-        .btn-danger {
-            background: #dc3545;
-            color: #fff;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 8px;
+        .results-table tr:hover {
+            background-color: #f8fafc;
+        }
+        .status-published {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
             font-weight: 700;
-            cursor: pointer;
-            font-size: 0.95rem;
+            background-color: #dcfce7;
+            color: #15803d;
         }
-
-        .btn-danger:hover {
-            opacity: 0.9;
-        }
-
-        .btn-cancel {
-            background: #f7f9fc;
-            color: var(--muted);
-            border: 1px solid #ddeaff;
-            padding: 10px 24px;
-            border-radius: 8px;
+        .status-draft {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
             font-weight: 700;
-            cursor: pointer;
-            font-size: 0.95rem;
+            background-color: #fef3c7;
+            color: #b45309;
         }
-
-        .btn-cancel:hover {
-            background: #eef2ff;
-        }
-
-        #resultsStatus {
-            margin: 16px 0;
-            min-height: 22px;
-            color: var(--accent-2);
+        .position-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
             font-weight: 600;
+            background-color: #f1f5f9;
+            color: #334155;
         }
-
-        .status-message {
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 12px;
-            min-height: 20px;
-            font-weight: 600;
+        .action-btn {
+            padding: 0.4rem 0.6rem;
+            border-radius: 0.5rem;
+            color: #64748b;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
+            border: 1px solid #e2e8f0;
         }
-
-        .status-success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-        }
+        .action-btn:hover { background-color: #f1f5f9; color: #0f172a; }
+        .action-btn.edit:hover { color: #2563eb; bg-color: #eff6ff; border-color: #bfdbfe; }
+        .action-btn.publish:hover { color: #16a34a; bg-color: #f0fdf4; border-color: #bbf7d0; }
+        .action-btn.delete:hover { color: #dc2626; bg-color: #fef2f2; border-color: #fecaca; }
 
         .empty-state {
+            padding: 3rem 1.5rem;
             text-align: center;
-            padding: 40px 20px;
-            color: var(--muted);
+            color: #64748b;
         }
-
         .empty-state i {
-            font-size: 3rem;
-            color: #ddeaff;
-            margin-bottom: 12px;
-            display: block;
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            color: #cbd5e1;
         }
-        /* Mobile Menu Toggle */
-        .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--accent-2);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 8px;
-            margin-right: 12px;
+        .status-message {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
         }
-
-        .menu-toggle:hover {
-            opacity: 0.8;
-        }
-
-        @media (max-width: 980px) {
-            .menu-toggle {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .sidebar.mobile-open {
-                display: flex;
-                transform: translateX(0);
-                z-index: 999;
-            }
-
-            .sidebar.mobile-open::after {
-                content: '';
-                position: fixed;
-                inset: 0;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: -1;
-            }
-        }
-        /* Responsive */
-        @media (max-width: 980px) {
-            .sidebar {
-                display: none;
-            }
-            .main-wrapper {
-                margin-left: 0;
-            }
-            .topbar {
-                left: 0;
-                width: 100%;
-            }
-            .results-filters {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 720px) {
-            .main-content {
-                padding: 14px;
-            }
-            .results-actions {
-                flex-direction: column;
-            }
-            .results-actions button {
-                width: 100%;
-            }
-            .modal-content {
-                max-width: 95vw;
-            }
-            .info-grid,
-            .info-grid.three-col,
-            .info-grid.four-col {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        ::-webkit-scrollbar { width: 7px; background: #f4f8fc; }
-        ::-webkit-scrollbar-thumb { background: #e2e7ee; border-radius: 4px; }
+        .status-success { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+        .status-error { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     </style>
 </head>
-<body>
-    <div id="pageSpinnerOverlay"><div class="spinner"></div></div>
+<body class="h-full font-sans antialiased text-slate-800 bg-slate-50 selection:bg-brand-500 selection:text-white">
 
-    <div class="app">
-        <!-- Sidebar -->
-        <aside class="sidebar" role="navigation" aria-label="Navigation">
-            <div class="brand" style="margin-bottom:8px">
-                <img src="mainlogo.png" alt="Logo">
-                <div>
-                    <div class="title">Gold and Linc Schools</div>
-                    <div class="muted-small">Results Managemnet</div>
+    <!-- Page Loading Spinner Overlay -->
+    <div id="pageSpinnerOverlay">
+        <div class="flex flex-col items-center gap-3">
+            <div class="spinner"></div>
+            <p class="text-xs font-bold text-slate-500 tracking-wider uppercase">Loading Results Data...</p>
+        </div>
+    </div>
+
+    <div class="app min-h-screen flex flex-col md:flex-row">
+
+        <!-- Mobile Overlay for Sidebar -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 hidden md:hidden transition-opacity"></div>
+
+        <!-- Desktop & Mobile Sidebar -->
+        <aside class="sidebar fixed top-0 left-0 z-50 w-72 h-screen transition-transform -translate-x-full md:translate-x-0 bg-slate-950 text-white flex flex-col justify-between shadow-2xl border-r border-slate-800/80" role="navigation" aria-label="Navigation">
+            <div class="p-5 flex flex-col gap-4">
+                
+                <!-- School Brand Header -->
+                <div class="brand flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-3">
+                        <img src="mainlogo.png" alt="Logo" class="w-10 h-10 rounded-xl object-cover ring-2 ring-amber-400/30 bg-white p-0.5 shadow-md">
+                        <div>
+                            <div class="title font-extrabold text-sm text-amber-300 tracking-tight leading-tight truncate max-w-[140px]">Gold and Linc Schools</div>
+                            <div class="muted-small text-xs font-medium text-slate-400">Results Management</div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Primary Navigation -->
+                <nav class="nav flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-200px)] pr-1" aria-label="Primary">
+                    <a href="admin.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">🏠</span> Dashboard
+                    </a>
+                    <a href="admission.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">🎓</span> Admission
+                    </a>
+                    <a href="more.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">🌐</span> Multi-location
+                    </a>
+                    <a href="people.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">👥</span> People
+                    </a>
+                    <a href="academics.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">📚</span> Academics
+                    </a>
+                    <a href="admin-cbt.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">💻</span> CBT Configuration
+                    </a>
+                    <a href="results.html" class="nav-link active flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold text-amber-300 bg-slate-900 border-l-4 border-amber-400 transition-all shadow-inner">
+                        <span class="text-lg">📄</span> Results
+                    </a>
+                    <a href="finance.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">💰</span> Finance
+                    </a>
+                    <a href="adminfees.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">💳</span> Fees
+                    </a>
+                    <a href="adminpayment.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">💸</span> Payments
+                    </a>
+                    <a href="attendance.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">🗓️</span> Attendance
+                    </a>
+                    <a href="#" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-amber-300 hover:bg-slate-900 transition-all">
+                        <span class="text-lg">⚙️</span> Settings
+                    </a>
+                </nav>
             </div>
 
-            <nav class="nav" aria-label="Primary">
-                <a href="admin.html" class="nav-link">
-                    <span>🏠</span> Dashboard
-                </a>
-                <a href="admission.html" class="nav-link">
-                    <span>🎓</span> Admission
-                </a>
-                <a href="more.html" class="nav-link">
-                    <span>🌐</span> Multi-location
-                </a>
-                <a href="people.html" class="nav-link">
-                    <span>👥</span> People
-                </a>
-                <a href="academics.html" class="nav-link">
-                    <span>📚</span> Academics
-                </a>
-                <a href="admin-cbt.html" class="nav-link">
-                    <span>💻</span> CBT Configuration
-                </a>
-                <a href="results.html" class="nav-link active">
-                    <span>📄</span> Results
-                </a>
-                <a href="finance.html" class="nav-link">
-                    <span>💰</span> Finance
-                </a>
-                <a href="adminfees.html" class="nav-link">
-                    <span>💳</span> Fees
-                </a>
-                <a href="adminpayment.html" class="nav-link">
-                    <span>💸</span> Payments
-                </a>
-                <a href="attendance.html" class="nav-link">
-                    <span>🗓️</span> Attendance
-                </a>
-                <a href="#" class="nav-link">
-                    <span>⚙️</span> Settings
-                </a>
-            </nav>
-
-            <div style="margin-top:auto" class="muted-small">System Administrator</div>
+            <div class="p-4 border-t border-slate-800/80 bg-slate-900/50 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-xs ring-2 ring-brand-400">
+                    SA
+                </div>
+                <div class="text-xs truncate">
+                    <p class="text-slate-400">Role</p>
+                    <p class="font-bold text-white truncate">System Administrator</p>
+                </div>
+            </div>
         </aside>
 
-        <!-- Main Content -->
-        <div class="main-wrapper">
-            <!-- Topbar -->
-                        <div class="topbar" role="banner">
-                <button class="menu-toggle" id="menuToggleBtn" aria-label="Toggle menu"><i class="fa fa-bars"></i></button>
-                <div>
-                    <div class="page-title">Results Management</div>                    
+        <!-- Main Wrapper Content -->
+        <div class="main-wrapper flex-1 md:ml-72 flex flex-col min-h-screen pb-20 md:pb-6">
+            
+            <!-- Topbar Header -->
+            <header class="topbar sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between shadow-xs" role="banner">
+                <div class="flex items-center gap-3">
+                    <button class="menu-toggle p-2 rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none md:hidden" id="menuToggleBtn" aria-label="Toggle menu">
+                        <i class="fa fa-bars text-lg"></i>
+                    </button>
+                    <div>
+                        <div class="page-title text-base md:text-lg font-extrabold text-slate-900 tracking-tight">Results Management</div>
+                    </div>
                 </div>
-                <div class="flex">
-                    <div class="muted-small" id="resultsSummary">Loading...</div>
-                    <button class="btn ghost" onclick="alert('Sign out')">Sign out</button>
+
+                <div class="flex items-center gap-3">
+                    <div class="muted-small text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 hidden sm:block" id="resultsSummary">Loading...</div>
+                    <button class="btn ghost px-3.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition" onclick="alert('Sign out')">
+                        <i class="fa fa-sign-out-alt mr-1"></i> Sign out
+                    </button>
                 </div>
-            </div>
+            </header>
 
             <!-- Main Content Area -->
-            <main class="main-content" role="main">
-                <div class="results-container">
-                    <!-- Action Buttons -->
-                    <div class="results-actions" aria-label="Quick actions">
-                        <button id="uploadResultsBtn"><i class="fa fa-upload"></i> Upload Results</button>
-                        <button id="publishSelectedBtn" disabled><i class="fa fa-send"></i> Publish Selected</button>
-                        <button id="deleteSelectedBtn" disabled><i class="fa fa-trash"></i> Delete Selected</button>
-                        <button id="exportCSVBtn"><i class="fa fa-download"></i> Export CSV</button>
-                        <button id="viewStatsBtn"><i class="fa fa-chart-bar"></i> View Statistics</button>
+            <main class="main-content p-4 md:p-6 flex-1 max-w-7xl w-full mx-auto" role="main">
+                <div class="results-container flex flex-col gap-5">
+                    
+                    <!-- Quick Action Buttons -->
+                    <div class="results-actions flex flex-wrap items-center gap-2.5 p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs" aria-label="Quick actions">
+                        <button id="uploadResultsBtn" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition">
+                            <i class="fa fa-upload"></i> Upload Results
+                        </button>
+                        <button id="publishSelectedBtn" disabled class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                            <i class="fa fa-paper-plane"></i> Publish Selected
+                        </button>
+                        <button id="deleteSelectedBtn" disabled class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                            <i class="fa fa-trash"></i> Delete Selected
+                        </button>
+                        <button id="exportCSVBtn" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition">
+                            <i class="fa fa-download"></i> Export CSV
+                        </button>
+                        <button id="viewStatsBtn" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition">
+                            <i class="fa fa-chart-bar"></i> View Statistics
+                        </button>
                     </div>
 
                     <!-- Filter Form -->
-                    <form class="results-filters" onsubmit="return filterResults(event);" aria-label="Filter results">
-                        <select id="sessionSelect" aria-label="Session">
-                            <option value="">All Sessions</option>
-                            <option value="2027-2028">2027–2028</option>
-                            <option value="2026-2027">2026–2027</option>
-                            <option value="2025-2026">2025–2026</option>
-                            <option value="2024-2025">2024–2025</option>
-                            <option value="2023-2024">2023–2024</option>
-                        </select>
-                        <select id="termSelect" aria-label="Term">
-                            <option value="">All Terms</option>
-                            <option value="FIRST TERM">FIRST TERM</option>
-                            <option value="SECOND TERM">SECOND TERM</option>
-                            <option value="THIRD TERM">THIRD TERM</option>
-                        </select>
-                        <select id="classSelect" aria-label="Class">
-                            <option value="">All Classes</option>
-                        </select>
-                        <select id="subjectSelect" aria-label="Subject">
-                            <option value="">All Subjects</option>
-                        </select>
-                        <input type="text" placeholder="Search student name or ID..." id="searchStudentInput" aria-label="Search student">
-                        <button type="submit" id="filterBtn">Filter</button>
+                    <form class="results-filters bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" onsubmit="return filterResults(event);" aria-label="Filter results">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Session</label>
+                            <select id="sessionSelect" aria-label="Session" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                                <option value="">All Sessions</option>
+                                <option value="2027-2028">2027–2028</option>
+                                <option value="2026-2027">2026–2027</option>
+                                <option value="2025-2026">2025–2026</option>
+                                <option value="2024-2025">2024–2025</option>
+                                <option value="2023-2024">2023–2024</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Term</label>
+                            <select id="termSelect" aria-label="Term" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                                <option value="">All Terms</option>
+                                <option value="FIRST TERM">FIRST TERM</option>
+                                <option value="SECOND TERM">SECOND TERM</option>
+                                <option value="THIRD TERM">THIRD TERM</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Class</label>
+                            <select id="classSelect" aria-label="Class" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                                <option value="">All Classes</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Subject</label>
+                            <select id="subjectSelect" aria-label="Subject" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                                <option value="">All Subjects</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Search</label>
+                            <input type="text" placeholder="Student name or ID..." id="searchStudentInput" aria-label="Search student" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                        </div>
+
+                        <div class="flex items-end">
+                            <button type="submit" id="filterBtn" class="w-full py-2 px-4 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition flex items-center justify-center gap-2">
+                                <i class="fa fa-filter"></i> Filter
+                            </button>
+                        </div>
                     </form>
+
+                    <!-- Status Banner -->
+                    <div id="resultsStatus" aria-live="polite"></div>
 
                     <!-- Results Display Area -->
                     <div id="resultsDisplay"></div>
-
-                    <div id="resultsStatus" aria-live="polite"></div>
                 </div>
             </main>
         </div>
     </div>
 
+    <!-- Mobile Bottom Navigation Toolbar -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-around shadow-lg">
+        <a href="admin.html" class="flex flex-col items-center gap-0.5 text-slate-500 hover:text-brand-600 text-[11px] font-medium">
+            <span class="text-lg">🏠</span> Home
+        </a>
+        
+        <a href="results.html" class="flex flex-col items-center gap-0.5 text-brand-600 text-[11px] font-bold">
+            <span class="text-lg">📄</span> Results
+        </a>
+
+        <!-- Parabola Elevated Quick Actions Trigger -->
+        <div class="relative -top-5">
+            <button data-drawer-target="parabola-drawer" data-drawer-show="parabola-drawer" data-drawer-placement="bottom" aria-controls="parabola-drawer" type="button" class="w-13 h-13 rounded-full bg-gradient-to-r from-brand-600 to-indigo-600 text-white shadow-xl flex items-center justify-center text-2xl ring-4 ring-slate-50 transition-transform active:scale-95">
+                ⚡
+            </button>
+        </div>
+
+        <a href="academics.html" class="flex flex-col items-center gap-0.5 text-slate-500 hover:text-brand-600 text-[11px] font-medium">
+            <span class="text-lg">📚</span> Academics
+        </a>
+
+        <a href="finance.html" class="flex flex-col items-center gap-0.5 text-slate-500 hover:text-brand-600 text-[11px] font-medium">
+            <span class="text-lg">💰</span> Finance
+        </a>
+    </div>
+
+    <!-- Flowbite Parabola Bottom Drawer -->
+    <div id="parabola-drawer" class="fixed bottom-0 left-0 right-0 z-50 p-5 overflow-y-auto transition-transform translate-y-full bg-white rounded-t-3xl border-t border-slate-200 max-h-[80vh]" tabindex="-1" aria-labelledby="drawer-bottom-label">
+        <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4"></div>
+
+        <div class="flex items-center justify-between mb-4">
+            <h5 id="drawer-bottom-label" class="inline-flex items-center text-base font-extrabold text-slate-900">
+                ⚡ Quick Results Actions
+            </h5>
+            <button type="button" data-drawer-hide="parabola-drawer" aria-controls="parabola-drawer" class="text-slate-400 bg-transparent hover:bg-slate-100 hover:text-slate-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center">
+                <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/></svg>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-2">
+            <button onclick="document.getElementById('uploadResultsBtn').click();" class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-center hover:bg-brand-50 transition">
+                <span class="text-2xl mb-1">📤</span>
+                <span class="text-xs font-bold text-slate-800">Upload Results</span>
+            </button>
+            <button onclick="document.getElementById('viewStatsBtn').click();" class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-center hover:bg-brand-50 transition">
+                <span class="text-2xl mb-1">📊</span>
+                <span class="text-xs font-bold text-slate-800">View Statistics</span>
+            </button>
+            <button onclick="document.getElementById('exportCSVBtn').click();" class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-center hover:bg-brand-50 transition">
+                <span class="text-2xl mb-1">💾</span>
+                <span class="text-xs font-bold text-slate-800">Export CSV</span>
+            </button>
+            <button onclick="document.getElementById('publishSelectedBtn').click();" class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-center hover:bg-brand-50 transition">
+                <span class="text-2xl mb-1">🚀</span>
+                <span class="text-xs font-bold text-slate-800">Publish Selected</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Statistics Modal -->
     <div id="statisticsModal" class="modal" aria-modal="true" role="dialog">
-        <div class="modal-content" style="max-width: 500px;">
-            <button class="close" id="closeStatsModal" aria-label="Close">&times;</button>
-            <h3>Results Statistics</h3>
-            <canvas id="resultsStatsChart" width="350" height="180"></canvas>
+        <div class="modal-content bg-white rounded-2xl p-6 shadow-2xl w-full max-w-lg relative border border-slate-200">
+            <button class="close absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-2xl font-bold" id="closeStatsModal" aria-label="Close">&times;</button>
+            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <i class="fa fa-chart-pie text-brand-600"></i> Results Statistics
+            </h3>
+            <div class="p-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center">
+                <canvas id="resultsStatsChart" width="350" height="200"></canvas>
+            </div>
         </div>
     </div>
 
     <!-- Edit Result Modal -->
     <div id="editResultModal" class="modal" aria-modal="true" role="dialog">
-        <div class="modal-content">
-            <button class="close" id="closeEditModal" aria-label="Close">&times;</button>
-            <h3>Edit Result</h3>
+        <div class="modal-content bg-white rounded-2xl p-6 shadow-2xl w-full max-w-2xl relative border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <button class="close absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-2xl font-bold" id="closeEditModal" aria-label="Close">&times;</button>
+            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <i class="fa fa-edit text-brand-600"></i> Edit Student Result
+            </h3>
+            
             <form id="editResultForm" onsubmit="submitEditResult(event)">
                 <input type="hidden" name="resultId" id="editResultId">
                 
                 <!-- Student & Subject Info (Read-only) -->
-                <div class="info-section">
-                    <div class="info-grid">
+                <div class="info-section bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 mb-4">
+                    <div class="info-grid grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label>Student Name</label>
-                            <input type="text" id="editStudentName" readonly>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Student Name</label>
+                            <input type="text" id="editStudentName" readonly class="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700">
                         </div>
                         <div>
-                            <label>Subject</label>
-                            <input type="text" id="editSubjectName" readonly>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Subject</label>
+                            <input type="text" id="editSubjectName" readonly class="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700">
                         </div>
                     </div>
                 </div>
 
                 <!-- Assessment Scores -->
-                <h4>Assessment Scores</h4>
-                <div class="info-grid">
+                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-2">Assessment Scores</h4>
+                <div class="info-grid grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                     <div>
-                        <label>CA1 <span style="color: #888;">(out of 20)</span></label>
-                        <input type="number" name="ca1_score" id="editCA1" min="0" max="20" step="0.5">
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">CA1 <span class="text-slate-400">(20)</span></label>
+                        <input type="number" name="ca1_score" id="editCA1" min="0" max="20" step="0.5" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-500">
                     </div>
                     <div>
-                        <label>CA2 <span style="color: #888;">(out of 20)</span></label>
-                        <input type="number" name="ca2_score" id="editCA2" min="0" max="20" step="0.5">
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">CA2 <span class="text-slate-400">(20)</span></label>
+                        <input type="number" name="ca2_score" id="editCA2" min="0" max="20" step="0.5" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-500">
                     </div>
                     <div>
-                        <label>Mid Term <span style="color: #888;">(out of 20)</span></label>
-                        <input type="number" name="midterm_score" id="editMidTerm" min="0" max="20" step="0.5">
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">Mid Term <span class="text-slate-400">(20)</span></label>
+                        <input type="number" name="midterm_score" id="editMidTerm" min="0" max="20" step="0.5" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-500">
                     </div>
                     <div>
-                        <label>Exam <span style="color: #888;">(out of 60)</span></label>
-                        <input type="number" name="exam_score" id="editExam" min="0" max="60" step="0.5">
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">Exam <span class="text-slate-400">(60)</span></label>
+                        <input type="number" name="exam_score" id="editExam" min="0" max="60" step="0.5" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-500">
                     </div>
                 </div>
 
                 <!-- Computed Results -->
-                <h4 style="margin-top: 20px;">Computed Results</h4>
-                <div class="info-grid four-col">
+                <h4 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-2">Computed Summary</h4>
+                <div class="info-grid grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
                     <div>
-                        <label>Total Score</label>
-                        <input type="number" id="editTotalScore" readonly>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Total Score</label>
+                        <input type="number" id="editTotalScore" readonly class="w-full px-3 py-2 text-xs font-bold text-brand-600 bg-white rounded-lg border border-slate-200">
                     </div>
                     <div>
-                        <label>Grade</label>
-                        <input type="text" name="grade" id="editGrade" readonly>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Grade</label>
+                        <input type="text" name="grade" id="editGrade" readonly class="w-full px-3 py-2 text-xs font-bold text-slate-800 bg-white rounded-lg border border-slate-200">
                     </div>
                     <div>
-                        <label>Remarks</label>
-                        <input type="text" name="remarks" id="editRemarks" readonly>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Remarks</label>
+                        <input type="text" name="remarks" id="editRemarks" readonly class="w-full px-3 py-2 text-xs font-semibold text-slate-700 bg-white rounded-lg border border-slate-200">
                     </div>
                     <div>
-                        <label>Position</label>
-                        <input type="text" name="subject_position" id="editSubjectPosition" readonly>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Position</label>
+                        <input type="text" name="subject_position" id="editSubjectPosition" readonly class="w-full px-3 py-2 text-xs font-semibold text-slate-700 bg-white rounded-lg border border-slate-200">
                     </div>
                 </div>
 
                 <!-- Additional Info -->
-                <h4 style="margin-top: 20px;">Additional Information</h4>
-                <div class="info-grid">
+                <div class="info-grid grid grid-cols-2 gap-3 mb-6">
                     <div>
-                        <label>Class</label>
-                        <input type="text" id="editClassName" readonly>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Class</label>
+                        <input type="text" id="editClassName" readonly class="w-full px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-lg border border-slate-200">
                     </div>
                     <div>
-                        <label>Status</label>
-                        <input type="text" id="editStatus" readonly>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Status</label>
+                        <input type="text" id="editStatus" readonly class="w-full px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-lg border border-slate-200">
                     </div>
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="modal-actions">
-                    <button type="button" class="btn-cancel" onclick="closeModal('editResultModal')">Cancel</button>
-                    <button type="submit" class="btn-primary">Save Changes</button>
+                <div class="modal-actions flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                    <button type="button" class="btn-cancel px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition" onclick="closeModal('editResultModal')">Cancel</button>
+                    <button type="submit" class="btn-primary px-5 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 transition shadow-sm">Save Changes</button>
                 </div>
-                <div id="editResultStatus"></div>
+                <div id="editResultStatus" class="mt-3"></div>
             </form>
         </div>
     </div>
 
     <!-- Delete Result Modal -->
     <div id="deleteResultModal" class="modal" aria-modal="true" role="dialog">
-        <div class="modal-content" style="max-width: 420px;">
-            <button class="close" id="closeDeleteModal" aria-label="Close">&times;</button>
-            <h3>Delete Result</h3>
-            <p style="color: var(--muted); margin: 0 0 20px 0;">Are you sure you want to delete this result? This action cannot be undone.</p>
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" onclick="closeModal('deleteResultModal')">Cancel</button>
-                <button id="confirmDeleteBtn" class="btn-danger" type="button" onclick="confirmDelete()">Delete</button>
+        <div class="modal-content bg-white rounded-2xl p-6 shadow-2xl w-full max-w-md relative border border-slate-200">
+            <button class="close absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-2xl font-bold" id="closeDeleteModal" aria-label="Close">&times;</button>
+            <h3 class="text-lg font-bold text-rose-600 mb-2 flex items-center gap-2">
+                <i class="fa fa-exclamation-triangle"></i> Delete Result
+            </h3>
+            <p class="text-xs text-slate-600 mb-6 leading-relaxed">Are you sure you want to delete this result record? This action is permanent and cannot be undone.</p>
+            <div class="modal-actions flex items-center justify-end gap-3">
+                <button type="button" class="btn-cancel px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition" onclick="closeModal('deleteResultModal')">Cancel</button>
+                <button id="confirmDeleteBtn" class="btn-danger px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition shadow-sm" type="button" onclick="confirmDelete()">Delete Result</button>
             </div>
-            <div id="deleteResultStatus"></div>
+            <div id="deleteResultStatus" class="mt-3"></div>
         </div>
     </div>
 
     <!-- Publish Result Modal -->
     <div id="publishResultModal" class="modal" aria-modal="true" role="dialog">
-        <div class="modal-content" style="max-width: 420px;">
-            <button class="close" id="closePublishModal" aria-label="Close">&times;</button>
-            <h3>Publish Result</h3>
-            <p style="color: var(--muted); margin: 0 0 20px 0;">Are you sure you want to publish this result? It will be visible to students.</p>
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" onclick="closeModal('publishResultModal')">Cancel</button>
-                <button id="confirmPublishBtn" class="btn-primary" type="button" onclick="confirmPublish()">Publish</button>
+        <div class="modal-content bg-white rounded-2xl p-6 shadow-2xl w-full max-w-md relative border border-slate-200">
+            <button class="close absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-2xl font-bold" id="closePublishModal" aria-label="Close">&times;</button>
+            <h3 class="text-lg font-bold text-emerald-600 mb-2 flex items-center gap-2">
+                <i class="fa fa-paper-plane"></i> Publish Result
+            </h3>
+            <p class="text-xs text-slate-600 mb-6 leading-relaxed">Are you sure you want to publish this result? It will become visible on student and parent portal dashboards.</p>
+            <div class="modal-actions flex items-center justify-end gap-3">
+                <button type="button" class="btn-cancel px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition" onclick="closeModal('publishResultModal')">Cancel</button>
+                <button id="confirmPublishBtn" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm" type="button" onclick="confirmPublish()">Publish Now</button>
             </div>
-            <div id="publishResultStatus"></div>
+            <div id="publishResultStatus" class="mt-3"></div>
         </div>
     </div>
 
+    <!-- Flowbite JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
+
+    <!-- Complete Unaltered Backend JS Logic -->
     <script>
         // ============ API CONFIGURATION ============
         const API_BASE_URL = "https://goldlincschools.onrender.com";
@@ -977,11 +599,13 @@
 
         // ============ SPINNER HELPERS ============
         function showSpinner() {
-            document.getElementById('pageSpinnerOverlay').style.display = 'flex';
+            const spinner = document.getElementById('pageSpinnerOverlay');
+            if (spinner) spinner.style.display = 'flex';
         }
 
         function hideSpinner() {
-            document.getElementById('pageSpinnerOverlay').style.display = 'none';
+            const spinner = document.getElementById('pageSpinnerOverlay');
+            if (spinner) spinner.style.display = 'none';
         }
 
         // ============ AUTH HEADERS ============
@@ -1038,7 +662,7 @@
                 console.error('Error fetching results:', err);
                 showStatus('Error fetching results: ' + err.message, 'error');
                 return [];
-            } finally {
+            } font-finally {
                 hideSpinner();
             }
         }
@@ -1097,7 +721,7 @@
 
         // ============ FILTERING LOGIC ============
         function filterResults(event) {
-            event.preventDefault();
+            if (event && event.preventDefault) event.preventDefault();
 
             const session = document.getElementById('sessionSelect').value;
             const term = document.getElementById('termSelect').value;
@@ -1130,8 +754,8 @@
                     <div class="results-table-container">
                         <div class="empty-state">
                             <i class="fas fa-inbox"></i>
-                            <p>No results found</p>
-                            <p class="muted-small">Try adjusting your filters</p>
+                            <p class="font-bold text-base text-slate-700">No results found</p>
+                            <p class="muted-small text-xs text-slate-400">Try adjusting your active search filters</p>
                         </div>
                     </div>
                 `;
@@ -1156,7 +780,7 @@
             let rowNum = 1;
 
             for (const groupKey in grouped) {
-                html += `<div class="section-header">${groupKey}</div>`;
+                html += `<div class="section-header"><i class="fa fa-folder-open text-brand-600"></i> ${groupKey}</div>`;
 
                 const groupResults = grouped[groupKey];
                 html += `
@@ -1166,6 +790,7 @@
                                 <tr>
                                     <th style="width: 40px;">
                                         <input type="checkbox" id="selectAll_${groupKey.replace(/\s/g, '_')}" 
+                                            class="rounded text-brand-600 focus:ring-brand-500"
                                             onchange="toggleSelectAll(this, '${groupKey.replace(/\s/g, '_')}')">
                                     </th>
                                     <th style="width: 50px;">No.</th>
@@ -1198,15 +823,15 @@
                     html += `
                         <tr class="result-row" data-result-id="${r._id}">
                             <td class="checkbox-cell">
-                                <input type="checkbox" class="result-checkbox" data-group="${groupKey.replace(/\s/g, '_')}" 
+                                <input type="checkbox" class="result-checkbox rounded text-brand-600 focus:ring-brand-500" data-group="${groupKey.replace(/\s/g, '_')}" 
                                     value="${r._id}" onchange="updateSelectionState()">
                             </td>
-                            <td class="row-number">${rowNum}</td>
-                            <td>${studentNo}</td>
-                            <td>${studentName}</td>
+                            <td class="row-number font-mono text-xs">${rowNum}</td>
+                            <td class="font-mono text-xs font-medium">${studentNo}</td>
+                            <td class="font-bold text-slate-800">${studentName}</td>
                             <td>${className}</td>
                             <td>${subjectName}</td>
-                            <td><strong>${total}</strong></td>
+                            <td><strong class="text-brand-600 font-extrabold">${total}</strong></td>
                             <td><strong>${grade}</strong></td>
                             <td><span class="${statusClass}">${status}</span></td>
                             <td><span class="position-badge">${position}</span></td>
@@ -1216,7 +841,7 @@
                                 </button>
                                 ${status === 'Draft' ? `
                                     <button class="action-btn publish" onclick="openPublishModal('${r._id}')" title="Publish">
-                                        <i class="fas fa-send"></i>
+                                        <i class="fas fa-paper-plane"></i>
                                     </button>
                                 ` : ''}
                                 <button class="action-btn delete" onclick="openDeleteModal('${r._id}')" title="Delete">
@@ -1263,11 +888,13 @@
 
         // ============ MODAL HANDLERS ============
         function openModal(modalId) {
-            document.getElementById(modalId).classList.add('active');
+            const m = document.getElementById(modalId);
+            if (m) m.classList.add('active');
         }
 
         function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
+            const m = document.getElementById(modalId);
+            if (m) m.classList.remove('active');
         }
 
         function openEditModal(resultId) {
@@ -1291,9 +918,10 @@
             document.getElementById('editRemarks').value = remark;
             document.getElementById('editSubjectPosition').value = result.subject_position || '';
 
-            // Add real-time calculation
+            // Add real-time calculation listeners
             ['editCA1', 'editCA2', 'editMidTerm', 'editExam'].forEach(id => {
-                document.getElementById(id).addEventListener('change', recalculateScores);
+                const input = document.getElementById(id);
+                if (input) input.addEventListener('input', recalculateScores);
             });
 
             openModal('editResultModal');
@@ -1394,6 +1022,7 @@
         // ============ UTILITY FUNCTIONS ============
         function showStatus(message, type) {
             const el = document.getElementById('resultsStatus');
+            if (!el) return;
             el.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
             setTimeout(() => {
                 el.innerHTML = '';
@@ -1409,7 +1038,7 @@
         }
 
         function attachDetailsRowHandlers() {
-            // Details row expansion can be added here if needed
+            // Details row expansion handling if needed
         }
 
         // ============ INITIALIZATION ============
@@ -1426,18 +1055,22 @@
 
                 const sessionSelect = document.getElementById('sessionSelect');
                 sessions.sort().forEach(s => {
-                    const option = document.createElement('option');
-                    option.value = s;
-                    option.textContent = s;
-                    sessionSelect.appendChild(option);
+                    if (![...sessionSelect.options].some(o => o.value === s)) {
+                        const option = document.createElement('option');
+                        option.value = s;
+                        option.textContent = s;
+                        sessionSelect.appendChild(option);
+                    }
                 });
 
                 const termSelect = document.getElementById('termSelect');
                 terms.sort().forEach(t => {
-                    const option = document.createElement('option');
-                    option.value = t;
-                    option.textContent = t;
-                    termSelect.appendChild(option);
+                    if (![...termSelect.options].some(o => o.value === t)) {
+                        const option = document.createElement('option');
+                        option.value = t;
+                        option.textContent = t;
+                        termSelect.appendChild(option);
+                    }
                 });
 
                 const classSelect = document.getElementById('classSelect');
@@ -1471,7 +1104,7 @@
         document.getElementById('closePublishModal').addEventListener('click', () => closeModal('publishResultModal'));
 
         document.getElementById('uploadResultsBtn').onclick = () => window.location.href = "upload-results.html";
- 
+
         document.getElementById('viewStatsBtn').addEventListener('click', () => {
             openModal('statisticsModal');
         });
@@ -1481,7 +1114,6 @@
                 alert('No results to export');
                 return;
             }
-            // CSV export logic here
             alert('Export feature coming soon!');
         });
 
@@ -1498,7 +1130,7 @@
                     }
                     selectedResults.clear();
                     filterResults({ preventDefault: () => {} });
-                    showStatus(`${selectedResults.size} results published`, 'success');
+                    showStatus(`Selected results published successfully`, 'success');
                 } catch (err) {
                     showStatus('Error publishing results: ' + err.message, 'error');
                 } finally {
@@ -1519,7 +1151,7 @@
                     }
                     selectedResults.clear();
                     filterResults({ preventDefault: () => {} });
-                    showStatus(`${selectedResults.size} results deleted`, 'success');
+                    showStatus(`Selected results deleted successfully`, 'success');
                 } catch (err) {
                     showStatus('Error deleting results: ' + err.message, 'error');
                 } finally {
@@ -1527,28 +1159,45 @@
                 }
             }
         });
-        // ============ MOBILE MENU TOGGLE ============
+
+        // ============ MOBILE SIDEBAR TOGGLE ============
         const menuToggleBtn = document.getElementById('menuToggleBtn');
         const sidebar = document.querySelector('.sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
         const navLinks = document.querySelectorAll('.nav a');
 
-        menuToggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('mobile-open');
-        });
+        function openSidebar() {
+            if (sidebar) sidebar.classList.add('mobile-open');
+            if (sidebarOverlay) sidebarOverlay.classList.remove('hidden');
+        }
+
+        function closeSidebar() {
+            if (sidebar) sidebar.classList.remove('mobile-open');
+            if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+        }
+
+        if (menuToggleBtn) {
+            menuToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (sidebar && sidebar.classList.contains('mobile-open')) {
+                    closeSidebar();
+                } else {
+                    openSidebar();
+                }
+            });
+        }
+
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
 
         navLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                sidebar.classList.remove('mobile-open');
-            });
+            link.addEventListener('click', closeSidebar);
         });
 
-        document.addEventListener('click', (e) => {
-            if (!sidebar.contains(e.target) && !menuToggleBtn.contains(e.target)) {
-                sidebar.classList.remove('mobile-open');
-            }
-        });
-        // Initialize on load
+        // Initialize on DOM Load
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
+
