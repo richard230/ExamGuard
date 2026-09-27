@@ -139,19 +139,25 @@ router.post('/login', async (req, res) => {
       );
       if (passwordValid) {
         if (user.role === 'superadmin') {
+          if (!user.schoolId) {
+            return res.status(403).json({
+              success: false,
+              error: 'This superadmin account is not associated with a school.'
+            });
+          }
+
           const token = createToken({
             id: user._id,
             role: user.role,
             email: user.email,
             regNo: user.regNo || null,
-            schoolId: null
+            schoolId: user.schoolId
           });
+
           return res.json({
             success: true,
             token,
-            user: buildUserResponse(user, {
-              schoolId: null
-            })
+            user: buildUserResponse(user)
           });
         }
         if (!user.schoolId) {
@@ -370,33 +376,33 @@ async function authMiddleware(req, res, next) {
       await User.findById(decoded.id);
     if (user) {
       if (user.role === 'superadmin') {
-  if (!user.schoolId) {
-    return res.status(403).json({
-      success: false,
-      error: 'Superadmin account is not associated with a school.'
-    });
-  }
+        if (!user.schoolId) {
+          return res.status(403).json({
+            success: false,
+            error: 'Superadmin account is not associated with a school.'
+          });
+        }
 
-  if (
-    decoded.schoolId &&
-    user.schoolId.toString() !== decoded.schoolId.toString()
-  ) {
-    return res.status(401).json({
-      success: false,
-      error: 'Invalid school context.'
-    });
-  }
+        if (
+          decoded.schoolId &&
+          user.schoolId.toString() !== decoded.schoolId.toString()
+        ) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid school context.'
+          });
+        }
 
-  req.user = {
-    id: user._id,
-    name: user.name,
-    email: user.email || null,
-    regNo: user.regNo || null,
-    role: user.role,
-    schoolId: user.schoolId
-  };
+        req.user = {
+          id: user._id,
+          name: user.name,
+          email: user.email || null,
+          regNo: user.regNo || null,
+          role: user.role,
+          schoolId: user.schoolId
+        };
 
-  return next();
+        return next();
       }
       if (!user.schoolId) {
         return res.status(403).json({
@@ -525,25 +531,14 @@ router.get(
       let school = null;
 
       if (req.user.schoolId) {
-        // First try to find by MongoDB ObjectId
         school = await School.findById(
           req.user.schoolId
         ).select(
-          '_id schoolId schoolName subdomain abbreviation motto status logoUrl branding'
+          '_id schoolId schoolName name subdomain abbreviation motto status logoUrl branding'
         );
-        
-        // If not found by ObjectId, try by schoolId field
-        if (!school) {
-          school = await School.findOne({
-            schoolId: req.user.schoolId
-          }).select(
-            '_id schoolId schoolName subdomain abbreviation motto status logoUrl branding'
-          );
-        }
       }
 
-      // A school-scoped account must have a valid school
-      if (req.user.role === 'superadmin' && !school) {
+      if (!school) {
         return res.status(403).json({
           success: false,
           error: 'Your account is not linked to a valid school.'
@@ -554,30 +549,25 @@ router.get(
         success: true,
 
         user: {
-          id: req.user._id,
+          id: req.user.id,
           name: req.user.name,
           email: req.user.email,
           regNo: req.user.regNo,
           role: req.user.role,
-
-          // MongoDB School ObjectId.
-          // Keep this for backend/API tenant identification.
           schoolId: req.user.schoolId
         },
 
-        school: school
-          ? {
-              _id: school._id,
-              schoolId: school.schoolId,
-              schoolName: school.schoolName,
-              subdomain: school.subdomain,
-              abbreviation: school.abbreviation,
-              motto: school.motto,
-              status: school.status,
-              logoUrl: school.logoUrl,
-              branding: school.branding
-            }
-          : null
+        school: {
+          _id: school._id,
+          schoolId: school.schoolId,
+          schoolName: school.schoolName || school.name,
+          subdomain: school.subdomain,
+          abbreviation: school.abbreviation,
+          motto: school.motto,
+          status: school.status,
+          logoUrl: school.logoUrl,
+          branding: school.branding
+        }
       });
 
     } catch (err) {
@@ -594,6 +584,7 @@ router.get(
     }
   }
 );
+
 module.exports = {
   router,
   authMiddleware
