@@ -7,6 +7,7 @@ const User = require('../models/User');
 const Staff = require('../models/Staff');
 const Student = require('../models/Student');
 const School = require('../models/School');
+const Parent = require('../models/Parent');
 
 function normalize(value) {
   return typeof value === 'string'
@@ -353,73 +354,51 @@ router.post('/login', async (req, res) => {
 });
 
 async function authMiddleware(req, res, next) {
-  const authHeader =
-    req.headers.authorization;
-  if (
-    !authHeader ||
-    !authHeader.startsWith('Bearer ')
-  ) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
       success: false,
       error: 'No token provided.'
     });
   }
-  const token =
-    authHeader.split(' ')[1];
+
+  const token = authHeader.split(' ')[1];
+
   try {
-    const decoded =
-      jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
-    let user =
-      await User.findById(decoded.id);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // 1. Check User
+    let user = await User.findById(decoded.id);
     if (user) {
       if (user.role === 'superadmin') {
-        if (!user.schoolId) {
-          return res.status(403).json({
-            success: false,
-            error: 'Superadmin account is not associated with a school.'
-          });
-        }
-
-        if (
-          decoded.schoolId &&
-          user.schoolId.toString() !== decoded.schoolId.toString()
-        ) {
-          return res.status(401).json({
-            success: false,
-            error: 'Invalid school context.'
-          });
-        }
-
         req.user = {
           id: user._id,
           name: user.name,
           email: user.email || null,
           regNo: user.regNo || null,
           role: user.role,
-          schoolId: user.schoolId
+          schoolId: user.schoolId || null
         };
-
         return next();
       }
+
       if (!user.schoolId) {
         return res.status(403).json({
           success: false,
           error: 'Account is not associated with a school.'
         });
       }
+
       if (
         decoded.schoolId &&
-        user.schoolId.toString() !==
-          decoded.schoolId.toString()
+        user.schoolId.toString() !== decoded.schoolId.toString()
       ) {
         return res.status(401).json({
           success: false,
           error: 'Invalid school context.'
         });
       }
+
       req.user = {
         id: user._id,
         name: user.name,
@@ -430,8 +409,42 @@ async function authMiddleware(req, res, next) {
       };
       return next();
     }
-    let staff =
-      await Staff.findById(decoded.id);
+
+    // 2. Check Parent
+    const Parent = require('../models/Parent');
+    let parent = await Parent.findById(decoded.id);
+    if (parent) {
+      if (!parent.schoolId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Parent account is not associated with a school.'
+        });
+      }
+
+      if (
+        decoded.schoolId &&
+        parent.schoolId.toString() !== decoded.schoolId.toString()
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid school context.'
+        });
+      }
+
+      req.user = {
+        id: parent._id,
+        name: parent.name,
+        email: parent.email || null,
+        phone: parent.phone || null,
+        role: 'parent',
+        schoolId: parent.schoolId
+      };
+
+      return next();
+    }
+
+    // 3. Check Staff
+    let staff = await Staff.findById(decoded.id);
     if (staff) {
       if (!staff.schoolId) {
         return res.status(403).json({
@@ -439,41 +452,29 @@ async function authMiddleware(req, res, next) {
           error: 'Staff account is not associated with a school.'
         });
       }
+
       if (
         decoded.schoolId &&
-        staff.schoolId.toString() !==
-          decoded.schoolId.toString()
+        staff.schoolId.toString() !== decoded.schoolId.toString()
       ) {
         return res.status(401).json({
           success: false,
           error: 'Invalid school context.'
         });
       }
+
       req.user = {
         id: staff._id,
-        name:
-          `${staff.first_name || ''} ${staff.last_name || ''}`
-            .trim(),
-        email:
-          staff.login_email ||
-          staff.email ||
-          null,
-        role:
-          staff.access_level ||
-          'staff',
-        department:
-          staff.department ||
-          null,
-        designation:
-          staff.designation ||
-          null,
-        schoolId:
-          staff.schoolId
+        name: `${staff.first_name || ''} ${staff.last_name || ''}`.trim(),
+        email: staff.login_email || staff.email || null,
+        role: staff.access_level || 'staff',
+        schoolId: staff.schoolId
       };
       return next();
     }
-    let student =
-      await Student.findById(decoded.id);
+
+    // 4. Check Student
+    let student = await Student.findById(decoded.id);
     if (student) {
       if (!student.schoolId) {
         return res.status(403).json({
@@ -481,41 +482,34 @@ async function authMiddleware(req, res, next) {
           error: 'Student account is not associated with a school.'
         });
       }
+
       if (
         decoded.schoolId &&
-        student.schoolId.toString() !==
-          decoded.schoolId.toString()
+        student.schoolId.toString() !== decoded.schoolId.toString()
       ) {
         return res.status(401).json({
           success: false,
           error: 'Invalid school context.'
         });
       }
+
       req.user = {
         id: student._id,
-        name:
-          `${student.firstname || ''} ${student.surname || ''}`
-            .trim(),
-        email:
-          student.studentEmail ||
-          null,
-        regNo:
-          student.regNo,
+        name: `${student.firstname || ''} ${student.surname || ''}`.trim(),
+        email: student.studentEmail || null,
+        regNo: student.regNo,
         role: 'student',
-        schoolId:
-          student.schoolId
+        schoolId: student.schoolId
       };
       return next();
     }
+
     return res.status(401).json({
       success: false,
       error: 'User not found.'
     });
   } catch (err) {
-    console.error(
-      '[AUTH ERROR]',
-      err
-    );
+    console.error('[AUTH ERROR]', err);
     return res.status(401).json({
       success: false,
       error: 'Invalid or expired token.'
