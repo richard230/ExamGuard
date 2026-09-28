@@ -2,7 +2,7 @@
 <html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8" />
-  <title>Enroll Student | Gold and Linc Schools</title>
+  <title>Enroll Student | School Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=0.90, maximum-scale=0.90" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,9 +157,9 @@
     <aside class="sidebar fixed top-0 bottom-0 left-0 w-64 bg-slate-900 text-white z-40 flex flex-col justify-between border-r border-slate-800 shadow-2xl md:translate-x-0" id="sidebar" role="navigation" aria-label="Admin navigation">
       <div>
         <div class="brand p-5 flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/40">
-          <img src="mainlogo.png" alt="Logo" class="w-10 h-10 object-contain rounded-lg bg-white p-1 shadow-sm" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'" />
+          <img id="schoolLogo" src="mainlogo.png" alt="School Logo" class="w-10 h-10 object-contain rounded-lg bg-white p-1 shadow-sm" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'" />
           <div class="overflow-hidden">
-            <div class="title font-bold text-sm tracking-wide text-white truncate">Gold & Linc Schools</div>
+            <div id="schoolName" class="title font-bold text-sm tracking-wide text-white truncate">Loading School...</div>
             <div class="subtitle text-[11px] text-slate-400 font-medium truncate">Enrollment Portal</div>
           </div>
         </div>
@@ -461,7 +461,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div class="form-group">
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Student Email <span class="text-red-500">*</span></label>
-                    <input type="email" name="studentEmail" id="studentEmail" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="student@goldlincschools.com" />
+                    <input type="email" name="studentEmail" id="studentEmail" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="student@example.com" />
                     <div class="checkbox-inline mt-2.5 flex items-center gap-2">
                       <input type="checkbox" id="auto-email" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500" />
                       <label for="auto-email" class="text-xs font-medium text-slate-700 cursor-pointer">Auto Generate Email</label>
@@ -614,7 +614,7 @@
       </a>
     </div>
     <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-      <span>Gold & Linc Admin v2.4</span>
+      <span>ExamGuard School Automation</span>
       <a href="#" class="text-primary-600 font-semibold hover:underline">Settings & Security</a>
     </div>
   </div>
@@ -632,6 +632,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 1200);
 });
+
+// Authentication & Dynamic School Profile Setup
+const API_BASE_URL = "https://goldlincschools.onrender.com";
+
+function getAuthToken() {
+  return (
+    localStorage.getItem('adminToken') ||
+    localStorage.getItem('token') ||
+    sessionStorage.getItem('adminToken') ||
+    sessionStorage.getItem('token')
+  );
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+let currentSchool = {
+  name: 'School Portal',
+  logo: 'mainlogo.png',
+  emailDomain: 'student.examguard.com'
+};
+
+async function loadSchoolProfile() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/school/profile`, {
+      headers: { ...getAuthHeaders() }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      currentSchool.name = data.name || data.schoolName || 'School Portal';
+      if (data.logo) currentSchool.logo = data.logo;
+      if (data.emailDomain) currentSchool.emailDomain = data.emailDomain;
+
+      const schoolNameEl = document.getElementById('schoolName');
+      const schoolLogoEl = document.getElementById('schoolLogo');
+      if (schoolNameEl) schoolNameEl.textContent = currentSchool.name;
+      if (schoolLogoEl && data.logo) schoolLogoEl.src = currentSchool.logo;
+      document.title = `Enroll Student | ${currentSchool.name}`;
+    } else {
+      const schoolNameEl = document.getElementById('schoolName');
+      if (schoolNameEl) schoolNameEl.textContent = 'School Portal';
+    }
+  } catch (err) {
+    console.error('Failed to load school profile:', err);
+    const schoolNameEl = document.getElementById('schoolName');
+    if (schoolNameEl) schoolNameEl.textContent = 'School Portal';
+  }
+}
+
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -669,10 +720,11 @@ document.addEventListener('keydown', e => {
 });
 window.addEventListener('resize', handleResize);
 handleResize();
-const API_BASE_URL = "https://goldlincschools.onrender.com";
+
 let currentStep = 1;
 const steps = [1, 2, 3];
 let allParents = [];
+
 function showStep(step) {
   steps.forEach(s => {
     const stepDiv = document.getElementById('step-' + s);
@@ -687,14 +739,18 @@ function showStep(step) {
   if (nextBtn) nextBtn.style.display = (step < 3) ? 'inline-flex' : 'none';
   if (submitBtn) submitBtn.style.display = (step === 3) ? 'inline-flex' : 'none';
 }
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
+
 async function loadAvailableParents() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/parents`);
+    const response = await fetch(`${API_BASE_URL}/api/parents`, {
+      headers: { ...getAuthHeaders() }
+    });
     if (!response.ok) throw new Error('Failed to fetch parents');
     const data = await response.json();
     allParents = Array.isArray(data) ? data : data.parents || [];
@@ -707,6 +763,7 @@ async function loadAvailableParents() {
     }
   }
 }
+
 function populateParentSelect() {
   const parentSelect = document.getElementById('parentSelect');
   if (!parentSelect) return;
@@ -725,9 +782,12 @@ function populateParentSelect() {
     parentSelect.appendChild(option);
   });
 }
+
 async function fetchParentDetails(parentId) {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/parents/${parentId}`);
+    const res = await fetch(`${API_BASE_URL}/api/parents/${parentId}`, {
+      headers: { ...getAuthHeaders() }
+    });
     if (!res.ok) throw new Error('Failed to fetch parent details');
     return await res.json();
   } catch (err) {
@@ -735,6 +795,7 @@ async function fetchParentDetails(parentId) {
     return null;
   }
 }
+
 function autofillParentFields(parent) {
   const form = document.forms[0];
   if (!form || !parent) return;
@@ -749,6 +810,7 @@ function autofillParentFields(parent) {
   if (parentAddress) parentAddress.value = parent.address || '';
   if (parentOccupation) parentOccupation.value = parent.occupation || '';
 }
+
 const parentSelect = document.getElementById('parentSelect');
 if (parentSelect) {
   parentSelect.addEventListener('change', async function() {
@@ -776,6 +838,7 @@ if (parentSelect) {
     }
   });
 }
+
 const createNewParentCheckbox = document.getElementById('createNewParent');
 if (createNewParentCheckbox) {
   createNewParentCheckbox.addEventListener('change', function() {
@@ -799,6 +862,7 @@ if (createNewParentCheckbox) {
     }
   });
 }
+
 const studentPhotoInput = document.getElementById('student-photo');
 if (studentPhotoInput) {
   studentPhotoInput.addEventListener('change', function(e) {
@@ -812,6 +876,7 @@ if (studentPhotoInput) {
     }
   });
 }
+
 const autoEmailCheckbox = document.getElementById('auto-email');
 if (autoEmailCheckbox) {
   autoEmailCheckbox.addEventListener('change', function() {
@@ -830,6 +895,7 @@ if (autoEmailCheckbox) {
     }
   });
 }
+
 function updateAutoEmail() {
   const surnameInput = document.querySelector('input[name="surname"]');
   const firstnameInput = document.querySelector('input[name="firstname"]');
@@ -838,11 +904,13 @@ function updateAutoEmail() {
   const surname = surnameInput ? surnameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
   const firstname = firstnameInput ? firstnameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
   let email = '';
+  const domain = currentSchool.emailDomain || 'student.examguard.com';
   if (firstname && surname) {
-    email = firstname + surname + '@goldlincschools.com';
+    email = `${firstname}.${surname}@${domain}`;
   }
   studentEmailInput.value = email;
 }
+
 const surnameInput = document.querySelector('input[name="surname"]');
 const firstnameInput = document.querySelector('input[name="firstname"]');
 if (surnameInput) {
@@ -859,6 +927,7 @@ if (firstnameInput) {
     }
   });
 }
+
 const studentEmailInput = document.getElementById('studentEmail');
 if (studentEmailInput) {
   studentEmailInput.addEventListener('input', function() {
@@ -868,6 +937,7 @@ if (studentEmailInput) {
     }
   });
 }
+
 const autoPassCheckbox = document.getElementById('auto-pass');
 if (autoPassCheckbox) {
   autoPassCheckbox.addEventListener('change', function() {
@@ -882,6 +952,7 @@ if (autoPassCheckbox) {
     }
   });
 }
+
 function updatePasswordFromEmail() {
   const studentEmailInput = document.getElementById('studentEmail');
   const passwordInput = document.getElementById('password');
@@ -889,6 +960,7 @@ function updatePasswordFromEmail() {
     passwordInput.value = studentEmailInput.value;
   }
 }
+
 const togglePasswordBtn = document.getElementById('toggle-password');
 if (togglePasswordBtn) {
   togglePasswordBtn.addEventListener('click', function() {
@@ -906,6 +978,7 @@ if (togglePasswordBtn) {
     }
   });
 }
+
 function validateStep(step) {
   const form = document.forms[0];
   if (!form) return false;
@@ -951,6 +1024,7 @@ function validateStep(step) {
   }
   return true;
 }
+
 async function generateRegistrationNumber() {
   const regNoInput = document.getElementById('regNo');
   if (!regNoInput) return;
@@ -960,7 +1034,10 @@ async function generateRegistrationNumber() {
     const year = new Date().getFullYear();
     const res = await fetch(`${API_BASE_URL}/api/student?regNo=${year}/`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      }
     });
     let serial = 1;
     if (res.ok) {
@@ -983,6 +1060,7 @@ async function generateRegistrationNumber() {
     regNoInput.style.color = "#222";
   }
 }
+
 function generateScratchCard() {
   const scratchCardInput = document.getElementById('scratchCard');
   if (!scratchCardInput) return;
@@ -993,6 +1071,7 @@ function generateScratchCard() {
   }
   scratchCardInput.value = card;
 }
+
 const nextBtn = document.getElementById('next-btn');
 if (nextBtn) {
   nextBtn.addEventListener('click', async (e) => {
@@ -1012,6 +1091,7 @@ if (nextBtn) {
     }
   });
 }
+
 const backBtn = document.getElementById('back-btn');
 if (backBtn) {
   backBtn.addEventListener('click', (e) => {
@@ -1025,6 +1105,7 @@ if (backBtn) {
   });
 }
 showStep(currentStep);
+
 const enrollForm = document.getElementById('enroll-student-form');
 if (enrollForm) {
   enrollForm.addEventListener('submit', async (e) => {
@@ -1045,6 +1126,9 @@ if (enrollForm) {
       }
       const response = await fetch(`${API_BASE_URL}/api/student`, {
         method: 'POST',
+        headers: {
+          ...getAuthHeaders()
+        },
         body: formData
       });
       if (response.ok) {
@@ -1092,7 +1176,9 @@ if (enrollForm) {
     }
   });
 }
+
 document.addEventListener('DOMContentLoaded', () => {
+  loadSchoolProfile();
   loadAvailableParents();
 });
   </script>
