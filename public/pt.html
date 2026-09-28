@@ -419,8 +419,13 @@
    ========================================================= */
 
 const API_BASE = window.API_BASE || "https://examguard-8rxe.onrender.com/api";
-const token = localStorage.getItem('parentToken') || localStorage.getItem('token');
-
+function getParentToken() {
+    return (
+        localStorage.getItem('parentToken') ||
+        localStorage.getItem('token') ||
+        ''
+    );
+}
 let parentData = null;
 let currentSchool = null;
 let allStudents = [];
@@ -430,7 +435,7 @@ let errorConfirmCallback = null;
 
 async function initializeDashboard() {
     console.log('🚀 Initializing Parent Dashboard...');
-    if (!token) {
+    if (!getParentToken()) {
         console.warn('⚠️ No authentication token found.');
         showErrorModal('Authentication Required', 'No active login session found. Please log in to continue.', () => {
             window.location.href = 'login.html';
@@ -441,14 +446,14 @@ async function initializeDashboard() {
     try {
         showLoadingSpinner('Loading Parent Dashboard', 'Connecting to school portal...');
 
-        updateLoadingStatus('Loading school information...');
-        await loadCurrentSchool();
-
         updateLoadingStatus('Loading parent information...');
-        await loadParentData();
+await loadParentData();
 
-        updateLoadingStatus('Loading student information...');
-        await loadStudents();
+updateLoadingStatus('Loading school information...');
+loadCurrentSchool();
+
+updateLoadingStatus('Loading student information...');
+await loadStudents();
 
         if (allStudents.length > 0) {
             currentSelectedStudent = String(allStudents[0]._id);
@@ -532,8 +537,10 @@ function closeErrorModal() {
 }
 
 function getAuthHeaders() {
+    const currentToken = getParentToken();
+
     return {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${currentToken}`,
         'Content-Type': 'application/json'
     };
 }
@@ -547,31 +554,24 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-async function loadCurrentSchool() {
+function loadCurrentSchool() {
     try {
-        console.log('🏫 Loading current school from /auth/me...');
-        const res = await fetch(`${API_BASE}/auth/me`, {
-            method: 'GET',
-            headers: getAuthHeaders()
-        });
+        console.log('🏫 Loading current school from parent profile...');
 
-        if (res.status === 401 || res.status === 403) {
-            throw new Error(`Authentication failed (HTTP ${res.status}): Session expired or unauthorized access.`);
+        if (!parentData || !parentData.school) {
+            throw new Error(
+                'Your parent account is not linked to a valid school.'
+            );
         }
 
-        if (!res.ok) {
-            throw new Error(`Unable to load school information. HTTP ${res.status}`);
-        }
+        currentSchool = parentData.school;
 
-        const data = await res.json();
-        if (!data.success || !data.school) {
-            throw new Error('Your account is not linked to a valid school.');
-        }
-
-        currentSchool = data.school;
         console.log('✅ Current school:', currentSchool);
+
         applySchoolBranding(currentSchool);
+
         return currentSchool;
+
     } catch (err) {
         console.error('❌ Error loading school:', err);
         throw err;
