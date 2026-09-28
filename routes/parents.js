@@ -1173,6 +1173,53 @@ router.get('/', authMiddleware, async (req, res) => {
         });
     }
 });
+// =========================================================
+// GET SAVED PARENT CREDENTIALS
+// =========================================================
+router.get('/:id/credentials', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const schoolId = req.user?.schoolId;
+
+        if (!schoolId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account is not linked to a school.'
+            });
+        }
+
+        const parent = await Parent.findOne({
+            _id: req.params.id,
+            schoolId
+        }).select(
+            '_id name email temporaryPassword'
+        );
+
+        if (!parent) {
+            return res.status(404).json({
+                success: false,
+                error: 'Parent not found.'
+            });
+        }
+
+        return res.json({
+            success: true,
+            parent: {
+                _id: parent._id,
+                name: parent.name,
+                email: parent.email,
+                temporaryPassword: parent.temporaryPassword || null
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching parent credentials:', error);
+
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve parent credentials.'
+        });
+    }
+});
 router.get(
   '/:id',
   authMiddleware,
