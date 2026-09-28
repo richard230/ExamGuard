@@ -28,9 +28,9 @@ body{font-family:'Inter',sans-serif;}
 <aside class="sidebar fixed top-0 left-0 z-50 w-64 h-screen transition-transform -translate-x-full md:translate-x-0 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800" id="sidebar" role="navigation" aria-label="Admin navigation">
 <div class="p-4">
 <div class="brand flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
-<img src="mainlogo.png" alt="Logo" class="w-10 h-10 rounded-lg object-cover bg-white p-0.5 border border-amber-400">
+<img id="schoolLogo" src="mainlogo.png" alt="School Logo" class="w-10 h-10 rounded-lg object-cover bg-white p-0.5 border border-amber-400">
 <div>
-<div class="title font-bold text-amber-400 text-sm leading-tight">Gold and Linc Schools</div>
+<div id="schoolName" class="title font-bold text-amber-400 text-sm leading-tight">Loading School...</div>
 <div class="subtitle text-xs text-slate-400">Result Uploading</div>
 </div>
 </div>
@@ -275,33 +275,157 @@ Enter scores, grades, and remarks for each student
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
 <script>
-const API_BASE_URL="https://goldlincschools.onrender.com";
-document.addEventListener('DOMContentLoaded',()=>{
-const spinner=document.getElementById('pageSpinnerOverlay');
-if(spinner)spinner.style.display='flex';
-setTimeout(()=>{
-if(spinner){
-spinner.classList.add('hidden-spinner');
-setTimeout(()=>{spinner.style.display='none';},300);
+const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+
+/* =========================================================
+   AUTHENTICATION + SCHOOL CONTEXT
+========================================================= */
+
+let currentUser = null;
+let currentSchool = null;
+
+function getAuthToken() {
+    return localStorage.getItem("adminToken") ||
+           localStorage.getItem("token");
 }
-},800);
+
+function getAuthHeaders() {
+    const token = getAuthToken();
+
+    return token
+        ? {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        }
+        : {
+            "Content-Type": "application/json"
+        };
+}
+
+async function loadCurrentSchool() {
+    const token = getAuthToken();
+
+    if (!token) {
+        window.location.href = "login.html";
+        return false;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem("adminToken");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+            return false;
+        }
+
+        if (!response.ok) {
+            throw new Error("Unable to retrieve account information");
+        }
+
+        const data = await response.json();
+
+        currentUser = data.user || data.admin || data;
+
+        currentSchool =
+            data.school ||
+            currentUser.school ||
+            null;
+
+        if (!currentSchool) {
+            throw new Error("No school is associated with this account.");
+        }
+
+        /* ---------------- SCHOOL NAME ---------------- */
+
+        const schoolNameElement = document.getElementById("schoolName");
+        if (schoolNameElement) {
+            schoolNameElement.textContent =
+                currentSchool.name ||
+                currentSchool.schoolName ||
+                "School";
+        }
+
+        /* ---------------- SCHOOL LOGO ---------------- */
+
+        const schoolLogo = document.getElementById("schoolLogo");
+        if (schoolLogo) {
+            const logo =
+                currentSchool.logo ||
+                currentSchool.logoUrl ||
+                currentSchool.logoURL;
+
+            if (logo) {
+                schoolLogo.src = logo;
+            }
+        }
+
+        /* ---------------- ADMIN NAME ---------------- */
+
+        const adminName = document.getElementById("adminName");
+        if (adminName) {
+            adminName.textContent =
+                currentUser.name ||
+                currentUser.fullName ||
+                currentUser.firstname ||
+                currentUser.firstName ||
+                currentUser.email ||
+                "Admin";
+        }
+
+        return true;
+
+    } catch (error) {
+        console.error("School context error:", error);
+
+        const schoolNameElement = document.getElementById("schoolName");
+        if (schoolNameElement) {
+            schoolNameElement.textContent = "School";
+        }
+
+        return false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const spinner = document.getElementById('pageSpinnerOverlay');
+    if (spinner) spinner.style.display = 'flex';
+
+    const valid = await loadCurrentSchool();
+
+    if (spinner) {
+        spinner.classList.add('hidden-spinner');
+        setTimeout(() => { spinner.style.display = 'none'; }, 300);
+    }
+
+    if (!valid) return;
+
+    console.log("Logged-in user:", currentUser);
+    console.log("Current school:", currentSchool);
 });
-const sidebar=document.getElementById('sidebar');
-const sidebarToggle=document.getElementById('sidebarToggle');
-const sidebarOverlay=document.getElementById('sidebarOverlay');
+
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+
 function openSidebar(){
-sidebar.classList.remove('-translate-x-full');
-sidebarOverlay.classList.remove('hidden');
-document.body.style.overflow='hidden';
+    sidebar.classList.remove('-translate-x-full');
+    sidebarOverlay.classList.remove('hidden');
+    document.body.style.overflow='hidden';
 }
 function closeSidebar(){
-sidebar.classList.add('-translate-x-full');
-sidebarOverlay.classList.add('hidden');
-document.body.style.overflow='auto';
+    sidebar.classList.add('-translate-x-full');
+    sidebarOverlay.classList.add('hidden');
+    document.body.style.overflow='auto';
 }
 if(sidebarToggle)sidebarToggle.addEventListener('click',openSidebar);
 if(sidebarOverlay)sidebarOverlay.addEventListener('click',closeSidebar);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSidebar();});
+
 const subjectOptionsByClass={
 "Beginner":["Hand Writing","Number Work","Poem","Drawing And Colouring","Christian Religious Studies","Letter Work","Social Norms","Science","Pattern Writting"],
 "Creche":["Letter Work","Number Work","Writing Method","Social Norm","Science","Rhymes","CHRISTIAN RELIGIOUS KNOWLEDGE","COLOURING AND DRAWING","PATTERN WRITTING"],
@@ -323,195 +447,213 @@ const subjectOptionsByClass={
 "SS2":["English Language","Mathematics","Civic Education","Marketing","Economic","Chemistry","Biology","Geography","Agricultural Science","Further Mathematics","Yoruba","Government","Literature in English","Christian Religious Studies","Commerce","Financial Accounting","PHYSICS","Economics","DICTION"],
 "SS3":["English Language","Mathematics","Civic Education","Marketing","Economic","Chemistry","Biology","Geography","Agricultural Science","Further Mathematics","Yoruba","Government","Literature in English","Christian Religious Studies","PHYSICS","Economics"]
 };
+
 function updateSubjectOptions(){
-const classSelect=document.getElementById('classSelect');
-const subjectSelect=document.getElementById('subjectSelect');
-const selectedClass=classSelect.value;
-subjectSelect.innerHTML="";
-const subjects=subjectOptionsByClass[selectedClass]||[];
-if(subjects.length===0){
-subjectSelect.innerHTML=`<option disabled selected>No subjects available</option>`;
-}else{
-subjects.forEach(subj=>{
-subjectSelect.innerHTML+=`<option>${subj}</option>`;
-});
-}
+    const classSelect=document.getElementById('classSelect');
+    const subjectSelect=document.getElementById('subjectSelect');
+    const selectedClass=classSelect.value;
+    subjectSelect.innerHTML="";
+    const subjects=subjectOptionsByClass[selectedClass]||[];
+    if(subjects.length===0){
+        subjectSelect.innerHTML=`<option disabled selected>No subjects available</option>`;
+    }else{
+        subjects.forEach(subj=>{
+            subjectSelect.innerHTML+=`<option>${subj}</option>`;
+        });
+    }
 }
 document.getElementById('classSelect').addEventListener('change',updateSubjectOptions);
 document.addEventListener('DOMContentLoaded',updateSubjectOptions);
+
 document.getElementById('resultTypeSelect').addEventListener('change',function(){
-const scoreHeader=document.getElementById('scoreHeader');
-switch(this.value){
-case 'exam':scoreHeader.textContent="Examination Score";break;
-case 'ca1':scoreHeader.textContent="CA1 Score";break;
-case 'ca2':scoreHeader.textContent="CA2 Score";break;
-case 'midterm':scoreHeader.textContent="Mid Term Test Score";break;
-default:scoreHeader.textContent="Score";
-}
+    const scoreHeader=document.getElementById('scoreHeader');
+    switch(this.value){
+        case 'exam':scoreHeader.textContent="Examination Score";break;
+        case 'ca1':scoreHeader.textContent="CA1 Score";break;
+        case 'ca2':scoreHeader.textContent="CA2 Score";break;
+        case 'midterm':scoreHeader.textContent="Mid Term Test Score";break;
+        default:scoreHeader.textContent="Score";
+    }
 });
+
 document.getElementById('fetchStudentsBtn').addEventListener('click',async function(){
-const className=document.getElementById('classSelect').value;
-const tbody=document.getElementById('manualResultsTbody');
-tbody.innerHTML='<tr><td colspan="5" class="p-8 text-center text-slate-500 font-medium">Loading students...</td></tr>';
-try{
-const res=await fetch(`${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`);
-const data=await res.json();
-const students=Array.isArray(data)?data:(data.students||[]);
-if(!Array.isArray(students)||students.length===0){
-tbody.innerHTML='<tr><td colspan="5"><div class="empty-state py-12 text-center text-slate-400"><div class="empty-state-icon text-4xl mb-2">👥</div><div class="empty-state-title text-base font-semibold text-slate-700">No students found</div><p class="text-xs text-slate-500 mt-1">No students enrolled in this class</p></div></td></tr>';
-return;
-}
-tbody.innerHTML='';
-students.forEach(st=>{
-tbody.innerHTML+=`
-<tr class="hover:bg-slate-50/80 transition">
-<td class="px-3 py-2.5"><input type="text" name="student_id[]" value="${st.student_id||st._id||''}" readonly class="bg-slate-100 border border-slate-200 text-slate-600 text-xs rounded-md block w-full p-2 cursor-not-allowed"></td>
-<td class="px-3 py-2.5"><input type="text" name="student_name[]" value="${(st.firstname?st.firstname:'')+' '+(st.surname?st.surname:'')}" readonly class="bg-slate-100 border border-slate-200 text-slate-600 text-xs rounded-md block w-full p-2 cursor-not-allowed"></td>
-<td class="px-3 py-2.5"><input type="number" name="score[]" min="0" max="100" placeholder="0-100" class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
-<td class="px-3 py-2.5"><input type="text" name="grade[]" placeholder="A, B, C..." class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
-<td class="px-3 py-2.5"><input type="text" name="remarks[]" placeholder="Comments..." class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
-</tr>
-`;
+    const className=document.getElementById('classSelect').value;
+    const tbody=document.getElementById('manualResultsTbody');
+    tbody.innerHTML='<tr><td colspan="5" class="p-8 text-center text-slate-500 font-medium">Loading students...</td></tr>';
+    try{
+        const res = await fetch(
+            `${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`,
+            {
+                method: "GET",
+                headers: getAuthHeaders()
+            }
+        );
+        const data=await res.json();
+        const students=Array.isArray(data)?data:(data.students||[]);
+        if(!Array.isArray(students)||students.length===0){
+            tbody.innerHTML='<tr><td colspan="5"><div class="empty-state py-12 text-center text-slate-400"><div class="empty-state-icon text-4xl mb-2">👥</div><div class="empty-state-title text-base font-semibold text-slate-700">No students found</div><p class="text-xs text-slate-500 mt-1">No students enrolled in this class</p></div></td></tr>';
+            return;
+        }
+        tbody.innerHTML='';
+        students.forEach(st=>{
+            tbody.innerHTML+=`
+            <tr class="hover:bg-slate-50/80 transition">
+            <td class="px-3 py-2.5"><input type="text" name="student_id[]" value="${st.student_id||st._id||''}" readonly class="bg-slate-100 border border-slate-200 text-slate-600 text-xs rounded-md block w-full p-2 cursor-not-allowed"></td>
+            <td class="px-3 py-2.5"><input type="text" name="student_name[]" value="${(st.firstname?st.firstname:'')+' '+(st.surname?st.surname:'')}" readonly class="bg-slate-100 border border-slate-200 text-slate-600 text-xs rounded-md block w-full p-2 cursor-not-allowed"></td>
+            <td class="px-3 py-2.5"><input type="number" name="score[]" min="0" max="100" placeholder="0-100" class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
+            <td class="px-3 py-2.5"><input type="text" name="grade[]" placeholder="A, B, C..." class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
+            <td class="px-3 py-2.5"><input type="text" name="remarks[]" placeholder="Comments..." class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
+            </tr>
+            `;
+        });
+    }catch(err){
+        tbody.innerHTML='<tr><td colspan="5"><div class="empty-state py-12 text-center text-slate-400"><div class="empty-state-icon text-4xl mb-2">⚠️</div><div class="empty-state-title text-base font-semibold text-slate-700">Failed to load students</div><p class="text-xs text-slate-500 mt-1">Please try again</p></div></td></tr>';
+        console.error(err);
+    }
 });
-}catch(err){
-tbody.innerHTML='<tr><td colspan="5"><div class="empty-state py-12 text-center text-slate-400"><div class="empty-state-icon text-4xl mb-2">⚠️</div><div class="empty-state-title text-base font-semibold text-slate-700">Failed to load students</div><p class="text-xs text-slate-500 mt-1">Please try again</p></div></td></tr>';
-console.error(err);
-}
-});
+
 document.addEventListener("DOMContentLoaded",()=>{
-const form=document.getElementById("manualUploadForm");
-const status=document.getElementById("uploadStatus");
-form.addEventListener("submit",async(e)=>{
-e.preventDefault();
-const submitBtn=form.querySelector('button[type="submit"]');
-const session=document.getElementById("sessionSelect").value;
-const term=document.getElementById("termSelect").value;
-const className=document.getElementById("classSelect").value;
-const subject=document.getElementById("subjectSelect").value;
-const resultType=document.getElementById("resultTypeSelect").value;
-const studentIds=[...document.querySelectorAll('input[name="student_id[]"]')];
-const studentNames=[...document.querySelectorAll('input[name="student_name[]"]')];
-const scoreInputs=[...document.querySelectorAll('input[name="score[]"]')];
-const gradeInputs=[...document.querySelectorAll('input[name="grade[]"]')];
-const remarkInputs=[...document.querySelectorAll('input[name="remarks[]"]')];
-const resultsBySubject={};
-scoreInputs.forEach((input,i)=>{
-const score=input.value.trim();
-if(score!==""&&!isNaN(score)){
-const result={
-student_id:studentIds[i].value,
-student_name:studentNames[i].value,
-score:Number(score),
-grade:gradeInputs[i]?.value||"",
-remarks:remarkInputs[i]?.value||""
-};
-if(!resultsBySubject[subject]){
-resultsBySubject[subject]=[];
-}
-resultsBySubject[subject].push(result);
-}
+    const form=document.getElementById("manualUploadForm");
+    const status=document.getElementById("uploadStatus");
+    form.addEventListener("submit",async(e)=>{
+        e.preventDefault();
+        const submitBtn=form.querySelector('button[type="submit"]');
+        const session=document.getElementById("sessionSelect").value;
+        const term=document.getElementById("termSelect").value;
+        const className=document.getElementById("classSelect").value;
+        const subject=document.getElementById("subjectSelect").value;
+        const resultType=document.getElementById("resultTypeSelect").value;
+        const studentIds=[...document.querySelectorAll('input[name="student_id[]"]')];
+        const studentNames=[...document.querySelectorAll('input[name="student_name[]"]')];
+        const scoreInputs=[...document.querySelectorAll('input[name="score[]"]')];
+        const gradeInputs=[...document.querySelectorAll('input[name="grade[]"]')];
+        const remarkInputs=[...document.querySelectorAll('input[name="remarks[]"]')];
+        const resultsBySubject={};
+
+        scoreInputs.forEach((input,i)=>{
+            const score=input.value.trim();
+            if(score!==""&&!isNaN(score)){
+                const result={
+                    student_id:studentIds[i].value,
+                    student_name:studentNames[i].value,
+                    score:Number(score),
+                    grade:gradeInputs[i]?.value||"",
+                    remarks:remarkInputs[i]?.value||""
+                };
+                if(!resultsBySubject[subject]){
+                    resultsBySubject[subject]=[];
+                }
+                resultsBySubject[subject].push(result);
+            }
+        });
+
+        if(Object.keys(resultsBySubject).length===0){
+            status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg";
+            status.innerHTML=`Enter at least one valid score.`;
+            return;
+        }
+
+        submitBtn.disabled=true;
+        status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg";
+        status.innerHTML="Uploading results...";
+        let totalUploaded=0;
+        let totalUpdated=0;
+        let failedSubjects=[];
+
+        for(const[subjectName,subjectResults]of Object.entries(resultsBySubject)){
+            const payload={
+                session,
+                term:term.toUpperCase(),
+                class:className,
+                subject:subjectName,
+                resultType,
+                results:subjectResults,
+                upsert:true
+            };
+            try{
+                let res = await fetch(`${API_BASE_URL}/api/results/upsert`, {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(payload)
+                });
+
+                if(res.status===404){
+                    res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+                        method: "POST",
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                }
+                const data=await res.json();
+                if(data.success){
+                    totalUploaded+=data.inserted||0;
+                    totalUpdated+=data.updated||0;
+                }else{
+                    failedSubjects.push(`${subjectName}: ${data.error||"Unknown error"}`);
+                }
+            }catch(error){
+                failedSubjects.push(`${subjectName}: ${error.message}`);
+            }
+        }
+
+        if(failedSubjects.length===0){
+            status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg";
+            status.innerHTML=`Success! Uploaded ${totalUploaded} results, updated ${totalUpdated}.`;
+            scoreInputs.forEach(i=>i.value="");
+            gradeInputs.forEach(i=>i.value="");
+            remarkInputs.forEach(i=>i.value="");
+        }else{
+            status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg";
+            status.innerHTML=`Some uploads failed: ${failedSubjects.join(", ")}`;
+        }
+        submitBtn.disabled=false;
+    });
 });
-if(Object.keys(resultsBySubject).length===0){
-status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg";
-status.innerHTML=`Enter at least one valid score.`;
-return;
-}
-submitBtn.disabled=true;
-status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg";
-status.innerHTML="Uploading results...";
-let totalUploaded=0;
-let totalUpdated=0;
-let failedSubjects=[];
-for(const[subjectName,subjectResults]of Object.entries(resultsBySubject)){
-const payload={
-session,
-term:term.toUpperCase(),
-class:className,
-subject:subjectName,
-resultType,
-results:subjectResults,
-upsert:true
-};
-try{
-let res=await fetch(`${API_BASE_URL}/api/results/upsert`,{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify(payload)
-});
-if(res.status===404){
-res=await fetch(`${API_BASE_URL}/api/results/upload`,{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify(payload)
-});
-}
-const data=await res.json();
-if(data.success){
-totalUploaded+=data.inserted||0;
-totalUpdated+=data.updated||0;
-}else{
-failedSubjects.push(`${subjectName}: ${data.error||"Unknown error"}`);
-}
-}catch(error){
-failedSubjects.push(`${subjectName}: ${error.message}`);
-}
-}
-if(failedSubjects.length===0){
-status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg";
-status.innerHTML=`Success! Uploaded ${totalUploaded} results, updated ${totalUpdated}.`;
-scoreInputs.forEach(i=>i.value="");
-gradeInputs.forEach(i=>i.value="");
-remarkInputs.forEach(i=>i.value="");
-}else{
-status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg";
-status.innerHTML=`Some uploads failed: ${failedSubjects.join(", ")}`;
-}
-submitBtn.disabled=false;
-});
-});
+
 const clearBtn=document.getElementById('clearBtn');
 if(clearBtn){
-clearBtn.addEventListener('click',(e)=>{
-e.preventDefault();
-const form=document.getElementById('manualUploadForm');
-form.reset();
-document.querySelectorAll('input[name="score[]"], input[name="grade[]"], input[name="remarks[]"]').forEach(input=>{
-input.value='';
-});
-document.getElementById('manualResultsTbody').innerHTML=`
-<tr>
-<td colspan="5">
-<div class="empty-state py-12 text-center text-slate-400">
-<div class="empty-state-icon text-4xl mb-2">📊</div>
-<div class="empty-state-title text-base font-semibold text-slate-700">No students loaded</div>
-<p class="text-xs text-slate-500 mt-1">Select criteria above and click "Load Students" to begin</p>
-</div>
-</td>
-</tr>
-`;
-const statusEl=document.getElementById('uploadStatus');
-statusEl.className='status-message hidden';
-statusEl.innerHTML='';
-document.getElementById('sessionSelect').selectedIndex=0;
-document.getElementById('termSelect').selectedIndex=0;
-document.getElementById('classSelect').selectedIndex=0;
-document.getElementById('subjectSelect').innerHTML='<option>Select a subject...</option>';
-document.getElementById('resultTypeSelect').selectedIndex=0;
-updateSubjectOptions();
-});
+    clearBtn.addEventListener('click',(e)=>{
+        e.preventDefault();
+        const form=document.getElementById('manualUploadForm');
+        form.reset();
+        document.querySelectorAll('input[name="score[]"], input[name="grade[]"], input[name="remarks[]"]').forEach(input=>{
+            input.value='';
+        });
+        document.getElementById('manualResultsTbody').innerHTML=`
+        <tr>
+        <td colspan="5">
+        <div class="empty-state py-12 text-center text-slate-400">
+        <div class="empty-state-icon text-4xl mb-2">📊</div>
+        <div class="empty-state-title text-base font-semibold text-slate-700">No students loaded</div>
+        <p class="text-xs text-slate-500 mt-1">Select criteria above and click "Load Students" to begin</p>
+        </div>
+        </td>
+        </tr>
+        `;
+        const statusEl=document.getElementById('uploadStatus');
+        statusEl.className='status-message hidden';
+        statusEl.innerHTML='';
+        document.getElementById('sessionSelect').selectedIndex=0;
+        document.getElementById('termSelect').selectedIndex=0;
+        document.getElementById('classSelect').selectedIndex=0;
+        document.getElementById('subjectSelect').innerHTML='<option>Select a subject...</option>';
+        document.getElementById('resultTypeSelect').selectedIndex=0;
+        updateSubjectOptions();
+    });
 }
+
 document.querySelectorAll('.nav-link').forEach(link=>{
-link.addEventListener('click',(e)=>{
-if(link.href==='#'||link.href.includes('upload-results.html')){
-e.preventDefault();
-}
-document.querySelectorAll('.nav-link').forEach(l=>{
-l.classList.remove('active','bg-blue-600','text-white');
-l.classList.add('text-slate-300');
-});
-link.classList.add('active','bg-blue-600','text-white');
-link.classList.remove('text-slate-300');
-});
+    link.addEventListener('click',(e)=>{
+        if(link.href==='#'||link.href.includes('upload-results.html')){
+            e.preventDefault();
+        }
+        document.querySelectorAll('.nav-link').forEach(l=>{
+            l.classList.remove('active','bg-blue-600','text-white');
+            l.classList.add('text-slate-300');
+        });
+        link.classList.add('active','bg-blue-600','text-white');
+        link.classList.remove('text-slate-300');
+    });
 });
 </script>
 </body>
