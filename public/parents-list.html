@@ -865,49 +865,72 @@ return password;
 }
 
 async function fetchStudents() {
-try {
-studentsLoadingSpinner.style.display = 'flex';
-studentsSearchContainer.style.display = 'none';
-studentsCheckboxContainer.style.display = 'none';
-studentsEmptyState.style.display = 'none';
-const res = await fetch(`${API_BASE_URL}/api/students`, {
-headers: getAuthHeaders()
-});
-if (res.status === 401 || res.status === 403) {
-throw new Error('Your session has expired.');
+    try {
+        studentsLoadingSpinner.style.display = 'flex';
+        studentsSearchContainer.style.display = 'none';
+        studentsCheckboxContainer.style.display = 'none';
+        studentsEmptyState.style.display = 'none';
+        const res = await fetch(`${API_BASE_URL}/api/student`, {
+            method: 'GET',
+            headers: getAuthHeaders()
+        });
+        console.log('Students response status:', res.status);
+        if (res.status === 401 || res.status === 403) {
+            throw new Error(
+                'Your session has expired or you do not have permission to view students.'
+            );
+        }
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Students API error:', errorText);
+            throw new Error(`Unable to load students. HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        console.log('Students API response:', data);
+        const studentsArray =
+            Array.isArray(data)
+                ? data
+                : Array.isArray(data.students)
+                    ? data.students
+                    : Array.isArray(data.data)
+                        ? data.data
+                        : [];
+        allStudents = studentsArray.map(s => ({
+            student_id: s.student_id || '',
+            _id: s._id || '',
+            firstName: s.firstname || s.firstName || '',
+            lastName: s.surname || s.lastName || '',
+            className: s.class || s.className || '',
+            classArm: s.classArm || '',
+            regNo: s.regNo || '',
+            academicSession: s.academicSession || s.session || ''
+        }));
+        console.log(
+            `Loaded ${allStudents.length} students for parent assignment.`
+        );
+        renderStudentsCheckboxes(allStudents);
+        return true;
+    } catch (err) {
+        console.error('Error fetching students:', err);
+        studentsLoadingSpinner.style.display = 'none';
+        studentsCheckboxContainer.style.display = 'none';
+        studentsSearchContainer.style.display = 'none';
+        studentsEmptyState.style.display = 'block';
+        studentsEmptyState.innerHTML = `
+            <i class="fa fa-exclamation-circle text-red-500 mr-1"></i>
+            <span>
+                ${escapeHTML(
+                    err.message || 'Failed to load students.'
+                )}
+            </span>
+        `;
+        showError(
+            err.message || 'Failed to load students'
+        );
+        return false;
+    }
 }
-if (!res.ok) throw new Error(`HTTP ${res.status}`);
-const data = await res.json();
-if (data.students && Array.isArray(data.students)) {
-allStudents = data.students.map(s => ({
-student_id: s.student_id || '',
-_id: s._id || '',
-firstName: s.firstname || '',
-lastName: s.surname || '',
-className: s.class || '',
-classArm: s.classArm || '',
-regNo: s.regNo || '',
-academicSession: s.academicSession || ''
-}));
-} else {
-allStudents = [];
-}
-renderStudentsCheckboxes(allStudents);
-return true;
-} catch (err) {
-console.error('Error fetching students:', err);
-studentsLoadingSpinner.style.display = 'none';
-studentsCheckboxContainer.style.display = 'none';
-studentsSearchContainer.style.display = 'none';
-studentsEmptyState.style.display = 'block';
-studentsEmptyState.innerHTML = `
-<i class="fa fa-exclamation-circle text-red-500 mr-1"></i>
-<span>Failed to load students. Please try again.</span>
-`;
-showError(err.message || 'Failed to load students');
-return false;
-}
-}
+
 
 function renderStudentsCheckboxes(students) {
 studentsLoadingSpinner.style.display = 'none';
