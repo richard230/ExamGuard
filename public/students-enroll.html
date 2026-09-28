@@ -1,877 +1,745 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8" />
   <title>Enroll Student | Gold and Linc Schools</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+
+  <!-- Tailwind CSS & Flowbite -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            },
+            gold: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
   <style>
-    :root {
-      --bg-0: #f6f8ff;
-      --bg-1: #eef2ff;
-      --accent: #0f172a;
-      --accent-2: #1e40af;
-      --muted: #6b7280;
-      --card-bg: #ffffff;
-      --sidebar-w: 300px;
-      --radius: 10px;
+    /* Full height setup */
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
-      -webkit-font-smoothing: antialiased;
-      color: #07102a;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .app {
-      display: flex;
-      min-height: 100vh;
-      align-items: stretch;
-    }
-
-    .sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
-      color: #fff;
-      padding: 20px 16px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 100;
-      box-shadow: 4px 0 28px rgba(2, 11, 24, 0.12);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
-    }
-
-    .brand {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .brand img {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 3px solid rgba(255, 224, 102, 0.12);
-      background: #fff;
-    }
-
-    .brand .title {
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: #ffe066;
-    }
-
-    .brand .subtitle {
-      font-size: 0.85rem;
-      color: #b0c4ff;
-    }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 6px;
-      flex: 1;
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 0.98rem;
-      color: #e6eefc;
-      transition: background 0.2s, color 0.2s;
-    }
-
-    .nav a.active,
-    .nav a:hover {
-      background: rgba(255, 255, 255, 0.04);
-      color: #ffe066;
-    }
-
-    .topbar {
-      position: fixed;
-      left: var(--sidebar-w);
-      top: 0;
-      width: calc(100% - var(--sidebar-w));
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.95);
-      border-bottom: 1px solid #eef3ff;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-    }
-
-    .main {
-      margin-left: var(--sidebar-w);
-      padding: 20px;
-      flex: 1;
-      min-height: 100vh;
-      padding-top: 80px;
-      overflow-y: auto;
-    }
-
-    .page-title {
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: var(--accent-2);
-    }
-
-    .flex {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .muted-small {
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .icon-btn {
-      background: none;
-      border: none;
-      font-size: 18px;
-      cursor: pointer;
-      margin-left: 8px;
-      padding: 8px;
-      border-radius: 6px;
-      transition: background 0.2s;
-    }
-
-    .icon-btn:hover {
-      background: rgba(0, 0, 0, 0.05);
-    }
-
-    /* Enroll Container & Form Styles */
-    .enroll-container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .enroll-header {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 24px;
-      border: 1px solid #eef3ff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-      margin-bottom: 24px;
-    }
-
-    .enroll-steps {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .step {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #e3e8ee;
-      color: #888;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      transition: background 0.3s, color 0.3s;
-    }
-
-    .step-active {
-      background: var(--accent-2);
-      color: #fff;
-    }
-
-    .step-divider {
-      flex: 1;
-      height: 2px;
-      background: #e3e8ee;
-    }
-
-    .enroll-title {
-      font-size: 1.4rem;
-      font-weight: 800;
-      color: var(--accent-2);
-      margin: 0;
-    }
-
-    .enroll-form {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      border: 1px solid #eef3ff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-      padding: 32px;
-    }
-
-    .enroll-step {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-
-    .form-photo-group {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      margin-bottom: 24px;
-      padding: 20px;
-      background: #f8fafc;
-      border-radius: 10px;
-    }
-
-    .student-photo {
-      width: 120px;
-      height: 120px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 2px solid #e3e8ee;
-    }
-
-    .photo-upload-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      background: var(--accent-2);
-      color: #fff;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
-
-    .photo-upload-label:hover {
-      background: #0f2c7d;
-    }
-
-    .form-fields {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .step-section-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--accent-2);
-      margin: 12px 0 8px 0;
-      padding-top: 12px;
-      border-top: 2px solid #eef3ff;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .form-group label {
-      font-weight: 600;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .form-group input,
-    .form-group select {
-      padding: 10px 12px;
-      border: 1px solid #e3e8ee;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-family: inherit;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: var(--accent-2);
-      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
-    }
-
-    .checkbox-inline {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
-    .checkbox-inline input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-    }
-
-    .checkbox-inline label {
-      cursor: pointer;
-      margin: 0;
-    }
-
-    .enroll-actions {
-      display: flex;
-      gap: 12px;
-      justify-content: flex-end;
-      margin-top: 32px;
-      padding-top: 24px;
-      border-top: 1px solid #eef3ff;
-    }
-
-    .btn-back,
-    .btn-next {
-      padding: 10px 24px;
-      border-radius: 8px;
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
-      font-size: 0.95rem;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      position: relative;
-    }
-
-    .btn-back {
-      background: transparent;
-      border: 1px solid #e3e8ee;
-      color: var(--accent);
-    }
-
-    .btn-back:hover:not(:disabled) {
-      background: #f8fafc;
-    }
-
-    .btn-next {
-      background: linear-gradient(90deg, var(--accent-2), #3b82f6);
-      color: #fff;
-    }
-
-    .btn-next:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
-    }
-
-    .btn-next:disabled,
-    .btn-back:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* Loading spinner styles */
-    .btn-spinner {
-      display: none;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top: 2px solid #fff;
-      border-radius: 50%;
-      animation: btn-spin 0.8s linear infinite;
-    }
-
-    .btn-back .btn-spinner {
-      border-top-color: var(--accent-2);
-      border-color: rgba(15, 23, 42, 0.2);
-    }
-
-    @keyframes btn-spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .btn-text {
-      display: inline;
-    }
-
-    .btn-next:disabled .btn-text,
-    .btn-back:disabled .btn-text {
-      display: none;
-    }
-
-    .btn-next:disabled .btn-spinner,
-    .btn-back:disabled .btn-spinner {
-      display: block;
-    }
-
-    .enroll-success {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: var(--radius);
-      padding: 32px;
-      text-align: center;
-      color: #166534;
-    }
-
-    .enroll-success h3 {
-      font-size: 1.4rem;
-      margin: 0;
-    }
-
+    /* Custom Spinner Overlay */
     #pageSpinnerOverlay {
       position: fixed;
+      inset: 0;
+      background-color: #0f172a;
       z-index: 99999;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255, 255, 255, 0.93);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: opacity 0.4s;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
     }
 
     .spinner {
-      border: 6px solid #ddeaff;
-      border-top: 6px solid #2647a6;
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-left-color: #3b82f6;
       border-radius: 50%;
-      width: 60px;
-      height: 60px;
-      animation: spinner-spin 1s linear infinite;
+      animation: spin 0.8s linear infinite;
     }
 
-    @keyframes spinner-spin {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
-    .sidebar-overlay {
-      display: none;
+    /* Mobile Parabola Floating Action Button Curve */
+    .bottom-nav-parabola {
+      position: relative;
+      background: #ffffff;
+      box-shadow: 0 -4px 20px -2px rgba(0, 0, 0, 0.08);
     }
 
-    .sidebar-overlay.active {
-      display: block;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.3);
-      z-index: 99;
+    .fab-parabola {
+      position: absolute;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      border: 4px solid #f8fafc;
+      z-index: 50;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
-    @media (max-width: 1024px) {
-      .form-row {
-        grid-template-columns: repeat(2, 1fr);
-      }
+    .fab-parabola:active {
+      transform: translateX(-50%) scale(0.92);
+    }
+
+    /* Custom Step States preserved for JS compatibility */
+    .step {
+      width: 36px;
+      height: 36px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      background-color: #e2e8f0;
+      color: #64748b;
+      transition: all 0.3s ease;
+    }
+
+    .step.step-active {
+      background-color: #1e40af;
+      color: #ffffff;
+      box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15);
+    }
+
+    /* Sidebar transitions for JS class compatibility */
+    .sidebar {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     @media (max-width: 768px) {
       .sidebar {
-        width: 280px;
-        position: fixed;
-        left: -280px;
-        transition: left 0.3s ease;
+        transform: translateX(-100%);
       }
-
       .sidebar.active {
-        left: 0;
+        transform: translateX(0);
       }
-
-      .topbar {
-        left: 0;
-        width: 100%;
-      }
-
-      .main {
-        margin-left: 0;
-        padding: 14px;
-        padding-top: 84px;
-      }
-
-      .enroll-form {
-        padding: 20px;
-      }
-
-      .form-photo-group {
-        flex-direction: column;
-        text-align: center;
-      }
-
-      .form-row {
-        grid-template-columns: 1fr;
-      }
-
-      .enroll-actions {
-        flex-direction: column-reverse;
-      }
-
-      .btn-back,
-      .btn-next {
-        width: 100%;
-        justify-content: center;
-      }
-
-      .icon-btn {
+      .sidebar-overlay {
         display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 30;
+      }
+      .sidebar-overlay.active {
+        display: block;
       }
     }
 
-    @media (max-width: 600px) {
-      .main {
-        padding: 12px;
-        padding-top: 80px;
-      }
-
-      .enroll-header,
-      .enroll-form {
-        padding: 16px;
-      }
-
-      .enroll-title {
-        font-size: 1.2rem;
-      }
-
-      .student-photo {
-        width: 100px;
-        height: 100px;
-      }
-
-      .form-group label {
-        font-size: 0.85rem;
-      }
-
-      .form-group input,
-      .form-group select {
-        font-size: 0.9rem;
-        padding: 8px 10px;
-      }
-
-      .topbar {
-        padding: 10px 12px;
-      }
-
-      .page-title {
-        font-size: 1rem;
-      }
-    }
-
-    ::-webkit-scrollbar {
-      width: 7px;
-      background: #f4f8fc;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #e2e7ee;
-      border-radius: 4px;
+    /* Helper styles for auto JS injections */
+    .checkbox-inline {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #475569;
     }
   </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 antialiased h-full flex flex-col">
+
+  <!-- PAGE SPINNER OVERLAY -->
   <div id="pageSpinnerOverlay">
-    <div class="spinner"></div>
+    <div class="flex flex-col items-center gap-3">
+      <div class="spinner"></div>
+      <p class="text-xs font-medium text-slate-300 tracking-wider uppercase">Loading Portal...</p>
+    </div>
   </div>
 
-  <div class="app" id="app">
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
-      <div class="brand">
-        <img src="mainlogo.png" alt="Logo">
-        <div>
-          <div class="title">Gold and Linc Schools</div>
-          <div class="subtitle">Student Enrollment Portal</div>
+  <div class="app min-h-screen flex flex-col md:flex-row flex-1" id="app">
+
+    <!-- DESKTOP / MOBILE SIDEBAR -->
+    <aside class="sidebar fixed top-0 bottom-0 left-0 w-64 bg-slate-900 text-white z-40 flex flex-col justify-between border-r border-slate-800 shadow-2xl md:translate-x-0" id="sidebar" role="navigation" aria-label="Admin navigation">
+      <div>
+        <!-- BRAND LOGO -->
+        <div class="brand p-5 flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/40">
+          <img src="mainlogo.png" alt="Logo" class="w-10 h-10 object-contain rounded-lg bg-white p-1 shadow-sm" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'" />
+          <div class="overflow-hidden">
+            <div class="title font-bold text-sm tracking-wide text-white truncate">Gold & Linc Schools</div>
+            <div class="subtitle text-[11px] text-slate-400 font-medium truncate">Enrollment Portal</div>
+          </div>
         </div>
+
+        <!-- NAVIGATION LINKS -->
+        <nav class="nav p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]" aria-label="Primary">
+          <a href="admin.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">🏠</span> Dashboard
+          </a>
+          <a href="admission.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white bg-primary-700/80 shadow-md transition-all">
+            <span class="w-5 text-center text-sm">🎓</span> Admission
+          </a>
+          <a href="more.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">🌐</span> Multi-location
+          </a>
+          <a href="people.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">👥</span> People
+          </a>
+          <a href="academics.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">📚</span> Academics
+          </a>
+          <a href="admin-cbt.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">💻</span> CBT Config
+          </a>
+          <a href="results.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">📄</span> Results
+          </a>
+          <a href="finance.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">💰</span> Finance
+          </a>
+          <a href="attendance.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">🗓️</span> Attendance
+          </a>
+          <a href="#" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all">
+            <span class="w-5 text-center text-sm">⚙️</span> Settings
+          </a>
+        </nav>
       </div>
 
-      <nav class="nav" aria-label="Primary">
-        <a href="admin.html" class="nav-link">
-          <span>🏠</span> Dashboard
-        </a>
-        <a href="admission.html" class="nav-link">
-          <span>🎓</span> Admission
-        </a>
-        <a href="more.html" class="nav-link">
-          <span>🌐</span> Multi-location
-        </a>
-        <a href="people.html" class="nav-link">
-          <span>👥</span> People
-        </a>
-        <a href="academics.html" class="nav-link">
-          <span>📚</span> Academics
-        </a>
-        <a href="admin-cbt.html" class="nav-link">
-          <span>💻</span> CBT Configuration
-        </a>
-        <a href="results.html" class="nav-link">
-          <span>📄</span> Results
-        </a>
-        <a href="finance.html" class="nav-link">
-          <span>💰</span> Finance
-        </a>
-        <a href="attendance.html" class="nav-link">
-          <span>🗓️</span> Attendance
-        </a>
-        <a href="#" class="nav-link">
-          <span>⚙️</span> Settings
-        </a>
-      </nav>
-
-      <div class="muted-small" style="margin-top: auto;">
-        Signed in as <span id="adminName">Admin</span>
+      <!-- SIDEBAR FOOTER USER PROFILE -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center font-bold text-xs ring-2 ring-primary-400/30">
+            A
+          </div>
+          <div class="muted-small text-xs text-slate-400 overflow-hidden">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Signed in as</div>
+            <span id="adminName" class="font-semibold text-slate-200 block truncate">Admin</span>
+          </div>
+        </div>
       </div>
     </aside>
 
+    <!-- MOBILE SIDEBAR BACKDROP OVERLAY -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <div class="topbar" role="banner">
-      <div class="flex">
-        <button id="sidebarToggle" class="icon-btn" aria-label="Toggle Sidebar" style="display: none; font-size: 24px;">☰</button>
-        <div class="page-title">Enroll Student</div>
-      </div>
-      <div class="flex">
-        <button class="icon-btn" title="Notifications">🔔</button>
-        <button class="icon-btn" title="Help">❓</button>
-        <button class="icon-btn" title="Settings">⚙️</button>
-        <button class="icon-btn" title="Search">🔍</button>
-      </div>
-    </div>
+    <!-- MAIN BODY WRAPPER -->
+    <div class="flex-1 flex flex-col md:pl-64 pb-24 md:pb-8 transition-all duration-300">
 
-    <main class="main" id="main" role="main" tabindex="-1">
-      <div class="enroll-container">
-        <div class="enroll-header">
-          <div class="enroll-steps">
-            <span class="step step-active">1</span>
-            <span class="step-divider"></span>
-            <span class="step">2</span>
-            <span class="step-divider"></span>
-            <span class="step">3</span>
+      <!-- TOPBAR / NAVBAR HEADER -->
+      <header class="topbar sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm px-4 md:px-8 py-3.5 flex items-center justify-between" role="banner">
+        <div class="flex items-center gap-3">
+          <button id="sidebarToggle" class="icon-btn p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition md:hidden focus:outline-none" aria-label="Toggle Sidebar">
+            <i class="fas fa-bars text-xl"></i>
+          </button>
+          <div>
+            <span class="text-xs font-medium text-slate-400 hidden md:block">Admissions & Student Management</span>
+            <div class="page-title text-lg md:text-xl font-bold text-slate-900 leading-tight">Enroll Student</div>
           </div>
-          <h1 class="enroll-title">Enroll a New Student</h1>
         </div>
 
-        <form class="enroll-form" id="enroll-student-form" enctype="multipart/form-data" autocomplete="off">
-          <!-- STEP 1: Personal Information -->
-          <div class="enroll-step" id="step-1">
-            <div class="form-photo-group">
-              <img src="https://cdn-icons-png.flaticon.com/512/3135/3135768.png" id="student-photo-preview" class="student-photo" alt="Student Photo" />
-              <label class="photo-upload-label">
-                <input type="file" accept="image/*" id="student-photo" name="photo" style="display:none" />
-                <span><i class="fas fa-upload"></i> Upload Photo</span>
-              </label>
-            </div>
-            <div class="form-fields">
-              <div class="form-row">
-                <div class="form-group"><label>Surname *</label><input type="text" name="surname" required /></div>
-                <div class="form-group"><label>First Name *</label><input type="text" name="firstname" required /></div>
-                <div class="form-group"><label>Other Names</label><input type="text" name="othernames" /></div>
-              </div>
-              <div class="form-row">
-                <div class="form-group"><label>Date of Birth *</label><input type="date" name="dob" required /></div>
-                <div class="form-group">
-                  <label>Gender *</label>
-                  <select name="gender" required>
-                    <option value="">Select</option>
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
-                  </select>
+        <div class="flex items-center gap-1.5 md:gap-2">
+          <button class="icon-btn p-2 text-slate-500 hover:text-primary-700 hover:bg-slate-100 rounded-lg transition text-sm md:text-base" title="Notifications">
+            <i class="far fa-bell"></i>
+          </button>
+          <button class="icon-btn p-2 text-slate-500 hover:text-primary-700 hover:bg-slate-100 rounded-lg transition text-sm md:text-base" title="Help">
+            <i class="far fa-question-circle"></i>
+          </button>
+          <button class="icon-btn p-2 text-slate-500 hover:text-primary-700 hover:bg-slate-100 rounded-lg transition text-sm md:text-base hidden sm:block" title="Settings">
+            <i class="fas fa-sliders-h"></i>
+          </button>
+          <button class="icon-btn p-2 text-slate-500 hover:text-primary-700 hover:bg-slate-100 rounded-lg transition text-sm md:text-base" title="Search">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- MAIN CONTENT CONTAINER -->
+      <main class="main flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full" id="main" role="main" tabindex="-1">
+        <div class="enroll-container bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-200/80 overflow-hidden">
+          
+          <!-- STEPPER HEADER -->
+          <div class="enroll-header p-6 md:p-8 bg-gradient-to-r from-slate-900 via-primary-950 to-slate-900 text-white relative">
+            <div class="max-w-md mx-auto mb-6">
+              <div class="enroll-steps flex items-center justify-between relative">
+                <!-- Connector Progress Line -->
+                <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-slate-700/80 z-0 rounded"></div>
+                
+                <div class="relative z-10 flex flex-col items-center">
+                  <span class="step step-active">1</span>
+                  <span class="text-[11px] font-medium text-slate-300 mt-2">Personal</span>
                 </div>
-                <div class="form-group"><label>Nationality</label><input type="text" name="nationality" /></div>
+                
+                <span class="step-divider hidden"></span>
+                
+                <div class="relative z-10 flex flex-col items-center">
+                  <span class="step">2</span>
+                  <span class="text-[11px] font-medium text-slate-300 mt-2">Academic & Parent</span>
+                </div>
+                
+                <span class="step-divider hidden"></span>
+                
+                <div class="relative z-10 flex flex-col items-center">
+                  <span class="step">3</span>
+                  <span class="text-[11px] font-medium text-slate-300 mt-2">Account & Health</span>
+                </div>
               </div>
-              <div class="form-row">
-                <div class="form-group"><label>State of Origin</label><input type="text" name="state" /></div>
-                <div class="form-group"><label>LGA</label><input type="text" name="lga" /></div>
-                <div class="form-group"><label>Home Address</label><input type="text" name="address" /></div>
-              </div>
+            </div>
+
+            <div class="text-center">
+              <h1 class="enroll-title text-xl md:text-2xl font-extrabold tracking-tight text-white">Enroll a New Student</h1>
+              <p class="text-xs md:text-sm text-slate-400 mt-1">Complete student registration in 3 simple steps</p>
             </div>
           </div>
 
-<!-- STEP 2: Academic Info & Parent/Guardian -->
-<div class="enroll-step" id="step-2" style="display:none;">
-  <div class="form-fields">
-    <div class="step-section-title">Academic Information</div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Registration Number *</label>
-        <input type="text" name="regNo" id="regNo" required readonly style="background:#eee; cursor:not-allowed;" />
-      </div>
-      <div class="form-group">
-        <label>Scratch Card *</label>
-        <input type="text" name="scratchCard" id="scratchCard" required readonly style="background:#eee; cursor:not-allowed;" />
-      </div>
-      <div class="form-group">
-        <label>Class *</label>
-        <select name="class" required>
-          <option value="">Select</option>
-          <option>Creche</option>
-          <option>Nursery 1</option>
-          <option>Nursery 2</option>
-          <option>Nursery 3</option>
-          <option>Primary 1</option>
-          <option>Primary 2</option>
-          <option>Primary 3</option>
-          <option>Primary 4</option>
-          <option>Primary 5</option>
-          <option>Primary 6</option>
-          <option>JSS1</option>
-          <option>JSS2</option>
-          <option>JSS3</option>
-          <option>SS1</option>
-          <option>SS2</option>
-          <option>SS3</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Class Arm</label><input type="text" name="classArm" /></div>
-      <div class="form-group"><label>Previous School</label><input type="text" name="previousSchool" /></div>
-      <div class="form-group"><label>Admission Date</label><input type="date" name="admissionDate" /></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Academic Session</label>
-        <select name="academicSession">
-          <option>2025-2026</option>
-          <option>2026-2027</option>
-          <option>2027-2028</option>
-          <option>2024-2025</option>
-          <option>2023-2024</option>
-        </select>
-      </div>
-      <div class="form-group"></div>
-      <div class="form-group"></div>
-    </div>
+          <!-- ENROLLMENT FORM -->
+          <form class="enroll-form p-6 md:p-8" id="enroll-student-form" enctype="multipart/form-data" autocomplete="off">
+            
+            <!-- STEP 1: Personal Information -->
+            <div class="enroll-step flex flex-col gap-8" id="step-1">
+              
+              <!-- PHOTO UPLOAD CONTAINER -->
+              <div class="form-photo-group flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl bg-slate-50 border border-dashed border-slate-300">
+                <div class="relative">
+                  <img src="https://cdn-icons-png.flaticon.com/512/3135/3135768.png" id="student-photo-preview" class="student-photo w-24 h-24 object-cover rounded-full ring-4 ring-white shadow-md bg-white" alt="Student Photo" />
+                </div>
+                <div class="text-center sm:text-left space-y-2">
+                  <h4 class="text-sm font-semibold text-slate-800">Student Passport Photo</h4>
+                  <p class="text-xs text-slate-500">Upload standard passport image (PNG or JPG max 2MB)</p>
+                  <label class="photo-upload-label inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:border-slate-400 cursor-pointer shadow-sm transition">
+                    <input type="file" accept="image/*" id="student-photo" name="photo" class="hidden" />
+                    <span><i class="fas fa-camera text-primary-600 mr-1"></i> Upload Photo</span>
+                  </label>
+                </div>
+              </div>
 
-    <div class="step-section-title">Parent / Guardian Information</div>
-    <div class="form-row">
-      <div class="form-group"><label>Parent Name *</label><input type="text" name="parentName" required /></div>
-      <div class="form-group"><label>Relationship *</label><input type="text" name="parentRelationship" required /></div>
-      <div class="form-group"><label>Phone Number *</label><input type="tel" name="parentPhone" required /></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Email</label><input type="email" name="parentEmail" /></div>
-      <div class="form-group"><label>Address</label><input type="text" name="parentAddress" /></div>
-      <div class="form-group"><label>Occupation</label><input type="text" name="parentOccupation" /></div>
-    </div>
-
-    <!-- NEW: Link to existing parent account -->
-    <div class="step-section-title">Link Parent Account (Optional)</div>
-    <div style="background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-      <p style="margin: 0 0 12px 0; color: #1e40af; font-size: 0.9rem;">
-        <i class="fas fa-info-circle"></i> Link this student to an existing parent account for automatic credential sharing and assignment tracking.
-      </p>
-      
-      <div class="form-row">
-        <div class="form-group" style="grid-column: 1 / -1;">
-          <label>Select Parent Account</label>
-          <select id="parentSelect" name="parentId">
-            <option value="">-- Create New Parent Account --</option>
-          </select>
-          <div class="checkbox-inline" style="margin-top: 8px;">
-            <input type="checkbox" id="createNewParent" />
-            <label for="createNewParent">I want to create a new parent account</label>
-          </div>
-        </div>
-      </div>
-
-      <div id="selectedParentInfo" style="display: none; background: #fff; border: 1px solid #dbeafe; border-radius: 6px; padding: 12px; margin-top: 12px;">
-        <p style="margin: 0; font-size: 0.9rem; color: #0c4a6e;"><strong>Selected Parent:</strong></p>
-        <p id="selectedParentName" style="margin: 6px 0 0 0; color: #1e40af; font-weight: 600;"></p>
-        <p id="selectedParentEmail" style="margin: 4px 0 0 0; color: #475569; font-size: 0.9rem;"></p>
-      </div>
-
-      <div id="loadingParents" style="text-align: center; padding: 20px; color: #6b7280;">
-        <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i> Loading parents...
-      </div>
-    </div>
-  </div>
-</div>
-
-          <!-- STEP 3: Contact & Health -->
-          <div class="enroll-step" id="step-3" style="display:none;">
-            <div class="form-fields">
-              <div class="step-section-title">Contact & Health Info</div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Email *</label>
-                  <input type="email" name="studentEmail" id="studentEmail" required />
-                  <div class="checkbox-inline" style="margin-top:5px;">
-                    <input type="checkbox" id="auto-email" />
-                    <label for="auto-email">Auto Generate Email</label>
+              <!-- FORM FIELDS STEP 1 -->
+              <div class="form-fields space-y-6">
+                <!-- ROW 1 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Surname <span class="text-red-500">*</span></label>
+                    <input type="text" name="surname" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Adebayo" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">First Name <span class="text-red-500">*</span></label>
+                    <input type="text" name="firstname" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Samuel" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Other Names</label>
+                    <input type="text" name="othernames" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Oluwaseun" />
                   </div>
                 </div>
-                <div class="form-group"><label>Phone Number</label><input type="tel" name="studentPhone" /></div>
-                <div class="form-group"><label>Religion</label><input type="text" name="religion" /></div>
-              </div>
-              <div class="form-row">
-                <div class="form-group"><label>Blood Group</label><input type="text" name="bloodGroup" /></div>
-                <div class="form-group"><label>Genotype</label><input type="text" name="genotype" /></div>
-                <div class="form-group"><label>Medical Info</label><input type="text" name="medical" /></div>
-              </div>
-              <div class="form-row">
-                <div class="form-group" style="position: relative; grid-column: 1;">
-                  <label>Password *</label>
-                  <input type="password" name="password" id="password" required style="padding-right: 36px;" />
-                  <span id="toggle-password" style="position:absolute;right:10px;top:40px;cursor:pointer;color:var(--muted);">
-                    <i class="fas fa-eye" id="eye-icon"></i>
-                  </span>
-                  <div class="checkbox-inline">
-                    <input type="checkbox" id="auto-pass" />
-                    <label for="auto-pass">Use Email as Password</label>
+
+                <!-- ROW 2 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Date of Birth <span class="text-red-500">*</span></label>
+                    <input type="date" name="dob" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Gender <span class="text-red-500">*</span></label>
+                    <select name="gender" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm">
+                      <option value="">Select Gender</option>
+                      <option>Male</option>
+                      <option>Female</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Nationality</label>
+                    <input type="text" name="nationality" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Nigerian" />
+                  </div>
+                </div>
+
+                <!-- ROW 3 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">State of Origin</label>
+                    <input type="text" name="state" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Osun" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">LGA</label>
+                    <input type="text" name="lga" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Local Government Area" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Home Address</label>
+                    <input type="text" name="address" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Full residential address" />
                   </div>
                 </div>
               </div>
             </div>
+
+            <!-- STEP 2: Academic Info & Parent/Guardian -->
+            <div class="enroll-step flex flex-col gap-6" id="step-2" style="display:none;">
+              <div class="form-fields space-y-6">
+                
+                <!-- ACADEMIC SECTION TITLE -->
+                <div class="step-section-title pb-2 border-b border-slate-200 text-sm font-bold text-primary-800 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fas fa-graduation-cap text-primary-600"></i> Academic Information
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Registration Number <span class="text-red-500">*</span></label>
+                    <input type="text" name="regNo" id="regNo" required readonly class="w-full px-3.5 py-2.5 text-sm bg-slate-100 text-slate-600 font-mono font-semibold border border-slate-300 rounded-lg cursor-not-allowed shadow-inner" placeholder="Auto-generated" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Scratch Card <span class="text-red-500">*</span></label>
+                    <input type="text" name="scratchCard" id="scratchCard" required readonly class="w-full px-3.5 py-2.5 text-sm bg-slate-100 text-slate-600 font-mono font-semibold border border-slate-300 rounded-lg cursor-not-allowed shadow-inner" placeholder="Auto-generated" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Class <span class="text-red-500">*</span></label>
+                    <select name="class" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm">
+                      <option value="">Select Class</option>
+                      <option>Creche</option>
+                      <option>Nursery 1</option>
+                      <option>Nursery 2</option>
+                      <option>Nursery 3</option>
+                      <option>Primary 1</option>
+                      <option>Primary 2</option>
+                      <option>Primary 3</option>
+                      <option>Primary 4</option>
+                      <option>Primary 5</option>
+                      <option>Primary 6</option>
+                      <option>JSS1</option>
+                      <option>JSS2</option>
+                      <option>JSS3</option>
+                      <option>SS1</option>
+                      <option>SS2</option>
+                      <option>SS3</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Class Arm</label>
+                    <input type="text" name="classArm" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Gold / Blue" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Previous School</label>
+                    <input type="text" name="previousSchool" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Last attended school" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Admission Date</label>
+                    <input type="date" name="admissionDate" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Academic Session</label>
+                    <select name="academicSession" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm">
+                      <option>2025-2026</option>
+                      <option>2026-2027</option>
+                      <option>2027-2028</option>
+                      <option>2024-2025</option>
+                      <option>2023-2024</option>
+                    </select>
+                  </div>
+                  <div class="form-group"></div>
+                  <div class="form-group"></div>
+                </div>
+
+                <!-- PARENT / GUARDIAN SECTION TITLE -->
+                <div class="step-section-title pt-4 pb-2 border-b border-slate-200 text-sm font-bold text-primary-800 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fas fa-users text-primary-600"></i> Parent / Guardian Information
+                </div>
+
+                <!-- PARENT ACCOUNT LINK BOX -->
+                <div class="bg-blue-50/80 border border-blue-200 rounded-xl p-5 space-y-4">
+                  <div class="flex items-start gap-3">
+                    <i class="fas fa-info-circle text-blue-600 text-base mt-0.5"></i>
+                    <p class="text-xs md:text-sm text-blue-900 leading-relaxed">
+                      Link this student to an existing parent account for automatic credential sharing and assignment tracking.
+                    </p>
+                  </div>
+
+                  <div class="grid grid-cols-1 gap-3">
+                    <div class="form-group">
+                      <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Select Parent Account</label>
+                      <select id="parentSelect" name="parentId" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm">
+                        <option value="">-- Create New Parent Account --</option>
+                      </select>
+                      
+                      <div class="checkbox-inline mt-3 flex items-center gap-2">
+                        <input type="checkbox" id="createNewParent" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500" />
+                        <label for="createNewParent" class="text-xs font-medium text-slate-700 cursor-pointer">I want to create a new parent account</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="selectedParentInfo" style="display: none;" class="bg-white border border-blue-200 rounded-lg p-4 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Selected Parent:</p>
+                    <p id="selectedParentName" class="text-sm font-bold text-primary-900 mt-1"></p>
+                    <p id="selectedParentEmail" class="text-xs font-medium text-slate-600 mt-0.5"></p>
+                  </div>
+
+                  <div id="loadingParents" class="text-center py-4 text-xs font-medium text-slate-500">
+                    <i class="fas fa-spinner fa-spin text-primary-600 mr-2"></i> Loading available parents...
+                  </div>
+                </div>
+
+                <!-- PARENT INPUT FIELDS -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Parent Name <span class="text-red-500">*</span></label>
+                    <input type="text" name="parentName" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Full name" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Relationship <span class="text-red-500">*</span></label>
+                    <input type="text" name="parentRelationship" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Father, Mother" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Phone Number <span class="text-red-500">*</span></label>
+                    <input type="tel" name="parentPhone" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. 08012345678" />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Email</label>
+                    <input type="email" name="parentEmail" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="parent@example.com" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Address</label>
+                    <input type="text" name="parentAddress" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Residential address" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Occupation</label>
+                    <input type="text" name="parentOccupation" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Engineer, Teacher" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 3: Contact & Health -->
+            <div class="enroll-step flex flex-col gap-6" id="step-3" style="display:none;">
+              <div class="form-fields space-y-6">
+                
+                <div class="step-section-title pb-2 border-b border-slate-200 text-sm font-bold text-primary-800 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fas fa-heartbeat text-primary-600"></i> Contact & Medical Details
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Student Email <span class="text-red-500">*</span></label>
+                    <input type="email" name="studentEmail" id="studentEmail" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="student@goldlincschools.com" />
+                    
+                    <div class="checkbox-inline mt-2.5 flex items-center gap-2">
+                      <input type="checkbox" id="auto-email" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500" />
+                      <label for="auto-email" class="text-xs font-medium text-slate-700 cursor-pointer">Auto Generate Email</label>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Phone Number</label>
+                    <input type="tel" name="studentPhone" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Optional" />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Religion</label>
+                    <input type="text" name="religion" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. Christianity / Islam" />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Blood Group</label>
+                    <input type="text" name="bloodGroup" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. O+" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Genotype</label>
+                    <input type="text" name="genotype" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="e.g. AA, AS" />
+                  </div>
+                  <div class="form-group">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Medical Info</label>
+                    <input type="text" name="medical" class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Allergies, conditions, etc." />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
+                  <div class="form-group relative col-span-1">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Account Password <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                      <input type="password" name="password" id="password" required class="w-full px-3.5 py-2.5 pr-10 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="Set password" />
+                      <button type="button" id="toggle-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                        <i class="fas fa-eye" id="eye-icon"></i>
+                      </button>
+                    </div>
+
+                    <div class="checkbox-inline mt-2.5 flex items-center gap-2">
+                      <input type="checkbox" id="auto-pass" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500" />
+                      <label for="auto-pass" class="text-xs font-medium text-slate-700 cursor-pointer">Use Email as Password</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- FORM ACTION BUTTONS -->
+            <div class="enroll-actions pt-8 border-t border-slate-200 mt-8 flex items-center justify-between gap-4">
+              <button type="button" class="btn-back px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-sm inline-flex items-center gap-2" id="back-btn" style="display:none;">
+                <span class="btn-text">← Back</span>
+                <div class="btn-spinner hidden"><i class="fas fa-spinner fa-spin"></i></div>
+              </button>
+
+              <div class="ml-auto flex items-center gap-3">
+                <button type="button" class="btn-next px-7 py-3 bg-primary-700 hover:bg-primary-800 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-md hover:shadow-lg inline-flex items-center gap-2" id="next-btn">
+                  <span class="btn-text">Next Step →</span>
+                  <div class="btn-spinner hidden"><i class="fas fa-spinner fa-spin"></i></div>
+                </button>
+
+                <button type="submit" class="btn-next px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-md hover:shadow-lg inline-flex items-center gap-2" id="submit-btn" style="display:none;">
+                  <span class="btn-text"><i class="fas fa-check-circle mr-1"></i> Submit Enrollment</span>
+                  <div class="btn-spinner hidden"><i class="fas fa-spinner fa-spin"></i></div>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <!-- SUCCESS ENROLLMENT CONTAINER -->
+          <div class="enroll-success p-8 text-center space-y-4" id="enroll-success" style="display:none;">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+              <i class="fas fa-check-circle"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-900">Student enrolled successfully!</h3>
+            <p class="text-sm text-slate-600">The student account has been created and is ready to use.</p>
           </div>
 
-          <!-- ACTION BUTTONS -->
-          <div class="enroll-actions">
-            <button type="button" class="btn-back" id="back-btn" style="display:none;">
-              <span class="btn-text">← Back</span>
-              <div class="btn-spinner"></div>
-            </button>
-            <button type="button" class="btn-next" id="next-btn">
-              <span class="btn-text">Next →</span>
-              <div class="btn-spinner"></div>
-            </button>
-            <button type="submit" class="btn-next" id="submit-btn" style="display:none;">
-              <span class="btn-text">Submit</span>
-              <div class="btn-spinner"></div>
-            </button>
-          </div>
-        </form>
-
-        <div class="enroll-success" id="enroll-success" style="display:none;">
-          <h3>✅ Student enrolled successfully!</h3>
-          <p>The student account has been created and is ready to use.</p>
         </div>
-      </div>
-    </main>
+      </main>
+
+    </div>
   </div>
 
+  <!-- MOBILE BOTTOM NAVBAR TOOLBAR WITH PARABOLA ACTION DRAWER -->
+  <div class="bottom-nav-parabola fixed bottom-0 left-0 right-0 z-40 h-16 md:hidden border-t border-slate-200">
+    
+    <!-- MID-UP PARABOLA FLOATING DRAWER TRIGGER BUTTON -->
+    <button data-drawer-target="drawer-bottom-menu" data-drawer-show="drawer-bottom-menu" data-drawer-placement="bottom" aria-controls="drawer-bottom-menu" class="fab-parabola focus:outline-none" title="Quick Portal Menu">
+      <i class="fas fa-th-large text-xl"></i>
+    </button>
+
+    <div class="grid h-full max-w-lg grid-cols-5 mx-auto font-medium">
+      <a href="admin.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 group text-slate-500">
+        <i class="fas fa-home text-lg group-hover:text-primary-600"></i>
+        <span class="text-[10px] mt-1 group-hover:text-primary-600">Home</span>
+      </a>
+
+      <a href="admission.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 group text-primary-700 font-bold">
+        <i class="fas fa-user-plus text-lg"></i>
+        <span class="text-[10px] mt-1">Enroll</span>
+      </a>
+
+      <!-- Empty Space for Parabola FAB -->
+      <div class="inline-flex items-center justify-center"></div>
+
+      <a href="academics.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 group text-slate-500">
+        <i class="fas fa-book text-lg group-hover:text-primary-600"></i>
+        <span class="text-[10px] mt-1 group-hover:text-primary-600">Academics</span>
+      </a>
+
+      <a href="finance.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 group text-slate-500">
+        <i class="fas fa-wallet text-lg group-hover:text-primary-600"></i>
+        <span class="text-[10px] mt-1 group-hover:text-primary-600">Finance</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- BOTTOM PARABOLA DRAWER MENU (FLOWBITE BOTTOM SHEET) -->
+  <div id="drawer-bottom-menu" class="fixed bottom-0 left-0 right-0 z-50 w-full p-6 overflow-y-auto bg-white rounded-t-3xl shadow-2xl transition-transform translate-y-full max-h-[85vh]" tabindex="-1" aria-labelledby="drawer-bottom-label">
+    <!-- DRAWER HANDLE BAR -->
+    <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-6"></div>
+    
+    <div class="flex items-center justify-between mb-5 border-b border-slate-100 pb-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center font-bold">
+          <i class="fas fa-cubes"></i>
+        </div>
+        <div>
+          <h5 id="drawer-bottom-label" class="text-base font-bold text-slate-900">Portal Navigation</h5>
+          <p class="text-xs text-slate-500">Quick access to school modules</p>
+        </div>
+      </div>
+      <button type="button" data-drawer-hide="drawer-bottom-menu" aria-controls="drawer-bottom-menu" class="text-slate-400 hover:text-slate-600 p-2 text-lg">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- QUICK ACCESS GRID -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <a href="admin.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">🏠</span>
+        <span class="text-xs font-semibold text-center">Dashboard</span>
+      </a>
+      <a href="admission.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">🎓</span>
+        <span class="text-xs font-semibold text-center">Admission</span>
+      </a>
+      <a href="more.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">🌐</span>
+        <span class="text-xs font-semibold text-center">Multi-location</span>
+      </a>
+      <a href="people.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">👥</span>
+        <span class="text-xs font-semibold text-center">People</span>
+      </a>
+      <a href="academics.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">📚</span>
+        <span class="text-xs font-semibold text-center">Academics</span>
+      </a>
+      <a href="admin-cbt.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">💻</span>
+        <span class="text-xs font-semibold text-center">CBT Config</span>
+      </a>
+      <a href="results.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">📄</span>
+        <span class="text-xs font-semibold text-center">Results</span>
+      </a>
+      <a href="finance.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">💰</span>
+        <span class="text-xs font-semibold text-center">Finance</span>
+      </a>
+      <a href="attendance.html" class="flex flex-col items-center p-3.5 rounded-2xl bg-slate-50 hover:bg-primary-50 text-slate-700 hover:text-primary-700 transition">
+        <span class="text-2xl mb-1">🗓️</span>
+        <span class="text-xs font-semibold text-center">Attendance</span>
+      </a>
+    </div>
+
+    <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+      <span>Gold & Linc Admin v2.4</span>
+      <a href="#" class="text-primary-600 font-semibold hover:underline">Settings & Security</a>
+    </div>
+  </div>
+
+  <!-- FLOWBITE SCRIPT -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
+  <!-- ORIGINAL PRESERVED SCRIPT WITH ALL FUNCTIONS & API INTEGRATIONS -->
   <script>
 // ===== SPINNER OVERLAY LOGIC =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -894,29 +762,29 @@ const sidebarOverlay = document.getElementById('sidebarOverlay');
 
 function handleResize() {
   if (window.innerWidth <= 768) {
-    sidebarToggle.style.display = 'flex';
+    if (sidebarToggle) sidebarToggle.style.display = 'flex';
   } else {
-    sidebarToggle.style.display = 'none';
-    sidebar.classList.remove('active');
-    sidebarOverlay.classList.remove('active');
+    if (sidebarToggle) sidebarToggle.style.display = 'none';
+    if (sidebar) sidebar.classList.remove('active');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
     document.body.classList.remove('sidebar-open');
   }
 }
 
 function openSidebar() {
-  sidebar.classList.add('active');
-  sidebarOverlay.classList.add('active');
+  if (sidebar) sidebar.classList.add('active');
+  if (sidebarOverlay) sidebarOverlay.classList.add('active');
   document.body.classList.add('sidebar-open');
 }
 
 function closeSidebar() {
-  sidebar.classList.remove('active');
-  sidebarOverlay.classList.remove('active');
+  if (sidebar) sidebar.classList.remove('active');
+  if (sidebarOverlay) sidebarOverlay.classList.remove('active');
   document.body.classList.remove('sidebar-open');
 }
 
-sidebarToggle.addEventListener('click', openSidebar);
-sidebarOverlay.addEventListener('click', closeSidebar);
+if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
+if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
 document.querySelectorAll('.nav-link').forEach(link => {
   link.addEventListener('click', () => {
@@ -1006,7 +874,7 @@ function populateParentSelect() {
   });
 }
 
-// ===== 🔥 NEW: FETCH FULL PARENT DETAILS =====
+// ===== FETCH FULL PARENT DETAILS =====
 async function fetchParentDetails(parentId) {
   try {
     const res = await fetch(`${API_BASE_URL}/api/parents/${parentId}`);
@@ -1018,7 +886,7 @@ async function fetchParentDetails(parentId) {
   }
 }
 
-// ===== 🔥 NEW: AUTO-FILL FUNCTION =====
+// ===== AUTO-FILL FUNCTION =====
 function autofillParentFields(parent) {
   const form = document.forms[0];
   if (!form || !parent) return;
@@ -1046,10 +914,7 @@ if (parentSelect) {
     const createNewParentCheckbox = document.getElementById('createNewParent');
     
     if (parentId) {
-      // 🔥 UPDATED: Fetch full parent
       const parent = await fetchParentDetails(parentId);
-
-      // 🔥 Autofill fields
       autofillParentFields(parent);
 
       if (selectedInfo && parent) {
@@ -1063,7 +928,6 @@ if (parentSelect) {
     } else {
       if (selectedInfo) selectedInfo.style.display = 'none';
 
-      // 🔥 CLEAR FIELDS WHEN NONE SELECTED
       autofillParentFields({
         name: '',
         email: '',
@@ -1088,7 +952,6 @@ if (createNewParentCheckbox) {
       }
       if (selectedInfo) selectedInfo.style.display = 'none';
 
-      // 🔥 CLEAR FIELDS
       autofillParentFields({
         name: '',
         email: '',
@@ -1353,7 +1216,7 @@ if (nextBtn) {
     if (validateStep(currentStep)) {
       nextBtn.disabled = true;
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       if (currentStep === 1) {
         await generateRegistrationNumber();
@@ -1380,7 +1243,7 @@ if (backBtn) {
       currentStep--;
       showStep(currentStep);
       backBtn.disabled = false;
-    }, 500);
+    }, 400);
   });
 }
 
@@ -1431,22 +1294,25 @@ if (enrollForm) {
         
         if (successDiv) {
           let successMsg = `
-            <h3>✅ Student enrolled successfully!</h3>
-            <p>Registration Number: <strong>${escapeHtml(result.regNo)}</strong></p>
-            <p>Student ID: <strong>${escapeHtml(result.student_id)}</strong></p>
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl mb-4">
+              <i class="fas fa-check-circle"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-900">Student enrolled successfully!</h3>
+            <p class="text-sm text-slate-600 mt-2">Registration Number: <strong class="text-primary-800 font-mono">${escapeHtml(result.regNo)}</strong></p>
+            <p class="text-sm text-slate-600">Student ID: <strong class="text-slate-800 font-mono">${escapeHtml(result.student_id)}</strong></p>
           `;
           
           if (result.parentLinked) {
-            successMsg += '<p style="color: #059669; margin-top: 12px;"><i class="fas fa-check-circle"></i> Student linked to parent account</p>';
+            successMsg += '<p class="text-xs font-semibold text-emerald-700 bg-emerald-50 py-2 px-4 rounded-lg inline-block mt-3"><i class="fas fa-check-circle mr-1"></i> Linked to existing parent account</p>';
           }
           
           successMsg += `
-            <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: center;">
-              <button onclick="window.location.href='students-enroll.html'" style="padding: 10px 20px; background: var(--accent-2); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                <i class="fas fa-plus"></i> Enroll Another
+            <div class="mt-6 flex flex-wrap gap-3 justify-center">
+              <button onclick="window.location.href='admission.html'" class="px-5 py-2.5 bg-primary-700 hover:bg-primary-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow">
+                <i class="fas fa-plus mr-1"></i> Enroll Another
               </button>
-              <button onclick="window.location.href='admin.html'" style="padding: 10px 20px; background: #6b7280; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                <i class="fas fa-home"></i> Back to Dashboard
+              <button onclick="window.location.href='admin.html'" class="px-5 py-2.5 bg-slate-600 hover:bg-slate-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow">
+                <i class="fas fa-home mr-1"></i> Dashboard
               </button>
             </div>
           `;
