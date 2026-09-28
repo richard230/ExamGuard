@@ -9,7 +9,20 @@ const Term = require('../models/Term');
 const Class = require('../models/Class');
 const Subject = require('../models/Subject');
 const Teacher = require('../models/Teacher');
+const { authMiddleware } = require('./auth');
+// ===============================
+// AUTHENTICATION
+// ===============================
 
+// /check is intentionally public.
+// All other Results routes require authentication.
+router.use((req, res, next) => {
+  if (req.path === '/check') {
+    return next();
+  }
+
+  return authMiddleware(req, res, next);
+});
 /**
  * Utility helper to extract schoolId safely from authenticated user session
  */
