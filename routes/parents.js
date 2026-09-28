@@ -1176,7 +1176,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // =========================================================
 // GET SAVED PARENT CREDENTIALS
 // =========================================================
-router.get('/:id/credentials', authMiddleware, requireAdmin, async (req, res) => {
+router.get('/:id/credentials', authMiddleware, async (req, res) => {
     try {
         const schoolId = req.user?.schoolId;
 
