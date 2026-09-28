@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Parent = require('../models/Parent');
 const Student = require('../models/Student');
+const School = require('../models/School');
 const { authMiddleware } = require('./auth');
 function getSchoolId(req) {
     return req.user?.schoolId || null;
@@ -236,6 +237,31 @@ router.get('/me', authMiddleware, async (req, res) => {
       });
     }
     const parentData = populatedParent.toObject();
+      /* ================= SCHOOL CONTEXT ================= */
+
+if (parentData.schoolId) {
+    const school = await School.findById(parentData.schoolId).select(
+        '_id schoolId schoolName name subdomain abbreviation motto status logoUrl branding'
+    );
+
+    if (!school) {
+        return res.status(403).json({
+            error: 'Your parent account is not linked to a valid school.'
+        });
+    }
+
+    parentData.school = {
+        _id: school._id,
+        schoolId: school.schoolId,
+        schoolName: school.schoolName || school.name,
+        subdomain: school.subdomain,
+        abbreviation: school.abbreviation,
+        motto: school.motto,
+        status: school.status,
+        logoUrl: school.logoUrl,
+        branding: school.branding
+    };
+}
     parentData.students = (parentData.studentIds || [])
       .filter(student => {
         if (isSuperAdmin(req)) return true;
