@@ -1029,35 +1029,117 @@ router.post('/push-cbt', async (req, res) => {
 });
 
 // 15. GET /
+// 15. GET /
 router.get('/', async (req, res) => {
   try {
     const schoolId = getAuthSchoolId(req);
-    if (!schoolId) return res.status(401).json({ error: 'Unauthorized: Missing school context' });
+
+    if (!schoolId) {
+      return res.status(401).json({
+        error: 'Unauthorized: Missing school context'
+      });
+    }
+
+    console.log('========== RESULTS DEBUG ==========');
+    console.log('Authenticated schoolId:', schoolId);
+    console.log('Query:', req.query);
+
+    const totalSchoolResults = await Result.countDocuments({
+      schoolId
+    });
+
+    const totalResults = await Result.countDocuments();
+
+    const schoolSessions = await Session.find({ schoolId })
+      .select('_id name is_active');
+
+    const schoolTerms = await Term.find({ schoolId })
+      .select('_id name session');
+
+    const schoolClasses = await Class.find({ schoolId })
+      .select('_id name');
+
+    const schoolSubjects = await Subject.find({ schoolId })
+      .select('_id name');
+
+    console.log('Total Results:', totalResults);
+    console.log('Results for this school:', totalSchoolResults);
+    console.log('School Sessions:', schoolSessions);
+    console.log('School Terms:', schoolTerms);
+    console.log('School Classes:', schoolClasses);
+    console.log('School Subjects:', schoolSubjects);
+    console.log('===================================');
 
     const query = { schoolId };
 
     if (req.query.session) {
-      const sess = await Session.findOne({ schoolId, name: req.query.session });
-      if (!sess) return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      const sess = await Session.findOne({
+        schoolId,
+        name: req.query.session
+      });
+
+      if (!sess) {
+        return res.status(404).json({
+          error: 'Session not found for this school.',
+          requestedSession: req.query.session,
+          availableSessions: schoolSessions.map(s => s.name)
+        });
+      }
+
       query.session = sess._id;
     }
+
     if (req.query.term) {
-      const term = await Term.findOne({ schoolId, name: req.query.term });
-      if (!term) return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      const term = await Term.findOne({
+        schoolId,
+        name: req.query.term
+      });
+
+      if (!term) {
+        return res.status(404).json({
+          error: 'Term not found for this school.',
+          requestedTerm: req.query.term,
+          availableTerms: schoolTerms.map(t => t.name)
+        });
+      }
+
       query.term = term._id;
     }
+
     if (req.query.student_id) {
-      const student = await Student.findOne({ schoolId, student_id: req.query.student_id });
-      if (student) query.student = student._id;
+      const student = await Student.findOne({
+        schoolId,
+        student_id: req.query.student_id
+      });
+
+      if (student) {
+        query.student = student._id;
+      }
     }
+
     if (req.query.class) {
-      const klass = await Class.findOne({ schoolId, name: req.query.class });
-      if (klass) query.class = klass._id;
+      const klass = await Class.findOne({
+        schoolId,
+        name: req.query.class
+      });
+
+      if (klass) {
+        query.class = klass._id;
+      }
     }
+
     if (req.query.subject) {
-      const subject = await Subject.findOne({ schoolId, name: req.query.subject });
-      if (subject) query.subject = subject._id;
+      const subject = await Subject.findOne({
+        schoolId,
+        name: req.query.subject
+      });
+
+      if (subject) {
+        query.subject = subject._id;
+      }
     }
+
+    console.log('Final Result query:', query);
 
     const results = await Result.find(query)
       .populate('student')
@@ -1067,15 +1149,28 @@ router.get('/', async (req, res) => {
       .populate('subject')
       .sort({ _id: -1 });
 
+    console.log('Results returned:', results.length);
+
     if (!results.length) {
-      return res.status(404).json({ error: "Result unavailable for selected session and term." });
+      return res.status(404).json({
+        error: 'No results found for this school and selected filters.',
+        schoolId,
+        query,
+        totalResults,
+        totalSchoolResults
+      });
     }
+
     res.json(results);
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('GET /api/results error:', err);
+
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
-
 // 16. GET /:id
 router.get('/:id', async (req, res) => {
   try {
