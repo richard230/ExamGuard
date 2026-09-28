@@ -427,27 +427,32 @@ Parent Login Access
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
+
 function openSidebar() {
-sidebar.classList.remove('-translate-x-full');
-sidebarOverlay.classList.remove('hidden');
-document.body.style.overflow = 'hidden';
+    sidebar.classList.remove('-translate-x-full');
+    sidebarOverlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 }
+
 function closeSidebar() {
-sidebar.classList.add('-translate-x-full');
-sidebarOverlay.classList.add('hidden');
-document.body.style.overflow = 'auto';
+    sidebar.classList.add('-translate-x-full');
+    sidebarOverlay.classList.add('hidden');
+    document.body.style.overflow = 'auto';
 }
+
 if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
 document.querySelectorAll('.nav-link').forEach(link => {
-link.addEventListener('click', () => {
-if (window.innerWidth <= 768) {
-closeSidebar();
-}
+    link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+            closeSidebar();
+        }
+    });
 });
-});
+
 document.addEventListener('keydown', e => {
-if (e.key === 'Escape') closeSidebar();
+    if (e.key === 'Escape') closeSidebar();
 });
 
 /* =========================================================
@@ -829,39 +834,42 @@ const successText = document.getElementById('successText');
 const errorText = document.getElementById('errorText');
 
 function escapeHTML(str) {
-return String(str || '')
-.replace(/&/g, '&amp;')
-.replace(/</g, '&lt;')
-.replace(/>/g, '&gt;')
-.replace(/"/g, '&quot;')
-.replace(/'/g, '&#039;');
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
+
 function showSuccess(message) {
-successText.textContent = message;
-successMessage.classList.remove('hidden');
-successMessage.classList.add('flex');
-setTimeout(() => {
-successMessage.classList.add('hidden');
-successMessage.classList.remove('flex');
-}, 3000);
+    successText.textContent = message;
+    successMessage.classList.remove('hidden');
+    successMessage.classList.add('flex');
+    setTimeout(() => {
+        successMessage.classList.add('hidden');
+        successMessage.classList.remove('flex');
+    }, 3000);
 }
+
 function showError(message) {
-errorText.textContent = message;
-errorMessage.classList.remove('hidden');
-errorMessage.classList.add('flex');
-setTimeout(() => {
-errorMessage.classList.add('hidden');
-errorMessage.classList.remove('flex');
-}, 3000);
+    errorText.textContent = message;
+    errorMessage.classList.remove('hidden');
+    errorMessage.classList.add('flex');
+    setTimeout(() => {
+        errorMessage.classList.add('hidden');
+        errorMessage.classList.remove('flex');
+    }, 3000);
 }
+
 function generatePassword() {
-const length = 12;
-const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-let password = '';
-for (let i = 0; i < length; i++) {
-password += chars.charAt(Math.floor(Math.random() * chars.length));
-}
-return password;
+    const length = 12;
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
 }
 
 async function fetchStudents() {
@@ -896,8 +904,8 @@ async function fetchStudents() {
                         ? data.data
                         : [];
         allStudents = studentsArray.map(s => ({
-            student_id: s.student_id || '',
-            _id: s._id || '',
+            student_id: String(s.student_id || ''),
+            _id: String(s._id || ''),
             firstName: s.firstname || s.firstName || '',
             lastName: s.surname || s.lastName || '',
             className: s.class || s.className || '',
@@ -931,511 +939,748 @@ async function fetchStudents() {
     }
 }
 
-
 function renderStudentsCheckboxes(students) {
-studentsLoadingSpinner.style.display = 'none';
-if (!students || students.length === 0) {
-studentsCheckboxContainer.innerHTML = '';
-studentsSearchContainer.style.display = 'none';
-studentsEmptyState.style.display = 'block';
-return;
-}
-studentsEmptyState.style.display = 'none';
-studentsSearchContainer.style.display = 'block';
-studentsCheckboxContainer.innerHTML = '';
-students.forEach((student) => {
-if (!student.student_id) {
-console.warn('Skipping student without valid student_id:', student);
-return;
-}
-const isChecked = selectedStudents.includes(student.student_id) ? 'checked' : '';
-const studentFullName = `${escapeHTML(student.firstName || '')} ${escapeHTML(student.lastName || '')}`.trim() || 'N/A';
-const div = document.createElement('div');
-div.className = 'checkbox-item flex items-center p-2 hover:bg-slate-100 rounded-md transition';
-div.innerHTML = `
-<input 
-type="checkbox" 
-id="student-${escapeHTML(student.student_id)}" 
-value="${escapeHTML(student.student_id)}"
-class="student-checkbox w-4 h-4 bg-white border-slate-300 rounded brand-focus"
-style="accent-color: var(--brand-primary);"
-${isChecked}
->
-<label for="student-${escapeHTML(student.student_id)}" class="ml-2 text-xs font-medium text-slate-700 cursor-pointer flex-1 flex items-center justify-between">
-<span class="student-name font-semibold text-slate-800">${studentFullName}</span>
-<span class="student-class text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">${escapeHTML(student.className || 'N/A')} ${escapeHTML(student.classArm || '')} - ${escapeHTML(student.regNo || 'N/A')}</span>
-</label>
-`;
-const checkbox = div.querySelector('input[type="checkbox"]');
-checkbox.addEventListener('change', updateSelectedStudents);
-studentsCheckboxContainer.appendChild(div);
-});
-studentsCheckboxContainer.style.display = 'block';
-updateSelectedCount();
+    studentsLoadingSpinner.style.display = 'none';
+    if (!students || students.length === 0) {
+        studentsCheckboxContainer.innerHTML = '';
+        studentsSearchContainer.style.display = 'none';
+        studentsEmptyState.style.display = 'block';
+        return;
+    }
+    studentsEmptyState.style.display = 'none';
+    studentsSearchContainer.style.display = 'block';
+    studentsCheckboxContainer.innerHTML = '';
+    students.forEach((student) => {
+        if (!student.student_id) {
+            console.warn('Skipping student without valid student_id:', student);
+            return;
+        }
+        const isChecked = selectedStudents.includes(student.student_id) ? 'checked' : '';
+        const studentFullName = `${escapeHTML(student.firstName || '')} ${escapeHTML(student.lastName || '')}`.trim() || 'N/A';
+        const div = document.createElement('div');
+        div.className = 'checkbox-item flex items-center p-2 hover:bg-slate-100 rounded-md transition';
+        div.innerHTML = `
+        <input 
+        type="checkbox" 
+        id="student-${escapeHTML(student.student_id)}" 
+        value="${escapeHTML(student.student_id)}"
+        class="student-checkbox w-4 h-4 bg-white border-slate-300 rounded brand-focus"
+        style="accent-color: var(--brand-primary);"
+        ${isChecked}
+        >
+        <label for="student-${escapeHTML(student.student_id)}" class="ml-2 text-xs font-medium text-slate-700 cursor-pointer flex-1 flex items-center justify-between">
+        <span class="student-name font-semibold text-slate-800">${studentFullName}</span>
+        <span class="student-class text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px]">${escapeHTML(student.className || 'N/A')} ${escapeHTML(student.classArm || '')} - ${escapeHTML(student.regNo || 'N/A')}</span>
+        </label>
+        `;
+        const checkbox = div.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener('change', updateSelectedStudents);
+        studentsCheckboxContainer.appendChild(div);
+    });
+    studentsCheckboxContainer.style.display = 'block';
+    updateSelectedCount();
 }
 
 function updateSelectedStudents() {
-selectedStudents = Array.from(document.querySelectorAll('#studentsCheckboxContainer input[type="checkbox"]:checked'))
-.map(cb => cb.value)
-.filter(id => id && id.trim());
-updateSelectedCount();
+    selectedStudents = Array.from(document.querySelectorAll('#studentsCheckboxContainer input[type="checkbox"]:checked'))
+        .map(cb => cb.value)
+        .filter(id => id && id.trim());
+    updateSelectedCount();
 }
+
 function updateSelectedCount() {
-const count = selectedStudents.length;
-if (count > 0) {
-selectedCount.textContent = `${count} student(s) selected`;
-selectedCount.style.display = 'inline-block';
-} else {
-selectedCount.style.display = 'none';
+    const count = selectedStudents.length;
+    if (count > 0) {
+        selectedCount.textContent = `${count} student(s) selected`;
+        selectedCount.style.display = 'inline-block';
+    } else {
+        selectedCount.style.display = 'none';
+    }
 }
-}
+
 if (studentSearchInput) {
-studentSearchInput.addEventListener('input', () => {
-const query = studentSearchInput.value.trim().toLowerCase();
-const checkboxes = document.querySelectorAll('#studentsCheckboxContainer .checkbox-item');
-checkboxes.forEach(item => {
-const studentName = item.querySelector('.student-name').textContent.toLowerCase();
-const studentClass = item.querySelector('.student-class').textContent.toLowerCase();
-const matches = studentName.includes(query) || studentClass.includes(query);
-item.style.display = matches ? 'flex' : 'none';
-});
-});
+    studentSearchInput.addEventListener('input', () => {
+        const query = studentSearchInput.value.trim().toLowerCase();
+        const checkboxes = document.querySelectorAll('#studentsCheckboxContainer .checkbox-item');
+        checkboxes.forEach(item => {
+            const studentName = item.querySelector('.student-name').textContent.toLowerCase();
+            const studentClass = item.querySelector('.student-class').textContent.toLowerCase();
+            const matches = studentName.includes(query) || studentClass.includes(query);
+            item.style.display = matches ? 'flex' : 'none';
+        });
+    });
 }
 
 async function fetchParents() {
-parentsLoading.style.display = 'flex';
-parentsEmpty.classList.add('hidden');
-parentsEmpty.classList.remove('flex');
-parentsTable.style.display = 'none';
-parentsTableBody.innerHTML = '';
-try {
-const res = await fetch(`${API_BASE_URL}/api/parents`, {
-method: 'GET',
-headers: getAuthHeaders()
-});
-if (res.status === 401 || res.status === 403) {
-throw new Error('Your session has expired or you do not have access to this school.');
-}
-if (!res.ok) throw new Error(`HTTP ${res.status}`);
-const data = await res.json();
-allParents = Array.isArray(data) ? data : data.parents || [];
-renderParents(allParents);
-} catch (err) {
-console.error('Error fetching parents:', err);
-parentsLoading.style.display = 'none';
-parentsEmpty.classList.remove('hidden');
-parentsEmpty.classList.add('flex');
-parentsEmpty.innerHTML = `
-<i class="fa fa-exclamation-circle text-2xl text-red-500 mb-2"></i>
-<p class="text-sm font-semibold text-slate-700">Failed to load parents</p>
-<p class="text-xs text-slate-500">${escapeHTML(err.message || 'Please check your connection or refresh the page.')}</p>
-`;
-showError(err.message || 'Failed to load parents');
-}
+    parentsLoading.style.display = 'flex';
+    parentsEmpty.classList.add('hidden');
+    parentsEmpty.classList.remove('flex');
+    parentsTable.style.display = 'none';
+    parentsTableBody.innerHTML = '';
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/parents`, {
+            method: 'GET',
+            headers: getAuthHeaders()
+        });
+        if (res.status === 401 || res.status === 403) {
+            throw new Error('Your session has expired or you do not have access to this school.');
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        allParents = Array.isArray(data) ? data : data.parents || [];
+        renderParents(allParents);
+    } catch (err) {
+        console.error('Error fetching parents:', err);
+        parentsLoading.style.display = 'none';
+        parentsEmpty.classList.remove('hidden');
+        parentsEmpty.classList.add('flex');
+        parentsEmpty.innerHTML = `
+        <i class="fa fa-exclamation-circle text-2xl text-red-500 mb-2"></i>
+        <p class="text-sm font-semibold text-slate-700">Failed to load parents</p>
+        <p class="text-xs text-slate-500">${escapeHTML(err.message || 'Please check your connection or refresh the page.')}</p>
+        `;
+        showError(err.message || 'Failed to load parents');
+    }
 }
 
 function renderParents(parents) {
-parentsLoading.style.display = 'none';
-parentsTableBody.innerHTML = '';
-if (!parents || parents.length === 0) {
-parentsTable.style.display = 'none';
-parentsEmpty.classList.remove('hidden');
-parentsEmpty.classList.add('flex');
-return;
+    parentsLoading.style.display = 'none';
+    parentsTableBody.innerHTML = '';
+    if (!parents || parents.length === 0) {
+        parentsTable.style.display = 'none';
+        parentsEmpty.classList.remove('hidden');
+        parentsEmpty.classList.add('flex');
+        return;
+    }
+    parentsEmpty.classList.add('hidden');
+    parentsEmpty.classList.remove('flex');
+    parentsTable.style.display = 'table';
+    parents.forEach((parent) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50/80 transition border-b border-slate-100";
+        const studentBadges = (parent.studentIds || [])
+            .map(student => {
+                if (student && student.firstname && student.surname) {
+                    const studentFullName = `${escapeHTML(student.firstname)} ${escapeHTML(student.surname)}`;
+                    return `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold px-2 py-0.5 rounded-md mr-1 mb-1">${studentFullName}</span>`;
+                }
+                return '';
+            })
+            .filter(Boolean)
+            .join('');
+        const studentCount = (parent.studentIds || []).filter(s => s && s.firstname).length;
+        tr.innerHTML = `
+        <td class="px-4 py-3 font-semibold text-slate-900">${escapeHTML(parent.name || 'N/A')}</td>
+        <td class="px-4 py-3 text-slate-600">${escapeHTML(parent.email || '—')}</td>
+        <td class="px-4 py-3 text-slate-600">${escapeHTML(parent.phone || '—')}</td>
+        <td class="px-4 py-3">
+        <div>
+        ${studentBadges || '<span class="text-slate-400 italic">No students assigned</span>'}
+        ${studentCount > 0 ? `<p class="text-[11px] text-slate-500 mt-1">${studentCount} student(s)</p>` : ''}
+        </div>
+        </td>
+        <td class="px-4 py-3 text-center">
+        <div class="inline-flex items-center justify-center gap-1">
+        <button class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="View Details" onclick="viewParent('${escapeHTML(parent._id)}')">
+        <i class="fa-solid fa-eye text-xs"></i>
+        </button>
+        <button class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Credentials" onclick="showCredentials('${escapeHTML(parent._id)}')">
+        <i class="fa-solid fa-key text-xs"></i>
+        </button>
+        <button class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Edit Parent" onclick="editParent('${escapeHTML(parent._id)}')">
+        <i class="fa-solid fa-pen-to-square text-xs"></i>
+        </button>
+        <button class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Parent" onclick="deleteParent('${escapeHTML(parent._id)}')">
+        <i class="fa-solid fa-trash text-xs"></i>
+        </button>
+        </div>
+        </td>
+        `;
+        parentsTableBody.appendChild(tr);
+    });
 }
-parentsEmpty.classList.add('hidden');
-parentsEmpty.classList.remove('flex');
-parentsTable.style.display = 'table';
-parents.forEach((parent) => {
-const tr = document.createElement('tr');
-tr.className = "hover:bg-slate-50/80 transition border-b border-slate-100";
-const studentBadges = (parent.studentIds || [])
-.map(student => {
-if (student && student.firstname && student.surname) {
-const studentFullName = `${escapeHTML(student.firstname)} ${escapeHTML(student.surname)}`;
-return `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold px-2 py-0.5 rounded-md mr-1 mb-1">${studentFullName}</span>`;
-}
-return '';
-})
-.filter(Boolean)
-.join('');
-const studentCount = (parent.studentIds || []).filter(s => s && s.firstname).length;
-tr.innerHTML = `
-<td class="px-4 py-3 font-semibold text-slate-900">${escapeHTML(parent.name || 'N/A')}</td>
-<td class="px-4 py-3 text-slate-600">${escapeHTML(parent.email || '—')}</td>
-<td class="px-4 py-3 text-slate-600">${escapeHTML(parent.phone || '—')}</td>
-<td class="px-4 py-3">
-<div>
-${studentBadges || '<span class="text-slate-400 italic">No students assigned</span>'}
-${studentCount > 0 ? `<p class="text-[11px] text-slate-500 mt-1">${studentCount} student(s)</p>` : ''}
-</div>
-</td>
-<td class="px-4 py-3 text-center">
-<div class="inline-flex items-center justify-center gap-1">
-<button class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="View Details" onclick="viewParent('${escapeHTML(parent._id)}')">
-<i class="fa-solid fa-eye text-xs"></i>
-</button>
-<button class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Credentials" onclick="showCredentials('${escapeHTML(parent._id)}')">
-<i class="fa-solid fa-key text-xs"></i>
-</button>
-<button class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Edit Parent" onclick="editParent('${escapeHTML(parent._id)}')">
-<i class="fa-solid fa-pen-to-square text-xs"></i>
-</button>
-<button class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Parent" onclick="deleteParent('${escapeHTML(parent._id)}')">
-<i class="fa-solid fa-trash text-xs"></i>
-</button>
-</div>
-</td>
-`;
-parentsTableBody.appendChild(tr);
-});
-}
+
 if (parentSearchInput) {
-parentSearchInput.addEventListener('input', () => {
-const query = parentSearchInput.value.trim().toLowerCase();
-const filtered = allParents.filter(p =>
-(p.name || '').toLowerCase().includes(query) ||
-(p.email || '').toLowerCase().includes(query) ||
-(p.phone || '').toLowerCase().includes(query)
-);
-renderParents(filtered);
-});
+    parentSearchInput.addEventListener('input', () => {
+        const query = parentSearchInput.value.trim().toLowerCase();
+        const filtered = allParents.filter(p =>
+            (p.name || '').toLowerCase().includes(query) ||
+            (p.email || '').toLowerCase().includes(query) ||
+            (p.phone || '').toLowerCase().includes(query)
+        );
+        renderParents(filtered);
+    });
 }
+
 window.openAddParentModal = function() {
-selectedStudents = [];
-parentModalTitle.textContent = 'Add Parent';
-parentForm.reset();
-parentIdInput.value = '';
-parentFormSubmitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Parent';
-parentFormSubmitBtn.disabled = false;
-parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
-if (studentSearchInput) studentSearchInput.value = '';
-studentsLoadingSpinner.style.display = 'flex';
-studentsSearchContainer.style.display = 'none';
-studentsCheckboxContainer.style.display = 'none';
-studentsEmptyState.style.display = 'none';
-fetchStudents();
-parentModalBackdrop.classList.remove('hidden');
-if (parentNameInput) parentNameInput.focus();
+    selectedStudents = [];
+    parentModalTitle.textContent = 'Add Parent';
+    parentForm.reset();
+    parentIdInput.value = '';
+    parentFormSubmitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Parent';
+    parentFormSubmitBtn.disabled = false;
+    parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
+    if (studentSearchInput) studentSearchInput.value = '';
+    studentsLoadingSpinner.style.display = 'flex';
+    studentsSearchContainer.style.display = 'none';
+    studentsCheckboxContainer.style.display = 'none';
+    studentsEmptyState.style.display = 'none';
+    fetchStudents();
+    parentModalBackdrop.classList.remove('hidden');
+    if (parentNameInput) parentNameInput.focus();
 };
+
 function closeModal() {
-parentModalBackdrop.classList.add('hidden');
-parentForm.reset();
-selectedStudents = [];
+    parentModalBackdrop.classList.add('hidden');
+    parentForm.reset();
+    selectedStudents = [];
 }
+
 function closeViewModal() {
-viewParentModalBackdrop.classList.add('hidden');
+    viewParentModalBackdrop.classList.add('hidden');
 }
+
 function closeCredentialsModal_fn() {
-credentialsModalBackdrop.classList.add('hidden');
+    credentialsModalBackdrop.classList.add('hidden');
 }
+
 if (closeParentModal) closeParentModal.addEventListener('click', closeModal);
 if (cancelParentBtn) cancelParentBtn.addEventListener('click', closeModal);
 if (parentModalBackdrop) {
-parentModalBackdrop.addEventListener('click', (e) => {
-if (e.target === parentModalBackdrop) closeModal();
-});
+    parentModalBackdrop.addEventListener('click', (e) => {
+        if (e.target === parentModalBackdrop) closeModal();
+    });
 }
 if (closeViewParentModal) closeViewParentModal.addEventListener('click', closeViewModal);
 if (viewParentModalBackdrop) {
-viewParentModalBackdrop.addEventListener('click', (e) => {
-if (e.target === viewParentModalBackdrop) closeViewModal();
-});
+    viewParentModalBackdrop.addEventListener('click', (e) => {
+        if (e.target === viewParentModalBackdrop) closeViewModal();
+    });
 }
 if (closeCredentialsModal) closeCredentialsModal.addEventListener('click', closeCredentialsModal_fn);
 if (credentialsModalBackdrop) {
-credentialsModalBackdrop.addEventListener('click', (e) => {
-if (e.target === credentialsModalBackdrop) closeCredentialsModal_fn();
-});
+    credentialsModalBackdrop.addEventListener('click', (e) => {
+        if (e.target === credentialsModalBackdrop) closeCredentialsModal_fn();
+    });
 }
+
 window.viewParent = function(id) {
-const parent = allParents.find(p => p._id === id);
-if (!parent) {
-showError('Parent not found');
-return;
-}
-const emergencyInfo = parent.emergencyContactName || parent.emergencyContactPhone 
-? `${parent.emergencyContactName || 'N/A'} - ${parent.emergencyContactPhone || 'N/A'}`
-: 'Not provided';
-const assignedStudents = (parent.studentIds || [])
-.map(studentId => {
-const student = allStudents.find(s => s._id === studentId);
-if (student) {
-const studentFullName = `${student.firstName} ${student.lastName}`.trim();
-return `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold px-2.5 py-1 rounded-md mr-1 mb-1">${escapeHTML(studentFullName)} (${escapeHTML(student.className)})</span>`;
-}
-return '';
-})
-.filter(Boolean)
-.join('');
-viewParentContent.innerHTML = `
-<div class="space-y-4 text-xs md:text-sm">
-<div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-<h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Personal Information</h4>
-<div class="grid grid-cols-2 gap-2">
-<div><span class="text-slate-400 block text-[11px]">Full Name</span><strong class="text-slate-800">${escapeHTML(parent.name || 'N/A')}</strong></div>
-<div><span class="text-slate-400 block text-[11px]">Email</span><strong class="text-slate-800">${escapeHTML(parent.email || 'N/A')}</strong></div>
-<div><span class="text-slate-400 block text-[11px]">Phone</span><strong class="text-slate-800">${escapeHTML(parent.phone || 'N/A')}</strong></div>
-<div><span class="text-slate-400 block text-[11px]">Occupation</span><strong class="text-slate-800">${escapeHTML(parent.occupation || 'N/A')}</strong></div>
-</div>
-</div>
-<div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-<h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Address Information</h4>
-<div><span class="text-slate-400 block text-[11px]">Residential Address</span><strong class="text-slate-800">${escapeHTML(parent.address || 'N/A')}</strong></div>
-</div>
-<div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-<h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Emergency Contact</h4>
-<div><span class="text-slate-400 block text-[11px]">Name & Phone</span><strong class="text-slate-800">${escapeHTML(emergencyInfo)}</strong></div>
-</div>
-<div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-<h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Assigned Students</h4>
-<div class="mt-1">${assignedStudents || '<span class="text-slate-400 italic">No students assigned</span>'}</div>
-</div>
-</div>
-<div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
-<button type="button" class="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50" onclick="closeViewModal()">Close</button>
-<button type="button" class="brand-button px-4 py-2 text-xs font-semibold rounded-lg" onclick="editParent('${escapeHTML(parent._id)}')">
-<i class="fa-solid fa-pen-to-square mr-1"></i> Edit Parent
-</button>
-</div>
-`;
-viewParentModalBackdrop.classList.remove('hidden');
+    const parent = allParents.find(p => p._id === id);
+    if (!parent) {
+        showError('Parent not found');
+        return;
+    }
+    const emergencyInfo = parent.emergencyContactName || parent.emergencyContactPhone 
+        ? `${parent.emergencyContactName || 'N/A'} - ${parent.emergencyContactPhone || 'N/A'}`
+        : 'Not provided';
+
+    const assignedStudents = (parent.studentIds || [])
+        .map(student => {
+            if (student && typeof student === 'object') {
+                const firstName =
+                    student.firstname ||
+                    student.firstName ||
+                    '';
+
+                const lastName =
+                    student.surname ||
+                    student.lastName ||
+                    '';
+
+                const fullName =
+                    `${firstName} ${lastName}`.trim() || 'Unnamed Student';
+
+                const className =
+                    student.class ||
+                    student.className ||
+                    'N/A';
+
+                const classArm =
+                    student.classArm ||
+                    '';
+
+                const regNo =
+                    student.regNo ||
+                    'N/A';
+
+                return `
+                    <span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold px-2.5 py-1 rounded-md mr-1 mb-1">
+                        ${escapeHTML(fullName)}
+                        (${escapeHTML(className)}${classArm ? ` ${escapeHTML(classArm)}` : ''})
+                        - ${escapeHTML(regNo)}
+                    </span>
+                `;
+            }
+
+            const foundStudent = allStudents.find(
+                s => String(s._id) === String(student)
+            );
+
+            if (foundStudent) {
+                const studentFullName =
+                    `${foundStudent.firstName || ''} ${foundStudent.lastName || ''}`.trim();
+
+                return `
+                    <span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold px-2.5 py-1 rounded-md mr-1 mb-1">
+                        ${escapeHTML(studentFullName || 'Unnamed Student')}
+                        (${escapeHTML(foundStudent.className || 'N/A')})
+                    </span>
+                `;
+            }
+
+            return '';
+        })
+        .filter(Boolean)
+        .join('');
+
+    viewParentContent.innerHTML = `
+    <div class="space-y-4 text-xs md:text-sm">
+    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+    <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Personal Information</h4>
+    <div class="grid grid-cols-2 gap-2">
+    <div><span class="text-slate-400 block text-[11px]">Full Name</span><strong class="text-slate-800">${escapeHTML(parent.name || 'N/A')}</strong></div>
+    <div><span class="text-slate-400 block text-[11px]">Email</span><strong class="text-slate-800">${escapeHTML(parent.email || 'N/A')}</strong></div>
+    <div><span class="text-slate-400 block text-[11px]">Phone</span><strong class="text-slate-800">${escapeHTML(parent.phone || 'N/A')}</strong></div>
+    <div><span class="text-slate-400 block text-[11px]">Occupation</span><strong class="text-slate-800">${escapeHTML(parent.occupation || 'N/A')}</strong></div>
+    </div>
+    </div>
+    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+    <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Address Information</h4>
+    <div><span class="text-slate-400 block text-[11px]">Residential Address</span><strong class="text-slate-800">${escapeHTML(parent.address || 'N/A')}</strong></div>
+    </div>
+    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+    <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Emergency Contact</h4>
+    <div><span class="text-slate-400 block text-[11px]">Name & Phone</span><strong class="text-slate-800">${escapeHTML(emergencyInfo)}</strong></div>
+    </div>
+    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+    <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 brand-primary">Assigned Students</h4>
+    <div class="mt-1">${assignedStudents || '<span class="text-slate-400 italic">No students assigned</span>'}</div>
+    </div>
+    </div>
+    <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
+    <button type="button" class="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50" onclick="closeViewModal()">Close</button>
+    <button type="button" class="brand-button px-4 py-2 text-xs font-semibold rounded-lg" onclick="editParent('${escapeHTML(parent._id)}')">
+    <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Parent
+    </button>
+    </div>
+    `;
+    viewParentModalBackdrop.classList.remove('hidden');
 };
 
-window.showCredentials = function(id) {
-const parent = allParents.find(p => p._id === id);
-if (!parent) {
-showError('Parent not found');
-return;
-}
-const username = parent.email || 'N/A';
-const password = parent.temporaryPassword || 'Not set';
-const loginUrl = 'parent-login.html';
-credentialsContent.innerHTML = `
-<div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 text-xs md:text-sm">
-<div class="flex items-center justify-between">
-<div>
-<span class="text-slate-400 text-[11px] block">Email / Username</span>
-<strong class="text-slate-800 font-mono">${escapeHTML(username)}</strong>
-</div>
-<button type="button" class="px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200" onclick="copyToClipboard('${escapeHTML(username)}')">
-<i class="fa-regular fa-copy"></i> Copy
-</button>
-</div>
-<div class="flex items-center justify-between border-t border-slate-200/60 pt-2">
-<div>
-<span class="text-slate-400 text-[11px] block">Password</span>
-<strong class="text-slate-800 font-mono" id="passwordDisplay">
-${password === 'Not set' ? 'Not set' : '*'.repeat(password.length)}
-</strong>
-</div>
-${password !== 'Not set' ? `
-<div class="flex items-center gap-1">
-<button type="button" class="p-1 text-slate-500 hover:text-slate-700" onclick="togglePasswordVisibility('${escapeHTML(password)}')" title="Toggle visibility">
-<i class="fa-regular fa-eye"></i>
-</button>
-<button type="button" class="px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200" onclick="copyToClipboard('${escapeHTML(password)}')">
-<i class="fa-regular fa-copy"></i> Copy
-</button>
-</div>
-` : '<span class="text-xs text-slate-400 italic">Generate password below</span>'}
-</div>
-<div class="flex items-center justify-between border-t border-slate-200/60 pt-2">
-<div>
-<span class="text-slate-400 text-[11px] block">Login Portal URL</span>
-<strong class="text-slate-800 font-mono">${escapeHTML(loginUrl)}</strong>
-</div>
-<button type="button" class="px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200" onclick="copyToClipboard('${escapeHTML(loginUrl)}')">
-<i class="fa-regular fa-copy"></i> Copy
-</button>
-</div>
-</div>
-<div class="p-3 my-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
-<strong class="font-semibold block mb-0.5"><i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Important:</strong>
-<span>${password === 'Not set' 
-? 'This account has no password yet. Click "Generate Password" to create credentials.' 
-: 'Share credentials securely with parent. Advise them to update password upon initial login.'}</span>
-</div>
-<div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">
-<button type="button" class="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50" onclick="closeCredentialsModal_fn()">Close</button>
-<button type="button" class="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm" onclick="resetParentPassword('${escapeHTML(parent._id)}')">
-<i class="fa-solid fa-arrows-rotate mr-1"></i> ${password === 'Not set' ? 'Generate Password' : 'Reset Password'}
-</button>
-</div>
-`;
-credentialsModalBackdrop.classList.remove('hidden');
+window.showCredentials = async function(id) {
+    const parent = allParents.find(p => p._id === id);
+
+    if (!parent) {
+        showError('Parent not found');
+        return;
+    }
+
+    credentialsModalBackdrop.classList.remove('hidden');
+
+    credentialsContent.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+            <div class="text-center">
+                <i class="fa-solid fa-spinner fa-spin text-2xl text-blue-600 mb-3"></i>
+                <p class="text-xs text-slate-500">
+                    Loading parent credentials...
+                </p>
+            </div>
+        </div>
+    `;
+
+    try {
+        const res = await fetch(
+            `${API_BASE_URL}/api/parents/${encodeURIComponent(id)}/credentials`,
+            {
+                method: 'GET',
+                headers: getAuthHeaders()
+            }
+        );
+
+        if (res.status === 401 || res.status === 403) {
+            throw new Error(
+                'Your session has expired or you do not have permission to view these credentials.'
+            );
+        }
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+
+            throw new Error(
+                errorData.error || `HTTP ${res.status}`
+            );
+        }
+
+        const data = await res.json();
+
+        if (!data.success || !data.parent) {
+            throw new Error('Invalid credentials response from server.');
+        }
+
+        const credentialParent = data.parent;
+
+        const username = credentialParent.email || 'N/A';
+        const password = credentialParent.temporaryPassword || null;
+
+        parent.temporaryPassword = password;
+
+        const loginUrl = 'parent-login.html';
+
+        credentialsContent.innerHTML = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 text-xs md:text-sm">
+
+                <!-- EMAIL -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-slate-400 text-[11px] block">
+                            Email / Username
+                        </span>
+
+                        <strong class="text-slate-800 font-mono">
+                            ${escapeHTML(username)}
+                        </strong>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200"
+                        onclick="copyToClipboard('${escapeHTML(username)}')"
+                    >
+                        <i class="fa-regular fa-copy"></i>
+                        Copy
+                    </button>
+                </div>
+
+                <!-- PASSWORD -->
+                <div class="flex items-center justify-between border-t border-slate-200/60 pt-2">
+
+                    <div>
+                        <span class="text-slate-400 text-[11px] block">
+                            Password
+                        </span>
+
+                        <strong
+                            class="text-slate-800 font-mono"
+                            id="passwordDisplay"
+                        >
+                            ${
+                                password
+                                    ? '*'.repeat(password.length)
+                                    : 'Not set'
+                            }
+                        </strong>
+                    </div>
+
+                    ${
+                        password
+                            ? `
+                            <div class="flex items-center gap-1">
+
+                                <button
+                                    type="button"
+                                    class="p-1 text-slate-500 hover:text-slate-700"
+                                    onclick="togglePasswordVisibility('${escapeHTML(password)}')"
+                                    title="Toggle visibility"
+                                >
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200"
+                                    onclick="copyToClipboard('${escapeHTML(password)}')"
+                                >
+                                    <i class="fa-regular fa-copy"></i>
+                                    Copy
+                                </button>
+
+                            </div>
+                            `
+                            : `
+                            <span class="text-xs text-slate-400 italic">
+                                No password saved
+                            </span>
+                            `
+                    }
+
+                </div>
+
+                <!-- LOGIN PORTAL -->
+                <div class="flex items-center justify-between border-t border-slate-200/60 pt-2">
+
+                    <div>
+                        <span class="text-slate-400 text-[11px] block">
+                            Login Portal URL
+                        </span>
+
+                        <strong class="text-slate-800 font-mono">
+                            ${escapeHTML(loginUrl)}
+                        </strong>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200"
+                        onclick="copyToClipboard('${escapeHTML(loginUrl)}')"
+                    >
+                        <i class="fa-regular fa-copy"></i>
+                        Copy
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="p-3 my-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+
+                <strong class="font-semibold block mb-0.5">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i>
+                    Important:
+                </strong>
+
+                <span>
+                    ${
+                        password
+                            ? 'Share these credentials securely with the parent. Advise them to change the password after their first login.'
+                            : 'This account currently has no saved temporary password.'
+                    }
+                </span>
+
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">
+
+                <button
+                    type="button"
+                    class="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+                    onclick="closeCredentialsModal_fn()"
+                >
+                    Close
+                </button>
+
+                <button
+                    type="button"
+                    class="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm"
+                    onclick="resetParentPassword('${escapeHTML(id)}')"
+                >
+                    <i class="fa-solid fa-arrows-rotate mr-1"></i>
+                    ${password ? 'Reset Password' : 'Generate Password'}
+                </button>
+
+            </div>
+        `;
+
+    } catch (err) {
+        console.error('Error loading parent credentials:', err);
+
+        credentialsContent.innerHTML = `
+            <div class="text-center py-8">
+                <i class="fa-solid fa-circle-exclamation text-2xl text-red-500 mb-3"></i>
+
+                <p class="text-sm font-semibold text-slate-700">
+                    Unable to load credentials
+                </p>
+
+                <p class="text-xs text-slate-500 mt-1">
+                    ${escapeHTML(err.message || 'Failed to retrieve credentials.')}
+                </p>
+
+                <button
+                    type="button"
+                    class="mt-4 px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+                    onclick="closeCredentialsModal_fn()"
+                >
+                    Close
+                </button>
+            </div>
+        `;
+
+        showError(err.message || 'Failed to load parent credentials');
+    }
 };
+
 window.togglePasswordVisibility = function(password) {
-const display = document.getElementById('passwordDisplay');
-if (display.textContent.includes('*')) {
-display.textContent = password;
-} else {
-display.textContent = '*'.repeat(password.length);
-}
+    const display = document.getElementById('passwordDisplay');
+    if (display.textContent.includes('*')) {
+        display.textContent = password;
+    } else {
+        display.textContent = '*'.repeat(password.length);
+    }
 };
+
 window.copyToClipboard = function(text) {
-navigator.clipboard.writeText(text).then(() => {
-showSuccess('Copied to clipboard');
-}).catch(() => {
-showError('Failed to copy');
-});
+    navigator.clipboard.writeText(text).then(() => {
+        showSuccess('Copied to clipboard');
+    }).catch(() => {
+        showError('Failed to copy');
+    });
 };
 
 window.resetParentPassword = async function(id) {
-const parent = allParents.find(p => p._id === id);
-const isNew = !parent.temporaryPassword;
-if (!confirm(`${isNew ? 'Generate' : 'Reset'} password for this parent?`)) return;
-try {
-const newPassword = generatePassword();
-const res = await fetch(`${API_BASE_URL}/api/parents/${id}/reset-password`, {
-method: 'POST',
-headers: getAuthHeaders(true),
-body: JSON.stringify({ newPassword })
-});
-if (!res.ok) {
-const errorData = await res.json().catch(() => ({}));
-throw new Error(errorData.error || `HTTP ${res.status}`);
-}
-const data = await res.json();
-alert(`✓ Password ${isNew ? 'generated' : 'reset'} successfully!\n\nNew Password: ${data.temporaryPassword}`);
-navigator.clipboard.writeText(data.temporaryPassword);
-showSuccess(`Password ${isNew ? 'generated' : 'reset'} successfully`);
-const updatedParent = allParents.find(p => p._id === id);
-if (updatedParent && data.parent) {
-Object.assign(updatedParent, data.parent);
-updatedParent.temporaryPassword = data.temporaryPassword;
-}
-window.showCredentials(id);
-} catch (err) {
-console.error('Error resetting password:', err);
-showError(err.message || 'Failed to reset password');
-}
+    const parent = allParents.find(p => p._id === id);
+    const isNew = !parent.temporaryPassword;
+    if (!confirm(`${isNew ? 'Generate' : 'Reset'} password for this parent?`)) return;
+    try {
+        const newPassword = generatePassword();
+        const res = await fetch(`${API_BASE_URL}/api/parents/${id}/reset-password`, {
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ newPassword })
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        alert(`✓ Password ${isNew ? 'generated' : 'reset'} successfully!\n\nNew Password: ${data.temporaryPassword}`);
+        navigator.clipboard.writeText(data.temporaryPassword);
+        showSuccess(`Password ${isNew ? 'generated' : 'reset'} successfully`);
+        const updatedParent = allParents.find(p => p._id === id);
+        if (updatedParent && data.parent) {
+            Object.assign(updatedParent, data.parent);
+            updatedParent.temporaryPassword = data.temporaryPassword;
+        }
+        window.showCredentials(id);
+    } catch (err) {
+        console.error('Error resetting password:', err);
+        showError(err.message || 'Failed to reset password');
+    }
 };
 
 window.editParent = function(id) {
-const parent = allParents.find(p => p._id === id);
-if (!parent) {
-showError('Parent not found');
-return;
-}
-selectedStudents = (parent.studentIds || [])
-.map(student => student.student_id || student)
-.filter(id => id && typeof id === 'string' && id.trim());
-parentModalTitle.textContent = 'Edit Parent';
-parentIdInput.value = parent._id;
-if (parentNameInput) parentNameInput.value = parent.name || '';
-if (parentEmailInput) parentEmailInput.value = parent.email || '';
-if (parentPhoneInput) parentPhoneInput.value = parent.phone || '';
-if (parentAddressInput) parentAddressInput.value = parent.address || '';
-if (parentOccupationInput) parentOccupationInput.value = parent.occupation || '';
-if (parentEmergencyNameInput) parentEmergencyNameInput.value = parent.emergencyContactName || '';
-if (parentEmergencyPhoneInput) parentEmergencyPhoneInput.value = parent.emergencyContactPhone || '';
-if (parentFamiliesInput) parentFamiliesInput.value = (parent.families || []).join(', ');
-parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
-parentFormSubmitBtn.disabled = false;
-parentFormSubmitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Parent';
-if (studentSearchInput) studentSearchInput.value = '';
-studentsLoadingSpinner.style.display = 'flex';
-studentsSearchContainer.style.display = 'none';
-studentsCheckboxContainer.style.display = 'none';
-studentsEmptyState.style.display = 'none';
-fetchStudents();
-parentModalBackdrop.classList.remove('hidden');
-if (parentNameInput) parentNameInput.focus();
+    const parent = allParents.find(p => p._id === id);
+    if (!parent) {
+        showError('Parent not found');
+        return;
+    }
+    selectedStudents = (parent.studentIds || [])
+        .map(student => {
+            if (student && typeof student === 'object') {
+                return String(
+                    student.student_id ||
+                    student._id ||
+                    ''
+                );
+            }
+            return String(student || '');
+        })
+        .filter(id => id.trim());
+
+    parentModalTitle.textContent = 'Edit Parent';
+    parentIdInput.value = parent._id;
+    if (parentNameInput) parentNameInput.value = parent.name || '';
+    if (parentEmailInput) parentEmailInput.value = parent.email || '';
+    if (parentPhoneInput) parentPhoneInput.value = parent.phone || '';
+    if (parentAddressInput) parentAddressInput.value = parent.address || '';
+    if (parentOccupationInput) parentOccupationInput.value = parent.occupation || '';
+    if (parentEmergencyNameInput) parentEmergencyNameInput.value = parent.emergencyContactName || '';
+    if (parentEmergencyPhoneInput) parentEmergencyPhoneInput.value = parent.emergencyContactPhone || '';
+    if (parentFamiliesInput) parentFamiliesInput.value = (parent.families || []).join(', ');
+    parentForm.querySelectorAll('input, textarea').forEach(el => el.disabled = false);
+    parentFormSubmitBtn.disabled = false;
+    parentFormSubmitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Parent';
+    if (studentSearchInput) studentSearchInput.value = '';
+    studentsLoadingSpinner.style.display = 'flex';
+    studentsSearchContainer.style.display = 'none';
+    studentsCheckboxContainer.style.display = 'none';
+    studentsEmptyState.style.display = 'none';
+    fetchStudents();
+    parentModalBackdrop.classList.remove('hidden');
+    if (parentNameInput) parentNameInput.focus();
 };
 
 window.deleteParent = async function(id) {
-if (!confirm('Are you sure you want to delete this parent? This action cannot be undone.')) return;
-try {
-const res = await fetch(`${API_BASE_URL}/api/parents/${id}`, {
-method: 'DELETE',
-headers: getAuthHeaders()
-});
-if (!res.ok) throw new Error(`HTTP ${res.status}`);
-showSuccess('Parent deleted successfully');
-await fetchParents();
-} catch (err) {
-console.error('Error deleting parent:', err);
-showError('Failed to delete parent');
-}
+    if (!confirm('Are you sure you want to delete this parent? This action cannot be undone.')) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/parents/${id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showSuccess('Parent deleted successfully');
+        await fetchParents();
+    } catch (err) {
+        console.error('Error deleting parent:', err);
+        showError('Failed to delete parent');
+    }
 };
 
 if (parentForm) {
-parentForm.addEventListener('submit', async (e) => {
-e.preventDefault();
-const id = parentIdInput.value;
-const name = parentNameInput.value.trim();
-const email = parentEmailInput.value.trim();
-const phone = parentPhoneInput.value.trim();
-const address = parentAddressInput.value.trim();
-const occupation = parentOccupationInput.value.trim();
-const emergencyContactName = parentEmergencyNameInput.value.trim();
-const emergencyContactPhone = parentEmergencyPhoneInput.value.trim();
-const families = parentFamiliesInput.value
-.split(',')
-.map(f => f.trim())
-.filter(Boolean);
-if (!name) {
-showError('Please enter parent name');
-return;
-}
-if (!email) {
-showError('Please enter email address');
-return;
-}
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-if (!emailRegex.test(email)) {
-showError('Please enter a valid email address');
-return;
-}
-if (selectedStudents.length === 0) {
-showError('Please select at least one student');
-return;
-}
-parentFormSubmitBtn.disabled = true;
-parentFormSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-try {
-const payload = { 
-name, 
-email, 
-phone, 
-address, 
-occupation,
-emergencyContactName,
-emergencyContactPhone,
-families,
-studentIds: selectedStudents.filter(id => id && id.trim())
-};
-let res;
-if (id) {
-res = await fetch(`${API_BASE_URL}/api/parents/${id}`, {
-method: 'PATCH',
-headers: getAuthHeaders(true),
-body: JSON.stringify(payload)
-});
-} else {
-res = await fetch(`${API_BASE_URL}/api/parents`, {
-method: 'POST',
-headers: getAuthHeaders(true),
-body: JSON.stringify(payload)
-});
-}
-if (!res.ok) {
-const errorData = await res.json().catch(() => ({}));
-throw new Error(errorData.error || `HTTP ${res.status}`);
-}
-const successMsg = id ? 'Parent updated successfully' : 'Parent added successfully';
-showSuccess(successMsg);
-closeModal();
-await fetchParents();
-} catch (err) {
-console.error('Error saving parent:', err);
-showError(err.message || 'Failed to save parent. Please try again.');
-} finally {
-parentFormSubmitBtn.disabled = false;
-parentFormSubmitBtn.innerHTML = id ? '<i class="fa-solid fa-floppy-disk"></i> Update Parent' : '<i class="fa-solid fa-floppy-disk"></i> Save Parent';
-}
-});
+    parentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = parentIdInput.value;
+        const name = parentNameInput.value.trim();
+        const email = parentEmailInput.value.trim();
+        const phone = parentPhoneInput.value.trim();
+        const address = parentAddressInput.value.trim();
+        const occupation = parentOccupationInput.value.trim();
+        const emergencyContactName = parentEmergencyNameInput.value.trim();
+        const emergencyContactPhone = parentEmergencyPhoneInput.value.trim();
+        const families = parentFamiliesInput.value
+            .split(',')
+            .map(f => f.trim())
+            .filter(Boolean);
+        if (!name) {
+            showError('Please enter parent name');
+            return;
+        }
+        if (!email) {
+            showError('Please enter email address');
+            return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showError('Please enter a valid email address');
+            return;
+        }
+        if (selectedStudents.length === 0) {
+            showError('Please select at least one student');
+            return;
+        }
+        parentFormSubmitBtn.disabled = true;
+        parentFormSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        try {
+            const payload = { 
+                name, 
+                email, 
+                phone, 
+                address, 
+                occupation,
+                emergencyContactName,
+                emergencyContactPhone,
+                families,
+                studentIds: selectedStudents.filter(id => id && id.trim())
+            };
+            let res;
+            if (id) {
+                res = await fetch(`${API_BASE_URL}/api/parents/${id}`, {
+                    method: 'PATCH',
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch(`${API_BASE_URL}/api/parents`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+            }
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${res.status}`);
+            }
+            const successMsg = id ? 'Parent updated successfully' : 'Parent added successfully';
+            showSuccess(successMsg);
+            closeModal();
+            await fetchParents();
+        } catch (err) {
+            console.error('Error saving parent:', err);
+            showError(err.message || 'Failed to save parent. Please try again.');
+        } finally {
+            parentFormSubmitBtn.disabled = false;
+            parentFormSubmitBtn.innerHTML = id ? '<i class="fa-solid fa-floppy-disk"></i> Update Parent' : '<i class="fa-solid fa-floppy-disk"></i> Save Parent';
+        }
+    });
 }
 
 /* =========================================================
