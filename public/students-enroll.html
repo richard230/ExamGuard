@@ -2,7 +2,7 @@
 <html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8" />
-  <title>Enroll Student | School Portal</title>
+  <title>Enroll Student | School Automation</title>
   <meta name="viewport" content="width=device-width, initial-scale=0.90, maximum-scale=0.90" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,7 +157,7 @@
     <aside class="sidebar fixed top-0 bottom-0 left-0 w-64 bg-slate-900 text-white z-40 flex flex-col justify-between border-r border-slate-800 shadow-2xl md:translate-x-0" id="sidebar" role="navigation" aria-label="Admin navigation">
       <div>
         <div class="brand p-5 flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/40">
-          <img id="schoolLogo" src="mainlogo.png" alt="School Logo" class="w-10 h-10 object-contain rounded-lg bg-white p-1 shadow-sm" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'" />
+          <img src="mainlogo.png" alt="Logo" class="w-10 h-10 object-contain rounded-lg bg-white p-1 shadow-sm" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'" />
           <div class="overflow-hidden">
             <div id="schoolName" class="title font-bold text-sm tracking-wide text-white truncate">Loading School...</div>
             <div class="subtitle text-[11px] text-slate-400 font-medium truncate">Enrollment Portal</div>
@@ -461,7 +461,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div class="form-group">
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Student Email <span class="text-red-500">*</span></label>
-                    <input type="email" name="studentEmail" id="studentEmail" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="student@example.com" />
+                    <input type="email" name="studentEmail" id="studentEmail" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition shadow-sm" placeholder="student@school-domain.com" />
                     <div class="checkbox-inline mt-2.5 flex items-center gap-2">
                       <input type="checkbox" id="auto-email" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500" />
                       <label for="auto-email" class="text-xs font-medium text-slate-700 cursor-pointer">Auto Generate Email</label>
@@ -614,7 +614,7 @@
       </a>
     </div>
     <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-      <span>ExamGuard School Automation</span>
+      <span>School Automation v2.4</span>
       <a href="#" class="text-primary-600 font-semibold hover:underline">Settings & Security</a>
     </div>
   </div>
@@ -633,59 +633,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 1200);
 });
 
-// Authentication & Dynamic School Profile Setup
-const API_BASE_URL = "https://examguard-8rxe.onrender.com";
-
-function getAuthToken() {
-  return (
-    localStorage.getItem('adminToken') ||
-    localStorage.getItem('token') ||
-    sessionStorage.getItem('adminToken') ||
-    sessionStorage.getItem('token')
-  );
-}
-
-function getAuthHeaders() {
-  const token = getAuthToken();
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
-}
-
-let currentSchool = {
-  name: 'School Portal',
-  logo: 'mainlogo.png',
-  emailDomain: 'student.examguard.com'
-};
-
-async function loadSchoolProfile() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/school/profile`, {
-      headers: { ...getAuthHeaders() }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      currentSchool.name = data.name || data.schoolName || 'School Portal';
-      if (data.logo) currentSchool.logo = data.logo;
-      if (data.emailDomain) currentSchool.emailDomain = data.emailDomain;
-
-      const schoolNameEl = document.getElementById('schoolName');
-      const schoolLogoEl = document.getElementById('schoolLogo');
-      if (schoolNameEl) schoolNameEl.textContent = currentSchool.name;
-      if (schoolLogoEl && data.logo) schoolLogoEl.src = currentSchool.logo;
-      document.title = `Enroll Student | ${currentSchool.name}`;
-    } else {
-      const schoolNameEl = document.getElementById('schoolName');
-      if (schoolNameEl) schoolNameEl.textContent = 'School Portal';
-    }
-  } catch (err) {
-    console.error('Failed to load school profile:', err);
-    const schoolNameEl = document.getElementById('schoolName');
-    if (schoolNameEl) schoolNameEl.textContent = 'School Portal';
-  }
-}
-
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
+
 function handleResize() {
   if (window.innerWidth <= 768) {
     if (sidebarToggle) sidebarToggle.style.display = 'flex';
@@ -696,16 +647,19 @@ function handleResize() {
     document.body.classList.remove('sidebar-open');
   }
 }
+
 function openSidebar() {
   if (sidebar) sidebar.classList.add('active');
   if (sidebarOverlay) sidebarOverlay.classList.add('active');
   document.body.classList.add('sidebar-open');
 }
+
 function closeSidebar() {
   if (sidebar) sidebar.classList.remove('active');
   if (sidebarOverlay) sidebarOverlay.classList.remove('active');
   document.body.classList.remove('sidebar-open');
 }
+
 if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 document.querySelectorAll('.nav-link').forEach(link => {
@@ -721,9 +675,62 @@ document.addEventListener('keydown', e => {
 window.addEventListener('resize', handleResize);
 handleResize();
 
+const API_BASE_URL = "https://examguard-8rxe.onrender.com";
 let currentStep = 1;
 const steps = [1, 2, 3];
 let allParents = [];
+
+function getAuthToken() {
+  return localStorage.getItem('adminToken') || localStorage.getItem('token') || sessionStorage.getItem('adminToken') || sessionStorage.getItem('token');
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+  if (!token) {
+    console.warn('Authentication token not found');
+    return {};
+  }
+  return { 'Authorization': `Bearer ${token}` };
+}
+
+async function loadCurrentSchool() {
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      window.location.href = 'login.html';
+      return;
+    }
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      method: 'GET',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) {
+      throw new Error('Unable to load administrator information');
+    }
+    const data = await response.json();
+    const user = data.user || data;
+    const school = user.school || data.school || {};
+    const schoolName = school.name || user.schoolName || 'School Automation';
+    const adminName = user.name || user.fullName || user.username || user.email || 'Admin';
+
+    const schoolNameElement = document.getElementById('schoolName');
+    if (schoolNameElement) {
+      schoolNameElement.textContent = schoolName;
+    }
+    const adminNameElement = document.getElementById('adminName');
+    if (adminNameElement) {
+      adminNameElement.textContent = adminName;
+    }
+    document.title = `Enroll Student | ${schoolName}`;
+
+    window.CURRENT_SCHOOL = school;
+    window.CURRENT_USER = user;
+  } catch (error) {
+    console.error('Failed to load school information:', error);
+    alert('Your session has expired. Please log in again.');
+    window.location.href = 'login.html';
+  }
+}
 
 function showStep(step) {
   steps.forEach(s => {
@@ -748,9 +755,16 @@ function escapeHtml(text) {
 
 async function loadAvailableParents() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/parents`, {
-      headers: { ...getAuthHeaders() }
+    let response = await fetch(`${API_BASE_URL}/api/parents`, {
+      method: 'GET',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
     });
+    if (!response.ok) {
+      response = await fetch(`${API_BASE_URL}/api/student/parents/available`, {
+        method: 'GET',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
+      });
+    }
     if (!response.ok) throw new Error('Failed to fetch parents');
     const data = await response.json();
     allParents = Array.isArray(data) ? data : data.parents || [];
@@ -772,7 +786,7 @@ function populateParentSelect() {
   const defaultOption = parentSelect.querySelector('option');
   parentSelect.innerHTML = defaultOption ? defaultOption.outerHTML : '<option value="">-- Create New Parent Account --</option>';
   allParents.forEach(parent => {
-    if (parent.status !== 'active') return;
+    if (parent.status && parent.status !== 'active') return;
     const option = document.createElement('option');
     option.value = parent._id;
     const displayText = `${escapeHtml(parent.name || 'N/A')} (${escapeHtml(parent.email || 'N/A')})`;
@@ -786,7 +800,8 @@ function populateParentSelect() {
 async function fetchParentDetails(parentId) {
   try {
     const res = await fetch(`${API_BASE_URL}/api/parents/${parentId}`, {
-      headers: { ...getAuthHeaders() }
+      method: 'GET',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
     });
     if (!res.ok) throw new Error('Failed to fetch parent details');
     return await res.json();
@@ -903,10 +918,10 @@ function updateAutoEmail() {
   if (!studentEmailInput) return;
   const surname = surnameInput ? surnameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
   const firstname = firstnameInput ? firstnameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+  const domain = window.CURRENT_SCHOOL?.emailDomain || 'school.local';
   let email = '';
-  const domain = currentSchool.emailDomain || 'student.examguard.com';
   if (firstname && surname) {
-    email = `${firstname}.${surname}@${domain}`;
+    email = `${firstname}${surname}@${domain}`;
   }
   studentEmailInput.value = email;
 }
@@ -1032,21 +1047,21 @@ async function generateRegistrationNumber() {
   regNoInput.style.color = "#aaa";
   try {
     const year = new Date().getFullYear();
-    const res = await fetch(`${API_BASE_URL}/api/student?regNo=${year}/`, {
+    const res = await fetch(`${API_BASE_URL}/api/student?regNo=${encodeURIComponent(year + '/')}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
-      }
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
     });
     let serial = 1;
     if (res.ok) {
       const data = await res.json();
-      if (data.students && data.students.length > 0) {
-        const lastStudent = data.students[data.students.length - 1];
-        const parts = lastStudent.regNo.split('/');
-        if (parts.length === 2) {
-          serial = parseInt(parts[1], 10) + 1;
+      const studentsList = Array.isArray(data) ? data : (data.students || []);
+      if (studentsList.length > 0) {
+        const lastStudent = studentsList[studentsList.length - 1];
+        if (lastStudent && lastStudent.regNo) {
+          const parts = lastStudent.regNo.split('/');
+          if (parts.length === 2) {
+            serial = parseInt(parts[1], 10) + 1;
+          }
         }
       }
     }
@@ -1104,6 +1119,7 @@ if (backBtn) {
     }, 400);
   });
 }
+
 showStep(currentStep);
 
 const enrollForm = document.getElementById('enroll-student-form');
@@ -1144,8 +1160,8 @@ if (enrollForm) {
               <i class="fas fa-check-circle"></i>
             </div>
             <h3 class="text-xl font-bold text-slate-900">Student enrolled successfully!</h3>
-            <p class="text-sm text-slate-600 mt-2">Registration Number: <strong class="text-primary-800 font-mono">${escapeHtml(result.regNo)}</strong></p>
-            <p class="text-sm text-slate-600">Student ID: <strong class="text-slate-800 font-mono">${escapeHtml(result.student_id)}</strong></p>
+            <p class="text-sm text-slate-600 mt-2">Registration Number: <strong class="text-primary-800 font-mono">${escapeHtml(result.regNo || result.registrationNumber || 'N/A')}</strong></p>
+            <p class="text-sm text-slate-600">Student ID: <strong class="text-slate-800 font-mono">${escapeHtml(result.student_id || result._id || 'N/A')}</strong></p>
           `;
           if (result.parentLinked) {
             successMsg += '<p class="text-xs font-semibold text-emerald-700 bg-emerald-50 py-2 px-4 rounded-lg inline-block mt-3"><i class="fas fa-check-circle mr-1"></i> Linked to existing parent account</p>';
@@ -1177,8 +1193,8 @@ if (enrollForm) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadSchoolProfile();
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadCurrentSchool();
   loadAvailableParents();
 });
   </script>
