@@ -903,255 +903,165 @@
             form.style.pointerEvents = 'auto';
         }
 
-        async function handleLogin(e) {
-            e.preventDefault();
+                                async function handleLogin(e) {
+    e.preventDefault();
 
-            if (!SCHOOL_CONFIG) {
-                showErrorToast(
-                    'School information is still loading. Please wait.'
-                );
-                return;
-            }
+    if (!SCHOOL_CONFIG) {
+        showErrorToast('School information is still loading. Please wait.');
+        return;
+    }
 
-            const emailOrReg = document
-                .getElementById(
-                    'emailOrReg'
-                )
-                .value
-                .trim();
+    const emailOrReg = document.getElementById('emailOrReg').value.trim();
+    const password = document.getElementById('passwordInput').value.trim();
+    const keepLoggedIn = document.getElementById('keepLoggedIn').checked;
 
-            const password = document
-                .getElementById(
-                    'passwordInput'
-                )
-                .value
-                .trim();
+    const spinner = document.getElementById('spinner');
+    const submitBtn = document.getElementById('loginForm').querySelector('button[type="submit"]');
 
-            const keepLoggedIn = document
-                .getElementById(
-                    'keepLoggedIn'
-                )
-                .checked;
+    if (!emailOrReg || !password) {
+        showErrorToast('Please fill in all fields.');
+        return;
+    }
 
-            const spinner = document.getElementById(
-                'spinner'
-            );
-            const submitBtn = document
-                .getElementById(
-                    'loginForm'
-                )
-                .querySelector(
-                    'button[type="submit"]'
-                );
+    const subdomain = getSchoolSubdomain();
+    const isEmail = emailOrReg.includes('@');
 
-            if (
-                !emailOrReg ||
-                !password
-            ) {
-                showErrorToast(
-                    'Please fill in all fields.'
-                );
-                return;
-            }
+    // FIX: Safely retrieve school ID checking _id, id, and schoolId
+    const schoolId = 
+        SCHOOL_CONFIG.school?._id || 
+        SCHOOL_CONFIG.school?.id || 
+        SCHOOL_CONFIG.school?.schoolId || 
+        SCHOOL_CONFIG._id;
 
-            const subdomain = getSchoolSubdomain();
-            const isEmail = emailOrReg.includes('@');
+    spinner.classList.remove('hidden');
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.6';
 
-            spinner.classList.remove(
-                'hidden'
-            );
-            submitBtn.disabled = true;
-            submitBtn.style.opacity = '0.6';
+    try {
+        if (currentPortal === 'parent') {
+            // Build Parent Login Payload
+            const parentBody = {
+                password,
+                schoolId: schoolId,
+                subdomain: subdomain
+            };
 
-            try {
-                if (
-                    currentPortal === 'parent'
-                ) {
-                    const parentResponse = await fetch(
-                        `${SCHOOL_API_BASE}/api/parents/login`,
-                        {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                email: emailOrReg,
-                                password,
-                                schoolId: SCHOOL_CONFIG.school.schoolId,
-                                subdomain: subdomain
-                            })
-                        }
-                    );
-
-                    const parentData = await parentResponse.json();
-
-                    if (
-                        parentResponse.ok &&
-                        parentData?.token
-                    ) {
-                        saveLoginSession(
-                            parentData.token,
-                            parentData.parent,
-                            'parent',
-                            keepLoggedIn
-                        );
-
-                        showSuccessToast();
-
-                        setTimeout(() => {
-                            window.location.href =
-                                'parent-dashboard';
-                        }, 1200);
-
-                        return;
-                    }
-
-                    showErrorToast(
-                        parentData?.error ||
-                            'Parent login failed.'
-                    );
-                    return;
-                }
-
-                const body = {
-                    password,
-                    schoolId: SCHOOL_CONFIG.school.schoolId,
-                    subdomain: subdomain,
-                    portal: currentPortal
-                };
-
-                if (isEmail) {
-                    body.email = emailOrReg;
-                } else {
-                    body.regNo = emailOrReg;
-                }
-
-                const response = await fetch(
-                    `${SCHOOL_API_BASE}/api/auth/login`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(body)
-                    }
-                );
-
-                let data = {};
-                try {
-                    data = await response.json();
-                } catch (error) {
-                    showErrorToast(
-                        'Server error: Invalid response.'
-                    );
-                    return;
-                }
-
-                if (
-                    response.ok &&
-                    data?.token
-                ) {
-                    saveLoginSession(
-                        data.token,
-                        data.user,
-                        data.user?.role,
-                        keepLoggedIn
-                    );
-
-                    console.log(
-                        '✓ Login successful:',
-                        data.user?.role
-                    );
-
-                    showSuccessToast();
-                    redirectUser(
-                        data.user?.role
-                    );
-                } else {
-                    showErrorToast(
-                        data?.error ||
-                            'Invalid login credentials.'
-                    );
-                }
-            } catch (error) {
-                console.error(
-                    '[Login Error]',
-                    error
-                );
-                showErrorToast(
-                    'Network or server error: ' +
-                        error.message
-                );
-            } finally {
-                spinner.classList.add(
-                    'hidden'
-                );
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-            }
-        }
-
-        function saveLoginSession(
-            token,
-            user,
-            role,
-            keepLoggedIn
-        ) {
-            localStorage.setItem(
-                'token',
-                token
-            );
-            localStorage.setItem(
-                'authToken',
-                token
-            );
-            localStorage.setItem(
-                'user',
-                JSON.stringify(user || {})
-            );
-            localStorage.setItem(
-                'userRole',
-                role || ''
-            );
-
-            localStorage.setItem(
-                'schoolId',
-                SCHOOL_CONFIG.school.schoolId
-            );
-            localStorage.setItem(
-                'schoolSubdomain',
-                getSchoolSubdomain() || ''
-            );
-
-            if (keepLoggedIn) {
-                localStorage.setItem(
-                    'keepLoggedIn',
-                    'true'
-                );
+            if (isEmail) {
+                parentBody.email = emailOrReg;
             } else {
-                localStorage.removeItem(
-                    'keepLoggedIn'
-                );
+                parentBody.regNo = emailOrReg;
             }
 
-            if (
-                role === 'parent' &&
-                user
-            ) {
-                localStorage.setItem(
-                    'parentToken',
-                    token
+            const parentResponse = await fetch(`${SCHOOL_API_BASE}/api/parents/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(parentBody)
+            });
+
+            const parentData = await parentResponse.json();
+
+            if (parentResponse.ok && parentData?.token) {
+                saveLoginSession(
+                    parentData.token,
+                    parentData.parent,
+                    'parent',
+                    keepLoggedIn
                 );
-                localStorage.setItem(
-                    'parentId',
-                    user._id || ''
-                );
-                localStorage.setItem(
-                    'parentName',
-                    user.name || ''
-                );
+
+                showSuccessToast();
+
+                setTimeout(() => {
+                    window.location.href = 'parent-dashboard';
+                }, 1200);
+
+                return;
             }
+
+            showErrorToast(parentData?.error || parentData?.message || 'Parent login failed.');
+            return;
         }
+
+        // Build Staff / Student Login Payload
+        const body = {
+            password,
+            schoolId: schoolId,
+            subdomain: subdomain,
+            portal: currentPortal
+        };
+
+        if (isEmail) {
+            body.email = emailOrReg;
+        } else {
+            body.regNo = emailOrReg;
+        }
+
+        const response = await fetch(`${SCHOOL_API_BASE}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (error) {
+            showErrorToast('Server error: Invalid response.');
+            return;
+        }
+
+        if (response.ok && data?.token) {
+            saveLoginSession(
+                data.token,
+                data.user,
+                data.user?.role,
+                keepLoggedIn
+            );
+
+            showSuccessToast();
+            redirectUser(data.user?.role);
+        } else {
+            showErrorToast(data?.error || data?.message || 'Invalid login credentials.');
+        }
+    } catch (error) {
+        console.error('[Login Error]', error);
+        showErrorToast('Network or server error: ' + error.message);
+    } finally {
+        spinner.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+    }
+}
+
+function saveLoginSession(token, user, role, keepLoggedIn) {
+    const schoolId = 
+        SCHOOL_CONFIG?.school?._id || 
+        SCHOOL_CONFIG?.school?.id || 
+        SCHOOL_CONFIG?.school?.schoolId || 
+        SCHOOL_CONFIG?._id || '';
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('user', JSON.stringify(user || {}));
+    localStorage.setItem('userRole', role || '');
+
+    localStorage.setItem('schoolId', schoolId);
+    localStorage.setItem('schoolSubdomain', getSchoolSubdomain() || '');
+
+    if (keepLoggedIn) {
+        localStorage.setItem('keepLoggedIn', 'true');
+    } else {
+        localStorage.removeItem('keepLoggedIn');
+    }
+
+    if (role === 'parent' && user) {
+        localStorage.setItem('parentToken', token);
+        localStorage.setItem('parentId', user._id || user.id || '');
+        localStorage.setItem('parentName', user.name || '');
+    }
+}
+
+
+        
 
         function showSuccessToast() {
             const toast = document.getElementById(
