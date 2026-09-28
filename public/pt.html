@@ -677,23 +677,78 @@ function applySchoolBranding(school) {
 async function loadParentData() {
     try {
         console.log('👨‍👩‍👧 Loading parent profile...');
+
+        const token = getParentToken();
+
+        if (!token) {
+            throw new Error(
+                'No valid parent authentication token was found. Please log in again.'
+            );
+        }
+
+        console.log('🔐 Parent token found.');
+        console.log('🔐 Token payload:', decodeJwtPayload(token));
+
         const res = await fetch(`${API_BASE}/parents/me`, {
             method: 'GET',
-            headers: getAuthHeaders()
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
 
-        if (res.status === 401 || res.status === 403) {
-            throw new Error(`Authentication error (HTTP ${res.status}): Access denied to parent profile.`);
+        const rawResponse = await res.text();
+
+        let data = {};
+
+        try {
+            data = rawResponse ? JSON.parse(rawResponse) : {};
+        } catch {
+            data = {
+                message: rawResponse
+            };
+        }
+
+        console.log('📡 /parents/me response:', {
+            status: res.status,
+            data
+        });
+
+        if (res.status === 401) {
+            // Remove stale parent authentication
+            localStorage.removeItem('parentToken');
+
+            throw new Error(
+                data.message ||
+                data.error ||
+                'Your parent session has expired or the authentication token is unauthorized. Please log in again.'
+            );
+        }
+
+        if (res.status === 403) {
+            throw new Error(
+                data.message ||
+                data.error ||
+                'You are authenticated but do not have permission to access the parent portal.'
+            );
         }
 
         if (!res.ok) {
-            throw new Error(`Unable to load parent profile. HTTP ${res.status}`);
+            throw new Error(
+                data.message ||
+                data.error ||
+                `Unable to load parent profile. HTTP ${res.status}`
+            );
         }
 
-        parentData = await res.json();
+        parentData = data;
+
         console.log('✅ Parent data loaded:', parentData);
+
         updateParentUI();
+
         return parentData;
+
     } catch (err) {
         console.error('❌ Error loading parent:', err);
         throw err;
