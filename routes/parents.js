@@ -1147,26 +1147,34 @@ router.get(
           error: 'Admin access required.'
         });
       }
+
       const query = {
         status: 'active'
       };
+
+      console.log('PARENTS REQUEST:', {
+        role: req.user?.role,
+        schoolId: req.user?.schoolId,
+        userId: req.user?.id
+      });
+
       addSchoolFilter(req, query);
-      const parents =
-        await Parent.find(query)
-          .populate({
-            path: 'studentIds',
-            select:
-              'schoolId firstname surname class regNo student_id'
-          })
-          .select(
-            '-password -temporaryPassword'
-          );
+
+      console.log('PARENTS FINAL QUERY:', query);
+
+      const parents = await Parent.find(query)
+        .populate({
+          path: 'studentIds',
+          select:
+            'schoolId firstname surname class regNo student_id'
+        })
+        .select('-password -temporaryPassword');
+
       res.json(parents);
+
     } catch (error) {
-      console.error(
-        'Error getting parents:',
-        error
-      );
+      console.error('Error getting parents:', error);
+
       res.status(500).json({
         error: error.message
       });
