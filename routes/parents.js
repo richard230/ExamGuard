@@ -79,7 +79,10 @@ async function getAuthenticatedParent(req, res) {
     _id: parentId
   };
   if (req.user.schoolId) {
-    query.schoolId = req.user.schoolId;
+    // Convert string schoolId to ObjectId
+    query.schoolId = mongoose.Types.ObjectId.isValid(req.user.schoolId)
+      ? new mongoose.Types.ObjectId(req.user.schoolId)
+      : req.user.schoolId;
   }
   const parent = await Parent.findOne(query)
     .select('+password +temporaryPassword');
@@ -199,12 +202,17 @@ router.get('/me', authMiddleware, async (req, res) => {
   try {
     const parent = await getAuthenticatedParent(req, res);
     if (!parent) return;
+
     const parentQuery = {
       _id: parent._id
     };
     if (!isSuperAdmin(req)) {
-      parentQuery.schoolId = req.user.schoolId;
+      // Convert string schoolId to ObjectId
+      parentQuery.schoolId = mongoose.Types.ObjectId.isValid(req.user.schoolId)
+        ? new mongoose.Types.ObjectId(req.user.schoolId)
+        : req.user.schoolId;
     }
+
     const populatedParent = await Parent.findOne(parentQuery)
       .populate({
         path: 'studentIds',
@@ -231,6 +239,7 @@ router.get('/me', authMiddleware, async (req, res) => {
         `
       })
       .select('-password -temporaryPassword');
+
     if (!populatedParent) {
       return res.status(404).json({
         error: 'Parent not found'
