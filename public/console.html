@@ -1,100 +1,118 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-950 text-gray-200">
+<html lang="en" class="h-full bg-slate-950 text-slate-200">
 <head>
   <meta charset="UTF-8">
   <title>Developer Suite & Browser Console</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* Custom scrollbars for DevTools feel */
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'Fira Code', monospace; }
+    
+    /* Sleek Custom Scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
-    .dom-node:hover { background-color: rgba(59, 130, 246, 0.15); }
-    .dom-node.active { background-color: rgba(59, 130, 246, 0.3); }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    
+    .dom-node:hover { background-color: rgba(59, 130, 246, 0.12); }
+    .dom-node.active { background-color: rgba(59, 130, 246, 0.25); border-left: 2px solid #3b82f6; }
+    
+    /* Smooth tab highlight */
+    .tab-btn.active {
+      color: #60a5fa;
+      border-bottom-color: #3b82f6;
+      background-color: rgba(30, 41, 59, 0.5);
+    }
   </style>
 </head>
-<body class="h-full flex flex-col font-sans text-xs select-none">
+<body class="h-full flex flex-col text-xs select-none antialiased bg-slate-950 text-slate-300">
 
-  <!-- TOP BAR / DEVICE EMULATOR NAVIGATION -->
-  <header class="bg-gray-900 border-b border-gray-800 p-2 flex flex-wrap items-center justify-between gap-2 shadow-md shrink-0">
-    <!-- Navigation Buttons -->
+  <!-- TOP BAR / NAVIGATION ENGINE -->
+  <header class="bg-slate-900 border-b border-slate-800/80 px-3 py-2 flex flex-wrap items-center justify-between gap-3 shadow-lg shrink-0">
+    <!-- Browser Navigation Controls -->
     <div class="flex items-center gap-1.5">
-      <button id="inspect-tool" title="Inspect Element" class="p-2 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-blue-400 border border-gray-700">
-        <i class="fa-solid font-bold fa-mouse-pointer"></i>
+      <button id="inspect-tool" title="Inspect Element" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-blue-400 border border-slate-700/60 transition-all">
+        <i class="fa-solid fa-mouse-pointer"></i>
       </button>
-      <button id="browser-back" class="p-2 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 disabled:opacity-40 border border-gray-700"><i class="fa-solid fa-arrow-left"></i></button>
-      <button id="browser-forward" class="p-2 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 disabled:opacity-40 border border-gray-700"><i class="fa-solid fa-arrow-right"></i></button>
-      <button id="browser-refresh" class="p-2 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700"><i class="fa-solid fa-rotate-right"></i></button>
+      <div class="h-4 w-[1px] bg-slate-800 mx-1"></div>
+      <button id="browser-back" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 border border-slate-700/60 transition-all"><i class="fa-solid fa-arrow-left"></i></button>
+      <button id="browser-forward" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 border border-slate-700/60 transition-all"><i class="fa-solid fa-arrow-right"></i></button>
+      <button id="browser-refresh" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-all"><i class="fa-solid fa-rotate-right"></i></button>
     </div>
 
-    <!-- URL Bar -->
-    <div class="flex-1 max-w-2xl flex items-center gap-1 bg-gray-950 border border-gray-800 rounded px-2 py-1">
-      <i class="fa-solid fa-globe text-gray-500"></i>
-      <input id="browser-url" type="text" value="about:blank" class="w-full bg-transparent text-gray-200 focus:outline-none text-xs" placeholder="Enter target URL or local path...">
-      <button id="browser-go" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs font-semibold">Go</button>
+    <!-- URL Address Bar -->
+    <div class="flex-1 max-w-2xl flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all">
+      <i class="fa-solid fa-lock text-emerald-500 text-[10px]"></i>
+      <input id="browser-url" type="text" value="about:blank" class="w-full bg-transparent text-slate-200 focus:outline-none font-mono text-xs" placeholder="Enter target URL or local path...">
+      <button id="browser-go" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-md font-semibold transition-all">Go</button>
     </div>
 
-    <!-- Device Emulation Controls -->
+    <!-- Device Emulation & Controls -->
     <div class="flex items-center gap-2">
-      <select id="device-preset" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200 focus:outline-none">
-        <option value="responsive">Responsive</option>
-        <option value="iphone14">iPhone 14 Pro (393 x 852)</option>
-        <option value="pixel7">Pixel 7 (412 x 915)</option>
-        <option value="ipad">iPad Air (820 x 1180)</option>
-        <option value="desktop">Desktop (1920 x 1080)</option>
-      </select>
-      <div class="flex items-center gap-1 bg-gray-950 border border-gray-800 rounded px-1.5 py-0.5">
-        <input id="viewport-w" type="number" class="w-12 bg-transparent text-center text-gray-300 focus:outline-none" value="100" min="200" max="3840">%
+      <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg p-1">
+        <select id="device-preset" class="bg-transparent text-slate-200 focus:outline-none cursor-pointer px-1">
+          <option value="responsive" class="bg-slate-900">Responsive</option>
+          <option value="iphone14" class="bg-slate-900">iPhone 14 Pro (393 x 852)</option>
+          <option value="pixel7" class="bg-slate-900">Pixel 7 (412 x 915)</option>
+          <option value="ipad" class="bg-slate-900">iPad Air (820 x 1180)</option>
+          <option value="desktop" class="bg-slate-900">Desktop (1920 x 1080)</option>
+        </select>
+        <span class="text-slate-600">|</span>
+        <input id="viewport-w" type="number" class="w-10 bg-transparent text-center text-slate-300 font-mono focus:outline-none" value="100" min="20" max="100">%
       </div>
-      <button id="toggle-orientation" class="p-1.5 rounded bg-gray-800 border border-gray-700 text-gray-300 hover:text-white" title="Rotate Orientation">
+      <button id="toggle-orientation" class="p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-300 hover:text-white transition-all" title="Rotate Orientation">
         <i class="fa-solid fa-mobile-screen-button"></i>
       </button>
     </div>
   </header>
 
-  <!-- MAIN WORKSPACE SPLIT (FRAME PREVIEW + DEVTOOLS) -->
-  <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+  <!-- MAIN WORKSPACE SPLIT -->
+  <main class="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden relative">
     
-    <!-- IFRAME CONTAINER CONTAINER -->
-    <section id="frame-wrapper" class="flex-1 bg-gray-950 flex justify-center items-center p-2 overflow-auto border-r border-gray-800 relative transition-all">
-      <div id="viewport-container" class="w-full h-full bg-white transition-all shadow-2xl relative border border-gray-800">
+    <!-- IFRAME PREVIEW CONTAINER -->
+    <section id="frame-wrapper" class="flex-1 bg-slate-950 flex justify-center items-center p-3 overflow-auto border-r border-slate-800/80 relative">
+      <div id="viewport-container" class="w-full h-full bg-white transition-all shadow-2xl relative border border-slate-800 rounded-sm overflow-hidden">
         <iframe id="browser-frame" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
       </div>
-      <!-- CORS / Cross-Origin Warning Overlay -->
-      <div id="cors-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-amber-900/90 border border-amber-600 text-amber-200 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-xs">
+      <!-- CORS Notice Overlay -->
+      <div id="cors-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-amber-950/90 border border-amber-600/80 text-amber-200 px-4 py-2 rounded-lg shadow-2xl flex items-center gap-2 backdrop-blur-md">
         <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
         <span>Cross-Origin restriction active. Some deep DOM/Console tools require same-origin or local files.</span>
       </div>
     </section>
 
     <!-- DEVTOOLS PANELS -->
-    <section class="w-full md:w-1/2 flex flex-col bg-gray-900 shrink-0 border-t md:border-t-0 border-gray-800">
+    <section class="w-full md:w-[50%] flex flex-col bg-slate-900 shrink-0 border-t md:border-t-0 border-slate-800/80 min-h-0">
       
       <!-- DevTools Navigation Tabs -->
-      <nav class="flex border-b border-gray-800 bg-gray-950 overflow-x-auto text-gray-400" id="devtools-tabs">
-        <button class="tab-btn px-3 py-2 border-b-2 border-blue-500 text-blue-400 flex items-center gap-1.5 font-medium" data-tab="console"><i class="fa-solid fa-terminal"></i> Console</button>
-        <button class="tab-btn px-3 py-2 border-b-2 border-transparent hover:text-gray-200 flex items-center gap-1.5 font-medium" data-tab="elements"><i class="fa-solid fa-code"></i> Elements</button>
-        <button class="tab-btn px-3 py-2 border-b-2 border-transparent hover:text-gray-200 flex items-center gap-1.5 font-medium" data-tab="network"><i class="fa-solid fa-network-wired"></i> Network</button>
-        <button class="tab-btn px-3 py-2 border-b-2 border-transparent hover:text-gray-200 flex items-center gap-1.5 font-medium" data-tab="storage"><i class="fa-solid fa-database"></i> Application</button>
-        <button class="tab-btn px-3 py-2 border-b-2 border-transparent hover:text-gray-200 flex items-center gap-1.5 font-medium" data-tab="performance"><i class="fa-solid fa-gauge-high"></i> Performance</button>
-        <button class="tab-btn px-3 py-2 border-b-2 border-transparent hover:text-gray-200 flex items-center gap-1.5 font-medium" data-tab="api-tester"><i class="fa-solid fa-paper-plane"></i> API Client</button>
-        <button class="tab-btn px-3 py-2 border-b-2 border-transparent hover:text-gray-200 flex items-center gap-1.5 font-medium" data-tab="audits"><i class="fa-solid fa-clipboard-check"></i> Audits</button>
-        <button class="tab-btn px-3 py-2 border-b-2 border-transparent hover:text-gray-200 flex items-center gap-1.5 font-medium" data-tab="snippets"><i class="fa-solid fa-cubes"></i> Snippets</button>
+      <nav class="flex border-b border-slate-800/80 bg-slate-950/80 overflow-x-auto text-slate-400 shrink-0" id="devtools-tabs">
+        <button class="tab-btn active px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="console"><i class="fa-solid fa-terminal text-xs"></i> Console</button>
+        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="elements"><i class="fa-solid fa-code text-xs"></i> Elements</button>
+        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="network"><i class="fa-solid fa-network-wired text-xs"></i> Network</button>
+        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="storage"><i class="fa-solid fa-database text-xs"></i> Storage</button>
+        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="performance"><i class="fa-solid fa-gauge-high text-xs"></i> Performance</button>
+        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="api-tester"><i class="fa-solid fa-paper-plane text-xs"></i> API Client</button>
+        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="audits"><i class="fa-solid fa-shield-halved text-xs"></i> Audits</button>
+        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all" data-tab="snippets"><i class="fa-solid fa-code-commit text-xs"></i> Snippets</button>
       </nav>
 
-      <!-- TAB CONTENTS -->
-      <div class="flex-1 overflow-hidden relative bg-gray-900">
+      <!-- TAB CONTENTS WRAPPER (Strict min-h-0 constraint for inner scrolling) -->
+      <div class="flex-1 min-h-0 relative bg-slate-900 overflow-hidden">
 
         <!-- 1. CONSOLE TAB -->
-        <div id="tab-console" class="tab-content h-full flex flex-col p-2">
-          <!-- Toolbar -->
-          <div class="flex items-center justify-between pb-2 mb-2 border-b border-gray-800 gap-2">
-            <div class="flex items-center gap-1">
-              <button id="clear-console" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300"><i class="fa-solid fa-ban"></i> Clear</button>
-              <select id="console-filter" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-300">
+        <div id="tab-console" class="tab-content h-full flex flex-col p-3 min-h-0">
+          <!-- Console Toolbar -->
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80 gap-2 shrink-0">
+            <div class="flex items-center gap-2">
+              <button id="clear-console" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/60 rounded text-slate-300 transition-all flex items-center gap-1">
+                <i class="fa-solid fa-ban text-[10px]"></i> Clear
+              </button>
+              <select id="console-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-300 focus:outline-none">
                 <option value="all">All Levels</option>
                 <option value="log">Logs</option>
                 <option value="info">Info</option>
@@ -102,147 +120,173 @@
                 <option value="error">Errors</option>
               </select>
             </div>
-            <input id="console-search" type="text" placeholder="Filter console output..." class="bg-gray-950 border border-gray-800 rounded px-2 py-1 text-gray-200 w-48 focus:outline-none">
+            <input id="console-search" type="text" placeholder="Filter output..." class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 w-44 focus:outline-none focus:border-blue-500">
           </div>
-          <!-- Logs Box -->
-          <div id="console-logs" class="flex-1 overflow-y-auto font-mono text-xs space-y-1"></div>
-          <!-- REPL Input Prompt -->
-          <div class="mt-2 flex items-center gap-2 border-t border-gray-800 pt-2">
-            <span class="text-blue-400 font-bold">&gt;</span>
-            <input id="console-repl" type="text" placeholder="Evaluate JavaScript in target page..." class="w-full bg-gray-950 border border-gray-800 rounded px-2 py-1 text-gray-100 font-mono focus:outline-none focus:border-blue-500">
+          <!-- Logs Container -->
+          <div id="console-logs" class="flex-1 min-h-0 overflow-y-auto font-mono text-xs space-y-1 bg-slate-950/50 p-2 rounded-lg border border-slate-800/60"></div>
+          <!-- REPL Prompt -->
+          <div class="mt-2 flex items-center gap-2 border-t border-slate-800/80 pt-2 shrink-0">
+            <span class="text-blue-400 font-bold font-mono">&gt;</span>
+            <input id="console-repl" type="text" placeholder="Evaluate JS in target frame..." class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-1.5 text-slate-100 font-mono focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/50">
           </div>
         </div>
 
         <!-- 2. ELEMENTS & STYLES TAB -->
-        <div id="tab-elements" class="tab-content hidden h-full flex flex-col md:flex-row">
+        <div id="tab-elements" class="tab-content hidden h-full flex flex-col md:flex-row min-h-0">
           <!-- DOM Tree -->
-          <div class="flex-1 p-2 overflow-auto font-mono text-xs border-r border-gray-800" id="dom-tree"></div>
+          <div class="flex-1 min-h-0 p-3 overflow-y-auto font-mono text-xs border-r border-slate-800/80" id="dom-tree"></div>
           <!-- CSS Styles Inspector Pane -->
-          <div class="w-full md:w-64 p-2 bg-gray-950 overflow-y-auto border-t md:border-t-0 border-gray-800">
-            <h4 class="font-semibold text-blue-400 border-b border-gray-800 pb-1 mb-2">Styles Inspector</h4>
-            <div id="selected-element-info" class="text-gray-400 mb-2 font-mono">Select an element to inspect styles</div>
-            <div id="element-styles-container" class="space-y-3 font-mono"></div>
+          <div class="w-full md:w-72 p-3 bg-slate-950/80 min-h-0 overflow-y-auto border-t md:border-t-0 border-slate-800/80 shrink-0">
+            <h4 class="font-semibold text-blue-400 border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between">
+              <span>Styles Inspector</span>
+              <i class="fa-solid fa-sliders text-slate-500"></i>
+            </h4>
+            <div id="selected-element-info" class="text-slate-400 mb-2 font-mono bg-slate-900 p-2 rounded border border-slate-800 truncate">Select an element to inspect styles</div>
+            <div id="element-styles-container" class="space-y-2 font-mono"></div>
           </div>
         </div>
 
         <!-- 3. NETWORK TAB -->
-        <div id="tab-network" class="tab-content hidden h-full flex flex-col p-2">
-          <div class="flex justify-between items-center pb-2 mb-2 border-b border-gray-800">
-            <button id="clear-network" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300"><i class="fa-solid fa-ban"></i> Clear Network</button>
-            <span id="network-count" class="text-gray-400">0 requests</span>
+        <div id="tab-network" class="tab-content hidden h-full flex flex-col p-3 min-h-0">
+          <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-800/80 shrink-0">
+            <button id="clear-network" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/60 rounded text-slate-300 transition-all">
+              <i class="fa-solid fa-ban text-[10px] mr-1"></i> Clear
+            </button>
+            <span id="network-count" class="text-slate-400 font-mono">0 requests</span>
           </div>
-          <div class="flex-1 overflow-auto">
+          <div class="flex-1 min-h-0 overflow-auto bg-slate-950/50 rounded-lg border border-slate-800/60">
             <table class="w-full text-left font-mono border-collapse">
-              <thead class="bg-gray-950 text-gray-400 border-b border-gray-800 sticky top-0">
+              <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0">
                 <tr>
-                  <th class="p-1.5">Status</th>
-                  <th class="p-1.5">Method</th>
-                  <th class="p-1.5">URL</th>
-                  <th class="p-1.5">Time</th>
-                  <th class="p-1.5">Action</th>
+                  <th class="p-2">Status</th>
+                  <th class="p-2">Method</th>
+                  <th class="p-2">URL</th>
+                  <th class="p-2">Time</th>
+                  <th class="p-2">Action</th>
                 </tr>
               </thead>
-              <tbody id="network-table-body" class="divide-y divide-gray-800"></tbody>
+              <tbody id="network-table-body" class="divide-y divide-slate-800/60"></tbody>
             </table>
           </div>
         </div>
 
-        <!-- 4. APPLICATION & STORAGE TAB -->
-        <div id="tab-storage" class="tab-content hidden h-full flex flex-col p-2">
-          <div class="flex gap-2 mb-2">
-            <select id="storage-type-select" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200">
+        <!-- 4. STORAGE TAB -->
+        <div id="tab-storage" class="tab-content hidden h-full flex flex-col p-3 min-h-0">
+          <div class="flex gap-2 mb-2 shrink-0">
+            <select id="storage-type-select" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200">
               <option value="localStorage">Local Storage</option>
               <option value="sessionStorage">Session Storage</option>
-              <option value="cookies">Cookies</option>
             </select>
-            <button id="refresh-storage" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300"><i class="fa-solid fa-rotate"></i> Refresh</button>
-            <button id="clear-storage" class="px-2 py-1 bg-red-900/50 hover:bg-red-800 border border-red-700 text-red-200 rounded"><i class="fa-solid fa-trash"></i> Clear All</button>
+            <button id="refresh-storage" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700/60 rounded text-slate-300"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
+            <button id="clear-storage" class="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/80 text-rose-200 rounded"><i class="fa-solid fa-trash mr-1"></i> Clear All</button>
           </div>
-          <div class="flex-1 overflow-auto">
+          <div class="flex-1 min-h-0 overflow-auto bg-slate-950/50 rounded-lg border border-slate-800/60">
             <table class="w-full text-left font-mono border-collapse">
-              <thead class="bg-gray-950 text-gray-400 border-b border-gray-800">
+              <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0">
                 <tr>
-                  <th class="p-1.5">Key / Name</th>
-                  <th class="p-1.5">Value</th>
-                  <th class="p-1.5 w-16">Actions</th>
+                  <th class="p-2">Key</th>
+                  <th class="p-2">Value</th>
+                  <th class="p-2 w-16 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody id="storage-table-body" class="divide-y divide-gray-800"></tbody>
+              <tbody id="storage-table-body" class="divide-y divide-slate-800/60"></tbody>
             </table>
           </div>
         </div>
 
         <!-- 5. PERFORMANCE TAB -->
-        <div id="tab-performance" class="tab-content hidden h-full flex flex-col p-4 overflow-y-auto space-y-4">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="bg-gray-950 border border-gray-800 p-3 rounded">
-              <span class="text-gray-400 block mb-1">Live FPS Gauge</span>
-              <span id="perf-fps" class="text-xl font-bold text-green-400">60 FPS</span>
+        <div id="tab-performance" class="tab-content hidden h-full flex flex-col p-4 min-h-0 overflow-y-auto space-y-4">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
+            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
+              <span class="text-slate-400 block mb-1">FPS Gauge</span>
+              <span id="perf-fps" class="text-xl font-bold text-emerald-400 font-mono">60 FPS</span>
             </div>
-            <div class="bg-gray-950 border border-gray-800 p-3 rounded">
-              <span class="text-gray-400 block mb-1">DOM Nodes</span>
-              <span id="perf-dom-count" class="text-xl font-bold text-blue-400">0</span>
+            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
+              <span class="text-slate-400 block mb-1">DOM Nodes</span>
+              <span id="perf-dom-count" class="text-xl font-bold text-blue-400 font-mono">0</span>
             </div>
-            <div class="bg-gray-950 border border-gray-800 p-3 rounded">
-              <span class="text-gray-400 block mb-1">JS Memory</span>
-              <span id="perf-memory" class="text-xl font-bold text-purple-400">N/A</span>
+            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
+              <span class="text-slate-400 block mb-1">JS Memory</span>
+              <span id="perf-memory" class="text-xl font-bold text-purple-400 font-mono">N/A</span>
             </div>
-            <div class="bg-gray-950 border border-gray-800 p-3 rounded">
-              <span class="text-gray-400 block mb-1">Page Load Time</span>
-              <span id="perf-load-time" class="text-xl font-bold text-amber-400">0 ms</span>
+            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
+              <span class="text-slate-400 block mb-1">Page Load Time</span>
+              <span id="perf-load-time" class="text-xl font-bold text-amber-400 font-mono">0 ms</span>
             </div>
           </div>
-          <div class="bg-gray-950 border border-gray-800 p-3 rounded">
-            <h4 class="text-blue-400 font-semibold mb-2">Navigation Timing Waterfall</h4>
-            <div id="perf-waterfall" class="space-y-1 font-mono"></div>
+          <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
+            <h4 class="text-blue-400 font-semibold mb-2 flex items-center gap-2">
+              <i class="fa-solid fa-chart-simple"></i> Navigation Timing Waterfall
+            </h4>
+            <div id="perf-waterfall" class="space-y-1.5 font-mono"></div>
           </div>
         </div>
 
-        <!-- 6. API TESTER TAB -->
-        <div id="tab-api-tester" class="tab-content hidden h-full flex flex-col p-3 overflow-y-auto space-y-3">
-          <div class="flex gap-2">
-            <select id="api-req-method" class="bg-gray-800 border border-gray-700 text-gray-200 font-bold px-2 py-1 rounded">
+        <!-- 6. API TESTER TAB (UPGRADED OVERFLOW & RESPONSE CONTAINER) -->
+        <div id="tab-api-tester" class="tab-content hidden h-full flex flex-col p-3 min-h-0 space-y-3">
+          <!-- Request Bar -->
+          <div class="flex gap-2 shrink-0">
+            <select id="api-req-method" class="bg-slate-950 border border-slate-800 text-blue-400 font-bold font-mono px-3 py-1.5 rounded-lg focus:outline-none">
               <option value="GET">GET</option>
               <option value="POST">POST</option>
               <option value="PUT">PUT</option>
               <option value="DELETE">DELETE</option>
               <option value="PATCH">PATCH</option>
             </select>
-            <input id="api-req-url" type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded px-2 py-1 text-gray-200" placeholder="https://api.example.com/v1/resource">
-            <button id="api-req-send" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-1 rounded">Send</button>
+            <input id="api-req-url" type="text" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-slate-200 font-mono focus:outline-none focus:border-blue-500" placeholder="https://api.example.com/v1/resource">
+            <button id="api-req-send" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-paper-plane text-xs"></i> Send
+            </button>
           </div>
-          <!-- Request Body / Headers -->
-          <div class="space-y-2">
-            <label class="text-gray-400 font-semibold block">Headers (JSON format):</label>
-            <textarea id="api-req-headers" class="w-full h-16 bg-gray-950 border border-gray-800 rounded p-2 text-gray-200 font-mono" placeholder='{"Content-Type": "application/json"}'></textarea>
-            <label class="text-gray-400 font-semibold block">Request Payload Body:</label>
-            <textarea id="api-req-body" class="w-full h-24 bg-gray-950 border border-gray-800 rounded p-2 text-gray-200 font-mono" placeholder='{"key": "value"}'></textarea>
+          
+          <!-- Request Configuration Inputs -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 shrink-0">
+            <div>
+              <label class="text-slate-400 font-medium block mb-1 text-[11px]">Headers (JSON):</label>
+              <textarea id="api-req-headers" class="w-full h-16 bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono focus:outline-none resize-none" placeholder='{"Content-Type": "application/json"}'></textarea>
+            </div>
+            <div>
+              <label class="text-slate-400 font-medium block mb-1 text-[11px]">Request Payload Body:</label>
+              <textarea id="api-req-body" class="w-full h-16 bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono focus:outline-none resize-none" placeholder='{"key": "value"}'></textarea>
+            </div>
           </div>
-          <!-- API Response Output -->
-          <div class="flex-1 bg-gray-950 border border-gray-800 rounded p-3 overflow-auto font-mono">
-            <div id="api-res-meta" class="text-gray-400 mb-2">Response will appear here...</div>
-            <pre id="api-res-body" class="text-green-400 whitespace-pre-wrap"></pre>
+          
+          <!-- API Response Output Panel (FIXED OVERFLOW) -->
+          <div class="flex-1 min-h-0 flex flex-col bg-slate-950 border border-slate-800/80 rounded-lg p-3">
+            <div id="api-res-meta" class="text-slate-400 text-xs mb-2 font-mono flex items-center justify-between border-b border-slate-800/60 pb-2 shrink-0">
+              <span>Response output will appear here...</span>
+            </div>
+            <!-- Scrollable Output Container -->
+            <div class="flex-1 min-h-0 overflow-auto">
+              <pre id="api-res-body" class="font-mono text-xs text-emerald-400 whitespace-pre-wrap"></pre>
+            </div>
           </div>
         </div>
 
         <!-- 7. AUDITS TAB -->
-        <div id="tab-audits" class="tab-content hidden h-full flex flex-col p-3 overflow-y-auto">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="text-blue-400 font-bold">Automated DOM & Accessibility Audit</h3>
-            <button id="run-audit-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded font-bold"><i class="fa-solid fa-play mr-1"></i> Run Audit</button>
+        <div id="tab-audits" class="tab-content hidden h-full flex flex-col p-3 min-h-0 overflow-y-auto space-y-3">
+          <div class="flex justify-between items-center pb-2 border-b border-slate-800/80 shrink-0">
+            <h3 class="text-blue-400 font-semibold flex items-center gap-2">
+              <i class="fa-solid fa-list-check"></i> Automated Accessibility & Health Audit
+            </h3>
+            <button id="run-audit-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-semibold transition-all">
+              <i class="fa-solid fa-play mr-1"></i> Run Audit
+            </button>
           </div>
           <div id="audit-results" class="space-y-2 font-mono">
-            <div class="text-gray-400">Click "Run Audit" to analyze page health, images, labels, and SEO attributes.</div>
+            <div class="text-slate-500">Click "Run Audit" to analyze page structure, images, alt tags, and accessibility attributes.</div>
           </div>
         </div>
 
         <!-- 8. SNIPPETS TAB -->
-        <div id="tab-snippets" class="tab-content hidden h-full flex flex-col p-3 space-y-2">
-          <label class="text-gray-400 font-semibold">Executable JS Code Snippet:</label>
-          <textarea id="snippet-code" class="flex-1 bg-gray-950 border border-gray-800 rounded p-2 text-green-300 font-mono" placeholder="// Write custom JS script to inject into iframe...
-document.body.style.border = '4px solid red';
-console.log('Snippet executed!');"></textarea>
-          <button id="run-snippet-btn" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-1.5 rounded"><i class="fa-solid fa-bolt mr-1"></i> Run Snippet in Frame</button>
+        <div id="tab-snippets" class="tab-content hidden h-full flex flex-col p-3 space-y-2 min-h-0">
+          <label class="text-slate-400 font-medium shrink-0">Executable Script Snippet:</label>
+          <textarea id="snippet-code" class="flex-1 min-h-0 bg-slate-950 border border-slate-800 rounded-lg p-3 text-emerald-300 font-mono resize-none focus:outline-none" placeholder="// Write custom JS script to inject into iframe...
+document.body.style.border = '4px solid #3b82f6';
+console.log('Snippet executed successfully!');"></textarea>
+          <button id="run-snippet-btn" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2 rounded-lg transition-all shrink-0">
+            <i class="fa-solid fa-bolt mr-1"></i> Inject & Execute
+          </button>
         </div>
 
       </div>
@@ -268,26 +312,26 @@ console.log('Snippet executed!');"></textarea>
       <head>
         <title>Demo App Target Page</title>
         <style>
-          body { font-family: sans-serif; padding: 2rem; background: #f8fafc; color: #0f172a; }
-          .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-          button { background: #2563eb; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+          body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; background: #f8fafc; color: #0f172a; }
+          .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+          button { background: #2563eb; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
           button:hover { background: #1d4ed8; }
         </style>
       </head>
       <body>
         <div class="card">
-          <h1>Hello, Web Developer!</h1>
-          <p>This is a target page loaded inside your DevTools iframe preview.</p>
-          <button id="demo-btn" onclick="triggerDemo()">Click to Trigger Logs & Request</button>
+          <h1>Hello, Developer!</h1>
+          <p>This demo frame is running inside your upgraded DevTools suite.</p>
+          <button id="demo-btn" onclick="triggerDemo()">Trigger Console Logs & Request</button>
         </div>
         <script>
-          console.log("Page initialized successfully.");
+          console.log("Target iframe initialized.");
           function triggerDemo() {
-            console.info("Button clicked at " + new Date().toLocaleTimeString());
+            console.info("Demo button clicked at " + new Date().toLocaleTimeString());
             console.warn("Simulating a warning message...");
             fetch('https://jsonplaceholder.typicode.com/todos/1')
               .then(r => r.json())
-              .then(d => console.log("Fetch result:", d))
+              .then(d => console.log("Fetched Todo Item:", d))
               .catch(e => console.error("Fetch error:", e));
           }
         <\/script>
@@ -295,7 +339,7 @@ console.log('Snippet executed!');"></textarea>
       </html>
     `;
 
-    // Initialize with default blob
+    // Initialize iframe content
     loadUrl('data:text/html;charset=utf-8,' + encodeURIComponent(defaultPage));
 
     // ---- NAVIGATION CONTROLS ----
@@ -336,7 +380,7 @@ console.log('Snippet executed!');"></textarea>
       document.getElementById('browser-forward').disabled = historyIndex >= historyStack.length - 1;
     }
 
-    // ---- DEVICE EMULATION VIEWPORT ----
+    // ---- DEVICE EMULATION ----
     const devicePreset = document.getElementById('device-preset');
     const viewportContainer = document.getElementById('viewport-container');
     const viewportW = document.getElementById('viewport-w');
@@ -368,22 +412,17 @@ console.log('Snippet executed!');"></textarea>
       }
     }
 
-    // ---- TAB SWITCHING ENGINE ----
+    // ---- TAB ENGINE ----
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.onclick = () => {
-        document.querySelectorAll('.tab-btn').forEach(b => {
-          b.classList.remove('border-blue-500', 'text-blue-400');
-          b.classList.add('border-transparent');
-        });
-        btn.classList.add('border-blue-500', 'text-blue-400');
-        btn.classList.remove('border-transparent');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
 
         const tab = btn.dataset.tab;
         currentTab = tab;
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
         document.getElementById('tab-' + tab).classList.remove('hidden');
 
-        // Trigger tab specific refresh logic
         if (tab === 'elements') renderDomTree();
         if (tab === 'storage') renderStorageTable();
         if (tab === 'performance') renderPerformanceMetrics();
@@ -395,9 +434,8 @@ console.log('Snippet executed!');"></textarea>
       document.getElementById('cors-banner').classList.add('hidden');
       try {
         const win = frame.contentWindow;
-        const doc = frame.contentDocument;
 
-        // 1. Hook Console
+        // Hook Console
         ['log', 'warn', 'error', 'info'].forEach(type => {
           const orig = win.console[type];
           win.console[type] = function(...args) {
@@ -406,7 +444,7 @@ console.log('Snippet executed!');"></textarea>
           };
         });
 
-        // 2. Hook Fetch API
+        // Hook Fetch API
         if (win.fetch) {
           const origFetch = win.fetch;
           win.fetch = async function(...args) {
@@ -425,42 +463,37 @@ console.log('Snippet executed!');"></textarea>
           };
         }
 
-        // Render DOM Tree
         renderDomTree();
       } catch (err) {
-        // Cross-Origin fallback notice
         document.getElementById('cors-banner').classList.remove('hidden');
       }
     };
 
     // ---- CONSOLE ENGINE ----
     const consoleLogs = document.getElementById('console-logs');
-    const consoleSearch = document.getElementById('console-search');
-    const consoleFilter = document.getElementById('console-filter');
-
     document.getElementById('clear-console').onclick = () => { consoleLogs.innerHTML = ''; };
 
     function appendConsoleLog(type, args) {
       const entry = document.createElement('div');
-      entry.className = `p-1 border-b border-gray-800 flex items-start gap-2 log-${type}`;
+      entry.className = `p-1.5 border-b border-slate-800/60 flex items-start gap-2 log-${type}`;
       
-      let badgeColor = 'text-gray-400';
-      if (type === 'warn') badgeColor = 'text-yellow-400';
-      if (type === 'error') badgeColor = 'text-red-400';
-      if (type === 'info') badgeColor = 'text-blue-400';
+      let badgeStyle = 'bg-slate-800 text-slate-300';
+      if (type === 'warn') badgeStyle = 'bg-amber-950/80 text-amber-400 border border-amber-800/60';
+      if (type === 'error') badgeStyle = 'bg-rose-950/80 text-rose-400 border border-rose-800/60';
+      if (type === 'info') badgeStyle = 'bg-blue-950/80 text-blue-400 border border-blue-800/60';
 
       const formattedMsg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
 
       entry.innerHTML = `
-        <span class="text-gray-500 font-mono text-[10px]">${new Date().toLocaleTimeString()}</span>
-        <span class="font-bold ${badgeColor} text-[10px] uppercase">[${type}]</span>
-        <pre class="flex-1 whitespace-pre-wrap text-gray-200">${escapeHtml(formattedMsg)}</pre>
+        <span class="text-slate-500 font-mono text-[10px] shrink-0">${new Date().toLocaleTimeString()}</span>
+        <span class="font-bold text-[9px] uppercase px-1.5 py-0.5 rounded ${badgeStyle} shrink-0">${type}</span>
+        <pre class="flex-1 whitespace-pre-wrap text-slate-200 font-mono text-xs overflow-x-auto">${escapeHtml(formattedMsg)}</pre>
       `;
       consoleLogs.appendChild(entry);
       consoleLogs.scrollTop = consoleLogs.scrollHeight;
     }
 
-    // Console REPL Input
+    // Console REPL
     const replInput = document.getElementById('console-repl');
     replInput.onkeydown = e => {
       if (e.key === 'Enter') {
@@ -484,7 +517,7 @@ console.log('Snippet executed!');"></textarea>
         const body = frame.contentDocument.body;
         container.innerHTML = buildDomNodeHtml(body, 0);
       } catch {
-        container.innerHTML = '<span class="text-gray-500">DOM tree restricted by Cross-Origin policy.</span>';
+        container.innerHTML = '<span class="text-slate-500">DOM tree restricted by Cross-Origin policy.</span>';
       }
     }
 
@@ -494,12 +527,12 @@ console.log('Snippet executed!');"></textarea>
       const id = node.id ? ` id="${node.id}"` : '';
       const cls = node.className ? ` class="${node.className}"` : '';
       
-      let html = `<div class="dom-node cursor-pointer py-0.5 px-1 rounded" style="padding-left: ${depth * 12}px" onclick="inspectNode(this)">`;
+      let html = `<div class="dom-node cursor-pointer py-0.5 px-1 rounded transition-colors" style="padding-left: ${depth * 12}px" onclick="inspectNode(this)">`;
       html += `<span class="text-blue-400">&lt;${tag}</span><span class="text-amber-300">${id}</span><span class="text-purple-300">${cls}</span><span class="text-blue-400">&gt;</span>`;
       
       if (node.children.length === 0) {
         const txt = node.textContent.trim().slice(0, 30);
-        if (txt) html += `<span class="text-gray-300">${escapeHtml(txt)}</span>`;
+        if (txt) html += `<span class="text-slate-300"> ${escapeHtml(txt)} </span>`;
       }
       html += `<span class="text-blue-400">&lt;/${tag}&gt;</span></div>`;
 
@@ -515,7 +548,6 @@ console.log('Snippet executed!');"></textarea>
       document.getElementById('selected-element-info').innerText = element.innerText.slice(0, 40);
     }
 
-    // Inspect Element Tool Toggle
     document.getElementById('inspect-tool').onclick = () => {
       inspectMode = !inspectMode;
       document.getElementById('inspect-tool').classList.toggle('bg-blue-600', inspectMode);
@@ -534,15 +566,15 @@ console.log('Snippet executed!');"></textarea>
       document.getElementById('network-count').innerText = `${capturedNetwork.length} requests`;
 
       const tr = document.createElement('tr');
-      tr.className = 'hover:bg-gray-800/50';
-      const statusColor = status === 200 ? 'text-green-400' : 'text-amber-400';
+      tr.className = 'hover:bg-slate-800/40 transition-colors';
+      const statusColor = status === 200 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold';
 
       tr.innerHTML = `
-        <td class="p-1.5 font-bold ${statusColor}">${status}</td>
-        <td class="p-1.5 text-purple-400">${method}</td>
-        <td class="p-1.5 text-gray-300 truncate max-w-xs">${escapeHtml(String(url))}</td>
-        <td class="p-1.5 text-gray-400">${time}</td>
-        <td class="p-1.5">
+        <td class="p-2 ${statusColor}">${status}</td>
+        <td class="p-2 font-bold text-blue-400">${method}</td>
+        <td class="p-2 text-slate-300 truncate max-w-xs">${escapeHtml(String(url))}</td>
+        <td class="p-2 text-slate-400">${time}</td>
+        <td class="p-2">
           <button onclick="copyCurl('${url}', '${method}')" class="text-blue-400 hover:underline">cURL</button>
         </td>
       `;
@@ -552,10 +584,10 @@ console.log('Snippet executed!');"></textarea>
     function copyCurl(url, method) {
       const curl = `curl -X ${method} "${url}"`;
       navigator.clipboard.writeText(curl);
-      alert('cURL command copied to clipboard!');
+      alert('cURL copied to clipboard!');
     }
 
-    // ---- STORAGE & COOKIE MANAGER ----
+    // ---- STORAGE ENGINE ----
     const storageSelect = document.getElementById('storage-type-select');
     document.getElementById('refresh-storage').onclick = renderStorageTable;
     document.getElementById('clear-storage').onclick = () => {
@@ -564,7 +596,7 @@ console.log('Snippet executed!');"></textarea>
         if (storageSelect.value === 'localStorage') win.localStorage.clear();
         if (storageSelect.value === 'sessionStorage') win.sessionStorage.clear();
         renderStorageTable();
-      } catch { alert('Cannot clear storage due to cross-origin restriction.'); }
+      } catch { alert('Cannot clear storage due to cross-origin restrictions.'); }
     };
 
     function renderStorageTable() {
@@ -578,15 +610,16 @@ console.log('Snippet executed!');"></textarea>
           const key = store.key(i);
           const val = store.getItem(key);
           const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-800/40';
           tr.innerHTML = `
-            <td class="p-1.5 text-blue-400 font-bold">${escapeHtml(key)}</td>
-            <td class="p-1.5 text-gray-300 truncate max-w-xs">${escapeHtml(val)}</td>
-            <td class="p-1.5"><button onclick="deleteStorageKey('${key}')" class="text-red-400 hover:text-red-300"><i class="fa-solid fa-trash"></i></button></td>
+            <td class="p-2 text-blue-400 font-bold">${escapeHtml(key)}</td>
+            <td class="p-2 text-slate-300 truncate max-w-xs">${escapeHtml(val)}</td>
+            <td class="p-2 text-right"><button onclick="deleteStorageKey('${key}')" class="text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash"></i></button></td>
           `;
           tbody.appendChild(tr);
         }
       } catch {
-        tbody.innerHTML = '<tr><td colspan="3" class="p-2 text-gray-500">Storage inaccessible.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-slate-500">Storage inaccessible.</td></tr>';
       }
     }
 
@@ -609,15 +642,15 @@ console.log('Snippet executed!');"></textarea>
         if (navEntry) {
           document.getElementById('perf-load-time').innerText = Math.round(navEntry.loadEventEnd - navEntry.startTime) + ' ms';
           document.getElementById('perf-waterfall').innerHTML = `
-            <div class="text-gray-400">DNS Lookup: ${Math.round(navEntry.domainLookupEnd - navEntry.domainLookupStart)} ms</div>
-            <div class="text-gray-400">Response Time: ${Math.round(navEntry.responseEnd - navEntry.requestStart)} ms</div>
-            <div class="text-gray-400">DOM Interactive: ${Math.round(navEntry.domInteractive)} ms</div>
+            <div class="text-slate-400">DNS Lookup: <span class="text-slate-200">${Math.round(navEntry.domainLookupEnd - navEntry.domainLookupStart)} ms</span></div>
+            <div class="text-slate-400">Response Time: <span class="text-slate-200">${Math.round(navEntry.responseEnd - navEntry.requestStart)} ms</span></div>
+            <div class="text-slate-400">DOM Interactive: <span class="text-slate-200">${Math.round(navEntry.domInteractive)} ms</span></div>
           `;
         }
       } catch {}
     }
 
-    // ---- POSTMAN API CLIENT ----
+    // ---- API CLIENT (POSTMAN) ENGINE ----
     document.getElementById('api-req-send').onclick = async () => {
       const method = document.getElementById('api-req-method').value;
       const url = document.getElementById('api-req-url').value;
@@ -627,7 +660,7 @@ console.log('Snippet executed!');"></textarea>
       const meta = document.getElementById('api-res-meta');
       const bodyOut = document.getElementById('api-res-body');
 
-      meta.innerText = 'Sending request...';
+      meta.innerHTML = '<span class="text-blue-400 font-semibold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Sending request...</span>';
       bodyOut.innerText = '';
 
       const start = performance.now();
@@ -640,7 +673,16 @@ console.log('Snippet executed!');"></textarea>
 
         const res = await fetch(url, options);
         const duration = (performance.now() - start).toFixed(1);
-        meta.innerText = `Status: ${res.status} ${res.statusText} | Time: ${duration} ms`;
+        
+        const statusBadgeClass = res.ok ? 'bg-emerald-950 text-emerald-400 border-emerald-800' : 'bg-rose-950 text-rose-400 border-rose-800';
+
+        meta.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${statusBadgeClass}">${res.status} ${res.statusText}</span>
+            <span class="text-slate-400">Time: <span class="text-slate-200">${duration} ms</span></span>
+          </div>
+          <span class="text-slate-500">${res.type}</span>
+        `;
 
         const txt = await res.text();
         try {
@@ -649,7 +691,7 @@ console.log('Snippet executed!');"></textarea>
           bodyOut.innerText = txt;
         }
       } catch (err) {
-        meta.innerText = 'Request Failed';
+        meta.innerHTML = '<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle-xmark mr-1"></i> Request Failed</span>';
         bodyOut.innerText = err.message;
       }
     };
@@ -663,14 +705,11 @@ console.log('Snippet executed!');"></textarea>
         const doc = frame.contentDocument;
         const issues = [];
 
-        // Check 1: Missing Alt Tags on Images
         const imgs = doc.querySelectorAll('img:not([alt])');
         if (imgs.length) issues.push({ type: 'warning', msg: `Found ${imgs.length} image(s) missing 'alt' attributes.` });
 
-        // Check 2: Page Title
         if (!doc.title) issues.push({ type: 'error', msg: 'Document is missing a <title> tag.' });
 
-        // Check 3: Duplicate IDs
         const ids = new Set();
         doc.querySelectorAll('[id]').forEach(el => {
           if (ids.has(el.id)) issues.push({ type: 'error', msg: `Duplicate ID found: #${el.id}` });
@@ -678,15 +717,16 @@ console.log('Snippet executed!');"></textarea>
         });
 
         if (issues.length === 0) {
-          container.innerHTML = '<div class="text-green-400 font-bold">✓ All basic audits passed with no warnings!</div>';
+          container.innerHTML = '<div class="text-emerald-400 font-bold flex items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> All audits passed! No structural errors found.</div>';
         } else {
           issues.forEach(i => {
-            const color = i.type === 'error' ? 'text-red-400' : 'text-amber-400';
-            container.innerHTML += `<div class="${color}">• ${i.msg}</div>`;
+            const color = i.type === 'error' ? 'text-rose-400' : 'text-amber-400';
+            const icon = i.type === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation';
+            container.innerHTML += `<div class="${color} flex items-center gap-1.5"><i class="fa-solid ${icon}"></i> ${i.msg}</div>`;
           });
         }
       } catch {
-        container.innerHTML = '<div class="text-gray-500">Cannot run audit on Cross-Origin domain.</div>';
+        container.innerHTML = '<div class="text-slate-500">Cannot run audit on Cross-Origin domain.</div>';
       }
     };
 
@@ -695,9 +735,9 @@ console.log('Snippet executed!');"></textarea>
       const code = document.getElementById('snippet-code').value;
       try {
         frame.contentWindow.eval(code);
-        alert('Snippet executed successfully!');
+        alert('Snippet injected and executed!');
       } catch (err) {
-        alert('Error executing snippet: ' + err.message);
+        alert('Execution error: ' + err.message);
       }
     };
 
