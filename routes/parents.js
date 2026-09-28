@@ -7,11 +7,7 @@ const Parent = require('../models/Parent');
 const Student = require('../models/Student');
 const { authMiddleware } = require('./auth');
 function getSchoolId(req) {
-  if (!req.user) return null;
-  if (req.user.role === 'superadmin') {
-    return null;
-  }
-  return req.user.schoolId || null;
+    return req.user?.schoolId || null;
 }
 function requireSchool(req, res) {
   const schoolId = getSchoolId(req);
@@ -1137,50 +1133,46 @@ router.post(
     }
   }
 );
-router.get(
-  '/',
-  authMiddleware,
-  async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     try {
-      if (!isParentAdmin(req)) {
-        return res.status(403).json({
-          error: 'Admin access required.'
+        if (!isParentAdmin(req)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied'
+            });
+        }
+
+        const schoolId = req.user?.schoolId;
+
+        if (!schoolId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Your account is not linked to a school.'
+            });
+        }
+
+        const query = {
+            status: 'active',
+            schoolId: schoolId
+        };
+
+        const parents = await Parent.find(query)
+            .sort({ createdAt: -1 });
+
+        return res.json({
+            success: true,
+            parents
         });
-      }
-
-      const query = {
-        status: 'active'
-      };
-
-      console.log('PARENTS REQUEST:', {
-        role: req.user?.role,
-        schoolId: req.user?.schoolId,
-        userId: req.user?.id
-      });
-
-      addSchoolFilter(req, query);
-
-      console.log('PARENTS FINAL QUERY:', query);
-
-      const parents = await Parent.find(query)
-        .populate({
-          path: 'studentIds',
-          select:
-            'schoolId firstname surname class regNo student_id'
-        })
-        .select('-password -temporaryPassword');
-
-      res.json(parents);
 
     } catch (error) {
-      console.error('Error getting parents:', error);
+        console.error('Fetch parents error:', error);
 
-      res.status(500).json({
-        error: error.message
-      });
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to fetch parents'
+        });
     }
-  }
-);
+});
 router.get(
   '/:id',
   authMiddleware,
