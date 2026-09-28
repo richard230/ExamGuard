@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const ensureSuperAdmin = require('./utils/ensureSuperAdmin');
+const migrationRoutes = require('./routes/migration');
 
 const app = express();
 
@@ -132,7 +133,7 @@ app.get('/demo-request', (req, res) => {
 app.get('/admin-dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'administrator.html'));
 });
-
+app.use('/api/migration', migrationRoutes);
 // Exam & Results
 app.use('/api/exam', examRoute);
 app.use('/api/result', resultscbtRoute);
