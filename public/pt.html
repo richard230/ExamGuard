@@ -93,6 +93,7 @@
     </style>
 </head>
 <body class="bg-[#f8fafc] text-slate-800 font-sans antialiased min-h-screen flex flex-col md:flex-row overflow-x-hidden" onload="initializeDashboard()">
+    <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="spinner-container">
             <div class="spinner-ring"></div>
@@ -102,6 +103,38 @@
             </div>
         </div>
     </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div id="errorModalCard" class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-all duration-300">
+            <div class="p-6 text-center space-y-4">
+                <div class="mx-auto w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center border border-rose-100 shadow-sm shrink-0">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 id="errorModalTitle" class="text-base font-extrabold text-slate-900">An Error Occurred</h3>
+                    <p class="text-xs text-slate-500 mt-1">The system encountered an error while processing your request.</p>
+                </div>
+                <div class="text-left bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                    <span class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Error Details</span>
+                    <p id="errorModalMessage" class="text-xs font-mono text-rose-700 break-words max-h-32 overflow-y-auto pr-1">
+                        No additional details provided.
+                    </p>
+                </div>
+                <div class="flex items-center space-x-3 pt-2">
+                    <button type="button" onclick="closeErrorModal()" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition active:scale-95">
+                        Dismiss
+                    </button>
+                    <button id="errorModalPrimaryBtn" type="button" onclick="closeErrorModal()" class="w-full py-2.5 px-4 bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <aside class="hidden md:flex flex-col w-72 bg-brand-900 text-white shrink-0 shadow-2xl relative z-30 border-r border-brand-800">
         <div class="p-6 border-b border-brand-800/60 bg-brand-950/20 flex items-center space-x-3">
             <div class="bg-white p-1 rounded-xl shadow-inner flex items-center justify-center shrink-0">
@@ -128,7 +161,7 @@
                 <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Result Sheet Archive
             </a>
-            <a href="#" onclick="alert('Launching secure financial gateway links...')" class="flex items-center px-4 py-3 text-sm font-medium text-brand-100 hover:text-white hover:bg-brand-800/40 rounded-xl transition-all">
+            <a href="#" onclick="showErrorModal('Gateway Link', 'Tuition ledger gateway link feature is coming soon.')" class="flex items-center px-4 py-3 text-sm font-medium text-brand-100 hover:text-white hover:bg-brand-800/40 rounded-xl transition-all">
                 <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                 Tuition Ledger & Receipts
             </a>
@@ -369,7 +402,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
                     </button>
-                    <button onclick="alert('Opening encrypted communication thread...')" class="w-full text-left bg-brand-800/60 hover:bg-brand-800 p-3 rounded-xl border border-brand-700/40 flex items-center justify-between transition">
+                    <button onclick="showErrorModal('Form Tutor Desk', 'Encrypted communication gateway is coming soon.')" class="w-full text-left bg-brand-800/60 hover:bg-brand-800 p-3 rounded-xl border border-brand-700/40 flex items-center justify-between transition">
                         <span>Message Form Tutor Desk</span>
                         <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -385,7 +418,7 @@
    EXAMGUARD MULTI-SCHOOL PARENT DASHBOARD
    ========================================================= */
 
-const API_BASE = window.API_BASE || "https://examguard-8rxe.onrender.com/api";
+const API_BASE = window.API_BASE || "https://goldlincschools.onrender.com/api";
 const token = localStorage.getItem('parentToken') || localStorage.getItem('token');
 
 let parentData = null;
@@ -393,12 +426,15 @@ let currentSchool = null;
 let allStudents = [];
 let currentSelectedStudent = null;
 let currentGradeTerm = 1;
+let errorConfirmCallback = null;
 
 async function initializeDashboard() {
     console.log('🚀 Initializing Parent Dashboard...');
     if (!token) {
         console.warn('⚠️ No authentication token found.');
-        window.location.href = 'login.html';
+        showErrorModal('Authentication Required', 'No active login session found. Please log in to continue.', () => {
+            window.location.href = 'login.html';
+        });
         return;
     }
 
@@ -429,7 +465,7 @@ async function initializeDashboard() {
     } catch (err) {
         console.error('❌ Dashboard initialization failed:', err);
         hideLoadingSpinner();
-        alert(err.message || 'Failed to initialize parent dashboard.');
+        showErrorModal('Initialization Error', err.message || 'Failed to initialize parent dashboard.');
     }
 }
 
@@ -450,6 +486,49 @@ function hideLoadingSpinner() {
 function updateLoadingStatus(status) {
     const statusEl = document.getElementById('spinnerStatus');
     if (statusEl) statusEl.textContent = status;
+}
+
+/* =========================================================
+   ERROR MODAL UTILITIES
+   ========================================================= */
+function showErrorModal(title, message, onConfirm = null) {
+    const modal = document.getElementById('errorModal');
+    const card = document.getElementById('errorModalCard');
+    const titleEl = document.getElementById('errorModalTitle');
+    const msgEl = document.getElementById('errorModalMessage');
+
+    if (titleEl) titleEl.textContent = title || 'An Error Occurred';
+    if (msgEl) msgEl.textContent = message || 'Unknown error occurred.';
+
+    errorConfirmCallback = onConfirm;
+
+    if (modal && card) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            card.classList.remove('scale-95');
+            card.classList.add('scale-100');
+        }, 10);
+    }
+}
+
+function closeErrorModal() {
+    const modal = document.getElementById('errorModal');
+    const card = document.getElementById('errorModalCard');
+
+    if (modal && card) {
+        modal.classList.add('opacity-0');
+        card.classList.remove('scale-100');
+        card.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            if (typeof errorConfirmCallback === 'function') {
+                const callback = errorConfirmCallback;
+                errorConfirmCallback = null;
+                callback();
+            }
+        }, 300);
+    }
 }
 
 function getAuthHeaders() {
@@ -477,8 +556,7 @@ async function loadCurrentSchool() {
         });
 
         if (res.status === 401 || res.status === 403) {
-            logoutUser();
-            return;
+            throw new Error(`Authentication failed (HTTP ${res.status}): Session expired or unauthorized access.`);
         }
 
         if (!res.ok) {
@@ -552,8 +630,7 @@ async function loadParentData() {
         });
 
         if (res.status === 401 || res.status === 403) {
-            logoutUser();
-            return;
+            throw new Error(`Authentication error (HTTP ${res.status}): Access denied to parent profile.`);
         }
 
         if (!res.ok) {
@@ -681,7 +758,7 @@ async function switchToStudent(studentId) {
     } catch (err) {
         console.error('❌ Student switch failed:', err);
         hideLoadingSpinner();
-        alert('Failed to load student details: ' + err.message);
+        showErrorModal('Student Switching Error', 'Failed to load student details: ' + (err.message || 'Unknown error'));
     }
 }
 
