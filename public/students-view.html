@@ -2,7 +2,7 @@
 <html lang="en" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
-    <title>View Students | Gold and Linc Schools</title>
+    <title id="pageTitle">View Students | School Administration</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -120,10 +120,10 @@
             <div class="p-5 flex flex-col gap-4">
                 <div class="brand flex items-center justify-between mb-2">
                     <div class="flex items-center gap-3">
-                        <img src="mainlogo.png" alt="Logo" class="w-10 h-10 rounded-xl object-cover ring-2 ring-amber-400/30 bg-white p-0.5 shadow-md" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'">
+                        <img id="schoolLogo" src="" alt="School Logo" class="w-10 h-10 rounded-xl object-cover ring-2 ring-amber-400/30 bg-white p-0.5 shadow-md">
                         <div>
-                            <div class="title font-extrabold text-sm text-amber-300 tracking-tight leading-tight truncate max-w-[150px]">Gold and Linc Schools</div>
-                            <div class="muted-small text-xs font-medium text-slate-400">School System</div>
+                            <div id="schoolBrandName" class="title font-extrabold text-sm text-amber-300 tracking-tight leading-tight truncate max-w-[150px]">Loading School...</div>
+                            <div id="schoolPortalLabel" class="muted-small text-xs font-medium text-slate-400">School System</div>
                         </div>
                     </div>
                 </div>
@@ -173,8 +173,8 @@
                     SA
                 </div>
                 <div class="text-xs truncate">
-                    <p class="text-slate-400">System Role</p>
-                    <p class="font-bold text-white truncate">System Administrator</p>
+                    <p id="adminRoleLabel" class="text-slate-400">System Role</p>
+                    <p id="adminNameLabel" class="font-bold text-white truncate">Administrator</p>
                 </div>
             </div>
         </aside>
@@ -192,7 +192,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <div class="muted-small text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 hidden sm:block">ExamGuard International School</div>
+                    <div id="topbarSchoolName" class="muted-small text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 hidden sm:block">Loading School...</div>
                     <button class="btn ghost px-3.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition" onclick="alert('Logout')">
                         <i class="fa fa-sign-out-alt mr-1"></i> Sign out
                     </button>
@@ -216,25 +216,6 @@
                                     <label for="class" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Class</label>
                                     <select id="class" name="class" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
                                         <option value="">All Classes</option>
-                                        <option>Beginner</option>
-                                        <option>KG1</option>
-                                        <option>KG2</option>
-                                        <option>Creche</option>
-                                        <option>Nursery 1</option>
-                                        <option>Nursery 2</option>
-                                        <option>Nursery 3</option>
-                                        <option>Primary 1</option>
-                                        <option>Primary 2</option>
-                                        <option>Primary 3</option>
-                                        <option>Primary 4</option>
-                                        <option>Primary 5</option>
-                                        <option>Primary 6</option>
-                                        <option>JSS1</option>
-                                        <option>JSS2</option>
-                                        <option>JSS3</option>
-                                        <option>SS1</option>
-                                        <option>SS2</option>
-                                        <option>SS3</option>
                                     </select>
                                 </div>
                                 <div class="form-group flex flex-col gap-1">
@@ -245,10 +226,6 @@
                                     <label for="academic-session" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Academic Session</label>
                                     <select id="academic-session" name="academicSession" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
                                         <option value="">All Sessions</option>
-                                        <option value="2025-2026">2025-2026</option>
-                                        <option value="2026-2027">2026-2027</option>
-                                        <option value="2024-2025">2024-2025</option>
-                                        <option value="2023-2024">2023-2024</option>
                                     </select>
                                 </div>
                                 <div class="form-group flex flex-col gap-1">
@@ -442,479 +419,1005 @@
 
     <!-- Page Controller JavaScript -->
     <script>
-        const API_BASE_URL = "https://goldlincschools.onrender.com";
+    const BACKEND_URL = window.BACKEND_URL || 'https://goldlincschools.onrender.com';
+    const API_ROOT = `${BACKEND_URL}/api`;
+    const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+    const BASE_DOMAINS = ['goldlincschools.com.ng','examguard.com.ng'];
+    let token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+    let currentUser = null;
+    let currentSchool = null;
+    let schoolSubdomain = '';
+    let publicSchoolId = '';
+    let studentsData = [];
+    let filteredData = [];
+    let currentPage = 1;
+    const pageSize = 15;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const spinner = document.getElementById('pageSpinnerOverlay');
-            if (spinner) spinner.style.display = 'flex';
-            setTimeout(() => {
-                if (spinner) {
-                    spinner.style.opacity = '0';
-                    setTimeout(() => { spinner.style.display = 'none'; }, 400);
-                }
-            }, 1200);
-        });
+    function escapeHTML(value) {
+        return String(value ?? '')
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;')
+            .replace(/'/g,'&#039;');
+    }
 
-        let studentsData = [];
-        let filteredData = [];
-        let currentPage = 1;
-        const pageSize = 15;
+    function decodeJwtPayload(jwt) {
+        try {
+            const parts = String(jwt || '').split('.');
+            if (parts.length !== 3) return null;
+            return JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+        } catch {
+            return null;
+        }
+    }
 
-        function showTableSpinner(show) {
-            const spinner = document.getElementById('tableSpinnerOverlay');
-            if (spinner) spinner.style.display = show ? 'flex' : 'none';
+    function getHostnameSubdomain() {
+        const host = window.location.hostname.toLowerCase();
+        for (const base of BASE_DOMAINS) {
+            const suffix = `.${base}`;
+            if (host.endsWith(suffix)) {
+                const sub = host.slice(0,-suffix.length);
+                if (sub && !sub.includes('.')) return sub;
+            }
+        }
+        return '';
+    }
+
+    function getTenantSubdomain() {
+        const hostnameSubdomain = getHostnameSubdomain();
+        if (hostnameSubdomain) return hostnameSubdomain;
+        const stored = localStorage.getItem('schoolSubdomain');
+        return stored ? stored.trim().toLowerCase() : '';
+    }
+
+    function getAuthHeaders(extra = {}) {
+        const headers = {
+            Accept: 'application/json',
+            ...extra
+        };
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+        return headers;
+    }
+
+    async function apiFetch(url, options = {}) {
+        const headers = {
+            ...getAuthHeaders(),
+            ...(options.headers || {})
+        };
+        if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        const response = await fetch(url,{...options,headers});
+        if (response.status === 401) {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('token');
+            localStorage.removeItem('authToken');
+            throw new Error('Your session has expired. Please sign in again.');
+        }
+        if (response.status === 403) throw new Error('You do not have permission to access this school.');
+        return response;
+    }
+
+    function normalizeSchool(raw) {
+        if (!raw) return null;
+        return raw.school || raw.data?.school || raw.data || raw;
+    }
+
+    function normalizeUser(raw) {
+        return raw?.user || raw?.data?.user || raw?.data || raw;
+    }
+
+    function getSchoolMongoId(school) {
+        return school?._id || school?.id || '';
+    }
+
+    function verifySchoolContext() {
+        if (!token || !currentSchool || !currentUser) return true;
+        const payload = decodeJwtPayload(token);
+        const tokenSchoolId = payload?.schoolId || currentUser?.schoolId;
+        const configSchoolId = getSchoolMongoId(currentSchool);
+        if (!tokenSchoolId) throw new Error('Your administrator account is not linked to a school.');
+        if (configSchoolId && String(tokenSchoolId) !== String(configSchoolId)) {
+            throw new Error('Your account belongs to a different school. Please sign in through the correct school portal.');
+        }
+        if (currentUser.schoolId && configSchoolId && String(currentUser.schoolId) !== String(configSchoolId)) {
+            throw new Error('School security verification failed.');
+        }
+        return true;
+    }
+
+    function applySchoolBranding() {
+        const schoolName = currentSchool?.schoolName || currentSchool?.name || 'School Administration';
+        const logo = currentSchool?.logoUrl ||
+            currentSchool?.branding?.logo ||
+            currentSchool?.branding?.lightLogo ||
+            currentSchool?.branding?.darkLogo ||
+            '';
+        const primary = currentSchool?.branding?.primaryColor || '#2563eb';
+        const secondary = currentSchool?.branding?.secondaryColor || '#f59e0b';
+        const accent = currentSchool?.branding?.accentColor || '#10b981';
+        const adminName = currentUser?.name || currentUser?.fullName || currentUser?.email || 'Administrator';
+        const role = currentUser?.role || 'Administrator';
+
+        document.documentElement.style.setProperty('--school-primary',primary);
+        document.documentElement.style.setProperty('--school-secondary',secondary);
+        document.documentElement.style.setProperty('--school-accent',accent);
+
+        document.title = `View Students | ${schoolName}`;
+
+        const name = document.getElementById('schoolBrandName');
+        const topName = document.getElementById('topbarSchoolName');
+        const logoEl = document.getElementById('schoolLogo');
+        const adminNameEl = document.getElementById('adminNameLabel');
+        const adminRoleEl = document.getElementById('adminRoleLabel');
+
+        if (name) name.textContent = schoolName;
+        if (topName) topName.textContent = schoolName;
+        if (adminNameEl) adminNameEl.textContent = adminName;
+        if (adminRoleEl) adminRoleEl.textContent = role;
+
+        if (logoEl) {
+            if (logo) {
+                logoEl.src = logo;
+                logoEl.alt = `${schoolName} Logo`;
+            } else {
+                logoEl.removeAttribute('src');
+                logoEl.alt = schoolName;
+            }
+            logoEl.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(schoolName)}&background=ffffff&color=1e3a8a&bold=true`;
+            };
         }
 
-        async function fetchStudents(filters = {}) {
-            showTableSpinner(true);
-            let url = API_BASE_URL + '/api/student';
-            const params = Object.keys(filters)
-                .filter(key => filters[key])
-                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(filters[key])}`)
-                .join('&');
-            if (params) url += '?' + params;
+        document.querySelectorAll('[data-school-name]').forEach(el => {
+            el.textContent = schoolName;
+        });
+    }
+
+    async function loadSchoolContext() {
+        if (!token) {
+            throw new Error('No administrator authentication token was found. Please sign in again.');
+        }
+
+        const meResponse = await fetch(`${API_ROOT}/auth/me`,{
+            headers:getAuthHeaders()
+        });
+
+        if (!meResponse.ok) {
+            if (meResponse.status === 401) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('token');
+                localStorage.removeItem('authToken');
+            }
+            throw new Error(`Unable to load your school account. Server returned ${meResponse.status}.`);
+        }
+
+        const meData = await meResponse.json();
+
+        currentUser = normalizeUser(meData);
+        currentSchool = normalizeSchool(meData);
+
+        if (!currentUser) throw new Error('Authenticated administrator information was not returned.');
+        if (!currentUser.schoolId) throw new Error('Your administrator account is not assigned to a school.');
+
+        const authSchoolId = String(currentUser.schoolId);
+
+        if (!currentSchool || !getSchoolMongoId(currentSchool)) {
+            const subdomain = getTenantSubdomain();
+            if (subdomain) {
+                const configResponse = await fetch(
+                    `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`,
+                    {headers:getAuthHeaders()}
+                );
+
+                if (configResponse.ok) {
+                    const configData = await configResponse.json();
+                    const configuredSchool = normalizeSchool(configData);
+                    const configuredSchoolId = getSchoolMongoId(configuredSchool);
+
+                    if (configuredSchoolId && String(configuredSchoolId) === authSchoolId) {
+                        currentSchool = configuredSchool;
+                    }
+                }
+            }
+        }
+
+        if (!currentSchool) {
+            throw new Error('The current school could not be identified.');
+        }
+
+        if (getSchoolMongoId(currentSchool) && String(getSchoolMongoId(currentSchool)) !== authSchoolId) {
+            throw new Error('The school configuration does not match your authenticated school.');
+        }
+
+        schoolSubdomain =
+            currentSchool?.subdomain ||
+            getTenantSubdomain() ||
+            '';
+
+        publicSchoolId =
+            currentSchool?.schoolId ||
+            currentSchool?.publicSchoolId ||
+            '';
+
+        if (schoolSubdomain) localStorage.setItem('schoolSubdomain',schoolSubdomain);
+        if (publicSchoolId) localStorage.setItem('schoolId',publicSchoolId);
+
+        applySchoolBranding();
+        verifySchoolContext();
+
+        return true;
+    }
+
+    async function loadSchoolConfig() {
+        const subdomain = schoolSubdomain || getTenantSubdomain();
+        if (!subdomain) return currentSchool;
+
+        try {
+            const response = await fetch(
+                `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`,
+                {headers:getAuthHeaders()}
+            );
+
+            if (!response.ok) return currentSchool;
+
+            const raw = await response.json();
+            const configuredSchool = normalizeSchool(raw);
+            const configuredSchoolId = getSchoolMongoId(configuredSchool);
+            const authenticatedSchoolId = currentUser?.schoolId;
+
+            if (
+                configuredSchool &&
+                configuredSchoolId &&
+                authenticatedSchoolId &&
+                String(configuredSchoolId) === String(authenticatedSchoolId)
+            ) {
+                currentSchool = configuredSchool;
+                publicSchoolId = configuredSchool.schoolId || publicSchoolId;
+                schoolSubdomain = configuredSchool.subdomain || schoolSubdomain;
+                applySchoolBranding();
+            }
+
+            return currentSchool;
+        } catch (error) {
+            console.warn('School configuration lookup failed:',error);
+            return currentSchool;
+        }
+    }
+
+    function normalizeArrayResponse(raw, keys = []) {
+        if (Array.isArray(raw)) return raw;
+        for (const key of keys) {
+            if (Array.isArray(raw?.[key])) return raw[key];
+        }
+        if (Array.isArray(raw?.data)) return raw.data;
+        return [];
+    }
+
+    function getClassName(classItem) {
+        if (!classItem) return '';
+        if (typeof classItem === 'string') return classItem;
+        return classItem.name || classItem.className || classItem.title || '';
+    }
+
+    function getClassId(classItem) {
+        if (!classItem || typeof classItem === 'string') return '';
+        return classItem._id || classItem.id || '';
+    }
+
+    async function loadClassesForFilter() {
+        const select = document.getElementById('class');
+        if (!select) return;
+
+        const previous = select.value;
+        select.innerHTML = '<option value="">All Classes</option>';
+
+        try {
+            const response = await apiFetch(`${API_ROOT}/academics/classes`);
+            if (!response.ok) throw new Error(`Classes request failed: ${response.status}`);
+
+            const raw = await response.json();
+            const classes = normalizeArrayResponse(raw,['classes','results','items']);
+
+            const seen = new Set();
+
+            classes.forEach(item => {
+                const name = getClassName(item);
+                if (!name || seen.has(name.toLowerCase())) return;
+                seen.add(name.toLowerCase());
+
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                option.dataset.classId = getClassId(item);
+                select.appendChild(option);
+            });
+
+            if (previous) select.value = previous;
+        } catch (error) {
+            console.error('Unable to load school classes:',error);
+        }
+    }
+
+    function getSessionName(session) {
+        if (!session) return '';
+        if (typeof session === 'string') return session;
+        return session.name || session.session || session.title || '';
+    }
+
+    async function loadSessionsForFilter() {
+        const select = document.getElementById('academic-session');
+        if (!select) return;
+
+        const previous = select.value;
+        select.innerHTML = '<option value="">All Sessions</option>';
+
+        try {
+            const response = await apiFetch(`${API_ROOT}/academics/sessions`);
+            if (!response.ok) throw new Error(`Sessions request failed: ${response.status}`);
+
+            const raw = await response.json();
+            const sessions = normalizeArrayResponse(raw,['sessions','results','items']);
+
+            sessions.forEach(session => {
+                const name = getSessionName(session);
+                if (!name) return;
+
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                option.dataset.sessionId = session?._id || session?.id || '';
+                select.appendChild(option);
+            });
+
+            if (previous) select.value = previous;
+        } catch (error) {
+            console.error('Unable to load school sessions:',error);
+        }
+    }
+
+    function showTableSpinner(show) {
+        const spinner = document.getElementById('tableSpinnerOverlay');
+        if (spinner) spinner.style.display = show ? 'flex' : 'none';
+    }
+
+    async function fetchStudents(filters = {}) {
+        showTableSpinner(true);
+
+        try {
+            const query = new URLSearchParams();
+
+            Object.entries(filters).forEach(([key,value]) => {
+                if (value !== undefined && value !== null && String(value).trim() !== '') {
+                    query.set(key,String(value));
+                }
+            });
+
+            const url = `${API_ROOT}/student${query.toString() ? `?${query.toString()}` : ''}`;
+
+            const response = await apiFetch(url,{method:'GET'});
+
+            if (!response.ok) {
+                let message = `Failed to load students (${response.status}).`;
+                try {
+                    const errorData = await response.json();
+                    message = errorData.error || errorData.message || message;
+                } catch {}
+                throw new Error(message);
+            }
+
+            const raw = await response.json();
+
+            const students = normalizeArrayResponse(raw,[
+                'students',
+                'data',
+                'results',
+                'items'
+            ]);
+
+            studentsData = Array.isArray(students) ? students : [];
+            filteredData = studentsData;
+            currentPage = 1;
+
+            renderStudentsTable();
+            renderStudentsStats();
+        } catch (error) {
+            console.error('Student loading error:',error);
+            studentsData = [];
+            filteredData = [];
+            currentPage = 1;
+            renderStudentsTable();
+            renderStudentsStats();
+
+            if (error.message) alert(error.message);
+        } finally {
+            showTableSpinner(false);
+        }
+    }
+
+    function applyFilters() {
+        const searchInput = document.getElementById('search-student-input');
+        const form = document.getElementById('students-filter-form');
+
+        const searchVal = searchInput?.value.trim().toLowerCase() || '';
+        const classVal = form?.class?.value || '';
+        const classArmVal = form?.classArm?.value.trim().toLowerCase() || '';
+        const sessionVal = form?.academicSession?.value || '';
+        const accountStatusVal = form?.accountStatus?.value || '';
+        const subscriptionStatusVal = form?.subscriptionStatus?.value || '';
+
+        filteredData = studentsData.filter(stu => {
+            const studentClass =
+                typeof stu.class === 'object'
+                    ? (stu.class?.name || '')
+                    : (stu.class || '');
+
+            const studentSession =
+                stu.academicSession ||
+                stu.session ||
+                stu.academic_session ||
+                '';
+
+            const studentAccountStatus =
+                stu.accountStatus ||
+                stu.status ||
+                '';
+
+            const studentSubscriptionStatus =
+                stu.subscriptionStatus ||
+                stu.subscription_status ||
+                '';
+
+            if (
+                classVal &&
+                String(studentClass).trim().toLowerCase() !== classVal.trim().toLowerCase()
+            ) return false;
+
+            if (
+                classArmVal &&
+                String(stu.classArm || '').trim().toLowerCase() !== classArmVal
+            ) return false;
+
+            if (
+                sessionVal &&
+                String(studentSession).trim().toLowerCase() !== sessionVal.trim().toLowerCase()
+            ) return false;
+
+            if (
+                accountStatusVal &&
+                String(studentAccountStatus).trim().toLowerCase() !== accountStatusVal.trim().toLowerCase()
+            ) return false;
+
+            if (
+                subscriptionStatusVal &&
+                String(studentSubscriptionStatus).trim().toLowerCase() !== subscriptionStatusVal.trim().toLowerCase()
+            ) return false;
+
+            if (searchVal) {
+                const fields = [
+                    stu.surname,
+                    stu.firstname,
+                    stu.othernames,
+                    stu.name,
+                    stu.regNo,
+                    stu.student_id,
+                    stu.scratchCard,
+                    stu.studentEmail,
+                    stu.studentPhone,
+                    stu.parentName,
+                    stu.parentPhone
+                ].map(value => String(value || '').toLowerCase());
+
+                if (!fields.some(value => value.includes(searchVal))) return false;
+            }
+
+            return true;
+        });
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        if (Number.isNaN(date.getTime())) return String(dateStr);
+        return date.toLocaleDateString();
+    }
+
+    function renderStudentsTable() {
+        applyFilters();
+
+        const tbody = document.getElementById('students-table-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        const totalPages = Math.ceil(filteredData.length / pageSize);
+
+        if (totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
+
+        const start = (currentPage - 1) * pageSize;
+        const pageData = filteredData.slice(start,start + pageSize);
+
+        if (!pageData.length) {
+            tbody.innerHTML = '<tr><td colspan="20" class="py-8 text-center text-slate-400 font-medium">No students found.</td></tr>';
+            renderPagination(0);
+            return;
+        }
+
+        pageData.forEach((stu,index) => {
+            const studentId = stu.student_id || stu._id || stu.regNo || '';
+            const className =
+                typeof stu.class === 'object'
+                    ? stu.class?.name || ''
+                    : stu.class || '';
+
+            const fullStudentName = [
+                stu.surname,
+                stu.firstname,
+                stu.othernames
+            ].filter(Boolean).join(' ');
+
+            const gender = String(stu.gender || '');
+
+            tbody.innerHTML += `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-3 px-3 font-semibold text-slate-500">${start + index + 1}</td>
+                    <td class="py-3 px-3">
+                        <img src="${escapeHTML(stu.photoBase64 || stu.photo || 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png')}" class="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100 shadow-xs" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'">
+                    </td>
+                    <td class="py-3 px-3 font-bold">
+                        <a href="student-profile.html?student_id=${encodeURIComponent(studentId)}" target="_blank" class="text-brand-600 hover:text-brand-700 hover:underline">${escapeHTML(stu.surname || '')}</a>
+                    </td>
+                    <td class="py-3 px-3 font-medium">${escapeHTML(stu.firstname || '')}</td>
+                    <td class="py-3 px-3 text-slate-500">${escapeHTML(stu.othernames || '')}</td>
+                    <td class="py-3 px-3 font-semibold">${escapeHTML(className)}</td>
+                    <td class="py-3 px-3">${escapeHTML(stu.classArm || '')}</td>
+                    <td class="py-3 px-3 font-mono text-xs">${escapeHTML(stu.regNo || '')}</td>
+                    <td class="py-3 px-3 font-mono text-xs">${stu.scratchCard ? escapeHTML(stu.scratchCard) : '<span class="text-slate-300">N/A</span>'}</td>
+                    <td class="py-3 px-3">
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold ${gender.toLowerCase().startsWith('m') ? 'bg-blue-50 text-blue-700' : 'bg-pink-50 text-pink-700'}">${escapeHTML(gender)}</span>
+                    </td>
+                    <td class="py-3 px-3">${formatDate(stu.dob)}</td>
+                    <td class="py-3 px-3">
+                        <div class="font-bold text-slate-800">${escapeHTML(stu.parentName || '')}</div>
+                        <div class="text-[11px] text-slate-400">${escapeHTML(stu.parentPhone || '')}</div>
+                    </td>
+                    <td class="py-3 px-3">
+                        <div class="text-slate-700">${escapeHTML(stu.studentEmail || '')}</div>
+                        <div class="text-[11px] text-slate-400">${escapeHTML(stu.studentPhone || '')}</div>
+                    </td>
+                    <td class="py-3 px-3">${escapeHTML(stu.nationality || '')}</td>
+                    <td class="py-3 px-3">${escapeHTML(stu.state || '')}</td>
+                    <td class="py-3 px-3">${escapeHTML(stu.lga || '')}</td>
+                    <td class="py-3 px-3">${escapeHTML(stu.previousSchool || '')}</td>
+                    <td class="py-3 px-3">${formatDate(stu.admissionDate)}</td>
+                    <td class="py-3 px-3">${escapeHTML(stu.academicSession || stu.session || '')}</td>
+                    <td class="py-3 px-3 text-right">
+                        <div class="action-buttons flex items-center justify-end gap-1.5">
+                            <button class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 transition flex items-center justify-center text-xs font-bold" title="Edit" onclick="editStudent('${encodeURIComponent(studentId)}')">✎</button>
+                            <button class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition flex items-center justify-center text-xs font-bold" title="Delete" onclick="deleteStudent('${encodeURIComponent(studentId)}')">🗑</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        renderPagination(totalPages);
+        renderStudentsStats();
+    }
+
+    function renderPagination(totalPages) {
+        const container = document.getElementById('students-pagination');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center gap-1 flex-wrap justify-center py-2';
+
+        for (let i = 1; i <= totalPages; i++) {
+            const button = document.createElement('button');
+            button.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition ${i === currentPage ? 'bg-brand-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+            button.textContent = i;
+            button.onclick = () => {
+                currentPage = i;
+                renderStudentsTable();
+            };
+            wrapper.appendChild(button);
+        }
+
+        container.appendChild(wrapper);
+    }
+
+    function renderStudentsStats() {
+        let male = 0;
+        let female = 0;
+
+        filteredData.forEach(stu => {
+            const gender = String(stu.gender || '').toLowerCase();
+            if (gender.startsWith('m')) male++;
+            if (gender.startsWith('f')) female++;
+        });
+
+        const maleEl = document.getElementById('totalMale');
+        const femaleEl = document.getElementById('totalFemale');
+        const totalEl = document.getElementById('totalStudents');
+
+        if (maleEl) maleEl.textContent = male;
+        if (femaleEl) femaleEl.textContent = female;
+        if (totalEl) totalEl.textContent = filteredData.length;
+    }
+
+    window.editStudent = async function(encodedStudentId) {
+        const studentId = decodeURIComponent(encodedStudentId);
+        const student = studentsData.find(s =>
+            String(s.student_id || s._id || s.regNo) === String(studentId)
+        );
+
+        if (!student) {
+            alert('Student not found.');
+            return;
+        }
+
+        openEditModal(student);
+    };
+
+    window.deleteStudent = async function(encodedStudentId) {
+        const studentId = decodeURIComponent(encodedStudentId);
+
+        if (!confirm('Are you sure you want to delete this student?')) return;
+
+        showTableSpinner(true);
+
+        try {
+            const response = await apiFetch(
+                `${API_ROOT}/student/${encodeURIComponent(studentId)}`,
+                {method:'DELETE'}
+            );
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.error || data.message || 'Failed to delete student.');
+            }
+
+            studentsData = studentsData.filter(s =>
+                String(s.student_id || s._id || s.regNo) !== String(studentId)
+            );
+
+            renderStudentsTable();
+            renderStudentsStats();
+
+            alert('Student deleted successfully.');
+        } catch (error) {
+            alert(error.message || 'Unable to delete student.');
+        } finally {
+            showTableSpinner(false);
+        }
+    };
+
+    function openEditModal(stu) {
+        const modal = document.getElementById('editStudentModal');
+        const form = document.getElementById('editStudentForm');
+        const wrapper = document.getElementById('editFieldsWrapper');
+
+        if (!modal || !form || !wrapper) return;
+
+        const fields = [
+            {label:'Surname',name:'surname',type:'text',required:true},
+            {label:'First Name',name:'firstname',type:'text',required:true},
+            {label:'Other Names',name:'othernames',type:'text'},
+            {label:'Gender',name:'gender',type:'text',required:true},
+            {label:'DOB',name:'dob',type:'date',required:true},
+            {label:'Nationality',name:'nationality',type:'text'},
+            {label:'State of Origin',name:'state',type:'text'},
+            {label:'LGA',name:'lga',type:'text'},
+            {label:'Home Address',name:'address',type:'text'},
+            {label:'Reg No',name:'regNo',type:'text',readonly:true},
+            {label:'Scratch Card',name:'scratchCard',type:'text',readonly:true},
+            {label:'Class',name:'class',type:'text',required:true},
+            {label:'Class Arm',name:'classArm',type:'text'},
+            {label:'Previous School',name:'previousSchool',type:'text'},
+            {label:'Admission Date',name:'admissionDate',type:'date'},
+            {label:'Academic Session',name:'academicSession',type:'text'},
+            {label:'Parent Name',name:'parentName',type:'text',required:true},
+            {label:'Parent Relationship',name:'parentRelationship',type:'text'},
+            {label:'Parent Phone',name:'parentPhone',type:'text'},
+            {label:'Parent Email',name:'parentEmail',type:'email'},
+            {label:'Parent Address',name:'parentAddress',type:'text'},
+            {label:'Parent Occupation',name:'parentOccupation',type:'text'},
+            {label:'Student Email',name:'studentEmail',type:'email'},
+            {label:'Student Phone',name:'studentPhone',type:'text'},
+            {label:'Religion',name:'religion',type:'text'},
+            {label:'Blood Group',name:'bloodGroup',type:'text'},
+            {label:'Genotype',name:'genotype',type:'text'},
+            {label:'Medical',name:'medical',type:'text'}
+        ];
+
+        wrapper.innerHTML = '';
+
+        fields.forEach(field => {
+            let value = stu[field.name] ?? '';
+
+            if (field.type === 'date' && value) {
+                const date = new Date(value);
+                if (!Number.isNaN(date.getTime())) value = date.toISOString().slice(0,10);
+            }
+
+            wrapper.innerHTML += `
+                <div class="edit-form-row flex flex-col gap-1">
+                    <label class="text-[11px] font-bold text-slate-600">${escapeHTML(field.label)}${field.required ? ' *' : ''}</label>
+                    <input name="${escapeHTML(field.name)}" type="${escapeHTML(field.type)}" value="${escapeHTML(value)}" ${field.readonly ? 'readonly' : ''} ${field.required ? 'required' : ''} class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition ${field.readonly ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}">
+                </div>
+            `;
+        });
+
+        form.onsubmit = async function(event) {
+            event.preventDefault();
+
+            const spinner = document.getElementById('editModalSpinner');
+            if (spinner) spinner.classList.remove('hidden');
+
+            const formData = new FormData(form);
+            const editData = Object.fromEntries(formData.entries());
+            const studentId = stu.student_id || stu._id || stu.regNo;
 
             try {
-                const res = await fetch(url);
-                if (res.ok) {
-                    const data = await res.json();
-                    let studentsList;
-                    if (Array.isArray(data)) {
-                        studentsList = data;
-                    } else if (Array.isArray(data.students)) {
-                        studentsList = data.students;
-                    } else {
-                        studentsList = [];
+                const response = await apiFetch(
+                    `${API_ROOT}/student/${encodeURIComponent(studentId)}`,
+                    {
+                        method:'PUT',
+                        headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify(editData)
                     }
-                    studentsData = studentsList;
-                    filteredData = studentsData;
-                    currentPage = 1;
-                    renderStudentsTable();
-                    renderStudentsStats();
-                } else {
-                    studentsData = [];
-                    filteredData = [];
-                    renderStudentsTable();
-                    renderStudentsStats();
+                );
+
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || 'Failed to update student.');
                 }
-            } catch (err) {
-                studentsData = [];
-                filteredData = [];
+
+                Object.assign(stu,editData);
+
+                alert('Student updated successfully.');
                 renderStudentsTable();
                 renderStudentsStats();
+                closeEditModal();
+            } catch (error) {
+                alert(error.message || 'Unable to update student.');
             } finally {
-                showTableSpinner(false);
-            }
-        }
-
-        function applyFilters() {
-            const searchVal = document.getElementById('search-student-input').value.trim().toLowerCase();
-            const form = document.getElementById('students-filter-form');
-            const classVal = form.class.value;
-            const classArmVal = form.classArm.value.trim().toLowerCase();
-            const sessionVal = form.academicSession.value;
-
-            filteredData = studentsData.filter(stu => {
-                let pass = true;
-                if (classVal && (stu.class !== classVal && (stu.class?.name !== classVal))) pass = false;
-                if (classArmVal && stu.classArm && stu.classArm.toLowerCase() !== classArmVal) pass = false;
-                if (sessionVal && (stu.academicSession || '').trim().toLowerCase() !== sessionVal.trim().toLowerCase()) pass = false;
-                if (searchVal) {
-                    const fields = [
-                        stu.surname, stu.firstname, stu.othernames, stu.regNo,
-                        stu.scratchCard, stu.studentEmail, stu.studentPhone, stu.parentName, stu.parentPhone
-                    ].map(x => (x || '').toLowerCase());
-                    if (!fields.some(field => field.includes(searchVal))) pass = false;
-                }
-                return pass;
-            });
-        }
-
-        function renderStudentsTable() {
-            applyFilters();
-            const tbody = document.getElementById('students-table-body');
-            tbody.innerHTML = '';
-            const totalPages = Math.ceil(filteredData.length / pageSize);
-            if (currentPage > totalPages && totalPages > 0) currentPage = 1;
-            const start = (currentPage - 1) * pageSize;
-            const end = start + pageSize;
-            const pageData = filteredData.slice(start, end);
-
-            if (pageData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="20" class="py-8 text-center text-slate-400 font-medium">No students found.</td></tr>`;
-            } else {
-                let serial = start + 1;
-                for (const stu of pageData) {
-                    const studentId = stu.student_id || stu._id || stu.regNo || '';
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-slate-50/80 transition">
-                            <td class="py-3 px-3 font-semibold text-slate-500">${serial}</td>
-                            <td class="py-3 px-3">
-                                <img src="${stu.photoBase64 || stu.photo || 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png'}" class="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100 shadow-xs">
-                            </td>
-                            <td class="py-3 px-3 font-bold">
-                              <a href="student-profile.html?student_id=${encodeURIComponent(studentId)}" target="_blank" class="text-brand-600 hover:text-brand-700 hover:underline">
-                                ${stu.surname || ''}
-                              </a>
-                            </td>
-                            <td class="py-3 px-3 font-medium">${stu.firstname || ''}</td>
-                            <td class="py-3 px-3 text-slate-500">${stu.othernames || ''}</td>
-                            <td class="py-3 px-3 font-semibold">${stu.class && stu.class.name ? stu.class.name : (stu.class || '')}</td>
-                            <td class="py-3 px-3">${stu.classArm || ''}</td>
-                            <td class="py-3 px-3 font-mono text-xs">${stu.regNo || ''}</td>
-                            <td class="py-3 px-3 font-mono text-xs">${stu.scratchCard || '<span class="text-slate-300">N/A</span>'}</td>
-                            <td class="py-3 px-3">
-                                <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold ${stu.gender && stu.gender.toLowerCase().startsWith('m') ? 'bg-blue-50 text-blue-700' : 'bg-pink-50 text-pink-700'}">
-                                    ${stu.gender || ''}
-                                </span>
-                            </td>
-                            <td class="py-3 px-3">${stu.dob ? (formatDate(stu.dob)) : ''}</td>
-                            <td class="py-3 px-3">
-                                <div class="font-bold text-slate-800">${stu.parentName || ''}</div>
-                                <div class="text-[11px] text-slate-400">${stu.parentPhone || ''}</div>
-                            </td>
-                            <td class="py-3 px-3">
-                                <div class="text-slate-700">${stu.studentEmail || ''}</div>
-                                <div class="text-[11px] text-slate-400">${stu.studentPhone || ''}</div>
-                            </td>
-                            <td class="py-3 px-3">${stu.nationality || ''}</td>
-                            <td class="py-3 px-3">${stu.state || ''}</td>
-                            <td class="py-3 px-3">${stu.lga || ''}</td>
-                            <td class="py-3 px-3">${stu.previousSchool || ''}</td>
-                            <td class="py-3 px-3">${stu.admissionDate ? (formatDate(stu.admissionDate)) : ''}</td>
-                            <td class="py-3 px-3">${stu.academicSession || ''}</td>
-                            <td class="py-3 px-3 text-right">
-                                <div class="action-buttons flex items-center justify-end gap-1.5">
-                                    <button class="btn-edit w-7 h-7 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 transition flex items-center justify-center text-xs font-bold" title="Edit" onclick="editStudent('${encodeURIComponent(studentId)}')">✎</button>
-                                    <button class="btn-delete w-7 h-7 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition flex items-center justify-center text-xs font-bold" title="Delete" onclick="deleteStudent('${encodeURIComponent(studentId)}')">🗑</button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                    serial++;
-                }
-            }
-            renderPagination(totalPages);
-            renderStudentsStats();
-        }
-
-        function renderPagination(totalPages) {
-            const pagDiv = document.getElementById('students-pagination');
-            pagDiv.innerHTML = '';
-            if (totalPages <= 1) return;
-            let html = '<div class="flex items-center gap-1 flex-wrap justify-center py-2">';
-            for (let i = 1; i <= totalPages; i++) {
-                const active = i === currentPage;
-                html += `<button class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${active ? 'bg-brand-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" onclick="gotoPage(${i})">${i}</button>`;
-            }
-            html += '</div>';
-            pagDiv.innerHTML = html;
-        }
-
-        window.gotoPage = function (num) {
-            currentPage = num;
-            renderStudentsTable();
-        }
-
-        document.getElementById('students-filter-form').onsubmit = function (e) {
-            e.preventDefault();
-            const filters = {
-                class: this.class.value,
-                classArm: this.classArm.value,
-                academicSession: this.academicSession.value,
-                accountStatus: this.accountStatus.value,
-                subscriptionStatus: this.subscriptionStatus.value
-            };
-            currentPage = 1;
-            fetchStudents(filters);
-        };
-
-        document.getElementById('search-student-input').oninput = function () {
-            currentPage = 1;
-            renderStudentsTable();
-        };
-
-        function formatDate(dateStr) {
-            if (!dateStr) return '';
-            const d = new Date(dateStr);
-            if (isNaN(d)) return dateStr;
-            return d.toLocaleDateString();
-        }
-
-        function renderStudentsStats() {
-            let male = 0, female = 0;
-            for (const stu of filteredData) {
-                if (stu.gender && stu.gender.toLowerCase().startsWith("m")) male++;
-                else if (stu.gender && stu.gender.toLowerCase().startsWith("f")) female++;
-            }
-            document.getElementById("totalMale").textContent = male;
-            document.getElementById("totalFemale").textContent = female;
-            document.getElementById("totalStudents").textContent = filteredData.length;
-        }
-
-        window.editStudent = async function (studentId) {
-            studentId = decodeURIComponent(studentId);
-            const stu = studentsData.find(s => (s.student_id || s._id || s.regNo) == studentId);
-            if (!stu) return alert('Student not found!');
-            openEditModal(stu);
-        };
-
-        window.deleteStudent = async function (studentId) {
-            studentId = decodeURIComponent(studentId);
-            if (!confirm('Are you sure you want to delete this student?')) return;
-            showTableSpinner(true);
-            try {
-                let res = await fetch(`${API_BASE_URL}/api/student/${studentId}`, {
-                    method: "DELETE"
-                });
-                if (res.ok) {
-                    studentsData = studentsData.filter(s => (s.student_id || s._id || s.regNo) != studentId);
-                    filteredData = filteredData.filter(s => (s.student_id || s._id || s.regNo) != studentId);
-                    renderStudentsTable();
-                    renderStudentsStats();
-                    alert('Student deleted!');
-                } else {
-                    let msg = 'Failed to delete student.';
-                    try {
-                        const data = await res.json();
-                        if (data.error) msg += ' ' + data.error;
-                    } catch (e) { }
-                    alert(msg);
-                }
-            } catch (e) {
-                alert('Network error.');
-            } finally {
-                showTableSpinner(false);
+                if (spinner) spinner.classList.add('hidden');
             }
         };
 
-        function openEditModal(stu) {
-            const modal = document.getElementById('editStudentModal');
-            const form = document.getElementById('editStudentForm');
-            const fields = [
-                { label: 'Surname', name: 'surname', type: 'text', required: true },
-                { label: 'First Name', name: 'firstname', type: 'text', required: true },
-                { label: 'Other Names', name: 'othernames', type: 'text' },
-                { label: 'Gender', name: 'gender', type: 'text', required: true },
-                { label: 'DOB', name: 'dob', type: 'date', required: true },
-                { label: 'Nationality', name: 'nationality', type: 'text' },
-                { label: 'State of Origin', name: 'state', type: 'text' },
-                { label: 'LGA', name: 'lga', type: 'text' },
-                { label: 'Home Address', name: 'address', type: 'text' },
-                { label: 'Reg No', name: 'regNo', type: 'text', readonly: true },
-                { label: 'Scratch Card', name: 'scratchCard', type: 'text', readonly: true },
-                { label: 'Class', name: 'class', type: 'text', required: true },
-                { label: 'Class Arm', name: 'classArm', type: 'text' },
-                { label: 'Previous School', name: 'previousSchool', type: 'text' },
-                { label: 'Admission Date', name: 'admissionDate', type: 'date' },
-                { label: 'Academic Session', name: 'academicSession', type: 'text' },
-                { label: 'Parent Name', name: 'parentName', type: 'text', required: true },
-                { label: 'Parent Relationship', name: 'parentRelationship', type: 'text' },
-                { label: 'Parent Phone', name: 'parentPhone', type: 'text' },
-                { label: 'Parent Email', name: 'parentEmail', type: 'email' },
-                { label: 'Parent Address', name: 'parentAddress', type: 'text' },
-                { label: 'Parent Occupation', name: 'parentOccupation', type: 'text' },
-                { label: 'Student Email', name: 'studentEmail', type: 'email' },
-                { label: 'Student Phone', name: 'studentPhone', type: 'text' },
-                { label: 'Religion', name: 'religion', type: 'text' },
-                { label: 'Blood Group', name: 'bloodGroup', type: 'text' },
-                { label: 'Genotype', name: 'genotype', type: 'text' },
-                { label: 'Medical', name: 'medical', type: 'text' }
-            ];
-            const wrapper = document.getElementById('editFieldsWrapper');
-            wrapper.innerHTML = '';
-            fields.forEach(f => {
-                let val = stu[f.name] || '';
-                if (f.type === "date" && val) {
-                    val = (new Date(val)).toISOString().slice(0, 10);
-                }
-                wrapper.innerHTML += `
-                    <div class="edit-form-row flex flex-col gap-1">
-                        <label class="text-[11px] font-bold text-slate-600">${f.label}${f.required ? ' *' : ''}</label>
-                        <input name="${f.name}" type="${f.type}" value="${val}" ${f.readonly ? 'readonly' : ''} ${f.required ? 'required' : ''} class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition ${f.readonly ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}" />
-                    </div>
-                `;
-            });
-            form.onsubmit = async function (e) {
-                e.preventDefault();
-                const spinner = document.getElementById('editModalSpinner');
-                spinner.classList.remove('hidden');
-                const formData = new FormData(form);
-                let editData = {};
-                for (const [k, v] of formData.entries()) editData[k] = v;
-                try {
-                    const studentId = stu.student_id || stu._id || stu.regNo;
-                    let res = await fetch(`${API_BASE_URL}/api/student/${encodeURIComponent(studentId)}`, {
-                        method: "PUT",
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(editData)
-                    });
-                    if (res.ok) {
-                        alert('Student updated!');
-                        Object.assign(stu, editData);
-                        renderStudentsTable();
-                        renderStudentsStats();
-                        closeEditModal();
-                    } else {
-                        let msg = 'Failed to update student.';
-                        try {
-                            const data = await res.json();
-                            if (data.error) msg += ' ' + data.error;
-                        } catch (e) { }
-                        alert(msg);
-                    }
-                } catch (e) {
-                    alert('Network error.');
-                } finally {
-                    spinner.classList.add('hidden');
-                }
-            };
-            modal.classList.add('active');
+        modal.classList.add('active');
+    }
+
+    function closeEditModal() {
+        const modal = document.getElementById('editStudentModal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    window.downloadAllStudentsPDF = function() {
+        if (!filteredData.length) {
+            alert('No students to download.');
+            return;
         }
 
-        function closeEditModal() {
-            document.getElementById('editStudentModal').classList.remove('active');
+        if (!window.jspdf?.jsPDF) {
+            alert('PDF library is not available.');
+            return;
         }
 
-        document.getElementById('editStudentModal').onclick = function (e) {
-            if (e.target === this) closeEditModal();
-        };
+        const {jsPDF} = window.jspdf;
+        const doc = new jsPDF({
+            orientation:'landscape',
+            unit:'mm',
+            format:'a4'
+        });
 
-        fetchStudents();
+        const schoolName = currentSchool?.schoolName || 'School';
+        const address = currentSchool?.address || '';
+        const cityState = [
+            currentSchool?.city,
+            currentSchool?.state,
+            currentSchool?.country
+        ].filter(Boolean).join(', ');
+        const email = currentSchool?.email || '';
+        const phone = currentSchool?.phone || '';
 
-        window.downloadAllStudentsPDF = function () {
-            if (!filteredData || filteredData.length === 0) {
-                alert("No students to download.");
-                return;
-            }
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        let y = 15;
 
-            let y = 15;
-            doc.setFontSize(20);
-            doc.setTextColor(32, 201, 151);
-            doc.text("Gold and Linc Schools", 148, y, { align: "center" });
+        doc.setFontSize(18);
+        doc.setTextColor(30,58,138);
+        doc.text(schoolName,148,y,{align:'center'});
 
+        y += 7;
+
+        if (address || cityState) {
+            doc.setFontSize(10);
+            doc.setTextColor(80,80,80);
+            doc.text([address,cityState].filter(Boolean).join(', '),148,y,{align:'center'});
+            y += 6;
+        }
+
+        if (email || phone) {
+            doc.setFontSize(9);
+            doc.setTextColor(80,80,80);
+            doc.text(
+                [email ? `Email: ${email}` : '',phone ? `Phone: ${phone}` : ''].filter(Boolean).join(' | '),
+                148,
+                y,
+                {align:'center'}
+            );
             y += 8;
-            doc.setFontSize(11);
-            doc.setTextColor(80, 80, 80);
-            doc.text("Behind Irenitemi Hotel, Testing Ground Area, Off Osogbo Road, Ilesa", 148, y, { align: "center" });
+        }
+
+        doc.setFontSize(14);
+        doc.setTextColor(44,62,80);
+        doc.text('Students List',148,y,{align:'center'});
+        y += 8;
+
+        const columns = ['S/N','Full Name','Email','Phone','Class','Reg No','Student ID','Scratch Card'];
+        const widths = [12,50,55,32,28,32,32,34];
+
+        let x = 10;
+
+        doc.setFontSize(9);
+        doc.setFillColor(30,58,138);
+        doc.setTextColor(255,255,255);
+
+        columns.forEach((title,index) => {
+            doc.rect(x,y,widths[index],8,'F');
+            doc.text(title,x + 2,y + 5.5);
+            x += widths[index];
+        });
+
+        y += 8;
+        doc.setTextColor(40,40,40);
+
+        let serial = 1;
+
+        filteredData.forEach(stu => {
+            if (y + 7 > 195) {
+                doc.addPage();
+                y = 15;
+            }
+
+            x = 10;
+
+            const fullName = [
+                stu.surname,
+                stu.firstname,
+                stu.othernames
+            ].filter(Boolean).join(' ');
+
+            const className =
+                typeof stu.class === 'object'
+                    ? stu.class?.name || ''
+                    : stu.class || '';
+
+            const cells = [
+                String(serial),
+                fullName,
+                stu.studentEmail || '',
+                stu.studentPhone || '',
+                className,
+                stu.regNo || '',
+                stu.student_id || '',
+                stu.scratchCard || ''
+            ];
+
+            cells.forEach((cell,index) => {
+                doc.rect(x,y,widths[index],7);
+                let text = String(cell || '');
+                if (text.length > 32 && index !== 0) text = text.substring(0,30) + '...';
+                doc.text(text,x + 2,y + 5);
+                x += widths[index];
+            });
 
             y += 7;
-            doc.setFontSize(10);
-            doc.setTextColor(0, 0, 0);
-            doc.text("Email: goldlincschools@gmail.com  |  Phone: 08034430941", 148, y, { align: "center" });
+            serial++;
+        });
 
-            y += 10;
-            doc.setFontSize(15);
-            doc.setTextColor(44, 62, 80);
-            doc.text("Students List", 148, y, { align: "center" });
+        const pages = doc.internal.getNumberOfPages();
 
-            y += 10;
-            doc.setFontSize(11);
-            doc.setFillColor(32, 201, 151);
-            doc.setTextColor(255, 255, 255);
-
-            const colTitles = ["S/N", "Full Name", "Email", "Phone", "Class", "Reg No", "Student ID", "Scratch Card"];
-            const colWidths = [12, 50, 55, 32, 28, 32, 32, 34];
-            let x = 10;
-            colTitles.forEach((title, i) => {
-                doc.rect(x, y, colWidths[i], 8, 'F');
-                doc.text(title, x + 2, y + 6);
-                x += colWidths[i];
-            });
-
-            y += 8;
-            doc.setFontSize(10);
-            doc.setTextColor(40, 40, 40);
-
-            let rowHeight = 7;
-            let serial = 1;
-            filteredData.forEach((stu, idx) => {
-                x = 10;
-                if (y + rowHeight > 200) {
-                    doc.addPage();
-                    y = 15;
-                }
-                const fullName = [stu.surname, stu.firstname, stu.othernames].filter(Boolean).join(' ');
-                const email = stu.studentEmail || '';
-                const phone = stu.studentPhone || '';
-                const studentClass = (stu.class && stu.class.name) ? stu.class.name : (stu.class || '');
-                const regNo = stu.regNo || '';
-                const studentId = stu.student_id || '';
-                const scratchCard = stu.scratchCard || '';
-                const cells = [
-                    String(serial),
-                    fullName,
-                    email,
-                    phone,
-                    studentClass,
-                    regNo,
-                    studentId,
-                    scratchCard
-                ];
-                cells.forEach((cell, i) => {
-                    doc.rect(x, y, colWidths[i], rowHeight);
-                    let txt = String(cell || '');
-                    if (txt.length > 32 && i !== 0) txt = txt.substring(0, 30) + '...';
-                    doc.text(txt, x + 2, y + rowHeight - 2);
-                    x += colWidths[i];
-                });
-                y += rowHeight;
-                serial++;
-            });
-
-            let pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(9);
-                doc.setTextColor(100, 100, 100);
-                doc.text(`Page ${i} of ${pageCount}`, 292, 208, { align: "right" });
-            }
-
-            doc.save("students_list.pdf");
+        for (let page = 1; page <= pages; page++) {
+            doc.setPage(page);
+            doc.setFontSize(8);
+            doc.setTextColor(100,100,100);
+            doc.text(`Page ${page} of ${pages}`,292,205,{align:'right'});
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const sidebar = document.querySelector('.sidebar');
-            const sidebarOverlay = document.querySelector('.sidebar-overlay');
+        const filename = `${schoolName.replace(/[^a-z0-9]+/gi,'_')}_students.pdf`;
+        doc.save(filename);
+    };
 
-            if (sidebarToggle && sidebar) {
-                sidebarToggle.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                    sidebarOverlay?.classList.toggle('active');
-                });
+    function initializeStudentsPage() {
+        const spinner = document.getElementById('pageSpinnerOverlay');
+        if (spinner) spinner.style.display = 'flex';
 
-                if (sidebarOverlay) {
-                    sidebarOverlay.addEventListener('click', function() {
-                        sidebar.classList.remove('active');
-                        sidebarOverlay.classList.remove('active');
-                    });
-                }
-
-                const navLinks = sidebar.querySelectorAll('a');
-                navLinks.forEach(link => {
-                    link.addEventListener('click', function() {
-                        sidebar.classList.remove('active');
-                        sidebarOverlay?.classList.remove('active');
-                    });
-                });
-            }
-
-            document.addEventListener('click', function(event) {
-                const isClickInsideSidebar = sidebar?.contains(event.target);
-                const isClickOnToggle = sidebarToggle?.contains(event.target);
-                
-                if (!isClickInsideSidebar && !isClickOnToggle && sidebar?.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    sidebarOverlay?.classList.remove('active');
+        loadSchoolContext()
+            .then(loadSchoolConfig)
+            .then(async () => {
+                await Promise.allSettled([
+                    loadClassesForFilter(),
+                    loadSessionsForFilter()
+                ]);
+                await fetchStudents();
+            })
+            .catch(error => {
+                console.error('Students page initialization failed:',error);
+                alert(error.message || 'Unable to initialize the school portal.');
+            })
+            .finally(() => {
+                if (spinner) {
+                    spinner.style.opacity = '0';
+                    setTimeout(() => {
+                        spinner.style.display = 'none';
+                        spinner.style.opacity = '';
+                    },400);
                 }
             });
+    }
+
+    document.addEventListener('DOMContentLoaded',() => {
+        const form = document.getElementById('students-filter-form');
+        const search = document.getElementById('search-student-input');
+        const modal = document.getElementById('editStudentModal');
+
+        if (form) {
+            form.addEventListener('submit',event => {
+                event.preventDefault();
+
+                const filters = {
+                    class:form.class?.value || '',
+                    classArm:form.classArm?.value || '',
+                    academicSession:form.academicSession?.value || '',
+                    accountStatus:form.accountStatus?.value || '',
+                    subscriptionStatus:form.subscriptionStatus?.value || ''
+                };
+
+                currentPage = 1;
+                fetchStudents(filters);
+            });
+        }
+
+        if (search) {
+            search.addEventListener('input',() => {
+                currentPage = 1;
+                renderStudentsTable();
+            });
+        }
+
+        if (modal) {
+            modal.addEventListener('click',event => {
+                if (event.target === modal) closeEditModal();
+            });
+        }
+
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarOverlay = document.querySelector('.sidebar-overlay');
+
+        if (sidebarToggle && sidebar) {
+            sidebarToggle.addEventListener('click',event => {
+                event.stopPropagation();
+                sidebar.classList.toggle('active');
+                sidebarOverlay?.classList.toggle('active');
+            });
+        }
+
+        sidebarOverlay?.addEventListener('click',() => {
+            sidebar?.classList.remove('active');
+            sidebarOverlay?.classList.remove('active');
         });
+
+        initializeStudentsPage();
+    });
     </script>
 </body>
 </html>
