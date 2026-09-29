@@ -123,19 +123,23 @@
     <!-- Top Navigation Bar -->
     <header class="bg-brand-900 text-white shadow-md border-b border-brand-800 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="h-9 w-9 bg-white rounded-xl flex items-center justify-center shadow-inner overflow-hidden">
+            <div class="flex items-center space-x-3 min-w-0">
+                <!-- School Logo -->
+                <div class="h-9 w-9 bg-white rounded-xl flex items-center justify-center shadow-inner overflow-hidden flex-shrink-0">
                     <img id="schoolLogo" src="" alt="School Logo" class="w-full h-full object-contain hidden">
-                    <span id="schoolInitials" class="text-brand-900 font-black text-sm tracking-tighter">SP</span>
+                    <span id="schoolInitials" class="text-brand-900 font-black text-sm tracking-tighter">SC</span>
                 </div>
+
+                <!-- School Name -->
                 <div class="min-w-0">
-                    <h1 id="schoolNameHeader" class="text-xs font-black tracking-widest uppercase text-brand-200 truncate">Parent Portal</h1>
+                    <h1 id="schoolNameHeader" class="text-xs font-black tracking-widest uppercase text-brand-200 truncate">SCHOOL</h1>
                     <p class="text-xs font-medium opacity-80">School Fees Payment</p>
                 </div>
             </div>
-            <a href="pt.html" class="flex items-center space-x-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition">
+
+            <a href="pt.html" class="flex items-center space-x-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex-shrink-0">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                 </svg>
                 Back to Dashboard
             </a>
@@ -416,7 +420,17 @@
             }
 
             const result = await response.json();
+            console.log("🏫 RAW SCHOOL CONFIG RESPONSE:", result);
+
             const school = result.school || result.data || result;
+            console.log("🏫 EXTRACTED SCHOOL CONFIG:", school);
+            console.log("🏫 School name:", school?.schoolName || school?.name);
+            console.log("🏫 Logo candidates:", {
+                logoUrl: school?.logoUrl,
+                logo: school?.logo,
+                brandingLogoUrl: school?.branding?.logoUrl,
+                brandingLogo: school?.branding?.logo
+            });
 
             if (!school) {
                 throw new Error("School configuration was not returned by the server.");
@@ -434,15 +448,86 @@
         // SCHOOL BRANDING
         // =========================================================
         function applySchoolBranding(school) {
-            if (!school) return;
+            if (!school) {
+                console.warn("⚠️ No school configuration received.");
+                return;
+            }
 
-            const branding = school.branding || {};
-            const schoolName = school.schoolName || school.name || "School";
-            const logo = school.logoUrl || branding.logoUrl || branding.logo || "";
-            const primary = branding.primary || branding.primaryColor || school.primaryColor || "#0284c7";
-            const secondary = branding.secondary || branding.secondaryColor || school.secondaryColor || "#075985";
-            const accent = branding.accent || branding.accentColor || school.accentColor || "#fbbf24";
+            console.log("🏫 Applying school branding:", school);
 
+            // =====================================================
+            // SCHOOL NAME
+            // =====================================================
+            const schoolName =
+                school.schoolName ||
+                school.name ||
+                school.school?.schoolName ||
+                school.school?.name ||
+                "School";
+
+            // =====================================================
+            // BRANDING OBJECT
+            // =====================================================
+            const branding =
+                school.branding ||
+                school.school?.branding ||
+                {};
+
+            // =====================================================
+            // LOGO
+            // =====================================================
+            let logo =
+                school.logoUrl ||
+                school.logo ||
+                school.logoURL ||
+                branding.logoUrl ||
+                branding.logo ||
+                branding.logoURL ||
+                branding.schoolLogo ||
+                school.schoolLogo ||
+                "";
+
+            /*
+             * If the backend returns a relative path such as:
+             * /uploads/schools/logo.png
+             * it must point to the BACKEND, not Vercel.
+             */
+            if (logo) {
+                logo = String(logo).trim();
+
+                if (logo.startsWith("/") && !logo.startsWith("//")) {
+                    const backendOrigin = API_BASE.replace(/\/api\/?$/, "");
+                    logo = `${backendOrigin}${logo}`;
+                } else if (logo.startsWith("uploads/")) {
+                    const backendOrigin = API_BASE.replace(/\/api\/?$/, "");
+                    logo = `${backendOrigin}/${logo}`;
+                }
+            }
+
+            // =====================================================
+            // COLORS
+            // =====================================================
+            const primary =
+                branding.primary ||
+                branding.primaryColor ||
+                school.primaryColor ||
+                "#0284c7";
+
+            const secondary =
+                branding.secondary ||
+                branding.secondaryColor ||
+                school.secondaryColor ||
+                "#075985";
+
+            const accent =
+                branding.accent ||
+                branding.accentColor ||
+                school.accentColor ||
+                "#fbbf24";
+
+            // =====================================================
+            // CSS VARIABLES
+            // =====================================================
             document.documentElement.style.setProperty("--school-primary", primary);
             document.documentElement.style.setProperty("--school-primary-50", `color-mix(in srgb, ${primary} 6%, white)`);
             document.documentElement.style.setProperty("--school-primary-100", `color-mix(in srgb, ${primary} 12%, white)`);
@@ -456,34 +541,64 @@
             document.documentElement.style.setProperty("--school-accent", accent);
             document.documentElement.style.setProperty("--school-accent-dark", `color-mix(in srgb, ${accent} 75%, black)`);
 
+            // =====================================================
+            // PAGE TITLE
+            // =====================================================
             document.title = `Pay School Fees | ${schoolName}`;
 
-            const schoolNameHeader = document.getElementById("schoolNameHeader");
-            if (schoolNameHeader) {
-                schoolNameHeader.textContent = schoolName;
+            // =====================================================
+            // SCHOOL NAME
+            // =====================================================
+            const schoolNameElement = document.getElementById("schoolNameHeader");
+            if (schoolNameElement) {
+                schoolNameElement.textContent = schoolName;
             }
 
-            const logoElement = document.getElementById("schoolLogo");
+            // =====================================================
+            // SCHOOL INITIALS
+            // =====================================================
             const initialsElement = document.getElementById("schoolInitials");
+            if (initialsElement) {
+                initialsElement.textContent = getSchoolInitials(schoolName);
+            }
 
-            if (logo) {
-                if (logoElement) {
+            // =====================================================
+            // SCHOOL LOGO
+            // =====================================================
+            const logoElement = document.getElementById("schoolLogo");
+            if (logoElement) {
+                if (logo) {
+                    console.log("🖼️ School logo URL:", logo);
                     logoElement.src = logo;
-                    logoElement.classList.remove("hidden");
-                }
-                if (initialsElement) {
-                    initialsElement.classList.add("hidden");
-                }
-            } else {
-                if (logoElement) {
+
+                    logoElement.onload = function () {
+                        console.log("✅ School logo loaded successfully.");
+                        logoElement.classList.remove("hidden");
+                        if (initialsElement) {
+                            initialsElement.classList.add("hidden");
+                        }
+                    };
+
+                    logoElement.onerror = function () {
+                        console.error("❌ School logo failed to load:", logo);
+                        logoElement.classList.add("hidden");
+                        if (initialsElement) {
+                            initialsElement.textContent = getSchoolInitials(schoolName);
+                            initialsElement.classList.remove("hidden");
+                        }
+                    };
+                } else {
+                    console.warn("⚠️ No school logo was found in configuration.");
                     logoElement.classList.add("hidden");
-                }
-                if (initialsElement) {
-                    initialsElement.textContent = getSchoolInitials(schoolName);
-                    initialsElement.classList.remove("hidden");
+                    if (initialsElement) {
+                        initialsElement.classList.remove("hidden");
+                    }
                 }
             }
 
+            // =====================================================
+            // FAVICON
+            // =====================================================
             if (logo) {
                 let favicon = document.querySelector('link[rel="icon"]');
                 if (!favicon) {
@@ -494,6 +609,9 @@
                 favicon.href = logo;
             }
 
+            // =====================================================
+            // MOBILE BROWSER THEME
+            // =====================================================
             let themeColor = document.querySelector('meta[name="theme-color"]');
             if (!themeColor) {
                 themeColor = document.createElement("meta");
@@ -504,12 +622,20 @@
         }
 
         function getSchoolInitials(name) {
-            if (!name) return "SP";
-            const words = name.trim().split(/\s+/).filter(Boolean);
+            if (!name) {
+                return "SC";
+            }
+
+            const words = String(name)
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean);
+
             if (words.length === 1) {
                 return words[0].substring(0, 2).toUpperCase();
             }
-            return (words[0][0] + words[1][0]).toUpperCase();
+
+            return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
         }
 
         // =========================================================
@@ -861,7 +987,7 @@
                         <p class="text-xs text-slate-600 font-medium">Credit/Debit Card information will be entered securely on the next page.</p>
                         <div class="flex items-center gap-2 text-xs text-slate-500">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 002 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8"/>
                             </svg>
                             Your payment is secure and encrypted.
                         </div>
