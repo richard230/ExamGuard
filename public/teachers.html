@@ -2,13 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Staff Management | Gold and Linc Schools</title>
+<title>Staff Management | Loading School...</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet"/>
 <style>
+:root{
+  --school-primary:#2563eb;
+  --school-secondary:#f59e0b;
+  --school-accent:#10b981;
+  --school-primary-dark:#1e3a8a;
+  --school-primary-light:#dbeafe;
+  --school-primary-soft:#eff6ff;
+}
 body{font-family:'Inter',sans-serif;}
 #pageSpinnerOverlay{position:fixed;z-index:99999;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;transition:opacity 0.3s ease-out;}
 .spinner{border:4px solid #e2e8f0;border-top:4px solid #2563eb;border-radius:50%;width:48px;height:48px;animation:spin 0.8s linear infinite;}
@@ -31,7 +39,7 @@ body{font-family:'Inter',sans-serif;}
 <div class="brand flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
 <img src="mainlogo.png" alt="Logo" class="w-10 h-10 rounded-lg object-cover bg-white p-0.5 border border-amber-400">
 <div class="min-w-0">
-<div class="title font-bold text-amber-400 text-sm leading-tight truncate">Gold and Linc Schools</div>
+<div id="schoolBrandName" class="title font-bold text-amber-400 text-sm leading-tight truncate">Loading School...</div>
 <div class="subtitle text-xs text-slate-400 truncate">Staff Management</div>
 </div>
 </div>
@@ -88,7 +96,8 @@ Signed in as <strong id="adminName" class="text-slate-200">Admin</strong>
 <h1 class="page-title text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
 <i class="fa-solid fa-user-tie text-blue-600"></i> Staff Management
 </h1>
-<span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-blue-200">Admin</span>
+<span id="schoolHeaderName" class="hidden sm:inline bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-slate-200">School</span>
+    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-blue-200">Admin</span>
 </div>
 </div>
 <div class="flex items-center gap-1 md:gap-2">
@@ -439,18 +448,315 @@ Signed in as <strong id="adminName" class="text-slate-200">Admin</strong>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
 <script>
-const API_BASE_URL="https://goldlincschools.onrender.com";
-let currentStaffId=null;
-let isEditing=false;
-document.addEventListener('DOMContentLoaded',()=>{
-const spinner=document.getElementById('pageSpinnerOverlay');
-if(spinner)spinner.style.display='flex';
-setTimeout(()=>{
-if(spinner){
-spinner.style.opacity='0';
-setTimeout(()=>{spinner.style.display='none';},400);
+const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+const API_ROOT = `${BACKEND_URL}/api`;
+const API_BASE_URL = BACKEND_URL;
+const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+const BASE_DOMAINS = [
+  window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng',
+  'examguard.com.ng'
+];
+
+let token = localStorage.getItem('adminToken') ||
+            localStorage.getItem('token') ||
+            localStorage.getItem('authToken');
+
+let currentSchool = null;
+let schoolSubdomain = '';
+let publicSchoolId = '';
+let currentStaffId = null;
+let isEditing = false;
+
+function getTenantSubdomain(){
+  const saved = localStorage.getItem('schoolSubdomain');
+  if(saved) return saved.toLowerCase();
+
+  const host = window.location.hostname.toLowerCase();
+  for(const base of BASE_DOMAINS){
+    const suffix = `.${base}`;
+    if(host.endsWith(suffix)){
+      const sub = host.slice(0, -suffix.length);
+      if(sub && sub !== 'www') return sub;
+    }
+  }
+  return '';
 }
-},1200);
+
+function decodeJwtPayload(jwt){
+  try{
+    const part = jwt.split('.')[1];
+    if(!part) return null;
+    const normalized = part.replace(/-/g,'+').replace(/_/g,'/');
+    return JSON.parse(
+      decodeURIComponent(
+        atob(normalized).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join('')
+      )
+    );
+  }catch(e){
+    console.warn('Unable to decode JWT payload:', e);
+    return null;
+  }
+}
+
+function authHeaders(extra = {}, body = null){
+  const headers = {
+    ...(token ? {Authorization:`Bearer ${token}`} : {}),
+    Accept:'application/json'
+  };
+
+  // Do not set JSON Content-Type for FormData; the browser must supply
+  // the multipart boundary automatically.
+  if(!(body instanceof FormData)){
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if(publicSchoolId){
+    headers['X-School-Code'] = publicSchoolId;
+  }
+
+  return {...headers, ...extra};
+}
+
+async function apiFetch(url, options = {}){
+  const body = options.body;
+  const headers = authHeaders(options.headers || {}, body);
+  return fetch(url, {...options, headers});
+}
+
+function schoolInitials(name){
+  return (name || 'School')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0,2)
+    .map(x => x[0].toUpperCase())
+    .join('') || 'SC';
+}
+
+function handleLogoError(img){
+  if(!img || img.dataset.fallbackApplied === '1') return;
+  img.dataset.fallbackApplied = '1';
+
+  const wrapper = img.parentElement;
+  if(wrapper){
+    const fallback = document.createElement('div');
+    fallback.className = 'w-full h-full flex items-center justify-center bg-blue-600 text-white font-extrabold text-sm';
+    fallback.textContent = schoolInitials(
+      currentSchool?.schoolName || currentSchool?.name
+    );
+    wrapper.replaceChild(fallback, img);
+  }
+}
+
+function getSchoolBrandingConfig(school){
+  const branding = school?.branding || {};
+  const colors = branding.colors || {};
+
+  return {
+    primary: branding.primaryColor || branding.primary || colors.primary || '#1E3A8A',
+    secondary: branding.secondaryColor || branding.secondary || colors.secondary || '#F59E0B',
+    accent: branding.accentColor || branding.accent || colors.accent || '#10B981',
+    light: branding.lightColor || colors.light || '#F9FAFB',
+    logo:
+      school?.logoUrl ||
+      branding.logo ||
+      branding.logoUrl ||
+      branding.logos?.main ||
+      branding.lightLogo ||
+      branding.darkLogo ||
+      ''
+  };
+}
+
+function applySchoolBranding(school){
+  currentSchool = school || {};
+  const branding = getSchoolBrandingConfig(currentSchool);
+  const name = currentSchool.schoolName || currentSchool.name || 'School';
+
+  document.documentElement.style.setProperty('--school-primary', branding.primary);
+  document.documentElement.style.setProperty('--school-secondary', branding.secondary);
+  document.documentElement.style.setProperty('--school-accent', branding.accent);
+  document.documentElement.style.setProperty('--school-primary-dark', branding.primary);
+  document.documentElement.style.setProperty('--school-primary-light', branding.light);
+  document.documentElement.style.setProperty('--school-primary-soft', '#EFF6FF');
+
+  // Make the existing fixed blue controls use the school's primary color.
+  const styleId = 'dynamic-school-branding';
+  let styleEl = document.getElementById(styleId);
+  if(!styleEl){
+    styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    document.head.appendChild(styleEl);
+  }
+
+  styleEl.textContent = `
+    .bg-blue-600{background-color:var(--school-primary)!important}
+    .hover\\\\:bg-blue-700:hover{background-color:var(--school-primary-dark)!important}
+    .text-blue-600{color:var(--school-primary)!important}
+    .text-blue-700{color:var(--school-primary)!important}
+    .bg-blue-50{background-color:var(--school-primary-soft)!important}
+    .border-blue-200{border-color:color-mix(in srgb,var(--school-primary) 25%,white)!important}
+    .focus\\\\:ring-blue-500:focus{--tw-ring-color:var(--school-primary)!important}
+    .focus\\\\:border-blue-500:focus{border-color:var(--school-primary)!important}
+  `;
+
+  const nameEl = document.getElementById('schoolBrandName');
+  const headerSchoolName = document.getElementById('schoolHeaderName');
+  const logoEl = document.getElementById('schoolLogo');
+
+  if(nameEl){
+    nameEl.textContent = name;
+    nameEl.title = name;
+  }
+  if(headerSchoolName){
+    headerSchoolName.textContent = currentSchool.abbreviation || name;
+    headerSchoolName.title = name;
+  }
+
+  if(logoEl){
+    logoEl.dataset.fallbackApplied = '0';
+    logoEl.src = branding.logo;
+    logoEl.alt = `${name} Logo`;
+    if(!branding.logo) handleLogoError(logoEl);
+  }
+
+  document.title = `${name} | Staff Management`;
+}
+
+async function loadSchoolConfig(){
+  if(!token){
+    throw new Error('No authentication token found. Please sign in again.');
+  }
+
+  const hostSubdomain = getTenantSubdomain();
+
+  // First establish the authenticated tenant from /auth/me.
+  const meRes = await fetch(`${API_ROOT}/auth/me`, {
+    method:'GET',
+    headers:{
+      Authorization:`Bearer ${token}`,
+      Accept:'application/json'
+    }
+  });
+
+  if(!meRes.ok){
+    throw new Error(`Failed to load your school account (HTTP ${meRes.status})`);
+  }
+
+  const meRaw = await meRes.json();
+  const currentUser = meRaw.user || meRaw.data?.user || meRaw;
+  const schoolFromMe = meRaw.school || meRaw.data?.school || currentUser?.school || null;
+
+  if(!currentUser?.schoolId){
+    throw new Error('Your account is not linked to a school.');
+  }
+
+  const authenticatedMongoSchoolId = String(currentUser.schoolId);
+
+  // /auth/me intentionally returns compact school data. Fetch the complete
+  // tenant configuration so this page can use the school's configured branding.
+  let fullSchool = null;
+  try{
+    const configRes = await fetch(
+      `${SCHOOL_CONFIG_ENDPOINT}?schoolId=${encodeURIComponent(
+        schoolFromMe?.schoolId || localStorage.getItem('schoolId') || ''
+      )}`,
+      {headers:{Accept:'application/json'}}
+    );
+
+    if(configRes.ok){
+      const configRaw = await configRes.json();
+      const configData = configRaw.data || configRaw.school || configRaw;
+      fullSchool = configData?.school || configData;
+    }
+  }catch(configError){
+    console.warn('Full school config could not be loaded; using authenticated school data.', configError);
+  }
+
+  const resolvedSchool = fullSchool || schoolFromMe;
+
+  if(!resolvedSchool?._id){
+    throw new Error('Your school configuration was not returned by the server.');
+  }
+
+  if(String(resolvedSchool._id) !== authenticatedMongoSchoolId){
+    throw new Error('The authenticated school and returned school configuration do not match.');
+  }
+
+  currentSchool = resolvedSchool;
+  publicSchoolId = resolvedSchool.schoolId || schoolFromMe?.schoolId || '';
+  schoolSubdomain = String(
+    resolvedSchool.subdomain || schoolFromMe?.subdomain || hostSubdomain || ''
+  ).toLowerCase();
+
+  if(schoolSubdomain) localStorage.setItem('schoolSubdomain', schoolSubdomain);
+  if(publicSchoolId) localStorage.setItem('schoolId', publicSchoolId);
+
+  if(schoolSubdomain){
+    localStorage.setItem(
+      `examguard_school_config_${schoolSubdomain}`,
+      JSON.stringify(resolvedSchool)
+    );
+  }
+
+  applySchoolBranding(resolvedSchool);
+  return resolvedSchool;
+}
+
+function verifySchoolContext(){
+  if(!token || !currentSchool) return true;
+
+  const payload = decodeJwtPayload(token);
+  if(!payload?.schoolId || !currentSchool?._id) return true;
+
+  if(String(payload.schoolId) !== String(currentSchool._id)){
+    throw new Error(
+      'Your account belongs to a different school. Please sign in from the correct school portal.'
+    );
+  }
+
+  return true;
+}
+
+function getStaffLoginDomain(){
+  const customDomain = currentSchool?.domains?.customDomain || currentSchool?.customDomain;
+  if(customDomain) return customDomain.replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+
+  if(schoolSubdomain){
+    return `${schoolSubdomain}.goldlincschools.com.ng`;
+  }
+
+  return 'goldlincschools.com.ng';
+}
+
+function hidePageSpinner(){
+  const spinner = document.getElementById('pageSpinnerOverlay');
+  if(!spinner) return;
+  spinner.style.opacity = '0';
+  setTimeout(() => { spinner.style.display = 'none'; }, 300);
+}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const spinner = document.getElementById('pageSpinnerOverlay');
+  if(spinner) spinner.style.display = 'flex';
+
+  try{
+    if(!token){
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+
+    await loadSchoolConfig();
+    verifySchoolContext();
+
+    // Start with the enrollment form visible; the staff list is loaded
+    // when the All Staff tab is opened.
+  }catch(error){
+    console.error('School context initialization failed:', error);
+    alert(error.message || 'Unable to load your school configuration.');
+  }finally{
+    hidePageSpinner();
+  }
 });
 const sidebar=document.getElementById('sidebar');
 const sidebarToggle=document.getElementById('sidebarToggle');
@@ -519,7 +825,7 @@ function handleNameChange(){
 if(emailManuallyEdited)return;
 const fullName=(firstNameInput.value+' '+lastNameInput.value).replace(/\s+/g,' ').trim();
 const base=slugifyName(fullName);
-const email=base?(base+"@goldlincschools.com"):"";
+const email=base?(base+"@"+getStaffLoginDomain()):"";
 loginEmailInput.value=email;
 if(!passwordManuallyEdited){
 loginPasswordInput.value=email;
@@ -545,7 +851,7 @@ const originalText=submitBtn.innerHTML;
 submitBtn.disabled=true;
 submitBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Submitting...';
 try{
-const response=await fetch(API_BASE_URL+'/api/staffs',{
+const response=await apiFetch(API_ROOT+'/staffs',{
 method:'POST',
 body:formData
 });
@@ -571,7 +877,7 @@ async function loadStaffList(){
 const staffListDiv=document.getElementById('staffList');
 staffListDiv.innerHTML='<div class="py-16 text-center text-slate-500 flex flex-col items-center justify-center gap-2"><i class="fas fa-spinner fa-spin text-2xl text-blue-600 mb-1"></i><p class="text-sm font-medium">Loading staff...</p></div>';
 try{
-const resp=await fetch(API_BASE_URL+'/api/staffs');
+const resp=await apiFetch(API_ROOT+'/staffs');
 if(!resp.ok)throw new Error('Failed to fetch');
 const staff=await resp.json();
 staffDataCache=staff;
@@ -630,7 +936,7 @@ const modalActions=document.getElementById('modalActions');
 modalBody.innerHTML='<div class="py-12 text-center text-slate-500"><i class="fas fa-spinner fa-spin text-2xl text-blue-600"></i></div>';
 staffModal.classList.remove('hidden');
 try{
-const resp=await fetch(API_BASE_URL+`/api/staffs/${id}`);
+const resp=await apiFetch(API_ROOT+`/staffs/${id}`);
 if(!resp.ok)throw new Error('Failed to fetch');
 const s=await resp.json();
 const photoSrc=s.photo_url||'https://ui-avatars.com/api/?name='+encodeURIComponent((s.first_name||'')+' '+(s.last_name||''))+'&background=1e40af&color=fff';
@@ -774,7 +1080,7 @@ dob:document.getElementById('edit_dob').value,
 staff_type:document.getElementById('edit_staff_type').value
 };
 try{
-const resp=await fetch(`${API_BASE_URL}/api/staffs/${currentStaffId}`,{
+const resp=await apiFetch(`${API_ROOT}/staffs/${currentStaffId}`,{
 method:'PATCH',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify(updateData)
@@ -801,7 +1107,7 @@ const deleteBtn=document.getElementById('deleteBtn');
 deleteBtn.disabled=true;
 deleteBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Deleting...';
 try{
-const resp=await fetch(`${API_BASE_URL}/api/staffs/${currentStaffId}`,{
+const resp=await apiFetch(`${API_ROOT}/staffs/${currentStaffId}`,{
 method:'DELETE'
 });
 if(!resp.ok){
