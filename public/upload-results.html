@@ -116,21 +116,11 @@ Choose the session, term, class, and subject to upload results
 <div class="filter-group grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
 <div class="form-group flex flex-col">
 <label for="sessionSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Session</label>
-<select id="sessionSelect" name="session" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-<option>2027–2028</option>
-<option>2026–2027</option>
-<option>2025–2026</option>
-<option>2024–2025</option>
-<option>2023–2024</option>
-</select>
+<select id="sessionSelect" name="session" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"><option value="">Loading sessions...</option></select>
 </div>
 <div class="form-group flex flex-col">
 <label for="termSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Term</label>
-<select id="termSelect" name="term" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-<option>THIRD TERM</option>
-<option>SECOND TERM</option>
-<option>FIRST TERM</option>
-</select>
+<select id="termSelect" name="term" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"><option value="">Select session first</option></select>
 </div>
 <div class="form-group flex flex-col">
 <label for="classSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Class</label>
@@ -158,9 +148,7 @@ Choose the session, term, class, and subject to upload results
 </div>
 <div class="form-group flex flex-col">
 <label for="subjectSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Subject</label>
-<select id="subjectSelect" name="subject" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-<option>Select a subject...</option>
-</select>
+<select id="subjectSelect" name="subject" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"><option value="">Select a subject...</option></select>
 </div>
 <div class="form-group flex flex-col">
 <label for="resultTypeSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Result Type</label>
@@ -275,7 +263,9 @@ Enter scores, grades, and remarks for each student
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
 <script>
-const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+const API_BASE_URL = window.BACKEND_URL || "https://examguard-8rxe.onrender.com";
+const API_ROOT = `${API_BASE_URL}/api`;
+const ACADEMICS_API = `${API_ROOT}/academics`;
 
 /* =========================================================
    AUTHENTICATION + SCHOOL CONTEXT
@@ -394,18 +384,19 @@ async function loadCurrentSchool() {
 document.addEventListener('DOMContentLoaded', async () => {
     const spinner = document.getElementById('pageSpinnerOverlay');
     if (spinner) spinner.style.display = 'flex';
-
     const valid = await loadCurrentSchool();
-
+    if (!valid) {
+        if (spinner) spinner.style.display = 'none';
+        return;
+    }
+    await Promise.all([
+        loadSchoolSessions(),
+        loadSchoolClassesAndSubjects()
+    ]);
     if (spinner) {
         spinner.classList.add('hidden-spinner');
         setTimeout(() => { spinner.style.display = 'none'; }, 300);
     }
-
-    if (!valid) return;
-
-    console.log("Logged-in user:", currentUser);
-    console.log("Current school:", currentSchool);
 });
 
 const sidebar = document.getElementById('sidebar');
@@ -426,44 +417,213 @@ if(sidebarToggle)sidebarToggle.addEventListener('click',openSidebar);
 if(sidebarOverlay)sidebarOverlay.addEventListener('click',closeSidebar);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSidebar();});
 
-const subjectOptionsByClass={
-"Beginner":["Hand Writing","Number Work","Poem","Drawing And Colouring","Christian Religious Studies","Letter Work","Social Norms","Science","Pattern Writting"],
-"Creche":["Letter Work","Number Work","Writing Method","Social Norm","Science","Rhymes","CHRISTIAN RELIGIOUS KNOWLEDGE","COLOURING AND DRAWING","PATTERN WRITTING"],
-"KG1":["NUMBER WORK","LETTER WORK","SOCIAL NORMS","SCIENCE","DRAWING/COLOURING","RHYMES","CHRISTIAN RELIGIOUS KNOWLEDGE","HEALTH HABIT","Handwriting","Phonics","Diction"],
-"KG2":["MATHEMATICS","ENGLISH LANGUAGE","SCIENCE","SOCIAL NORMS","CHRISTIAN RELIGIOUS STUDIES","DRAWING AND COLOURING","LITERATURE","HANDWRITING","POEM","HEALTH HABIT","PHONICS","Diction"],
-"Nursery 1":["Mathematics","English Language","Computer Studies","Basic Science","Social Norms","Cultural and Creative Art","Hand Writing","Poem","Health Education","Christian Religious Studies","Literature","QUANTITATIVE REASONING","PHONICS","VERBAL REASONING","Diction"],
-"Nursery 2":["Mathematics","English Language","Social Studies","Literature","Yoruba","History","Quantitative Reasoning","Verbal Reasoning","Writing","Civic Education","Basic Science and Technology","Phonics","Pre-Vocational Studies","Cultural and Creative Arts","Christian Religious Knowledge","Security Education/history","Diction"],
-"Nursery 3":["Mathematics","English Language","Social Studies","Literature","Yoruba","History","Quantitative Reasoning","Verbal Reasoning","Writing","Civic Education","Basic Science and Technology","Phonics","Pre-Vocational Studies","Cultural and Creative Arts","Christian Religious Knowledge","Security Education/history","Diction"],
-"Primary 1":["Mathematics","English Language","Social Studies","Literature","Yoruba","History","Quantitative Reasoning","Verbal Reasoning","Writing","Civic Education","Basic Science and Technology","Phonics","Pre-Vocational Studies","Cultural and Creative Arts","Christian Religious Knowledge","Security Education/history","Diction"],
-"Primary 2":["Mathematics","English Language","Cultural and Creative Arts","Civic Education","Social Studies","Yoruba","Verbal Reasoning","Quantitative Reasoning","Security Education","Hand Writing","Literature","Phonics","Pre-Vocational Studies","Basic Science and Technology","Christian Religious Knowledge","Diction"],
-"Primary 3":["Mathematics","English Language","Cultural and Creative Arts","Civic Education","Social Studies","Yoruba","Verbal Reasoning","Quantitative Reasoning","Security Education","Hand Writing","Literature","Phonics","Pre-Vocational Studies","Basic Science and Technology","Christian Religious Knowledge","Diction"],
-"Primary 4":["Mathematics","English Language","Cultural and Creative Arts","Civic Education","Social Studies","Yoruba","Verbal Reasoning","Quantitative Reasoning","Security Education","Hand Writing","Literature","Phonics","Pre-Vocational Studies","Basic Science and Technology","Christian Religious Knowledge","Diction"],
-"Primary 5":["Mathematics","English Language","Cultural and Creative Arts","Civic Education","Social Studies","Yoruba","Verbal Reasoning","Quantitative Reasoning","Security Education","Hand Writing","Literature","Phonics","Pre-Vocational Studies","Basic Science and Technology","Christian Religious Knowledge","Diction"],
-"Primary 6":["Mathematics","English Language","Cultural and Creative Arts","Civic Education","Social Studies","Yoruba","Verbal Reasoning","Quantitative Reasoning","Security Education","Hand Writing","Literature","Phonics","Pre-Vocational Studies","Basic Science and Technology","Christian Religious Knowledge","Diction"],
-"JSS1":["Mathematics","English Language","Christian Religious Studies","Business Studies","Music","Cultural and Creative Art","PRE-VOCATIONAL STUDIES","N.V.E","BASIC SCIENCE AND TECHNOLOGY","Basic Science","Computer Science","Physical And Health Education","Yoruba","DICTION"],
-"JSS2":["Mathematics","English Language","Christian Religious Studies","Business Studies","Music","Cultural and Creative Art","PRE-VOCATIONAL STUDIES","N.V.E","BASIC SCIENCE AND TECHNOLOGY","Basic Science","Computer Science","Physical And Health Education","Yoruba","DICTION"],
-"JSS3":["Mathematics","English Language","Christian Religious Studies","Business Studies","Music","Cultural and Creative Art","PRE-VOCATIONAL STUDIES","N.V.E","BASIC SCIENCE AND TECHNOLOGY","Basic Science","Computer Science","Physical And Health Education","Yoruba","DICTION"],
-"SS1":["English Language","Mathematics","Civic Education","Marketing","Economic","Chemistry","Biology","Geography","Agricultural Science","Further Mathematics","Yoruba","Government","Literature in English","Christian Religious Studies","Commerce","Financial Accounting","PHYSICS","Economics","DICTION"],
-"SS2":["English Language","Mathematics","Civic Education","Marketing","Economic","Chemistry","Biology","Geography","Agricultural Science","Further Mathematics","Yoruba","Government","Literature in English","Christian Religious Studies","Commerce","Financial Accounting","PHYSICS","Economics","DICTION"],
-"SS3":["English Language","Mathematics","Civic Education","Marketing","Economic","Chemistry","Biology","Geography","Agricultural Science","Further Mathematics","Yoruba","Government","Literature in English","Christian Religious Studies","PHYSICS","Economics"]
-};
 
-function updateSubjectOptions(){
-    const classSelect=document.getElementById('classSelect');
-    const subjectSelect=document.getElementById('subjectSelect');
-    const selectedClass=classSelect.value;
-    subjectSelect.innerHTML="";
-    const subjects=subjectOptionsByClass[selectedClass]||[];
-    if(subjects.length===0){
-        subjectSelect.innerHTML=`<option disabled selected>No subjects available</option>`;
-    }else{
-        subjects.forEach(subj=>{
-            subjectSelect.innerHTML+=`<option>${subj}</option>`;
+let schoolSessions = [];
+let schoolTerms = [];
+let schoolClasses = [];
+let selectedSchoolSessionId = "";
+let selectedSchoolTermId = "";
+
+function normalizeApiList(data, keys = []) {
+    if (Array.isArray(data)) return data;
+    for (const key of keys) {
+        if (Array.isArray(data?.[key])) return data[key];
+    }
+    return [];
+}
+
+function getSessionId(session) {
+    return session?._id || session?.id || session?.sessionId || "";
+}
+
+function getSessionName(session) {
+    return session?.name || session?.sessionName || session?.title || "";
+}
+
+function getTermSessionId(term) {
+    return term?.session?._id || term?.session?.id || term?.sessionId || term?.session_id || "";
+}
+
+function getTermName(term) {
+    return term?.name || term?.termName || term?.title || "";
+}
+
+function getClassId(cls) {
+    return cls?._id || cls?.id || "";
+}
+
+function getClassName(cls) {
+    return cls?.name || cls?.className || cls?.title || "";
+}
+
+function getSubjectId(subject) {
+    return subject?._id || subject?.id || subject?.subjectId || subject?.subject?._id || subject?.subject?.id || "";
+}
+
+function getSubjectName(subject) {
+    return subject?.name || subject?.subjectName || subject?.title || subject?.subject?.name || "";
+}
+
+async function loadSchoolSessions() {
+    const select = document.getElementById("sessionSelect");
+    try {
+        select.innerHTML = '<option value="">Loading sessions...</option>';
+        const response = await fetch(`${ACADEMICS_API}/sessions`, {
+            method: "GET",
+            headers: getAuthHeaders()
         });
+        if (!response.ok) throw new Error(`Failed to load sessions (${response.status})`);
+        const data = await response.json();
+        schoolSessions = normalizeApiList(data, ["sessions", "data", "results"]);
+        if (!schoolSessions.length) {
+            select.innerHTML = '<option value="">No sessions found</option>';
+            return [];
+        }
+        select.innerHTML = '<option value="">Select Session</option>';
+        schoolSessions.forEach(session => {
+            const id = getSessionId(session);
+            const name = getSessionName(session);
+            if (!id || !name) return;
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            option.dataset.id = id;
+            select.appendChild(option);
+        });
+        const current = schoolSessions.find(s => s.isCurrent || s.current || s.active);
+        if (current) {
+            select.value = getSessionName(current);
+        } else if (schoolSessions.length === 1) {
+            select.selectedIndex = 1;
+        }
+        selectedSchoolSessionId = select.selectedOptions[0]?.dataset.id || "";
+        await loadSchoolTerms();
+        return schoolSessions;
+    } catch (error) {
+        console.error("Session loading error:", error);
+        select.innerHTML = '<option value="">Unable to load sessions</option>';
+        showCriteriaError("Unable to load sessions from this school's backend.");
+        return [];
     }
 }
-document.getElementById('classSelect').addEventListener('change',updateSubjectOptions);
-document.addEventListener('DOMContentLoaded',updateSubjectOptions);
+
+async function loadSchoolTerms() {
+    const select = document.getElementById("termSelect");
+    const sessionOption = document.getElementById("sessionSelect")?.selectedOptions[0];
+    selectedSchoolSessionId = sessionOption?.dataset.id || "";
+    try {
+        select.innerHTML = '<option value="">Loading terms...</option>';
+        const response = await fetch(`${ACADEMICS_API}/terms`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error(`Failed to load terms (${response.status})`);
+        const data = await response.json();
+        schoolTerms = normalizeApiList(data, ["terms", "data", "results"]);
+        const filtered = selectedSchoolSessionId
+            ? schoolTerms.filter(term => String(getTermSessionId(term)) === String(selectedSchoolSessionId))
+            : schoolTerms;
+        select.innerHTML = '<option value="">Select Term</option>';
+        filtered.forEach(term => {
+            const id = term?._id || term?.id || "";
+            const name = getTermName(term);
+            if (!id || !name) return;
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            option.dataset.id = id;
+            option.dataset.sessionId = getTermSessionId(term);
+            select.appendChild(option);
+        });
+        if (filtered.length === 1) select.selectedIndex = 1;
+        selectedSchoolTermId = select.selectedOptions[0]?.dataset.id || "";
+        return filtered;
+    } catch (error) {
+        console.error("Term loading error:", error);
+        select.innerHTML = '<option value="">Unable to load terms</option>';
+        showCriteriaError("Unable to load terms from this school's backend.");
+        return [];
+    }
+}
+
+async function loadSchoolClassesAndSubjects() {
+    const classSelect = document.getElementById("classSelect");
+    const subjectSelect = document.getElementById("subjectSelect");
+    try {
+        const response = await fetch(`${ACADEMICS_API}/classes`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error(`Failed to load classes/subjects (${response.status})`);
+        const data = await response.json();
+        schoolClasses = normalizeApiList(data, ["classes", "data", "results"]);
+        const previousClass = classSelect.value;
+        classSelect.innerHTML = '<option value="">Select Class</option>';
+        schoolClasses.forEach(cls => {
+            const id = getClassId(cls);
+            const name = getClassName(cls);
+            if (!id || !name) return;
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            option.dataset.id = id;
+            classSelect.appendChild(option);
+        });
+        if (previousClass && schoolClasses.some(c => getClassName(c) === previousClass)) {
+            classSelect.value = previousClass;
+        }
+        updateSchoolSubjectOptions();
+        return schoolClasses;
+    } catch (error) {
+        console.error("Class/subject loading error:", error);
+        classSelect.innerHTML = '<option value="">Unable to load classes</option>';
+        subjectSelect.innerHTML = '<option value="">Unable to load subjects</option>';
+        showCriteriaError("Unable to load classes and subjects from this school's backend.");
+        return [];
+    }
+}
+
+function updateSchoolSubjectOptions() {
+    const classSelect = document.getElementById("classSelect");
+    const subjectSelect = document.getElementById("subjectSelect");
+    const selectedClassName = classSelect.value;
+    const selectedClass = schoolClasses.find(cls => getClassName(cls) === selectedClassName);
+    const assignedSubjects = selectedClass?.subjects || [];
+    subjectSelect.innerHTML = '<option value="">Select a subject...</option>';
+    const seen = new Set();
+    assignedSubjects.forEach(item => {
+        const id = getSubjectId(item);
+        const name = getSubjectName(item);
+        if (!name || seen.has(String(id || name).toLowerCase())) return;
+        seen.add(String(id || name).toLowerCase());
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        option.dataset.id = id;
+        subjectSelect.appendChild(option);
+    });
+    if (!assignedSubjects.length) {
+        subjectSelect.innerHTML = '<option value="">No subjects assigned to this class</option>';
+    }
+}
+
+function showCriteriaError(message) {
+    const status = document.getElementById("uploadStatus");
+    if (!status) return;
+    status.className = "status-message flex p-3 mb-4 text-xs text-red-800 bg-red-50 border border-red-200 rounded-lg";
+    status.textContent = message;
+}
+
+document.getElementById("sessionSelect").addEventListener("change", async function() {
+    selectedSchoolSessionId = this.selectedOptions[0]?.dataset.id || "";
+    await loadSchoolTerms();
+});
+
+document.getElementById("classSelect").addEventListener("change", updateSchoolSubjectOptions);
+
+document.getElementById("termSelect").addEventListener("change", function() {
+    selectedSchoolTermId = this.selectedOptions[0]?.dataset.id || "";
+});
 
 document.getElementById('resultTypeSelect').addEventListener('change',function(){
     const scoreHeader=document.getElementById('scoreHeader');
@@ -477,12 +637,14 @@ document.getElementById('resultTypeSelect').addEventListener('change',function()
 });
 
 document.getElementById('fetchStudentsBtn').addEventListener('click',async function(){
-    const className=document.getElementById('classSelect').value;
+    const classSelect=document.getElementById('classSelect');
+    const className=classSelect.value;
+    const classId=classSelect.selectedOptions[0]?.dataset.id || "";
     const tbody=document.getElementById('manualResultsTbody');
     tbody.innerHTML='<tr><td colspan="5" class="p-8 text-center text-slate-500 font-medium">Loading students...</td></tr>';
     try{
         const res = await fetch(
-            `${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`,
+            `${API_ROOT}/student?class=${encodeURIComponent(classId || className)}`,
             {
                 method: "GET",
                 headers: getAuthHeaders()
@@ -638,7 +800,10 @@ if(clearBtn){
         document.getElementById('classSelect').selectedIndex=0;
         document.getElementById('subjectSelect').innerHTML='<option>Select a subject...</option>';
         document.getElementById('resultTypeSelect').selectedIndex=0;
-        updateSubjectOptions();
+        selectedSchoolSessionId = "";
+        selectedSchoolTermId = "";
+        loadSchoolTerms();
+        updateSchoolSubjectOptions();
     });
 }
 
