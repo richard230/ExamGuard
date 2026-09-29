@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Upload Results - Admin Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Inter',sans-serif;}
+.parabola-notch{background:radial-gradient(circle at 50% -20%,transparent 36px,#ffffff 37px);}
+#pageSpinnerOverlay{position:fixed;z-index:99999;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;transition:opacity 0.3s;}
+#pageSpinnerOverlay.hidden-spinner{opacity:0;pointer-events:none;}
+.spinner{border:4px solid #e2e8f0;border-top:4px solid #2563eb;border-radius:50%;width:48px;height:48px;animation:spin 0.8s linear infinite;}
+@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-blue-500 selection:text-white">
+<div id="pageSpinnerOverlay">
+<div class="flex flex-col items-center gap-3">
+<div class="spinner"></div>
+<span class="text-sm font-semibold text-slate-600">Loading Dashboard...</span>
+</div>
+</div>
+<div class="sidebar-overlay fixed inset-0 bg-slate-900/50 z-40 hidden" id="sidebarOverlay"></div>
+<aside class="sidebar fixed top-0 left-0 z-50 w-64 h-screen transition-transform -translate-x-full md:translate-x-0 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800" id="sidebar" role="navigation" aria-label="Admin navigation">
+<div class="p-4">
+<div class="brand flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
+<img id="schoolLogo" src="mainlogo.png" alt="School Logo" class="w-10 h-10 rounded-lg object-cover bg-white p-0.5 border border-amber-400">
+<div>
+<div id="schoolName" class="title font-bold text-amber-400 text-sm leading-tight">Loading School...</div>
+<div class="subtitle text-xs text-slate-400">Result Uploading</div>
+</div>
+</div>
+<div class="search mb-4">
+<div class="relative">
+<i class="fa fa-search absolute left-3 top-2.5 text-xs text-slate-400"></i>
+<input type="text" placeholder="Quick search..." aria-label="Quick search" class="w-full bg-slate-800/80 border border-slate-700/60 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+</div>
+</div>
+<nav class="nav space-y-1" aria-label="Primary">
+<a href="admin.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-house w-4 text-center"></i> Dashboard
+</a>
+<a href="admission.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-graduation-cap w-4 text-center"></i> Admission
+</a>
+<a href="more.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-globe w-4 text-center"></i> Multi-location
+</a>
+<a href="people.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-users w-4 text-center"></i> People
+</a>
+<a href="academics.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-book w-4 text-center"></i> Academics
+</a>
+<a href="results.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-file-lines w-4 text-center"></i> Results
+</a>
+<a href="upload-results.html" class="nav-link active flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow-sm">
+<i class="fa-solid fa-cloud-arrow-up w-4 text-center"></i> Upload Results
+</a>
+<a href="finance.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-wallet w-4 text-center"></i> Finance
+</a>
+<a href="attendance.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-calendar-days w-4 text-center"></i> Attendance
+</a>
+<a href="#" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-amber-400 transition">
+<i class="fa-solid fa-gear w-4 text-center"></i> Settings
+</a>
+</nav>
+</div>
+<div class="p-4 border-t border-slate-800 text-xs text-slate-400">
+Signed in as <strong id="adminName" class="text-slate-200">Admin</strong>
+</div>
+</aside>
+<div class="md:ml-64 flex flex-col min-h-screen">
+<header class="topbar sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm" role="banner">
+<div class="page-header flex items-center gap-3">
+<button class="sidebar-toggle md:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100" id="sidebarToggle" aria-label="Open Sidebar">
+<i class="fa-solid fa-bars text-lg"></i>
+</button>
+<div class="flex items-center gap-2">
+<h1 class="page-title text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
+<i class="fa-solid fa-cloud-arrow-up text-blue-600"></i> Upload Results
+</h1>
+<span class="admin-badge bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-emerald-200">Admin</span>
+</div>
+</div>
+<div class="topbar-icons flex items-center gap-1 md:gap-2">
+<button class="icon-btn p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition" title="Notifications">
+<i class="fa-regular fa-bell"></i>
+</button>
+<button class="icon-btn p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition" title="Help">
+<i class="fa-regular fa-circle-question"></i>
+</button>
+<button class="icon-btn p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition" title="Settings">
+<i class="fa-solid fa-gear"></i>
+</button>
+</div>
+</header>
+<main class="main-content flex-1 p-4 md:p-8 pb-24 md:pb-8 max-w-7xl w-full mx-auto" role="main">
+<form id="manualUploadForm" autocomplete="off">
+<section class="section bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 md:p-6 mb-6">
+<div class="flex items-center justify-between mb-1">
+<h2 class="section-title font-bold text-slate-900 text-base md:text-lg flex items-center gap-2">
+<i class="fa-solid fa-filter text-blue-600"></i> Select Criteria
+</h2>
+</div>
+<p class="section-subtitle text-xs md:text-sm text-slate-500 mb-5">
+Choose the session, term, class, and subject to upload results
+</p>
+<div class="filter-group grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
+<div class="form-group flex flex-col">
+<label for="sessionSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Session</label>
+<select id="sessionSelect" name="session" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"><option value="">Loading sessions...</option></select>
+</div>
+<div class="form-group flex flex-col">
+<label for="termSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Term</label>
+<select id="termSelect" name="term" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"><option value="">Select session first</option></select>
+</div>
+<div class="form-group flex flex-col">
+<label for="classSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Class</label>
+<select id="classSelect" name="class" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+<option>Beginner</option>
+<option>KG1</option>
+<option>KG2</option>
+<option>Creche</option>
+<option>Nursery 1</option>
+<option>Nursery 2</option>
+<option>Nursery 3</option>
+<option>Primary 1</option>
+<option>Primary 2</option>
+<option>Primary 3</option>
+<option>Primary 4</option>
+<option>Primary 5</option>
+<option>Primary 6</option>
+<option>JSS1</option>
+<option>JSS2</option>
+<option>JSS3</option>
+<option>SS1</option>
+<option>SS2</option>
+<option>SS3</option>
+</select>
+</div>
+<div class="form-group flex flex-col">
+<label for="subjectSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Subject</label>
+<select id="subjectSelect" name="subject" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"><option value="">Select a subject...</option></select>
+</div>
+<div class="form-group flex flex-col">
+<label for="resultTypeSelect" class="text-xs font-semibold text-slate-700 mb-1.5">Result Type</label>
+<select id="resultTypeSelect" name="resultType" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs md:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+<option value="exam">Examination</option>
+<option value="ca1">Continuous Assessment 1 (CA1)</option>
+<option value="ca2">Continuous Assessment 2 (CA2)</option>
+<option value="midterm">Mid Term Test</option>
+</select>
+</div>
+</div>
+<div class="flex justify-end">
+<button type="button" id="fetchStudentsBtn" class="btn text-white bg-blue-600 hover:bg-blue-700 font-semibold rounded-lg text-xs md:text-sm px-5 py-2.5 text-center inline-flex items-center gap-2 transition shadow-sm w-full sm:w-auto justify-center">
+<i class="fa-solid fa-users-viewfinder"></i> Load Students
+</button>
+</div>
+</section>
+<section class="section bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 md:p-6">
+<h2 class="section-title font-bold text-slate-900 text-base md:text-lg flex items-center gap-2 mb-1">
+<i class="fa-solid fa-table text-blue-600"></i> Student Results
+</h2>
+<p class="section-subtitle text-xs md:text-sm text-slate-500 mb-4" id="tableSubtitle">
+Enter scores, grades, and remarks for each student
+</p>
+<div class="table-container relative overflow-x-auto rounded-lg border border-slate-200 mb-4">
+<table class="results-table w-full text-xs md:text-sm text-left text-slate-600" id="manualResultsTable">
+<thead class="text-xs text-slate-700 uppercase bg-slate-100/80 border-b border-slate-200">
+<tr>
+<th scope="col" class="px-4 py-3 font-bold">Student ID</th>
+<th scope="col" class="px-4 py-3 font-bold">Student Name</th>
+<th scope="col" class="px-4 py-3 font-bold" id="scoreHeader">Examination Score</th>
+<th scope="col" class="px-4 py-3 font-bold">Grade</th>
+<th scope="col" class="px-4 py-3 font-bold">Remarks</th>
+</tr>
+</thead>
+<tbody id="manualResultsTbody" class="divide-y divide-slate-200 bg-white">
+<tr>
+<td colspan="5">
+<div class="empty-state py-12 text-center text-slate-400">
+<div class="empty-state-icon text-4xl mb-2">📊</div>
+<div class="empty-state-title text-base font-semibold text-slate-700">No students loaded</div>
+<p class="text-xs text-slate-500 mt-1">Select criteria above and click "Load Students" to begin</p>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="uploadStatus" class="status-message hidden p-4 mb-4 text-xs md:text-sm rounded-lg font-medium"></div>
+<div class="btn-group flex flex-col sm:flex-row gap-3 pt-2">
+<button type="submit" class="btn text-white bg-emerald-600 hover:bg-emerald-700 font-semibold rounded-lg text-xs md:text-sm px-5 py-2.5 inline-flex items-center gap-2 justify-center transition shadow-sm">
+<i class="fa-solid fa-circle-check"></i> Submit Results
+</button>
+<button type="button" id="clearBtn" class="btn secondary border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold rounded-lg text-xs md:text-sm px-5 py-2.5 inline-flex items-center gap-2 justify-center transition">
+<i class="fa-solid fa-rotate-left"></i> Clear Form
+</button>
+</div>
+</section>
+</form>
+</main>
+</div>
+<nav class="md:hidden fixed bottom-0 left-0 z-40 w-full h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 shadow-lg">
+<a href="admin.html" class="flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 w-12 py-1">
+<i class="fa-solid fa-house text-base"></i>
+<span class="text-[10px] mt-0.5 font-medium">Home</span>
+</a>
+<a href="results.html" class="flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 w-12 py-1">
+<i class="fa-solid fa-file-lines text-base"></i>
+<span class="text-[10px] mt-0.5 font-medium">Results</span>
+</a>
+<div class="relative flex items-center justify-center w-14 h-14 -mt-6">
+<button data-drawer-target="bottomDrawer" data-drawer-show="bottomDrawer" data-drawer-placement="bottom" aria-controls="bottomDrawer" type="button" class="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 focus:outline-none ring-4 ring-slate-100 transition">
+<i class="fa-solid fa-sliders text-base"></i>
+</button>
+</div>
+<a href="people.html" class="flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 w-12 py-1">
+<i class="fa-solid fa-users text-base"></i>
+<span class="text-[10px] mt-0.5 font-medium">People</span>
+</a>
+<a href="academics.html" class="flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 w-12 py-1">
+<i class="fa-solid fa-graduation-cap text-base"></i>
+<span class="text-[10px] mt-0.5 font-medium">Academic</span>
+</a>
+</nav>
+<div id="bottomDrawer" class="fixed bottom-0 left-0 right-0 z-50 w-full p-4 overflow-y-auto transition-transform translate-y-full bg-white rounded-t-2xl shadow-2xl max-h-[85vh]" tabindex="-1" aria-labelledby="drawer-bottom-label">
+<div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4"></div>
+<h5 id="drawer-bottom-label" class="inline-flex items-center text-sm font-bold text-slate-800 uppercase tracking-wide mb-3">
+<i class="fa-solid fa-bolt text-blue-600 mr-2"></i> Quick Actions & Navigation
+</h5>
+<button type="button" data-drawer-hide="bottomDrawer" aria-controls="bottomDrawer" class="text-slate-400 bg-transparent hover:bg-slate-200 hover:text-slate-900 rounded-lg text-sm w-8 h-8 absolute top-4 right-4 inline-flex items-center justify-center">
+<i class="fa-solid fa-xmark text-base"></i>
+</button>
+<div class="grid grid-cols-2 gap-3 mb-4">
+<button type="button" onclick="document.getElementById('fetchStudentsBtn').click();" data-drawer-hide="bottomDrawer" class="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3 text-blue-700 font-semibold text-xs text-left hover:bg-blue-100 transition">
+<i class="fa-solid fa-users-viewfinder text-lg"></i>
+<span>Load Students</span>
+</button>
+<button type="button" onclick="document.getElementById('manualUploadForm').dispatchEvent(new Event('submit', {cancelable: true, bubbles: true}));" data-drawer-hide="bottomDrawer" class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-700 font-semibold text-xs text-left hover:bg-emerald-100 transition">
+<i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+<span>Submit Results</span>
+</button>
+</div>
+<div class="border-t border-slate-100 pt-3">
+<span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">Portal Navigation</span>
+<div class="grid grid-cols-2 gap-2 text-xs font-medium">
+<a href="admin.html" class="p-2.5 rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 flex items-center gap-2"><i class="fa-solid fa-house text-slate-400"></i> Dashboard</a>
+<a href="admission.html" class="p-2.5 rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 flex items-center gap-2"><i class="fa-solid fa-graduation-cap text-slate-400"></i> Admission</a>
+<a href="more.html" class="p-2.5 rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 flex items-center gap-2"><i class="fa-solid fa-globe text-slate-400"></i> Multi-location</a>
+<a href="finance.html" class="p-2.5 rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 flex items-center gap-2"><i class="fa-solid fa-wallet text-slate-400"></i> Finance</a>
+</div>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+<script>
+const API_BASE_URL = window.BACKEND_URL || "https://goldlincschools.onrender.com";
+const API_ROOT = `${API_BASE_URL}/api`;
+const ACADEMICS_API = `${API_ROOT}/academics`;
+
+/* =========================================================
+   AUTHENTICATION + SCHOOL CONTEXT
+========================================================= */
+
+let currentUser = null;
+let currentSchool = null;
+
+function getAuthToken() {
+    return localStorage.getItem("adminToken") ||
+           localStorage.getItem("token");
+}
+
+function getAuthHeaders() {
+    const token = getAuthToken();
+
+    return token
+        ? {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        }
+        : {
+            "Content-Type": "application/json"
+        };
+}
+
+async function loadCurrentSchool() {
+    const token = getAuthToken();
+
+    if (!token) {
+        window.location.href = "login.html";
+        return false;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem("adminToken");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+            return false;
+        }
+
+        if (!response.ok) {
+            throw new Error("Unable to retrieve account information");
+        }
+
+        const data = await response.json();
+
+        currentUser = data.user || data.admin || data;
+
+        currentSchool =
+            data.school ||
+            currentUser.school ||
+            null;
+
+        if (!currentSchool) {
+            throw new Error("No school is associated with this account.");
+        }
+
+        /* ---------------- SCHOOL NAME ---------------- */
+
+        const schoolNameElement = document.getElementById("schoolName");
+        if (schoolNameElement) {
+            schoolNameElement.textContent =
+                currentSchool.name ||
+                currentSchool.schoolName ||
+                "School";
+        }
+
+        /* ---------------- SCHOOL LOGO ---------------- */
+
+        const schoolLogo = document.getElementById("schoolLogo");
+        if (schoolLogo) {
+            const logo =
+                currentSchool.logo ||
+                currentSchool.logoUrl ||
+                currentSchool.logoURL;
+
+            if (logo) {
+                schoolLogo.src = logo;
+            }
+        }
+
+        /* ---------------- ADMIN NAME ---------------- */
+
+        const adminName = document.getElementById("adminName");
+        if (adminName) {
+            adminName.textContent =
+                currentUser.name ||
+                currentUser.fullName ||
+                currentUser.firstname ||
+                currentUser.firstName ||
+                currentUser.email ||
+                "Admin";
+        }
+
+        return true;
+
+    } catch (error) {
+        console.error("School context error:", error);
+
+        const schoolNameElement = document.getElementById("schoolName");
+        if (schoolNameElement) {
+            schoolNameElement.textContent = "School";
+        }
+
+        return false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const spinner = document.getElementById('pageSpinnerOverlay');
+    if (spinner) spinner.style.display = 'flex';
+    const valid = await loadCurrentSchool();
+    if (!valid) {
+        if (spinner) spinner.style.display = 'none';
+        return;
+    }
+    await Promise.all([
+        loadSchoolSessions(),
+        loadSchoolClassesAndSubjects()
+    ]);
+    if (spinner) {
+        spinner.classList.add('hidden-spinner');
+        setTimeout(() => { spinner.style.display = 'none'; }, 300);
+    }
+});
+
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+function openSidebar(){
+    sidebar.classList.remove('-translate-x-full');
+    sidebarOverlay.classList.remove('hidden');
+    document.body.style.overflow='hidden';
+}
+function closeSidebar(){
+    sidebar.classList.add('-translate-x-full');
+    sidebarOverlay.classList.add('hidden');
+    document.body.style.overflow='auto';
+}
+if(sidebarToggle)sidebarToggle.addEventListener('click',openSidebar);
+if(sidebarOverlay)sidebarOverlay.addEventListener('click',closeSidebar);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSidebar();});
+
+
+let schoolSessions = [];
+let schoolTerms = [];
+let schoolClasses = [];
+let selectedSchoolSessionId = "";
+let selectedSchoolTermId = "";
+
+function normalizeApiList(data, keys = []) {
+    if (Array.isArray(data)) return data;
+    for (const key of keys) {
+        if (Array.isArray(data?.[key])) return data[key];
+    }
+    return [];
+}
+
+function getSessionId(session) {
+    return session?._id || session?.id || session?.sessionId || "";
+}
+
+function getSessionName(session) {
+    return session?.name || session?.sessionName || session?.title || "";
+}
+
+function getTermSessionId(term) {
+    return term?.session?._id || term?.session?.id || term?.sessionId || term?.session_id || "";
+}
+
+function getTermName(term) {
+    return term?.name || term?.termName || term?.title || "";
+}
+
+function getClassId(cls) {
+    return cls?._id || cls?.id || "";
+}
+
+function getClassName(cls) {
+    return cls?.name || cls?.className || cls?.title || "";
+}
+
+function getSubjectId(subject) {
+    return subject?._id || subject?.id || subject?.subjectId || subject?.subject?._id || subject?.subject?.id || "";
+}
+
+function getSubjectName(subject) {
+    return subject?.name || subject?.subjectName || subject?.title || subject?.subject?.name || "";
+}
+
+async function loadSchoolSessions() {
+    const select = document.getElementById("sessionSelect");
+    try {
+        select.innerHTML = '<option value="">Loading sessions...</option>';
+        const response = await fetch(`${ACADEMICS_API}/sessions`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error(`Failed to load sessions (${response.status})`);
+        const data = await response.json();
+        schoolSessions = normalizeApiList(data, ["sessions", "data", "results"]);
+        if (!schoolSessions.length) {
+            select.innerHTML = '<option value="">No sessions found</option>';
+            return [];
+        }
+        select.innerHTML = '<option value="">Select Session</option>';
+        schoolSessions.forEach(session => {
+            const id = getSessionId(session);
+            const name = getSessionName(session);
+            if (!id || !name) return;
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            option.dataset.id = id;
+            select.appendChild(option);
+        });
+        const current = schoolSessions.find(s => s.isCurrent || s.current || s.active);
+        if (current) {
+            select.value = getSessionName(current);
+        } else if (schoolSessions.length === 1) {
+            select.selectedIndex = 1;
+        }
+        selectedSchoolSessionId = select.selectedOptions[0]?.dataset.id || "";
+        await loadSchoolTerms();
+        return schoolSessions;
+    } catch (error) {
+        console.error("Session loading error:", error);
+        select.innerHTML = '<option value="">Unable to load sessions</option>';
+        showCriteriaError("Unable to load sessions from this school's backend.");
+        return [];
+    }
+}
+
+async function loadSchoolTerms() {
+    const select = document.getElementById("termSelect");
+    const sessionOption = document.getElementById("sessionSelect")?.selectedOptions[0];
+    selectedSchoolSessionId = sessionOption?.dataset.id || "";
+    try {
+        select.innerHTML = '<option value="">Loading terms...</option>';
+        const response = await fetch(`${ACADEMICS_API}/terms`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error(`Failed to load terms (${response.status})`);
+        const data = await response.json();
+        schoolTerms = normalizeApiList(data, ["terms", "data", "results"]);
+        const filtered = selectedSchoolSessionId
+            ? schoolTerms.filter(term => String(getTermSessionId(term)) === String(selectedSchoolSessionId))
+            : schoolTerms;
+        select.innerHTML = '<option value="">Select Term</option>';
+        filtered.forEach(term => {
+            const id = term?._id || term?.id || "";
+            const name = getTermName(term);
+            if (!id || !name) return;
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            option.dataset.id = id;
+            option.dataset.sessionId = getTermSessionId(term);
+            select.appendChild(option);
+        });
+        if (filtered.length === 1) select.selectedIndex = 1;
+        selectedSchoolTermId = select.selectedOptions[0]?.dataset.id || "";
+        return filtered;
+    } catch (error) {
+        console.error("Term loading error:", error);
+        select.innerHTML = '<option value="">Unable to load terms</option>';
+        showCriteriaError("Unable to load terms from this school's backend.");
+        return [];
+    }
+}
+
+async function loadSchoolClassesAndSubjects() {
+    const classSelect = document.getElementById("classSelect");
+    const subjectSelect = document.getElementById("subjectSelect");
+    try {
+        const response = await fetch(`${ACADEMICS_API}/classes`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error(`Failed to load classes/subjects (${response.status})`);
+        const data = await response.json();
+        schoolClasses = normalizeApiList(data, ["classes", "data", "results"]);
+        const previousClass = classSelect.value;
+        classSelect.innerHTML = '<option value="">Select Class</option>';
+        schoolClasses.forEach(cls => {
+            const id = getClassId(cls);
+            const name = getClassName(cls);
+            if (!id || !name) return;
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            option.dataset.id = id;
+            classSelect.appendChild(option);
+        });
+        if (previousClass && schoolClasses.some(c => getClassName(c) === previousClass)) {
+            classSelect.value = previousClass;
+        }
+        updateSchoolSubjectOptions();
+        return schoolClasses;
+    } catch (error) {
+        console.error("Class/subject loading error:", error);
+        classSelect.innerHTML = '<option value="">Unable to load classes</option>';
+        subjectSelect.innerHTML = '<option value="">Unable to load subjects</option>';
+        showCriteriaError("Unable to load classes and subjects from this school's backend.");
+        return [];
+    }
+}
+
+function updateSchoolSubjectOptions() {
+    const classSelect = document.getElementById("classSelect");
+    const subjectSelect = document.getElementById("subjectSelect");
+    const selectedClassName = classSelect.value;
+    const selectedClass = schoolClasses.find(cls => getClassName(cls) === selectedClassName);
+    const assignedSubjects = selectedClass?.subjects || [];
+    subjectSelect.innerHTML = '<option value="">Select a subject...</option>';
+    const seen = new Set();
+    assignedSubjects.forEach(item => {
+        const id = getSubjectId(item);
+        const name = getSubjectName(item);
+        if (!name || seen.has(String(id || name).toLowerCase())) return;
+        seen.add(String(id || name).toLowerCase());
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        option.dataset.id = id;
+        subjectSelect.appendChild(option);
+    });
+    if (!assignedSubjects.length) {
+        subjectSelect.innerHTML = '<option value="">No subjects assigned to this class</option>';
+    }
+}
+
+function showCriteriaError(message) {
+    const status = document.getElementById("uploadStatus");
+    if (!status) return;
+    status.className = "status-message flex p-3 mb-4 text-xs text-red-800 bg-red-50 border border-red-200 rounded-lg";
+    status.textContent = message;
+}
+
+document.getElementById("sessionSelect").addEventListener("change", async function() {
+    selectedSchoolSessionId = this.selectedOptions[0]?.dataset.id || "";
+    await loadSchoolTerms();
+});
+
+document.getElementById("classSelect").addEventListener("change", updateSchoolSubjectOptions);
+
+document.getElementById("termSelect").addEventListener("change", function() {
+    selectedSchoolTermId = this.selectedOptions[0]?.dataset.id || "";
+});
+
+document.getElementById('resultTypeSelect').addEventListener('change',function(){
+    const scoreHeader=document.getElementById('scoreHeader');
+    switch(this.value){
+        case 'exam':scoreHeader.textContent="Examination Score";break;
+        case 'ca1':scoreHeader.textContent="CA1 Score";break;
+        case 'ca2':scoreHeader.textContent="CA2 Score";break;
+        case 'midterm':scoreHeader.textContent="Mid Term Test Score";break;
+        default:scoreHeader.textContent="Score";
+    }
+});
+
+document.getElementById('fetchStudentsBtn').addEventListener('click',async function(){
+    const classSelect=document.getElementById('classSelect');
+    const className=classSelect.value;
+    const classId=classSelect.selectedOptions[0]?.dataset.id || "";
+    const tbody=document.getElementById('manualResultsTbody');
+    tbody.innerHTML='<tr><td colspan="5" class="p-8 text-center text-slate-500 font-medium">Loading students...</td></tr>';
+    try{
+        const res = await fetch(
+            `${API_ROOT}/student?class=${encodeURIComponent(classId || className)}`,
+            {
+                method: "GET",
+                headers: getAuthHeaders()
+            }
+        );
+        const data=await res.json();
+        const students=Array.isArray(data)?data:(data.students||[]);
+        if(!Array.isArray(students)||students.length===0){
+            tbody.innerHTML='<tr><td colspan="5"><div class="empty-state py-12 text-center text-slate-400"><div class="empty-state-icon text-4xl mb-2">👥</div><div class="empty-state-title text-base font-semibold text-slate-700">No students found</div><p class="text-xs text-slate-500 mt-1">No students enrolled in this class</p></div></td></tr>';
+            return;
+        }
+        tbody.innerHTML='';
+        students.forEach(st=>{
+            tbody.innerHTML+=`
+            <tr class="hover:bg-slate-50/80 transition">
+            <td class="px-3 py-2.5"><input type="text" name="student_id[]" value="${st.student_id||st._id||''}" readonly class="bg-slate-100 border border-slate-200 text-slate-600 text-xs rounded-md block w-full p-2 cursor-not-allowed"></td>
+            <td class="px-3 py-2.5"><input type="text" name="student_name[]" value="${(st.firstname?st.firstname:'')+' '+(st.surname?st.surname:'')}" readonly class="bg-slate-100 border border-slate-200 text-slate-600 text-xs rounded-md block w-full p-2 cursor-not-allowed"></td>
+            <td class="px-3 py-2.5"><input type="number" name="score[]" min="0" max="100" placeholder="0-100" class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
+            <td class="px-3 py-2.5"><input type="text" name="grade[]" placeholder="A, B, C..." class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
+            <td class="px-3 py-2.5"><input type="text" name="remarks[]" placeholder="Comments..." class="bg-white border border-slate-300 text-slate-900 text-xs rounded-md focus:ring-blue-500 focus:border-blue-500 block w-full p-2"></td>
+            </tr>
+            `;
+        });
+    }catch(err){
+        tbody.innerHTML='<tr><td colspan="5"><div class="empty-state py-12 text-center text-slate-400"><div class="empty-state-icon text-4xl mb-2">⚠️</div><div class="empty-state-title text-base font-semibold text-slate-700">Failed to load students</div><p class="text-xs text-slate-500 mt-1">Please try again</p></div></td></tr>';
+        console.error(err);
+    }
+});
+
+document.addEventListener("DOMContentLoaded",()=>{
+    const form=document.getElementById("manualUploadForm");
+    const status=document.getElementById("uploadStatus");
+    form.addEventListener("submit",async(e)=>{
+        e.preventDefault();
+        const submitBtn=form.querySelector('button[type="submit"]');
+        const session=document.getElementById("sessionSelect").value;
+        const term=document.getElementById("termSelect").value;
+        const className=document.getElementById("classSelect").value;
+        const subject=document.getElementById("subjectSelect").value;
+        const resultType=document.getElementById("resultTypeSelect").value;
+        const studentIds=[...document.querySelectorAll('input[name="student_id[]"]')];
+        const studentNames=[...document.querySelectorAll('input[name="student_name[]"]')];
+        const scoreInputs=[...document.querySelectorAll('input[name="score[]"]')];
+        const gradeInputs=[...document.querySelectorAll('input[name="grade[]"]')];
+        const remarkInputs=[...document.querySelectorAll('input[name="remarks[]"]')];
+        const resultsBySubject={};
+
+        scoreInputs.forEach((input,i)=>{
+            const score=input.value.trim();
+            if(score!==""&&!isNaN(score)){
+                const result={
+                    student_id:studentIds[i].value,
+                    student_name:studentNames[i].value,
+                    score:Number(score),
+                    grade:gradeInputs[i]?.value||"",
+                    remarks:remarkInputs[i]?.value||""
+                };
+                if(!resultsBySubject[subject]){
+                    resultsBySubject[subject]=[];
+                }
+                resultsBySubject[subject].push(result);
+            }
+        });
+
+        if(Object.keys(resultsBySubject).length===0){
+            status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg";
+            status.innerHTML=`Enter at least one valid score.`;
+            return;
+        }
+
+        submitBtn.disabled=true;
+        status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg";
+        status.innerHTML="Uploading results...";
+        let totalUploaded=0;
+        let totalUpdated=0;
+        let failedSubjects=[];
+
+        for(const[subjectName,subjectResults]of Object.entries(resultsBySubject)){
+            const payload={
+                session,
+                term:term.toUpperCase(),
+                class:className,
+                subject:subjectName,
+                resultType,
+                results:subjectResults,
+                upsert:true
+            };
+            try{
+                let res = await fetch(`${API_BASE_URL}/api/results/upsert`, {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(payload)
+                });
+
+                if(res.status===404){
+                    res = await fetch(`${API_BASE_URL}/api/results/upload`, {
+                        method: "POST",
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                }
+                const data=await res.json();
+                if(data.success){
+                    totalUploaded+=data.inserted||0;
+                    totalUpdated+=data.updated||0;
+                }else{
+                    failedSubjects.push(`${subjectName}: ${data.error||"Unknown error"}`);
+                }
+            }catch(error){
+                failedSubjects.push(`${subjectName}: ${error.message}`);
+            }
+        }
+
+        if(failedSubjects.length===0){
+            status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg";
+            status.innerHTML=`Success! Uploaded ${totalUploaded} results, updated ${totalUpdated}.`;
+            scoreInputs.forEach(i=>i.value="");
+            gradeInputs.forEach(i=>i.value="");
+            remarkInputs.forEach(i=>i.value="");
+        }else{
+            status.className="status-message flex p-4 mb-4 text-xs md:text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg";
+            status.innerHTML=`Some uploads failed: ${failedSubjects.join(", ")}`;
+        }
+        submitBtn.disabled=false;
+    });
+});
+
+const clearBtn=document.getElementById('clearBtn');
+if(clearBtn){
+    clearBtn.addEventListener('click',(e)=>{
+        e.preventDefault();
+        const form=document.getElementById('manualUploadForm');
+        form.reset();
+        document.querySelectorAll('input[name="score[]"], input[name="grade[]"], input[name="remarks[]"]').forEach(input=>{
+            input.value='';
+        });
+        document.getElementById('manualResultsTbody').innerHTML=`
+        <tr>
+        <td colspan="5">
+        <div class="empty-state py-12 text-center text-slate-400">
+        <div class="empty-state-icon text-4xl mb-2">📊</div>
+        <div class="empty-state-title text-base font-semibold text-slate-700">No students loaded</div>
+        <p class="text-xs text-slate-500 mt-1">Select criteria above and click "Load Students" to begin</p>
+        </div>
+        </td>
+        </tr>
+        `;
+        const statusEl=document.getElementById('uploadStatus');
+        statusEl.className='status-message hidden';
+        statusEl.innerHTML='';
+        document.getElementById('sessionSelect').selectedIndex=0;
+        document.getElementById('termSelect').selectedIndex=0;
+        document.getElementById('classSelect').selectedIndex=0;
+        document.getElementById('subjectSelect').innerHTML='<option>Select a subject...</option>';
+        document.getElementById('resultTypeSelect').selectedIndex=0;
+        selectedSchoolSessionId = "";
+        selectedSchoolTermId = "";
+        loadSchoolTerms();
+        updateSchoolSubjectOptions();
+    });
+}
+
+document.querySelectorAll('.nav-link').forEach(link=>{
+    link.addEventListener('click',(e)=>{
+        if(link.href==='#'||link.href.includes('upload-results.html')){
+            e.preventDefault();
+        }
+        document.querySelectorAll('.nav-link').forEach(l=>{
+            l.classList.remove('active','bg-blue-600','text-white');
+            l.classList.add('text-slate-300');
+        });
+        link.classList.add('active','bg-blue-600','text-white');
+        link.classList.remove('text-slate-300');
+    });
+});
+</script>
+</body>
+</html>
