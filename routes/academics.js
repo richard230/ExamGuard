@@ -180,66 +180,94 @@ router.get('/sessions', authMiddleware, adminAuth, async (req, res) => {
   })));
 });
 router.post('/sessions', authMiddleware, adminAuth, async (req, res) => {
-  const schoolId = requireSchoolId(req, res);
-  if (!schoolId) return;
-
-  const { name, startDate, endDate } = req.body;
-
-  if (!name) {
-    return res.status(400).json({
-      error: 'Session name required'
-    });
-  }
-
-  if (!startDate || !endDate) {
-    return res.status(400).json({
-      error: 'Session start date and end date are required'
-    });
-  }
-
-  if (new Date(startDate) >= new Date(endDate)) {
-    return res.status(400).json({
-      error: 'End date must be after start date'
-    });
-  }
-
-  let session;
-
-  if (req.body._id) {
-    session = await Session.findOneAndUpdate(
-      {
-        _id: req.body._id,
-        schoolId
-      },
-      {
-        name,
-        startDate,
-        endDate
-      },
-      {
-        new: true,
-        runValidators: true
-      }
-    );
-
-    if (!session) {
-      return res.status(404).json({
-        error: 'Session not found'
+  try {
+    const schoolId = requireSchoolId(req, res);
+    if (!schoolId) return;
+    const { name, startDate, endDate } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        error: 'Session name required'
       });
     }
-  } else {
-    session = new Session({
-      name,
-      startDate,
-      endDate,
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        error: 'Session start date and end date are required'
+      });
+    }
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+    if (
+      Number.isNaN(parsedStartDate.getTime()) ||
+      Number.isNaN(parsedEndDate.getTime())
+    ) {
+      return res.status(400).json({
+        error: 'Invalid session start or end date'
+      });
+    }
+    if (parsedStartDate >= parsedEndDate) {
+      return res.status(400).json({
+        error: 'End date must be after start date'
+      });
+    }
+    const sessionName = name.trim();
+    if (req.body._id) {
+      const existingSession = await Session.findOne({
+        _id: req.body._id,
+        schoolId
+      });
+      if (!existingSession) {
+        return res.status(404).json({
+          error: 'Session not found'
+        });
+      }
+      const duplicate = await Session.findOne({
+        _id: { $ne: req.body._id },
+        schoolId,
+        name: sessionName
+      });
+      if (duplicate) {
+        return res.status(409).json({
+          error: `A session named "${sessionName}" already exists for this school.`
+        });
+      }
+      existingSession.name = sessionName;
+      existingSession.startDate = parsedStartDate;
+      existingSession.endDate = parsedEndDate;
+      await existingSession.save();
+      return res.json(existingSession);
+    }
+    const existingSession = await Session.findOne({
+      schoolId,
+      name: sessionName
+    });
+    if (existingSession) {
+      return res.status(409).json({
+        error: `A session named "${sessionName}" already exists for this school.`,
+        session: existingSession
+      });
+    }
+    const session = new Session({
+      name: sessionName,
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
       schoolId
     });
-
     await session.save();
+    return res.status(201).json(session);
+  } catch (error) {
+    console.error('Session creation/update error:', error);
+    if (error.code === 11000) {
+      return res.status(409).json({
+        error: 'A session with this name already exists for this school.'
+      });
+    }
+    return res.status(500).json({
+      error: 'Failed to create or update session',
+      message: error.message
+    });
   }
-
-  res.json(session);
 });
+
 router.get('/terms', authMiddleware, adminAuth, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
@@ -485,16 +513,91 @@ router.get('/cbt/mocks/:id', authMiddleware, adminAuth, async (req, res) => {
   });
 });
 router.put('/sessions/:id', authMiddleware, adminAuth, async (req, res) => {
-  const schoolId = requireSchoolId(req, res);
-  if (!schoolId) return;
-  const { name, startDate, endDate } = req.body;
-  const session = await Session.findOneAndUpdate(
-    { _id: req.params.id, schoolId },
-    { name, startDate, endDate },
-    { new: true }
-  );
-  if (!session) return res.status(404).json({ error: "Session not found" });
-  res.json(session);
+  try {
+    const schoolId = requireSchoolId(req, res);
+    if (!schoolId) return;
+
+    const { name, startDate, endDate } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        error: 'Session name required'
+      });
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        error: 'Session start date and end date are required'
+      });
+    }
+
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+
+    if (
+      Number.isNaN(parsedStartDate.getTime()) ||
+      Number.isNaN(parsedEndDate.getTime())
+    ) {
+      return res.status(400).json({
+        error: 'Invalid session start or end date'
+      });
+    }
+
+    if (parsedStartDate >= parsedEndDate) {
+      return res.status(400).json({
+        error: 'End date must be after start date'
+      });
+    }
+
+    const sessionName = name.trim();
+
+    // Make sure the session being edited belongs to this school
+    const existingSession = await Session.findOne({
+      _id: req.params.id,
+      schoolId
+    });
+
+    if (!existingSession) {
+      return res.status(404).json({
+        error: 'Session not found'
+      });
+    }
+
+    // Prevent duplicate session names within the same school
+    const duplicate = await Session.findOne({
+      _id: { $ne: req.params.id },
+      schoolId,
+      name: sessionName
+    });
+
+    if (duplicate) {
+      return res.status(409).json({
+        error: `A session named "${sessionName}" already exists for this school.`
+      });
+    }
+
+    existingSession.name = sessionName;
+    existingSession.startDate = parsedStartDate;
+    existingSession.endDate = parsedEndDate;
+
+    await existingSession.save();
+
+    return res.json(existingSession);
+
+  } catch (error) {
+    console.error('Session update error:', error);
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        error: 'A session with this name already exists for this school.'
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Failed to update session',
+      message: error.message
+    });
+  }
 });
 router.put('/terms/:id', authMiddleware, adminAuth, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
