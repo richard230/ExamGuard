@@ -1,34 +1,27 @@
 const BACKEND_URL = "https://examguard-8rxe.onrender.com";
 const API_BASE = `${BACKEND_URL}/api/academics`;
 const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
-
-// Helper to enforce consistent session format (e.g., 2025–2026)
 function formatSessionName(str) {
   if (!str) return str;
   const match = str.match(/(\d{4})\D*(\d{4})/);
   return match ? `${match[1]}–${match[2]}` : str;
 }
-
 function showTab(tab) {
   document.querySelectorAll('.tablist button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   document.querySelectorAll('[data-section]').forEach(sec => sec.classList.toggle('hidden', sec.dataset.section !== tab));
   document.querySelectorAll('.nav a').forEach(nav => nav.classList.toggle('active', nav.dataset.tab === tab));
   if (tab === "subjects") loadUploadedSubjects();
 }
-
 document.querySelectorAll('.tablist button').forEach(btn => {
   btn.addEventListener('click', () => showTab(btn.dataset.tab));
 });
-
 function showExamTab(tab) {
   document.querySelectorAll('#examTabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.examtab === tab));
   document.querySelectorAll('#examTabContent > div').forEach(sec => sec.classList.toggle('hidden', sec.dataset.examsection !== tab));
 }
-
 document.querySelectorAll('#examTabs button').forEach(btn => {
   btn.addEventListener('click', () => showExamTab(btn.dataset.examtab));
 });
-
 async function fillDropdown(endpoint, selectId, valueKey = 'name') {
   try {
     const res = await fetch(API_BASE + endpoint, { 
@@ -50,7 +43,6 @@ async function fillDropdown(endpoint, selectId, valueKey = 'name') {
     console.error('Error filling dropdown:', err);
   }
 }
-
 async function fillTeacherDropdown() {
   try {
     const res = await fetch(`${BACKEND_URL}/api/teachers`, { 
@@ -68,7 +60,6 @@ async function fillTeacherDropdown() {
     console.error('Error filling teacher dropdown:', err);
   }
 }
-
 async function fillClassDropdown() {
   try {
     const res = await fetch(`${API_BASE}/classes`, { 
@@ -86,7 +77,6 @@ async function fillClassDropdown() {
     console.error('Error filling class dropdown:', err);
   }
 }
-
 async function fillTeacherDropdown2() {
   try {
     const res = await fetch(`${BACKEND_URL}/api/teachers`, { 
@@ -104,14 +94,12 @@ async function fillTeacherDropdown2() {
     console.error('Error filling subject teacher dropdown:', err);
   }
 }
-
 function toggleTeacherDropdown() {
   const menu = document.getElementById('teacherDropdownMenu');
   if (menu) {
     menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
   }
 }
-
 async function fillTeacherCheckboxes() {
   try {
     const res = await fetch(`${BACKEND_URL}/api/teachers`, { 
@@ -132,7 +120,6 @@ async function fillTeacherCheckboxes() {
     console.error('Error filling teacher checkboxes:', err);
   }
 }
-
 async function loadClasses() {
   const tbody = document.getElementById('classesTableBody');
   if (!tbody) return;
@@ -173,7 +160,6 @@ async function loadClasses() {
     console.error('Error loading classes:', err);
   }
 }
-
 window.deleteClass = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -195,7 +181,6 @@ window.deleteClass = async function(id, btn) {
     btn.innerHTML = '<i class="fa fa-trash"></i>';
   }
 };
-
 window.editClass = function(id) {
   fetch(`${API_BASE}/classes/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -216,7 +201,6 @@ window.editClass = function(id) {
     })
     .catch(err => console.error('Error editing class:', err));
 };
-
 document.addEventListener('DOMContentLoaded', () => {
   const classForm = document.getElementById('classForm');
   if (classForm) {
@@ -257,7 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 async function loadSessions() {
   await fillDropdown("/sessions", "termSessionSelect");
   await fillDropdown("/sessions", "resultsSessionSelect");
@@ -296,7 +279,6 @@ async function loadSessions() {
     console.error('Error loading sessions:', err);
   }
 }
-
 window.deleteSession = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -318,7 +300,6 @@ window.deleteSession = async function(id, btn) {
     btn.innerHTML = '<i class="fa fa-trash"></i>';
   }
 };
-
 window.editSession = function(id) {
   fetch(`${API_BASE}/sessions/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -336,7 +317,6 @@ window.editSession = function(id) {
     })
     .catch(err => console.error('Error editing session:', err));
 };
-
 document.addEventListener('DOMContentLoaded', () => {
   const sessionForm = document.getElementById('sessionForm');
   if (sessionForm) {
@@ -374,7 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 async function loadTerms() {
   const tbody = document.getElementById('termsTableBody');
   if (!tbody) return;
@@ -412,7 +391,6 @@ async function loadTerms() {
     console.error('Error loading terms:', err);
   }
 }
-
 window.deleteTerm = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -434,7 +412,6 @@ window.deleteTerm = async function(id, btn) {
     btn.innerHTML = '<i class="fa fa-trash"></i>';
   }
 };
-
 window.editTerm = function(id) {
   fetch(`${API_BASE}/terms/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -453,7 +430,6 @@ window.editTerm = function(id) {
     })
     .catch(err => console.error('Error editing term:', err));
 };
-
 document.addEventListener('DOMContentLoaded', () => {
   const termForm = document.getElementById('termForm');
   if (termForm) {
@@ -488,12 +464,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 fillDropdown("/terms", "examTermSelect");
 fillDropdown("/classes", "examClassSelect");
 fillDropdown("/classes", "cbtClassSelect");
 fillDropdown("/classes", "resultsClassSelect");
-
 async function loadExamSchedules() {
   const tbody = document.getElementById('examScheduleTableBody');
   if (!tbody) return;
@@ -531,7 +505,6 @@ async function loadExamSchedules() {
     console.error('Error loading exam schedules:', err);
   }
 }
-
 window.deleteExamSchedule = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -553,7 +526,6 @@ window.deleteExamSchedule = async function(id, btn) {
     btn.innerHTML = '<i class="fa fa-trash"></i>';
   }
 };
-
 window.editExamSchedule = function(id) {
   fetch(`${API_BASE}/exams/schedules/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -572,7 +544,6 @@ window.editExamSchedule = function(id) {
     })
     .catch(err => console.error('Error editing exam schedule:', err));
 };
-
 document.addEventListener('DOMContentLoaded', () => {
   const examScheduleForm = document.getElementById('examScheduleForm');
   if (examScheduleForm) {
@@ -607,7 +578,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 async function fillExamDropdown() {
   try {
     const res = await fetch(`${API_BASE}/exams/schedules`, { 
@@ -623,7 +593,6 @@ async function fillExamDropdown() {
     console.error('Error filling exam dropdown:', err);
   }
 }
-
 async function loadExamModes() {
   const tbody = document.getElementById('examModeTableBody');
   if (!tbody) return;
@@ -657,7 +626,6 @@ async function loadExamModes() {
     console.error('Error loading exam modes:', err);
   }
 }
-
 window.editExamMode = function(id) {
   fetch(`${API_BASE}/exams/modes/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -675,7 +643,6 @@ window.editExamMode = function(id) {
     })
     .catch(err => console.error('Error editing exam mode:', err));
 };
-
 document.addEventListener('DOMContentLoaded', () => {
   const examModeForm = document.getElementById('examModeForm');
   if (examModeForm) {
@@ -710,7 +677,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 async function loadCBTs() {
   const tbody = document.getElementById('cbtTableBody');
   if (!tbody) return;
@@ -748,7 +714,6 @@ async function loadCBTs() {
     console.error('Error loading CBTs:', err);
   }
 }
-
 window.deleteCBT = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -770,7 +735,6 @@ window.deleteCBT = async function(id, btn) {
     btn.innerHTML = '<i class="fa fa-trash"></i>';
   }
 };
-
 window.editCBT = function(id) {
   fetch(`${API_BASE}/cbt/mocks/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -789,7 +753,6 @@ window.editCBT = function(id) {
     })
     .catch(err => console.error('Error editing CBT:', err));
 };
-
 document.addEventListener('DOMContentLoaded', () => {
   const cbtForm = document.getElementById('cbtForm');
   if (cbtForm) {
@@ -824,7 +787,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 async function loadResults(filter = {}) {
   const tbody = document.getElementById('resultsTableBody');
   if (!tbody) return;
@@ -891,7 +853,6 @@ async function loadResults(filter = {}) {
     console.error('Error loading results:', err);
   }
 }
-
 document.addEventListener('DOMContentLoaded', () => {
   const resultsForm = document.getElementById('resultsFilterForm');
   if (resultsForm) {
@@ -902,7 +863,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 window.deleteCBTResult = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -931,7 +891,6 @@ window.deleteCBTResult = async function(id, btn) {
     btn.innerHTML = '<i class="fa fa-trash"></i>';
   }
 };
-
 async function fillPushCBTSessionDropdown() {
   try {
     const res = await fetch(`${API_BASE}/sessions`, { 
@@ -947,7 +906,6 @@ async function fillPushCBTSessionDropdown() {
     console.error('Error filling push CBT session dropdown:', err);
   }
 }
-
 async function fillPushCBTTermDropdown() {
   try {
     const res = await fetch(`${API_BASE}/terms`, { 
@@ -963,7 +921,6 @@ async function fillPushCBTTermDropdown() {
     console.error('Error filling push CBT term dropdown:', err);
   }
 }
-
 document.addEventListener('DOMContentLoaded', () => {
   const pushCBTResultsBtn = document.getElementById('pushCBTResultsBtn');
   const pushCBTModal = document.getElementById('pushCBTModal');
@@ -1020,7 +977,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 document.addEventListener('DOMContentLoaded', () => {
   const assignSubjectForm = document.getElementById('assignSubjectForm');
   if (assignSubjectForm) {
@@ -1054,7 +1010,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-
 async function loadUploadedSubjects() {
   const tbody = document.getElementById('uploadedSubjectsTableBody');
   if (!tbody) return;
@@ -1103,11 +1058,9 @@ async function loadUploadedSubjects() {
     console.error('Error loading uploaded subjects:', err);
   }
 }
-
 window.viewSubject = function(id) {
   alert("Subject details for " + id);
 };
-
 window.deleteSubjectFromClass = async function(classId, subjectId, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -1130,7 +1083,6 @@ window.deleteSubjectFromClass = async function(classId, subjectId, btn) {
     btn.innerHTML = '<i class="fa fa-trash"></i>';
   }
 };
-
 document.addEventListener('DOMContentLoaded', () => {
   fillTeacherCheckboxes();
   fillClassDropdown();
