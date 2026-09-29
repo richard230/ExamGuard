@@ -168,7 +168,10 @@ router.get('/classes', authMiddleware, adminAuth, async (req, res) => {
 router.get('/sessions', authMiddleware, adminAuth, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
-  const sessions = await Session.find({ schoolId }).sort('-createdAt');
+
+  const sessions = await Session.find({ schoolId })
+    .sort('-createdAt');
+
   res.json(sessions.map(s => ({
     _id: s._id,
     name: s.name,
@@ -179,19 +182,62 @@ router.get('/sessions', authMiddleware, adminAuth, async (req, res) => {
 router.post('/sessions', authMiddleware, adminAuth, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
+
   const { name, startDate, endDate } = req.body;
-  if (!name) return res.status(400).json({ error: "Session name required" });
+
+  if (!name) {
+    return res.status(400).json({
+      error: 'Session name required'
+    });
+  }
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      error: 'Session start date and end date are required'
+    });
+  }
+
+  if (new Date(startDate) >= new Date(endDate)) {
+    return res.status(400).json({
+      error: 'End date must be after start date'
+    });
+  }
+
   let session;
+
   if (req.body._id) {
     session = await Session.findOneAndUpdate(
-      { _id: req.body._id, schoolId },
-      { name, startDate, endDate },
-      { new: true }
+      {
+        _id: req.body._id,
+        schoolId
+      },
+      {
+        name,
+        startDate,
+        endDate
+      },
+      {
+        new: true,
+        runValidators: true
+      }
     );
+
+    if (!session) {
+      return res.status(404).json({
+        error: 'Session not found'
+      });
+    }
   } else {
-    session = new Session({ name, startDate, endDate, schoolId });
+    session = new Session({
+      name,
+      startDate,
+      endDate,
+      schoolId
+    });
+
     await session.save();
   }
+
   res.json(session);
 });
 router.get('/terms', authMiddleware, adminAuth, async (req, res) => {
