@@ -3,50 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parent Dashboard | ExamGuard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <title>Pay School Fees | Parent Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         brand: {
-                            50: 'var(--school-primary-50, #f0f9ff)',
-                            100: 'var(--school-primary-100, #e0f2fe)',
-                            500: 'var(--school-primary, #0284c7)',
-                            600: 'var(--school-primary-dark, #0369a1)',
-                            700: 'var(--school-primary-darker, #075985)',
-                            800: 'var(--school-secondary, #075985)',
-                            900: 'var(--school-secondary-dark, #0c4a6e)',
-                            950: 'var(--school-secondary-darker, #082f49)'
+                            50: 'var(--school-primary-50)',
+                            100: 'var(--school-primary-100)',
+                            200: 'var(--school-primary-200)',
+                            300: 'var(--school-primary-300)',
+                            400: 'var(--school-primary-400)',
+                            500: 'var(--school-primary)',
+                            600: 'var(--school-primary-600)',
+                            700: 'var(--school-primary-700)',
+                            800: 'var(--school-secondary)',
+                            900: 'var(--school-secondary)',
+                            950: 'var(--school-secondary-dark)'
                         },
                         gold: {
-                            400: 'var(--school-accent, #fbbf24)',
-                            500: 'var(--school-accent-dark, #d97706)',
-                            600: 'var(--school-accent-darker, #b45309)'
+                            400: 'var(--school-accent)',
+                            500: 'var(--school-accent)',
+                            600: 'var(--school-accent-dark)'
                         }
                     },
                     fontFamily: {
                         sans: ['Plus Jakarta Sans', 'sans-serif'],
-                        serif: ['Playfair Display', 'serif'],
+                        serif: ['Playfair Display', 'serif']
                     }
                 }
             }
-        }
+        };
     </script>
     <style>
-        .parabolic-top {
-            border-top-left-radius: 50% 40px;
-            border-top-right-radius: 50% 40px;
+        :root {
+            --school-primary: #0284c7;
+            --school-primary-50: #f0f9ff;
+            --school-primary-100: #e0f2fe;
+            --school-primary-200: #bae6fd;
+            --school-primary-300: #7dd3fc;
+            --school-primary-400: #38bdf8;
+            --school-primary-600: #0369a1;
+            --school-primary-700: #075985;
+
+            --school-secondary: #075985;
+            --school-secondary-dark: #0c4a6e;
+
+            --school-accent: #fbbf24;
+            --school-accent-dark: #b45309;
         }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        /* Loading Spinner */
         .loading-overlay {
             position: fixed;
             inset: 0;
@@ -59,1235 +75,945 @@
             opacity: 1;
             transition: opacity 0.3s ease;
         }
+
         .loading-overlay.hidden {
             opacity: 0;
             pointer-events: none;
         }
+
         .spinner-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 20px;
         }
+
         .spinner-ring {
             width: 60px;
             height: 60px;
             border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top: 4px solid var(--school-primary, #0284c7);
+            border-top: 4px solid var(--school-primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
         .spinner-text {
             color: #ffffff;
             font-weight: 600;
             font-size: 0.95rem;
             text-align: center;
-            line-height: 1.5;
-        }
-        .spinner-status {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.85rem;
-            margin-top: 8px;
         }
     </style>
 </head>
-<body class="bg-[#f8fafc] text-slate-800 font-sans antialiased min-h-screen flex flex-col md:flex-row overflow-x-hidden" onload="initializeDashboard()">
+<body class="antialiased min-h-screen text-slate-800">
+
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="spinner-container">
             <div class="spinner-ring"></div>
-            <div class="spinner-text">
-                <div id="spinnerMainText">Loading Dashboard</div>
-                <div id="spinnerStatus" class="spinner-status">Initializing system...</div>
-            </div>
+            <div class="spinner-text">Processing Payment...</div>
         </div>
     </div>
 
-    <!-- Error Modal -->
-    <div id="errorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
-        <div id="errorModalCard" class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-all duration-300">
-            <div class="p-6 text-center space-y-4">
-                <div class="mx-auto w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center border border-rose-100 shadow-sm shrink-0">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
+    <!-- Top Navigation Bar -->
+    <header class="bg-brand-900 text-white shadow-md border-b border-brand-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-9 w-9 bg-white rounded-xl flex items-center justify-center shadow-inner overflow-hidden">
+                    <img id="schoolLogo" src="" alt="School Logo" class="w-full h-full object-contain hidden">
+                    <span id="schoolInitials" class="text-brand-900 font-black text-sm tracking-tighter">SP</span>
                 </div>
-                <div>
-                    <h3 id="errorModalTitle" class="text-base font-extrabold text-slate-900">An Error Occurred</h3>
-                    <p class="text-xs text-slate-500 mt-1">The system encountered an error while processing your request.</p>
-                </div>
-                <div class="text-left bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                    <span class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Error Details</span>
-                    <p id="errorModalMessage" class="text-xs font-mono text-rose-700 break-words max-h-32 overflow-y-auto pr-1">
-                        No additional details provided.
-                    </p>
-                </div>
-                <div class="flex items-center space-x-3 pt-2">
-                    <button type="button" onclick="closeErrorModal()" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition active:scale-95">
-                        Dismiss
-                    </button>
-                    <button id="errorModalPrimaryBtn" type="button" onclick="closeErrorModal()" class="w-full py-2.5 px-4 bg-brand-900 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95">
-                        OK
-                    </button>
+                <div class="min-w-0">
+                    <h1 id="schoolNameHeader" class="text-xs font-black tracking-widest uppercase text-brand-200 truncate">Parent Portal</h1>
+                    <p class="text-xs font-medium opacity-80">School Fees Payment</p>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <aside class="hidden md:flex flex-col w-72 bg-brand-900 text-white shrink-0 shadow-2xl relative z-30 border-r border-brand-800">
-        <div class="p-6 border-b border-brand-800/60 bg-brand-950/20 flex items-center space-x-3">
-            <div class="bg-white p-1 rounded-xl shadow-inner flex items-center justify-center shrink-0">
-                <img id="schoolLogo" src="" class="h-9 w-auto object-contain" alt="School Logo">
-            </div>
-            <div>
-                <span id="schoolName" class="block text-base font-extrabold tracking-tight uppercase font-serif">School Portal</span>
-                <span class="block text-[10px] text-brand-500 uppercase tracking-widest font-extrabold -mt-0.5">Parent Portal</span>
-            </div>
-        </div>
-        <div class="p-4 mx-4 my-5 bg-brand-800/50 rounded-2xl border border-brand-500/30 backdrop-blur-sm">
-            <label class="block text-[10px] font-bold text-brand-500 uppercase tracking-wider mb-1.5 px-1">Active Ward Account</label>
-            <select id="wardSelector" onchange="switchWard(this)" class="w-full bg-brand-900 border border-brand-800 rounded-xl text-xs font-bold text-white focus:ring-1 focus:ring-brand-500 cursor-pointer">
-                <option value="">Select Student</option>
-            </select>
-        </div>
-        <nav class="flex-grow px-4 space-y-1.5">
-            <p class="text-[10px] font-bold text-brand-500 uppercase tracking-widest px-3 mb-2">Control Workspace</p>
-            <a href="#" class="flex items-center px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-brand-800 to-brand-500 text-white shadow-md transition-all">
-                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                Main Dashboard
+            <a href="pt.html" class="flex items-center space-x-2 bg-brand-800 hover:bg-brand-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Dashboard
             </a>
-            <a href="ward-results" class="flex items-center px-4 py-3 text-sm font-medium text-brand-100 hover:text-white hover:bg-brand-800/40 rounded-xl transition-all">
-                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Result Sheet Archive
-            </a>
-            <a href="#" onclick="showErrorModal('Gateway Link', 'Tuition ledger gateway link feature is coming soon.')" class="flex items-center px-4 py-3 text-sm font-medium text-brand-100 hover:text-white hover:bg-brand-800/40 rounded-xl transition-all">
-                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                Tuition Ledger & Receipts
-            </a>
-            <a href="#" onclick="logoutUser()" class="flex items-center px-4 py-3 text-sm font-medium text-brand-100 hover:text-white hover:bg-brand-800/40 rounded-xl transition-all">
-                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                Logout
-            </a>
-        </nav>
-        <div class="p-4 border-t border-brand-800/60 bg-brand-950/20 text-xs text-center text-brand-100/60">
-            Current Session: <strong id="currentSession" class="text-white font-semibold">--</strong>
         </div>
-    </aside>
-    <header class="md:hidden w-full bg-brand-900 text-white h-16 px-4 flex items-center justify-between shadow-md sticky top-0 z-40">
-        <div class="flex items-center space-x-2.5">
-            <img id="mobileSchoolLogo" src="" class="h-7 w-auto bg-white p-0.5 rounded-lg" alt="School Logo">
-            <span id="mobileSchoolName" class="font-serif font-bold text-sm tracking-wide">School Portal</span>
-        </div>
-        <button type="button" onclick="openBottomNav()" class="flex items-center space-x-1.5 bg-brand-800 border border-brand-500/40 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition active:scale-95">
-            <span>Menu</span>
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-        </button>
     </header>
-    <div id="bottomDrawerOverlay" onclick="closeBottomNav(event)" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden transition-opacity duration-300 opacity-0">
-        <div id="bottomDrawerCard" class="absolute bottom-0 inset-x-0 bg-brand-900 text-white parabolic-top transform translate-y-full transition-transform duration-300 border-t-2 border-gold-400 p-6">
-            <div class="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-brand-800 rounded-full"></div>
-            <div class="text-center mb-4">
-                <p class="font-serif text-lg font-bold" id="mobileParentName">Parent Name</p>
-                <p class="text-[11px] text-brand-500 font-medium">Connected Parent Portal</p>
-            </div>
-            <div class="bg-brand-800 p-4 rounded-2xl border border-brand-500/30 mb-4">
-                <label class="block text-[10px] font-bold text-brand-500 uppercase tracking-wider mb-2">Switch Active Ward</label>
-                <select id="mobileWardSelector" onchange="switchWard(this)" class="w-full bg-brand-900 border border-brand-800 rounded-xl text-sm font-bold text-white py-2.5 px-3">
-                    <option value="">Select Student</option>
-                </select>
-            </div>
-            <div class="grid grid-cols-1 gap-2 text-sm font-bold">
-                <a href="#" onclick="closeBottomNav(null)" class="w-full bg-brand-800 hover:bg-brand-500 p-4 rounded-xl flex items-center justify-between border border-brand-500/20">
-                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-gold-400 mr-2"></span>Main Dashboard</span>
-                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
-                <a href="ward-results" class="w-full bg-brand-800 hover:bg-brand-500 p-4 rounded-xl flex items-center justify-between border border-brand-500/20">
-                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></span>Results Portal</span>
-                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
-                <button onclick="logoutUser()" class="w-full text-left bg-brand-800 hover:bg-brand-500 p-4 rounded-xl flex items-center justify-between border border-brand-500/20">
-                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></span>Logout</span>
-                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </button>
-            </div>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Alerts -->
+        <div id="alertContainer" class="mb-6"></div>
+
+        <!-- Breadcrumb -->
+        <div class="mb-6 flex items-center space-x-2 text-sm">
+            <a href="pt.html" class="text-brand-600 hover:text-brand-700 font-medium">Dashboard</a>
+            <span class="text-slate-400">/</span>
+            <span class="text-slate-600 font-medium">School Fees Payment</span>
         </div>
-    </div>
-    <main class="flex-grow p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto w-full overflow-hidden">
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
-                <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-50/50 to-transparent pointer-events-none"></div>
-                <div>
-                    <div class="flex items-center space-x-2.5 mb-4">
-                        <div class="p-2 bg-brand-50 rounded-xl text-brand-900">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                            </svg>
-                        </div>
-                        <span class="text-xs font-bold uppercase tracking-widest text-brand-500">Parent Registry Profile</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 text-xs">
-                        <div>
-                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Full Name</p>
-                            <p class="text-sm font-bold text-slate-900 mt-0.5" id="parentFullName">--</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Parent ID</p>
-                            <p class="text-sm font-mono font-bold text-slate-900 mt-0.5" id="parentId">--</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Portal Access</p>
-                            <span class="inline-flex items-center bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-emerald-100 mt-1">
-                                <span class="w-1 h-1 bg-emerald-500 rounded-full mr-1 animate-pulse"></span> Granted
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
-                <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-50/50 to-transparent pointer-events-none"></div>
-                <div>
-                    <div class="flex items-center space-x-2.5 mb-4">
-                        <div class="p-2 bg-brand-50 rounded-xl text-brand-900">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479l6.16 3.422z"/>
-                            </svg>
-                        </div>
-                        <span class="text-xs font-bold uppercase tracking-widest text-brand-500">Active Student Ledger</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 text-xs">
-                        <div>
-                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Full Name</p>
-                            <p class="text-sm font-bold text-slate-900 mt-0.5" id="studentFullName">--</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Class</p>
-                            <p class="text-sm font-bold text-slate-900 mt-0.5" id="studentClass">--</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Registration No</p>
-                            <p class="text-sm font-mono font-bold text-slate-900 mt-0.5" id="studentRegNo">--</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Student ID</p>
-                            <p class="text-sm font-mono font-bold text-slate-900 mt-0.5" id="studentId">--</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-150 p-5 flex items-center space-x-4 hover:shadow-md transition">
-                <div class="p-3 bg-emerald-50 rounded-xl text-emerald-600"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg></div>
-                <div>
-                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Term Attendance</p>
-                    <p class="text-lg font-black text-slate-900 mt-0.5" id="attendance">--</p>
-                    <p class="text-[10px] text-emerald-600 font-bold" id="attendanceNote">Loading...</p>
-                </div>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-150 p-5 flex items-center space-x-4 hover:shadow-md transition">
-                <div class="p-3 bg-blue-50 rounded-xl text-blue-600 shrink-0">
+
+        <!-- Header Section -->
+        <div class="bg-white border border-slate-200 rounded-xl p-6 mb-6 shadow-sm">
+            <div class="flex items-center space-x-3 mb-2">
+                <div class="p-3 bg-brand-50 rounded-lg text-brand-900">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
                     </svg>
                 </div>
-                <div class="flex-grow">
-                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Fees Status</p>
-                    <p class="text-2xl font-black text-slate-900 mt-1" id="feesStatus">₦0.00</p>
-                    <span class="inline-flex items-center bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5" id="feesStatusBadge">
-                        <span class="w-1.5 h-1.5 bg-emerald-600 rounded-full mr-1.5"></span>
-                        Cleared
-                    </span>
-                </div>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-150 p-5 flex items-center space-x-4 hover:shadow-md transition">
-                <div class="p-3 bg-indigo-50 rounded-xl text-indigo-600"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg></div>
                 <div>
-                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">CA Average</p>
-                    <p class="text-lg font-black text-slate-900 mt-0.5" id="caAverage">--</p>
-                    <p class="text-[10px] text-brand-600 font-bold" id="caRanking">Loading...</p>
+                    <h2 class="text-lg font-black text-brand-900 uppercase tracking-wide">School Fees Payment</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Make secure payments for outstanding school fees</p>
                 </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-150 p-5 flex items-center space-x-4 hover:shadow-md transition">
-                <div class="p-3 bg-amber-50 rounded-xl text-gold-600"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2h8a1 1 0 000-2 2 2 0 00-2 2v10a2 2 0 002 2 1 1 0 000-2h-8a1 1 0 000 2 2 2 0 002-2V5z"/></svg></div>
-                <div>
-                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Session</p>
-                    <p id="sessionValue" class="text-sm font-bold text-slate-900 mt-0.5">--</p>
-                    <span class="inline-flex bg-slate-100 text-slate-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase mt-1">Active</span>
+        </div>
+
+        <!-- Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            
+            <!-- Student Information Card -->
+            <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                <div class="border-b border-slate-100 pb-4 mb-4">
+                    <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Student Information</h3>
                 </div>
-            </div>
-        </section>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="p-5 border-b border-slate-100 bg-gradient-to-r from-brand-50 to-white">
-                <div class="flex items-center justify-between">
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
-                        <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Recent Results Summary</h3>
-                        <p class="text-xs text-slate-500 mt-1" id="resultTermSession">Most recent uploaded results</p>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Full Name</p>
+                        <p class="text-sm font-bold text-slate-900 mt-2" id="studentName">--</p>
                     </div>
-                    <svg class="w-8 h-8 text-brand-500/20" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a1 1 0 001 1h12a1 1 0 001-1V6a2 2 0 00-2-2H4zm12 12H4a2 2 0 01-2-2v-4a1 1 0 00-1-1H.5a.5.5 0 00-.5.5v4a4 4 0 004 4h12a4 4 0 004-4v-4a.5.5 0 00-.5-.5H17a1 1 0 00-1 1v4a2 2 0 01-2 2z"/>
-                    </svg>
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Class</p>
+                        <p class="text-sm font-bold text-slate-900 mt-2" id="studentClass">--</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Reg No</p>
+                        <p class="text-sm font-mono font-bold text-slate-900 mt-2" id="studentRegNo">--</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Student ID</p>
+                        <p class="text-sm font-mono font-bold text-slate-900 mt-2" id="studentId">--</p>
+                    </div>
                 </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 text-slate-400 font-extrabold border-b border-slate-100 uppercase tracking-wider">
-                            <th class="p-4 pl-6">Subject</th>
-                            <th class="p-4 text-center">Score</th>
-                            <th class="p-4 text-center">Grade</th>
-                            <th class="p-4 pr-6 text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="recentResultsTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
-                        <tr>
-                            <td colspan="4" class="p-8 text-center">
-                                <div class="text-slate-400">Select a student to view recent results</div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <p class="text-xs text-slate-600">Showing top 5 subjects from most recent submission</p>
-                <a href="ward-results" class="inline-flex items-center text-xs font-bold text-brand-600 hover:text-brand-700 transition">
-                    View Complete Report
-                    <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </a>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
-            <div>
-                <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Active Assignments & Projects</h3>
-                <p class="text-xs text-slate-500">Track homework tasks and project deadlines.</p>
-            </div>
-            <div id="assignmentsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
-                    <p class="text-slate-400">Select a student to view assignments</p>
+
+            <!-- Payment Summary Card -->
+            <div class="bg-gradient-to-br from-brand-900 to-brand-950 rounded-xl p-6 shadow-sm border border-brand-800 text-white">
+                <div class="mb-4">
+                    <p class="text-[10px] font-extrabold text-brand-200 uppercase tracking-wider">Total Outstanding</p>
+                    <p class="text-3xl font-black text-white mt-2" id="totalOutstanding">₦0.00</p>
+                </div>
+
+                <div class="border-t border-brand-800 pt-4 space-y-3">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-brand-200">Total Fees:</span>
+                        <span class="font-bold" id="totalAmount">₦0.00</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-brand-200">Already Paid:</span>
+                        <span class="font-bold text-green-400" id="totalPaid">₦0.00</span>
+                    </div>
                 </div>
             </div>
         </div>
-        <aside class="space-y-8">
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
-                <div>
-                    <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Registry Dispatch Board</h3>
-                    <p class="text-xs text-slate-500">Official real-time updates from management desks.</p>
-                </div>
-                <div class="space-y-4 divide-y divide-slate-100">
-                    <div class="pt-0 space-y-1.5">
-                        <span class="inline-block text-[9px] font-black tracking-wider uppercase bg-rose-50 border border-rose-100 text-rose-700 px-2 py-0.5 rounded-md">Urgent Notice</span>
-                        <h4 class="text-xs font-bold text-slate-900">Mid-Term Intermission Break</h4>
-                        <p class="text-[11px] text-slate-500 leading-relaxed">The campus compound will close for midterm recess starting next Wednesday. Terminal lessons resume the subsequent Monday.</p>
-                    </div>
-                    <div class="pt-4 space-y-1.5">
-                        <span class="inline-block text-[9px] font-black tracking-wider uppercase bg-brand-50 border border-brand-100 text-brand-700 px-2 py-0.5 rounded-md">Event Desk</span>
-                        <h4 class="text-xs font-bold text-slate-900">Open-Day Lesson Matrix Inspection</h4>
-                        <p class="text-[11px] text-slate-500 leading-relaxed">Parents are welcome to inspect physical lesson cards and consult directly with module tutors from 10:00 AM.</p>
-                    </div>
+
+        <!-- Fees Selection Section -->
+        <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-6">
+            <div class="border-b border-slate-100 pb-4 mb-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Outstanding Fees</h3>
+                    <span class="inline-flex items-center bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1 rounded-xl" id="feesCount">0 Fees</span>
                 </div>
             </div>
-            <div class="bg-gradient-to-br from-brand-900 to-brand-950 rounded-2xl shadow-xl p-6 text-white space-y-4 relative overflow-hidden border border-brand-800">
-                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-brand-800/20 rounded-full blur-xl pointer-events-none"></div>
-                <div>
-                    <h3 class="text-sm font-bold uppercase tracking-wider font-serif">Registry Gateways</h3>
-                    <p class="text-[11px] text-brand-100/70">Secure automated operations pipelines.</p>
-                </div>
-                <div class="space-y-2 text-xs font-bold">
-                    <button onclick="handleFeesAction(currentSelectedStudent, false)" class="w-full text-left bg-brand-800/60 hover:bg-brand-800 p-3 rounded-xl border border-brand-700/40 flex items-center justify-between transition">
-                        <span>Pay School Fees</span>
-                        <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-                    <button onclick="showErrorModal('Form Tutor Desk', 'Encrypted communication gateway is coming soon.')" class="w-full text-left bg-brand-800/60 hover:bg-brand-800 p-3 rounded-xl border border-brand-700/40 flex items-center justify-between transition">
-                        <span>Message Form Tutor Desk</span>
-                        <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-                </div>
+
+            <div id="feesContent" class="space-y-3">
+                <!-- Fees will be loaded here -->
             </div>
-        </aside>
+        </div>
+
+        <!-- Payment Method Section -->
+        <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm mb-6">
+            <div class="border-b border-slate-100 pb-4 mb-4">
+                <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wider">Payment Method</h3>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Payment Method</label>
+                <select id="paymentMethod" class="w-full bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 p-3 outline-none focus:ring-2 focus:ring-brand-500">
+                    <option value="">-- Choose Payment Method --</option>
+                    <option value="card">💳 Credit/Debit Card</option>
+                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                    <option value="ussd">📱 USSD (Mobile)</option>
+                    <option value="wallet">💵 Online Wallet</option>
+                </select>
+            </div>
+
+            <div id="paymentMethodDetails" class="bg-slate-50 rounded-xl p-4 min-h-20"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3 justify-end">
+            <a href="pt.html" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm px-6 py-2.5 rounded-xl transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Cancel
+            </a>
+            <button id="payBtn" onclick="processPayment()" disabled class="bg-brand-900 hover:bg-brand-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm px-6 py-2.5 rounded-xl transition flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                Proceed to Payment
+            </button>
+        </div>
     </main>
 
-<script>
-/* =========================================================
-   MULTI-SCHOOL CONFIGURATION
-   ========================================================= */
+    <script>
+        // =========================================================
+        // CONFIGURATION
+        // =========================================================
+        const API_BASE = window.API_BASE || "https://goldlincschools.onrender.com/api";
+        const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE}/schools/config`;
+        const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || "goldlincschools.com.ng";
 
-const API_BASE = window.API_BASE || "https://examguard-8rxe.onrender.com/api";
+        // =========================================================
+        // STATE
+        // =========================================================
+        let token = "";
+        let currentSchool = null;
+        let studentData = null;
+        let selectedFees = [];
+        let totalPayableAmount = 0;
 
-let parentData = null;
-let currentSchool = null;
-let schoolConfig = null;
+        // =========================================================
+        // TOKEN HELPERS
+        // =========================================================
+        function getAuthToken() {
+            const possibleTokens = [
+                localStorage.getItem("parentToken"),
+                localStorage.getItem("token"),
+                localStorage.getItem("authToken")
+            ];
 
-let allStudents = [];
-let currentSelectedStudent = null;
-let currentGradeTerm = 1;
-let errorConfirmCallback = null;
+            for (const candidate of possibleTokens) {
+                if (!candidate) continue;
 
-/* =========================================================
-   SCHOOL / TENANT DETECTION
-   ========================================================= */
+                try {
+                    const parts = candidate.split(".");
+                    if (parts.length !== 3) continue;
 
-function getSchoolSubdomain() {
-    const hostname = window.location.hostname.toLowerCase();
-    console.log('🌐 Current hostname:', hostname);
+                    const payload = JSON.parse(
+                        decodeURIComponent(
+                            atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+                                .split("")
+                                .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                                .join("")
+                        )
+                    );
 
-    if (hostname.endsWith('.examguard.com.ng')) {
-        const parts = hostname.split('.');
-        if (parts.length >= 4) {
-            return parts[0];
-        }
-    }
+                    if (payload.exp && payload.exp * 1000 < Date.now()) {
+                        continue;
+                    }
 
-    if (hostname.endsWith('.goldlincschools.com.ng')) {
-        const parts = hostname.split('.');
-        if (parts.length >= 3) {
-            return parts[0];
-        }
-    }
+                    return candidate;
+                } catch (error) {
+                    continue;
+                }
+            }
 
-    const storedSubdomain = localStorage.getItem('schoolSubdomain');
-    if (storedSubdomain) {
-        return storedSubdomain.trim().toLowerCase();
-    }
-
-    return '';
-}
-
-/* =========================================================
-   LOAD SCHOOL CONFIGURATION
-   ========================================================= */
-
-async function loadSchoolConfig() {
-    try {
-        const subdomain = getSchoolSubdomain();
-
-        if (!subdomain) {
-            throw new Error('School could not be identified from this portal address.');
+            return "";
         }
 
-        console.log('🏫 Loading school configuration:', subdomain);
-
-        const configUrl = `${API_BASE}/schools/config?subdomain=${encodeURIComponent(subdomain)}`;
-        const res = await fetch(configUrl, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        const rawResponse = await res.text();
-        let data = {};
-
-        try {
-            data = rawResponse ? JSON.parse(rawResponse) : {};
-        } catch {
-            data = { message: rawResponse };
-        }
-
-        if (!res.ok) {
-            throw new Error(data.message || data.error || `Unable to load school configuration. HTTP ${res.status}`);
-        }
-
-        schoolConfig = data.school || data.data || data;
-
-        if (!schoolConfig || !(schoolConfig.schoolId || schoolConfig._id || schoolConfig.schoolName || schoolConfig.name)) {
-            throw new Error('The school configuration returned by the server is invalid.');
-        }
-
-        currentSchool = schoolConfig;
-        console.log('✅ School configuration loaded:', currentSchool);
-
-        applySchoolBranding(currentSchool);
-        return currentSchool;
-    } catch (err) {
-        console.error('❌ School configuration error:', err);
-        throw err;
-    }
-}
-
-/* =========================================================
-   JWT HELPERS
-   ========================================================= */
-
-function decodeJwtPayload(token) {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-
-        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const json = decodeURIComponent(
-            atob(base64)
-                .split('')
-                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                .join('')
-        );
-
-        return JSON.parse(json);
-    } catch (err) {
-        console.warn('Unable to decode JWT:', err);
-        return null;
-    }
-}
-
-function isTokenValid(token) {
-    if (!token) return false;
-    const payload = decodeJwtPayload(token);
-    if (!payload) return false;
-
-    if (payload.exp && Date.now() >= payload.exp * 1000) {
-        return false;
-    }
-
-    return true;
-}
-
-function getParentToken() {
-    const parentToken = localStorage.getItem('parentToken');
-    const normalToken = localStorage.getItem('token');
-    const authToken = localStorage.getItem('authToken');
-
-    if (isTokenValid(parentToken)) return parentToken;
-    if (isTokenValid(normalToken)) return normalToken;
-    if (isTokenValid(authToken)) return authToken;
-
-    return '';
-}
-
-/* =========================================================
-   SCHOOL TENANT VALIDATION
-   ========================================================= */
-
-function getTokenSchoolId() {
-    const token = getParentToken();
-    if (!token) return null;
-
-    const payload = decodeJwtPayload(token);
-    return payload?.schoolId ? String(payload.schoolId) : null;
-}
-
-function getConfigSchoolMongoId() {
-    if (!currentSchool) return null;
-    return currentSchool._id ? String(currentSchool._id) : null;
-}
-
-function getConfigSchoolPublicId() {
-    if (!currentSchool) return null;
-    return currentSchool.schoolId ? String(currentSchool.schoolId) : null;
-}
-
-function validateSchoolContext() {
-    const tokenSchoolId = getTokenSchoolId();
-    const configMongoId = getConfigSchoolMongoId();
-
-    console.log('🔐 Tenant validation:', {
-        tokenSchoolId,
-        configMongoId,
-        publicSchoolId: getConfigSchoolPublicId()
-    });
-
-    if (!tokenSchoolId) {
-        throw new Error('Your login session does not contain a valid school context.');
-    }
-
-    if (configMongoId && tokenSchoolId !== configMongoId) {
-        console.error('🚨 SCHOOL MISMATCH', { tokenSchoolId, configMongoId });
-        throw new Error('Your account does not belong to this school portal.');
-    }
-
-    return true;
-}
-
-/* =========================================================
-   INITIALIZATION & BRANDING
-   ========================================================= */
-
-async function initializeDashboard() {
-    console.log('🚀 Initializing Multi-School Parent Dashboard...');
-
-    if (!getParentToken()) {
-        console.warn('⚠️ No authentication token found.');
-        showErrorModal('Authentication Required', 'No active login session found. Please log in to continue.', () => {
-            window.location.href = 'login.html';
-        });
-        return;
-    }
-
-    try {
-        showLoadingSpinner('Loading Parent Dashboard', 'Identifying school portal...');
-
-        updateLoadingStatus('Loading school configuration...');
-        await loadSchoolConfig();
-
-        updateLoadingStatus('Verifying school access...');
-        validateSchoolContext();
-
-        updateLoadingStatus('Loading parent information...');
-        await loadParentData();
-
-        updateLoadingStatus('Loading student information...');
-        await loadStudents();
-
-        if (allStudents.length > 0) {
-            currentSelectedStudent = String(allStudents[0]._id);
-            syncWardSelectors();
-            updateLoadingStatus('Loading student details...');
-            await loadStudentDetails();
-        } else {
-            console.warn('⚠️ No students are currently assigned to this parent.');
-            showNoStudentState();
-        }
-
-        hideLoadingSpinner();
-        console.log('✅ Multi-school parent dashboard initialized successfully.');
-    } catch (err) {
-        console.error('❌ Dashboard initialization failed:', err);
-        hideLoadingSpinner();
-        showErrorModal('Dashboard Initialization Error', err.message || 'Failed to initialize the parent dashboard.');
-    }
-}
-
-function applySchoolBranding(school) {
-    if (!school) return;
-
-    console.log('🎨 Applying school branding:', school);
-
-    const schoolName = school.schoolName || school.name || 'School Portal';
-    const logo = school.logoUrl || school.logo || school.branding?.logoUrl || school.branding?.logo || '';
-    const session = school.currentSession || school.academicSession || school.session || '';
-
-    const branding = school.branding || {};
-    const primary = branding.primary || branding.primaryColor || school.primaryColor || '#0284c7';
-    const secondary = branding.secondary || branding.secondaryColor || school.secondaryColor || '#075985';
-    const accent = branding.accent || branding.accentColor || school.accentColor || '#fbbf24';
-
-    document.documentElement.style.setProperty('--school-primary', primary);
-    document.documentElement.style.setProperty('--school-secondary', secondary);
-    document.documentElement.style.setProperty('--school-accent', accent);
-
-    const desktopName = document.getElementById('schoolName');
-    if (desktopName) desktopName.textContent = schoolName;
-
-    const mobileName = document.getElementById('mobileSchoolName');
-    if (mobileName) mobileName.textContent = schoolName;
-
-    const desktopLogo = document.getElementById('schoolLogo');
-    if (desktopLogo) {
-        if (logo) {
-            desktopLogo.src = logo;
-            desktopLogo.style.display = '';
-        } else {
-            desktopLogo.style.display = 'none';
-        }
-    }
-
-    const mobileLogo = document.getElementById('mobileSchoolLogo');
-    if (mobileLogo) {
-        if (logo) {
-            mobileLogo.src = logo;
-            mobileLogo.style.display = '';
-        } else {
-            mobileLogo.style.display = 'none';
-        }
-    }
-
-    const currentSessionEl = document.getElementById('currentSession');
-    if (currentSessionEl) currentSessionEl.textContent = session || '--';
-
-    const sessionValueEl = document.getElementById('sessionValue');
-    if (sessionValueEl) sessionValueEl.textContent = session || '--';
-
-    document.title = `${schoolName} | Parent Dashboard`;
-
-    document.documentElement.dataset.schoolId = school.schoolId || '';
-    document.documentElement.dataset.schoolName = schoolName;
-    document.documentElement.dataset.schoolSubdomain = school.subdomain || getSchoolSubdomain();
-
-    console.log('✅ School branding applied:', { schoolName, logo, primary, secondary, accent, session });
-}
-
-function loadCurrentSchool() {
-    if (!currentSchool) {
-        throw new Error('School configuration has not been loaded.');
-    }
-    return currentSchool;
-}
-
-async function loadParentData() {
-    try {
-        console.log('👨‍👩‍👧 Loading parent profile...');
-        const token = getParentToken();
-
-        if (!token) {
-            throw new Error('No valid parent authentication token was found. Please log in again.');
-        }
-
-        const res = await fetch(`${API_BASE}/parents/me`, {
-            method: 'GET',
-            headers: getAuthHeaders()
-        });
-
-        const rawResponse = await res.text();
-        let data = {};
-
-        try {
-            data = rawResponse ? JSON.parse(rawResponse) : {};
-        } catch {
-            data = { message: rawResponse };
-        }
-
-        if (res.status === 401) {
-            localStorage.removeItem('parentToken');
-            throw new Error(data.message || data.error || 'Your parent session has expired. Please log in again.');
-        }
-
-        if (res.status === 403) {
-            throw new Error(data.message || data.error || 'You do not have permission to access this school portal.');
-        }
-
-        if (!res.ok) {
-            throw new Error(data.message || data.error || `Unable to load parent profile. HTTP ${res.status}`);
-        }
-
-        parentData = data;
-
-        if (parentData.school) {
-            const parentSchoolId = parentData.school._id || parentData.school.id;
-            const configSchoolId = getConfigSchoolMongoId();
-
-            if (parentSchoolId && configSchoolId && String(parentSchoolId) !== String(configSchoolId)) {
-                throw new Error('The parent account belongs to a different school.');
+        function decodeJwtPayload(jwt) {
+            try {
+                const parts = jwt.split(".");
+                if (parts.length !== 3) return null;
+
+                return JSON.parse(
+                    decodeURIComponent(
+                        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+                            .split("")
+                            .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                            .join("")
+                    )
+                );
+            } catch (error) {
+                console.error("Unable to decode token:", error);
+                return null;
             }
         }
 
-        updateParentUI();
-        console.log('✅ Parent profile loaded:', parentData);
-        return parentData;
-    } catch (err) {
-        console.error('❌ Error loading parent:', err);
-        throw err;
-    }
-}
+        function getTokenSchoolId() {
+            const payload = decodeJwtPayload(token);
+            return payload?.schoolId ? String(payload.schoolId) : "";
+        }
 
-function getAuthHeaders() {
-    const currentToken = getParentToken();
-    const headers = {
-        'Authorization': `Bearer ${currentToken}`,
-        'Content-Type': 'application/json'
-    };
-
-    if (currentSchool?.schoolId) {
-        headers['X-School-ID'] = String(currentSchool.schoolId);
-    }
-
-    if (currentSchool?.subdomain) {
-        headers['X-School-Subdomain'] = String(currentSchool.subdomain);
-    }
-
-    return headers;
-}
-
-/* =========================================================
-   UI & DATA LOADERS
-   ========================================================= */
-
-function showLoadingSpinner(message = 'Loading Dashboard', status = 'Initializing system...') {
-    const overlay = document.getElementById('loadingOverlay');
-    if (!overlay) return;
-    document.getElementById('spinnerMainText').textContent = message;
-    document.getElementById('spinnerStatus').textContent = status;
-    overlay.classList.remove('hidden');
-}
-
-function hideLoadingSpinner() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (!overlay) return;
-    setTimeout(() => overlay.classList.add('hidden'), 300);
-}
-
-function updateLoadingStatus(status) {
-    const statusEl = document.getElementById('spinnerStatus');
-    if (statusEl) statusEl.textContent = status;
-}
-
-function showErrorModal(title, message, onConfirm = null) {
-    const modal = document.getElementById('errorModal');
-    const card = document.getElementById('errorModalCard');
-    const titleEl = document.getElementById('errorModalTitle');
-    const msgEl = document.getElementById('errorModalMessage');
-
-    if (titleEl) titleEl.textContent = title || 'An Error Occurred';
-    if (msgEl) msgEl.textContent = message || 'Unknown error occurred.';
-
-    errorConfirmCallback = onConfirm;
-
-    if (modal && card) {
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            modal.classList.remove('opacity-0');
-            card.classList.remove('scale-95');
-            card.classList.add('scale-100');
-        }, 10);
-    }
-}
-
-function closeErrorModal() {
-    const modal = document.getElementById('errorModal');
-    const card = document.getElementById('errorModalCard');
-
-    if (modal && card) {
-        modal.classList.add('opacity-0');
-        card.classList.remove('scale-100');
-        card.classList.add('scale-95');
-        setTimeout(() => {
-            modal.classList.add('hidden');
-            if (typeof errorConfirmCallback === 'function') {
-                const callback = errorConfirmCallback;
-                errorConfirmCallback = null;
-                callback();
+        // =========================================================
+        // TENANT / SCHOOL DETECTION
+        // =========================================================
+        function getTenantSubdomain() {
+            const storedSubdomain = localStorage.getItem("schoolSubdomain");
+            if (storedSubdomain) {
+                return storedSubdomain.trim().toLowerCase();
             }
-        }, 300);
-    }
-}
 
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency: 'NGN',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(amount);
-}
+            const hostname = window.location.hostname.toLowerCase();
+            const suffix = `.${BASE_DOMAIN}`;
 
-function updateParentUI() {
-    if (!parentData) return;
+            if (hostname.endsWith(suffix)) {
+                const prefix = hostname.slice(0, -suffix.length);
+                if (prefix && !prefix.includes(".")) {
+                    return prefix;
+                }
+            }
 
-    const parentName = parentData.name || 'Parent';
-    const parentFullName = document.getElementById('parentFullName');
-    if (parentFullName) parentFullName.textContent = parentName;
+            const parts = hostname.split(".");
+            if (parts.length >= 3) {
+                return parts[0];
+            }
 
-    const parentId = document.getElementById('parentId');
-    if (parentId) parentId.textContent = parentData._id ? String(parentData._id).slice(-8) : '--';
-
-    const mobileParentName = document.getElementById('mobileParentName');
-    if (mobileParentName) mobileParentName.textContent = parentName;
-}
-
-async function loadStudents() {
-    try {
-        console.log('👨‍🎓 Loading assigned students...');
-        const students = Array.isArray(parentData?.students) ? parentData.students : [];
-
-        allStudents = students.map(student => ({
-            ...student,
-            _id: String(student._id || student.id || ''),
-            name: student.name || `${student.firstname || student.firstName || ''} ${student.surname || student.lastName || ''}`.trim(),
-            class: student.class || student.className || 'N/A',
-            regNo: student.regNo || student.regNumber || 'N/A',
-            student_id: student.student_id || ''
-        })).filter(student => student._id);
-
-        console.log(`✅ ${allStudents.length} students loaded.`);
-        populateWardSelectors();
-        return allStudents;
-    } catch (err) {
-        console.error('❌ Error loading students:', err);
-        throw err;
-    }
-}
-
-function populateWardSelectors() {
-    const selectors = [
-        document.getElementById('wardSelector'),
-        document.getElementById('mobileWardSelector')
-    ].filter(Boolean);
-
-    selectors.forEach(selector => {
-        selector.innerHTML = '';
-
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = allStudents.length ? 'Select Student' : 'No Student Assigned';
-        selector.appendChild(defaultOption);
-
-        allStudents.forEach(student => {
-            const option = document.createElement('option');
-            option.value = student._id;
-            option.textContent = `${student.name || 'Student'} (${student.class || 'N/A'})`;
-            selector.appendChild(option);
-        });
-
-        if (currentSelectedStudent) {
-            selector.value = currentSelectedStudent;
-        } else if (allStudents.length) {
-            selector.value = allStudents[0]._id;
-        }
-    });
-
-    console.log('✓ Ward selectors populated.');
-}
-
-function syncWardSelectors() {
-    const desktop = document.getElementById('wardSelector');
-    const mobile = document.getElementById('mobileWardSelector');
-
-    if (desktop) desktop.value = currentSelectedStudent || '';
-    if (mobile) mobile.value = currentSelectedStudent || '';
-}
-
-async function switchToStudent(studentId) {
-    if (!studentId) return;
-    studentId = String(studentId);
-
-    if (currentSelectedStudent === studentId) {
-        syncWardSelectors();
-        return;
-    }
-
-    console.log('🔄 Switching student:', studentId);
-    currentSelectedStudent = studentId;
-    syncWardSelectors();
-
-    try {
-        showLoadingSpinner('Loading Student Data', 'Fetching academic information...');
-        await loadStudentDetails();
-        hideLoadingSpinner();
-    } catch (err) {
-        console.error('❌ Student switch failed:', err);
-        hideLoadingSpinner();
-        showErrorModal('Student Switching Error', 'Failed to load student details: ' + (err.message || 'Unknown error'));
-    }
-}
-
-function switchWard(element) {
-    let studentId = '';
-
-    if (element && element.value) {
-        studentId = element.value;
-    } else if (element && element.target) {
-        studentId = element.target.value;
-    } else {
-        const desktopSelector = document.getElementById('wardSelector');
-        const mobileSelector = document.getElementById('mobileWardSelector');
-        studentId = desktopSelector?.value || mobileSelector?.value || '';
-    }
-
-    if (studentId) {
-        switchToStudent(studentId);
-    }
-}
-
-async function loadStudentDetails() {
-    if (!currentSelectedStudent) {
-        showNoStudentState();
-        return;
-    }
-
-    const student = allStudents.find(student => String(student._id) === String(currentSelectedStudent));
-    if (!student) {
-        console.warn('Selected student not found.');
-        return;
-    }
-
-    console.log('📚 Loading student:', student);
-    updateStudentInfoDisplay(student);
-
-    await Promise.allSettled([
-        loadStudentGrades(student._id),
-        loadRecentResults(student._id),
-        loadStudentAssignments(student._id),
-        loadFeesSummary()
-    ]);
-
-    console.log('✅ Student dashboard loaded.');
-}
-
-function updateStudentInfoDisplay(student) {
-    const fullName = document.getElementById('studentFullName');
-    const studentClass = document.getElementById('studentClass');
-    const regNo = document.getElementById('studentRegNo');
-    const studentId = document.getElementById('studentId');
-
-    if (fullName) fullName.textContent = student.name || '--';
-    if (studentClass) studentClass.textContent = student.class || '--';
-    if (regNo) regNo.textContent = student.regNo || '--';
-    if (studentId) studentId.textContent = student.student_id || String(student._id).slice(-8);
-
-    const academicStats = student.academicStats || {};
-    const attendanceStats = student.attendanceStats || {};
-    const feesStats = student.feesStats || {};
-
-    const attendance = Number(attendanceStats.averageAttendancePercentage) || 0;
-    const average = Number(academicStats.averageScore) || 0;
-    const outstanding = Number(feesStats.outstanding) || 0;
-
-    const attendanceEl = document.getElementById('attendance');
-    if (attendanceEl) attendanceEl.textContent = `${attendance}%`;
-
-    const attendanceNote = document.getElementById('attendanceNote');
-    if (attendanceNote) attendanceNote.textContent = 'Current term';
-
-    const caAverage = document.getElementById('caAverage');
-    if (caAverage) caAverage.textContent = average.toFixed(1);
-
-    const caRanking = document.getElementById('caRanking');
-    if (caRanking) caRanking.textContent = 'Recent average';
-
-    updateFeesDisplay(outstanding);
-}
-
-function updateFeesDisplay(outstanding) {
-    const feesStatus = document.getElementById('feesStatus');
-    if (feesStatus) feesStatus.textContent = formatCurrency(outstanding);
-
-    const feesStatusBadge = document.getElementById('feesStatusBadge');
-    if (feesStatusBadge) {
-        if (outstanding === 0) {
-            feesStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-600 rounded-full mr-1.5"></span> Cleared`;
-            feesStatusBadge.className = 'inline-flex items-center bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5';
-        } else {
-            feesStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-amber-600 rounded-full mr-1.5"></span> Pending`;
-            feesStatusBadge.className = 'inline-flex items-center bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5';
-        }
-    }
-}
-
-async function loadStudentGrades(studentId) {
-    try {
-        const url = `${API_BASE}/parents/me/students/${studentId}/grades?term=${currentGradeTerm}`;
-        const res = await fetch(url, { headers: getAuthHeaders() });
-
-        if (!res.ok) {
-            console.warn(`Grades unavailable: ${res.status}`);
-            return;
+            return "";
         }
 
-        const data = await res.json();
-        console.log('📊 Grades loaded:', data);
-        updateGradeStatistics(data);
-    } catch (err) {
-        console.error('❌ Error loading grades:', err);
-    }
-}
+        // =========================================================
+        // SCHOOL CONFIGURATION
+        // =========================================================
+        async function loadSchoolConfig() {
+            const subdomain = getTenantSubdomain();
 
-function updateGradeStatistics(data) {
-    const records = Array.isArray(data?.records) ? data.records : [];
-    if (!records.length) return;
+            if (!subdomain) {
+                throw new Error(
+                    "This school portal could not be identified. Please access the portal using your school's official address."
+                );
+            }
 
-    const scores = records.map(record => {
-        const ca1 = Number(record.ca1) || 0;
-        const ca2 = Number(record.ca2) || 0;
-        const exam = Number(record.exam) || 0;
-        return ca1 + ca2 + exam;
-    });
+            localStorage.setItem("schoolSubdomain", subdomain);
+            const cacheKey = `examguard_school_config_${subdomain}`;
 
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const caAverage = document.getElementById('caAverage');
-    if (caAverage) caAverage.textContent = average.toFixed(1);
-}
+            try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const cachedSchool = JSON.parse(cached);
+                    if (cachedSchool) {
+                        currentSchool = cachedSchool;
+                        applySchoolBranding(currentSchool);
+                    }
+                }
+            } catch (error) {
+                console.warn("Could not read cached school config:", error);
+            }
 
-async function loadRecentResults(studentId) {
-    try {
-        const url = `${API_BASE}/parents/me/students/${studentId}/results`;
-        const res = await fetch(url, { headers: getAuthHeaders() });
+            const url = `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`;
+            const response = await fetch(url, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
 
-        if (!res.ok) {
-            renderRecentResults([]);
-            return;
+            if (!response.ok) {
+                throw new Error(`Unable to load school configuration (${response.status}).`);
+            }
+
+            const result = await response.json();
+            const school = result.school || result.data || result;
+
+            if (!school) {
+                throw new Error("School configuration was not returned by the server.");
+            }
+
+            currentSchool = school;
+            localStorage.setItem(cacheKey, JSON.stringify(school));
+            applySchoolBranding(currentSchool);
+
+            console.log("🏫 School configuration loaded:", currentSchool);
+            return currentSchool;
         }
 
-        const data = await res.json();
-        const results = Array.isArray(data.results) ? data.results : Array.isArray(data.records) ? data.records : [];
-        renderRecentResults(results.slice(0, 5));
+        // =========================================================
+        // SCHOOL BRANDING
+        // =========================================================
+        function applySchoolBranding(school) {
+            if (!school) return;
 
-        const termSession = document.getElementById('resultTermSession');
-        if (termSession && (data.term || data.session)) {
-            termSession.textContent = `${data.term ? 'Term ' + data.term + ' - ' : ''}${data.session || ''}`;
-        }
-    } catch (err) {
-        console.error('❌ Error loading results:', err);
-        renderRecentResults([]);
-    }
-}
+            const branding = school.branding || {};
+            const schoolName = school.schoolName || school.name || "School";
+            const logo = school.logoUrl || branding.logoUrl || branding.logo || "";
+            const primary = branding.primary || branding.primaryColor || school.primaryColor || "#0284c7";
+            const secondary = branding.secondary || branding.secondaryColor || school.secondaryColor || "#075985";
+            const accent = branding.accent || branding.accentColor || school.accentColor || "#fbbf24";
 
-function renderRecentResults(records) {
-    const tbody = document.getElementById('recentResultsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+            document.documentElement.style.setProperty("--school-primary", primary);
+            document.documentElement.style.setProperty("--school-primary-50", `color-mix(in srgb, ${primary} 6%, white)`);
+            document.documentElement.style.setProperty("--school-primary-100", `color-mix(in srgb, ${primary} 12%, white)`);
+            document.documentElement.style.setProperty("--school-primary-200", `color-mix(in srgb, ${primary} 25%, white)`);
+            document.documentElement.style.setProperty("--school-primary-300", `color-mix(in srgb, ${primary} 45%, white)`);
+            document.documentElement.style.setProperty("--school-primary-400", `color-mix(in srgb, ${primary} 70%, white)`);
+            document.documentElement.style.setProperty("--school-primary-600", `color-mix(in srgb, ${primary} 88%, black)`);
+            document.documentElement.style.setProperty("--school-primary-700", `color-mix(in srgb, ${primary} 78%, black)`);
+            document.documentElement.style.setProperty("--school-secondary", secondary);
+            document.documentElement.style.setProperty("--school-secondary-dark", `color-mix(in srgb, ${secondary} 85%, black)`);
+            document.documentElement.style.setProperty("--school-accent", accent);
+            document.documentElement.style.setProperty("--school-accent-dark", `color-mix(in srgb, ${accent} 75%, black)`);
 
-    if (!records || !records.length) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="p-8 text-center text-slate-400">
-                    No results uploaded yet
-                </td>
-            </tr>
-        `;
-        return;
-    }
+            document.title = `Pay School Fees | ${schoolName}`;
 
-    records.slice(0, 5).forEach(record => {
-        const ca1 = Number(record.ca1 || record.ca1_score) || 0;
-        const ca2 = Number(record.ca2 || record.ca2_score) || 0;
-        const exam = Number(record.exam || record.exam_score) || 0;
-        let score = Number(record.score || record.total);
+            const schoolNameHeader = document.getElementById("schoolNameHeader");
+            if (schoolNameHeader) {
+                schoolNameHeader.textContent = schoolName;
+            }
 
-        if (isNaN(score) || score === 0) score = ca1 + ca2 + exam;
+            const logoElement = document.getElementById("schoolLogo");
+            const initialsElement = document.getElementById("schoolInitials");
 
-        let gradeLetters = record.grade || 'N/A';
-        if (!gradeLetters || gradeLetters === 'N/A') {
-            if (score >= 70) gradeLetters = 'A';
-            else if (score >= 60) gradeLetters = 'B';
-            else if (score >= 50) gradeLetters = 'C';
-            else if (score >= 45) gradeLetters = 'D';
-            else if (score >= 40) gradeLetters = 'E';
-            else gradeLetters = 'F';
-        }
+            if (logo) {
+                if (logoElement) {
+                    logoElement.src = logo;
+                    logoElement.classList.remove("hidden");
+                }
+                if (initialsElement) {
+                    initialsElement.classList.add("hidden");
+                }
+            } else {
+                if (logoElement) {
+                    logoElement.classList.add("hidden");
+                }
+                if (initialsElement) {
+                    initialsElement.textContent = getSchoolInitials(schoolName);
+                    initialsElement.classList.remove("hidden");
+                }
+            }
 
-        const row = document.createElement('tr');
-        row.className = 'hover:bg-slate-50/60 transition';
-        row.innerHTML = `
-            <td class="p-4 pl-6 font-bold text-brand-900">${record.subject || 'Unknown'}</td>
-            <td class="p-4 text-center font-mono font-bold">${score.toFixed(1)}</td>
-            <td class="p-4 text-center">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-lg font-bold text-[11px]
-                    ${score >= 70 ? 'bg-emerald-50 text-emerald-700' : 
-                      score >= 50 ? 'bg-blue-50 text-blue-700' : 
-                      'bg-amber-50 text-amber-700'}">
-                    ${gradeLetters}
-                </span>
-            </td>
-            <td class="p-4 pr-6 text-center">
-                <span class="inline-flex items-center text-[11px] font-bold">
-                    <span class="w-2 h-2 rounded-full mr-1.5 ${score >= 50 ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
-                    ${score >= 50 ? 'Pass' : 'Review'}
-                </span>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-}
+            if (logo) {
+                let favicon = document.querySelector('link[rel="icon"]');
+                if (!favicon) {
+                    favicon = document.createElement("link");
+                    favicon.rel = "icon";
+                    document.head.appendChild(favicon);
+                }
+                favicon.href = logo;
+            }
 
-async function loadStudentAssignments(studentId) {
-    try {
-        const url = `${API_BASE}/parents/me/students/${studentId}/assignments`;
-        const res = await fetch(url, { headers: getAuthHeaders() });
-
-        if (!res.ok) {
-            renderAssignments([]);
-            return;
+            let themeColor = document.querySelector('meta[name="theme-color"]');
+            if (!themeColor) {
+                themeColor = document.createElement("meta");
+                themeColor.name = "theme-color";
+                document.head.appendChild(themeColor);
+            }
+            themeColor.content = primary;
         }
 
-        const data = await res.json();
-        const assignments = Array.isArray(data) ? data : (data.assignments || []);
-        renderAssignments(assignments);
-    } catch (err) {
-        console.error('❌ Error loading assignments:', err);
-        renderAssignments([]);
-    }
-}
+        function getSchoolInitials(name) {
+            if (!name) return "SP";
+            const words = name.trim().split(/\s+/).filter(Boolean);
+            if (words.length === 1) {
+                return words[0].substring(0, 2).toUpperCase();
+            }
+            return (words[0][0] + words[1][0]).toUpperCase();
+        }
 
-function renderAssignments(assignments) {
-    const container = document.getElementById('assignmentsContainer');
-    if (!container) return;
-    container.innerHTML = '';
+        // =========================================================
+        // SCHOOL CONTEXT VALIDATION
+        // =========================================================
+        function validateSchoolContext() {
+            const tokenSchoolId = getTokenSchoolId();
 
-    if (!assignments || !assignments.length) {
-        container.innerHTML = `
-            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center col-span-full">
-                <p class="text-slate-400">No active assignments</p>
-            </div>
-        `;
-        return;
-    }
+            if (!tokenSchoolId) {
+                throw new Error("Your session does not contain a valid school context. Please log in again.");
+            }
 
-    assignments.forEach(assignment => {
-        const dueDate = new Date(assignment.dueDate || assignment.deadline);
-        const today = new Date();
-        const isOverdue = dueDate < today;
-        const daysLeft = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+            const configSchoolId = currentSchool?._id || currentSchool?.id || "";
 
-        const card = document.createElement('div');
-        card.className = `p-4 border rounded-2xl ${isOverdue ? 'bg-rose-50 border-rose-200' : 'bg-blue-50 border-blue-200'}`;
-        card.innerHTML = `
-            <div class="flex items-start justify-between mb-2">
-                <h4 class="font-bold text-sm ${isOverdue ? 'text-rose-900' : 'text-blue-900'}">${assignment.title || 'Untitled'}</h4>
-                <span class="text-[10px] font-bold ${isOverdue ? 'bg-rose-200 text-rose-700' : 'bg-blue-200 text-blue-700'} px-2 py-1 rounded-lg">
-                    ${isOverdue ? 'Overdue' : daysLeft + (daysLeft === 1 ? ' day' : ' days')}
-                </span>
-            </div>
-            <p class="text-[11px] ${isOverdue ? 'text-rose-700' : 'text-blue-700'} mb-2">${assignment.description || 'No description'}</p>
-            <p class="text-[10px] text-slate-500">Due: ${dueDate.toLocaleDateString('en-NG')}</p>
-        `;
-        container.appendChild(card);
-    });
-}
+            if (configSchoolId && String(configSchoolId) !== String(tokenSchoolId)) {
+                console.error("School context mismatch:", { tokenSchoolId, configSchoolId });
+                throw new Error("This parent account belongs to a different school. Please use your school's portal.");
+            }
 
-async function loadFeesSummary() {
-    try {
-        const student = allStudents.find(s => String(s._id) === String(currentSelectedStudent));
-        if (!student) return;
-        const feesStats = student.feesStats || {};
-        const outstanding = feesStats.outstanding || 0;
-        updateFeesDisplay(outstanding);
-    } catch (err) {
-        console.error('❌ Error loading fees summary:', err);
-    }
-}
+            if (currentSchool?.schoolId) {
+                localStorage.setItem("schoolId", currentSchool.schoolId);
+            }
+        }
 
-function showNoStudentState() {
-    const fields = ['studentFullName', 'studentClass', 'studentRegNo', 'studentId', 'attendance', 'caAverage'];
-    fields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = '--';
-    });
-    renderRecentResults([]);
-    renderAssignments([]);
-}
+        // =========================================================
+        // INITIALIZATION
+        // =========================================================
+        async function initializePaymentPage() {
+            console.log("🚀 Initializing Multi-School Payment Page...");
 
-function handleFeesAction(studentId, isCleared) {
-    if (!studentId) return;
-    if (isCleared) {
-        window.location.href = `fees-receipt.html?studentId=${studentId}`;
-    } else {
-        window.location.href = `fees-payment.html?studentId=${studentId}`;
-    }
-}
+            token = getAuthToken();
 
-function logoutUser() {
-    localStorage.removeItem('parentToken');
-    localStorage.removeItem('token');
-    window.location.href = 'login.html';
-}
+            if (!token) {
+                showAlert("Authentication required. Redirecting to login...", "error");
+                setTimeout(() => { window.location.href = "login.html"; }, 2000);
+                return;
+            }
 
-function openBottomNav() {
-    const overlay = document.getElementById('bottomDrawerOverlay');
-    const card = document.getElementById('bottomDrawerCard');
-    if (overlay && card) {
-        overlay.classList.remove('hidden');
-        setTimeout(() => {
-            overlay.classList.remove('opacity-0');
-            card.classList.remove('translate-y-full');
-        }, 10);
-    }
-}
+            try {
+                showLoadingSpinner(true);
 
-function closeBottomNav(event) {
-    if (event && event.target !== document.getElementById('bottomDrawerOverlay')) return;
-    const overlay = document.getElementById('bottomDrawerOverlay');
-    const card = document.getElementById('bottomDrawerCard');
-    if (overlay && card) {
-        overlay.classList.add('opacity-0');
-        card.classList.add('translate-y-full');
-        setTimeout(() => overlay.classList.add('hidden'), 300);
-    }
-}
-</script>
+                await loadSchoolConfig();
+                validateSchoolContext();
+
+                const params = new URLSearchParams(window.location.search);
+                const studentId = params.get("studentId");
+
+                if (!studentId) {
+                    throw new Error("No student was selected.");
+                }
+
+                await loadStudentData(studentId);
+                await loadStudentFees(studentId);
+                setupEventListeners();
+
+                showLoadingSpinner(false);
+            } catch (err) {
+                console.error("❌ Initialization error:", err);
+                showLoadingSpinner(false);
+                showAlert(err.message || "Failed to load payment page.", "error");
+            }
+        }
+
+        // =========================================================
+        // LOADING
+        // =========================================================
+        function showLoadingSpinner(show = true) {
+            const overlay = document.getElementById("loadingOverlay");
+            if (overlay) {
+                overlay.classList.toggle("hidden", !show);
+            }
+        }
+
+        // =========================================================
+        // AUTH HEADERS
+        // =========================================================
+        function getAuthHeaders() {
+            const headers = {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            };
+
+            if (currentSchool?.schoolId) {
+                headers["X-School-Code"] = currentSchool.schoolId;
+            }
+
+            return headers;
+        }
+
+        // =========================================================
+        // LOAD STUDENT
+        // =========================================================
+        async function loadStudentData(studentId) {
+            try {
+                console.log("📥 Loading student data...");
+
+                const parentDataStr = sessionStorage.getItem("parentData");
+                if (parentDataStr) {
+                    try {
+                        const parentData = JSON.parse(parentDataStr);
+                        const parentSchoolId = parentData?.schoolId || parentData?.school?._id || parentData?.school?.id || "";
+                        const tokenSchoolId = getTokenSchoolId();
+
+                        if (!parentSchoolId || !tokenSchoolId || String(parentSchoolId) === String(tokenSchoolId)) {
+                            studentData = parentData.students?.find(student => String(student._id) === String(studentId));
+                        }
+                    } catch (cacheError) {
+                        console.warn("Invalid cached parent data.", cacheError);
+                    }
+                }
+
+                if (!studentData) {
+                    const res = await fetch(`${API_BASE}/parents/me`, {
+                        method: "GET",
+                        headers: getAuthHeaders()
+                    });
+
+                    if (!res.ok) {
+                        const errorBody = await res.text();
+                        throw new Error(errorBody || "Failed to fetch parent data.");
+                    }
+
+                    const parentData = await res.json();
+                    sessionStorage.setItem("parentData", JSON.stringify(parentData));
+
+                    const parentSchoolId = parentData?.schoolId || parentData?.school?._id || parentData?.school?.id || "";
+                    const tokenSchoolId = getTokenSchoolId();
+
+                    if (parentSchoolId && tokenSchoolId && String(parentSchoolId) !== String(tokenSchoolId)) {
+                        throw new Error("The parent account and school information do not match.");
+                    }
+
+                    studentData = parentData.students?.find(student => String(student._id) === String(studentId));
+                }
+
+                if (!studentData) {
+                    throw new Error("Student not found in your parent account.");
+                }
+
+                if (studentData.schoolId && getTokenSchoolId() && String(studentData.schoolId) !== String(getTokenSchoolId())) {
+                    throw new Error("This student belongs to a different school.");
+                }
+
+                console.log("✅ Student data loaded:", studentData.name);
+                updateStudentInfoDisplay();
+            } catch (err) {
+                console.error("❌ Error loading student data:", err);
+                throw err;
+            }
+        }
+
+        // =========================================================
+        // STUDENT DISPLAY
+        // =========================================================
+        function updateStudentInfoDisplay() {
+            document.getElementById("studentName").textContent = studentData.name || "--";
+            document.getElementById("studentClass").textContent = studentData.class || studentData.className || "--";
+            document.getElementById("studentRegNo").textContent = studentData.regNo || studentData.regNumber || "--";
+            document.getElementById("studentId").textContent = studentData.student_id || studentData._id?.slice(-8) || "--";
+        }
+
+        // =========================================================
+        // LOAD FEES
+        // =========================================================
+        async function loadStudentFees(studentId) {
+            try {
+                console.log("💰 Loading fees for student:", studentId);
+
+                const feesStats = studentData.feesStats || {};
+                let allFees = [];
+                let totalAmount = 0;
+                let totalPaid = 0;
+
+                if (feesStats.byTerm) {
+                    Object.entries(feesStats.byTerm).forEach(([term, termFees]) => {
+                        const termTotal = Number(termFees.total) || 0;
+                        const termPaid = Number(termFees.paid) || 0;
+                        const termPending = Number(termFees.pending) || 0;
+
+                        if (termPending > 0) {
+                            allFees.push({
+                                id: `${studentId}-${term}`,
+                                term,
+                                type: `${term} - School Fees`,
+                                amount: termTotal,
+                                paid: termPaid,
+                                pending: termPending,
+                                status: termPaid > 0 ? "Partial" : "Pending"
+                            });
+                        }
+
+                        totalAmount += termTotal;
+                        totalPaid += termPaid;
+                    });
+                }
+
+                if (Array.isArray(studentData.fees)) {
+                    studentData.fees.forEach(fee => {
+                        const feeAmount = Number(fee.amount) || 0;
+                        const isPaid = fee.status === "paid" || fee.status === "Paid";
+
+                        if (!isPaid && feeAmount > 0) {
+                            allFees.push({
+                                id: fee._id || `fee-${Date.now()}`,
+                                term: fee.term || "General",
+                                type: fee.type || "School Fee",
+                                amount: feeAmount,
+                                paid: 0,
+                                pending: feeAmount,
+                                status: "Pending"
+                            });
+                        }
+
+                        totalAmount += feeAmount;
+                        if (isPaid) totalPaid += feeAmount;
+                    });
+                }
+
+                console.log("✅ Fees loaded:", { count: allFees.length, totalAmount, totalPaid });
+
+                updateFeesSummary(totalAmount, totalPaid);
+                renderFeesTable(allFees);
+            } catch (err) {
+                console.error("❌ Error loading fees:", err);
+                showAlert("Failed to load fees: " + err.message, "error");
+            }
+        }
+
+        // =========================================================
+        // FEES SUMMARY
+        // =========================================================
+        function updateFeesSummary(totalAmount, totalPaid) {
+            const outstanding = Math.max(0, totalAmount - totalPaid);
+
+            document.getElementById("totalAmount").textContent = formatCurrency(totalAmount);
+            document.getElementById("totalPaid").textContent = formatCurrency(totalPaid);
+            document.getElementById("totalOutstanding").textContent = formatCurrency(outstanding);
+
+            updatePayableAmount();
+        }
+
+        // =========================================================
+        // RENDER FEES
+        // =========================================================
+        function renderFeesTable(fees) {
+            const container = document.getElementById("feesContent");
+            const countEl = document.getElementById("feesCount");
+
+            if (!fees || fees.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-4xl mb-3">✅</div>
+                        <h4 class="text-sm font-bold text-slate-900 mb-1">No Outstanding Fees</h4>
+                        <p class="text-xs text-slate-500">All fees are paid up. Congratulations!</p>
+                    </div>
+                `;
+                countEl.textContent = "0 Fees";
+                document.getElementById("payBtn").disabled = true;
+                return;
+            }
+
+            countEl.textContent = `${fees.length} Fee${fees.length !== 1 ? "s" : ""}`;
+
+            const html = fees.map(fee => `
+                <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:bg-slate-50/50 transition group">
+                    <div class="flex items-center gap-4 flex-grow">
+                        <input
+                            type="checkbox"
+                            class="fee-checkbox w-5 h-5 rounded text-brand-600 cursor-pointer"
+                            data-fee-id="${escapeHtml(fee.id)}"
+                            data-amount="${Number(fee.pending) || 0}"
+                            onchange="updatePayableAmount()"
+                        >
+                        <div class="flex-grow">
+                            <p class="text-sm font-bold text-slate-900">${escapeHtml(fee.term)}</p>
+                            <p class="text-xs text-slate-500">${escapeHtml(fee.type)}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-slate-900">${formatCurrency(fee.amount)}</p>
+                        <p class="text-xs text-slate-500">Pending: ${formatCurrency(fee.pending)}</p>
+                    </div>
+                    <button
+                        onclick="toggleFeeSelection('${escapeJs(fee.id)}')"
+                        class="ml-4 bg-brand-50 text-brand-700 hover:bg-brand-100 font-bold text-xs px-3 py-1.5 rounded-lg transition"
+                    >
+                        Select
+                    </button>
+                </div>
+            `).join("");
+
+            container.innerHTML = html;
+        }
+
+        // =========================================================
+        // FEE SELECTION
+        // =========================================================
+        function toggleFeeSelection(feeId) {
+            const checkbox = document.querySelector(`input[data-fee-id="${CSS.escape(String(feeId))}"]`);
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                updatePayableAmount();
+            }
+        }
+
+        function updatePayableAmount() {
+            const feeCheckboxes = document.querySelectorAll(".fee-checkbox:checked");
+            selectedFees = [];
+            totalPayableAmount = 0;
+
+            feeCheckboxes.forEach(checkbox => {
+                selectedFees.push(checkbox.dataset.feeId);
+                totalPayableAmount += Number(checkbox.dataset.amount) || 0;
+            });
+
+            document.getElementById("totalOutstanding").textContent = formatCurrency(totalPayableAmount);
+            document.getElementById("payBtn").disabled = selectedFees.length === 0;
+
+            const method = document.getElementById("paymentMethod")?.value;
+            if (method) {
+                renderPaymentMethodDetails(method);
+            }
+
+            console.log("Selected fees:", selectedFees, "Total:", totalPayableAmount);
+        }
+
+        // =========================================================
+        // PAYMENT METHOD
+        // =========================================================
+        function setupEventListeners() {
+            const paymentMethodSelect = document.getElementById("paymentMethod");
+            paymentMethodSelect.addEventListener("change", event => {
+                renderPaymentMethodDetails(event.target.value);
+            });
+        }
+
+        function renderPaymentMethodDetails(method) {
+            const container = document.getElementById("paymentMethodDetails");
+            const paymentSettings = currentSchool?.paymentSettings || currentSchool?.payments || {};
+            const bank = paymentSettings.bank || currentSchool?.bankDetails || {};
+
+            const bankName = bank.bankName || paymentSettings.bankName || "Bank Transfer";
+            const accountNumber = bank.accountNumber || paymentSettings.accountNumber || "Contact the school";
+            const accountName = bank.accountName || paymentSettings.accountName || currentSchool?.schoolName || "School Account";
+
+            const details = {
+                card: `
+                    <div class="space-y-3">
+                        <p class="text-xs text-slate-600 font-medium">Credit/Debit Card information will be entered securely on the next page.</p>
+                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8"/>
+                            </svg>
+                            Your payment is secure and encrypted.
+                        </div>
+                    </div>
+                `,
+                bank_transfer: `
+                    <div class="space-y-3 text-xs">
+                        <div class="bg-white border border-slate-200 rounded-lg p-3">
+                            <p class="font-bold text-slate-900 mb-2">Bank Transfer Details</p>
+                            <div class="space-y-1.5 text-slate-700">
+                                <p><span class="font-bold">Bank Name:</span> ${escapeHtml(bankName)}</p>
+                                <p><span class="font-bold">Account Number:</span> <span class="font-mono">${escapeHtml(accountNumber)}</span></p>
+                                <p><span class="font-bold">Account Name:</span> ${escapeHtml(accountName)}</p>
+                                <p><span class="font-bold">Amount:</span> <span class="font-bold text-brand-900">${formatCurrency(totalPayableAmount)}</span></p>
+                                <p><span class="font-bold">Reference:</span> <span class="font-mono">${escapeHtml(studentData?._id?.slice(-8) || "REF")}</span></p>
+                            </div>
+                        </div>
+                        <p class="text-slate-500">Please use the reference code when transferring to ensure the payment is credited to the correct student.</p>
+                    </div>
+                `,
+                ussd: `
+                    <div class="space-y-3 text-xs">
+                        <div class="bg-white border border-slate-200 rounded-lg p-3">
+                            <p class="font-bold text-slate-900 mb-2">USSD Payment</p>
+                            <p class="text-slate-600">Use your bank's USSD service to complete the payment.</p>
+                            <p class="mt-2"><span class="font-bold">Amount:</span> ${formatCurrency(totalPayableAmount)}</p>
+                        </div>
+                        <p class="text-slate-500">Your school may provide a dedicated USSD code or payment instruction.</p>
+                    </div>
+                `,
+                wallet: `
+                    <div class="space-y-3">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Wallet Provider</label>
+                        <select class="w-full bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-900 p-2 outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="">-- Select Wallet --</option>
+                            <option>School Wallet</option>
+                        </select>
+                    </div>
+                `,
+                "": ""
+            };
+
+            container.innerHTML = details[method] || "";
+        }
+
+        // =========================================================
+        // PAYMENT PROCESSING
+        // =========================================================
+        async function processPayment() {
+            try {
+                if (selectedFees.length === 0) {
+                    showAlert("Please select at least one fee to pay.", "warning");
+                    return;
+                }
+
+                const paymentMethod = document.getElementById("paymentMethod").value;
+                if (!paymentMethod) {
+                    showAlert("Please select a payment method.", "warning");
+                    return;
+                }
+
+                showLoadingSpinner(true);
+
+                console.log("💳 Processing payment:", {
+                    schoolId: currentSchool?.schoolId,
+                    studentId: studentData._id,
+                    selectedFees,
+                    totalPayableAmount,
+                    paymentMethod
+                });
+
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                showLoadingSpinner(false);
+                showAlert("Payment request submitted! Please complete payment to finalize.", "success");
+
+                setTimeout(() => {
+                    const params = new URLSearchParams({
+                        studentId: studentData._id,
+                        amount: totalPayableAmount,
+                        method: paymentMethod,
+                        schoolId: currentSchool?.schoolId || ""
+                    });
+
+                    window.location.href = `fees-receipt.html?${params.toString()}`;
+                }, 2000);
+
+            } catch (err) {
+                console.error("❌ Payment error:", err);
+                showAlert("Payment failed: " + err.message, "error");
+                showLoadingSpinner(false);
+            }
+        }
+
+        // =========================================================
+        // UTILITIES
+        // =========================================================
+        function formatCurrency(value) {
+            return "₦" + (Number(value) || 0).toLocaleString("en-NG", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function escapeJs(value) {
+            return String(value ?? "")
+                .replace(/\\/g, "\\\\")
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '\\"');
+        }
+
+        function showAlert(message, type = "info") {
+            const container = document.getElementById("alertContainer");
+
+            const alertClass = {
+                success: "bg-emerald-50 border-emerald-200 text-emerald-800",
+                error: "bg-red-50 border-red-200 text-red-800",
+                warning: "bg-amber-50 border-amber-200 text-amber-800",
+                info: "bg-blue-50 border-blue-200 text-blue-800"
+            }[type] || "bg-blue-50 border-blue-200 text-blue-800";
+
+            const iconClass = {
+                success: "fa-check-circle",
+                error: "fa-exclamation-circle",
+                warning: "fa-exclamation-triangle",
+                info: "fa-info-circle"
+            }[type] || "fa-info-circle";
+
+            const alert = document.createElement("div");
+            alert.className = `flex items-center gap-3 border rounded-xl px-4 py-3 text-sm font-medium ${alertClass}`;
+            alert.innerHTML = `
+                <i class="fas ${iconClass}"></i>
+                <span>${escapeHtml(message)}</span>
+            `;
+
+            container.appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // =========================================================
+        // DOM READY
+        // =========================================================
+        document.addEventListener("DOMContentLoaded", initializePaymentPage);
+    </script>
 </body>
 </html>
