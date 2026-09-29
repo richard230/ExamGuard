@@ -674,7 +674,13 @@ async function loadSchoolConfig(){
     console.warn('Full school config could not be loaded; using authenticated school data.', configError);
   }
 
+  // /api/schools/config returns its Mongo identifier as `school.id`
+  // (not `school._id`). Normalize both response shapes so the tenant
+  // validation works with the actual backend response.
   const resolvedSchool = fullSchool || schoolFromMe;
+  if(resolvedSchool && !resolvedSchool._id && resolvedSchool.id){
+    resolvedSchool._id = resolvedSchool.id;
+  }
 
   if(!resolvedSchool?._id){
     throw new Error('Your school configuration was not returned by the server.');
