@@ -1,22 +1,25 @@
-// ============ TAB NAVIGATION ============
+const BACKEND_URL = "https://examguard-8rxe.onrender.com";
+const API_BASE = `${BACKEND_URL}/api/academics`;
+const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
 
-// Tab logic for main sections
+// Helper to enforce consistent session format (e.g., 2025–2026)
+function formatSessionName(str) {
+  if (!str) return str;
+  const match = str.match(/(\d{4})\D*(\d{4})/);
+  return match ? `${match[1]}–${match[2]}` : str;
+}
+
 function showTab(tab) {
   document.querySelectorAll('.tablist button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   document.querySelectorAll('[data-section]').forEach(sec => sec.classList.toggle('hidden', sec.dataset.section !== tab));
-  // Highlight active nav link in sidebar
   document.querySelectorAll('.nav a').forEach(nav => nav.classList.toggle('active', nav.dataset.tab === tab));
-  
-  // Load uploaded subjects when entering the subjects tab
   if (tab === "subjects") loadUploadedSubjects();
 }
 
-// Attach tab button click handlers
 document.querySelectorAll('.tablist button').forEach(btn => {
   btn.addEventListener('click', () => showTab(btn.dataset.tab));
 });
 
-// Exam section tabs
 function showExamTab(tab) {
   document.querySelectorAll('#examTabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.examtab === tab));
   document.querySelectorAll('#examTabContent > div').forEach(sec => sec.classList.toggle('hidden', sec.dataset.examsection !== tab));
@@ -26,14 +29,6 @@ document.querySelectorAll('#examTabs button').forEach(btn => {
   btn.addEventListener('click', () => showExamTab(btn.dataset.examtab));
 });
 
-// ============ API CONFIGURATION ============
-
-const API_BASE = "https://goldlincschools.onrender.com/api/academics";
-const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
-
-// ============ UTILITY FUNCTIONS ============
-
-// Fill dropdown with data from API
 async function fillDropdown(endpoint, selectId, valueKey = 'name') {
   try {
     const res = await fetch(API_BASE + endpoint, { 
@@ -43,17 +38,22 @@ async function fillDropdown(endpoint, selectId, valueKey = 'name') {
     const data = await res.json();
     const select = document.getElementById(selectId);
     if (select) {
-      select.innerHTML = data.map(d => `<option value="${d._id}">${d[valueKey]}</option>`).join('');
+      select.innerHTML = data.map(d => {
+        let text = d[valueKey];
+        if (endpoint.includes('/sessions') && valueKey === 'name') {
+          text = formatSessionName(text);
+        }
+        return `<option value="${d._id}">${text}</option>`;
+      }).join('');
     }
   } catch (err) {
     console.error('Error filling dropdown:', err);
   }
 }
 
-// Fill teacher dropdown
 async function fillTeacherDropdown() {
   try {
-    const res = await fetch("https://goldlincschools.onrender.com/api/teachers", { 
+    const res = await fetch(`${BACKEND_URL}/api/teachers`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -69,10 +69,9 @@ async function fillTeacherDropdown() {
   }
 }
 
-// Fill class dropdown for subjects
 async function fillClassDropdown() {
   try {
-    const res = await fetch(API_BASE + "/classes", { 
+    const res = await fetch(`${API_BASE}/classes`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -88,10 +87,9 @@ async function fillClassDropdown() {
   }
 }
 
-// Fill teacher dropdown for subjects
 async function fillTeacherDropdown2() {
   try {
-    const res = await fetch(API_BASE.replace('/academics', '') + "/teachers", { 
+    const res = await fetch(`${BACKEND_URL}/api/teachers`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -107,9 +105,6 @@ async function fillTeacherDropdown2() {
   }
 }
 
-// ============ CLASSES MANAGEMENT ============
-
-// Toggle teacher dropdown
 function toggleTeacherDropdown() {
   const menu = document.getElementById('teacherDropdownMenu');
   if (menu) {
@@ -117,10 +112,9 @@ function toggleTeacherDropdown() {
   }
 }
 
-// Fill teacher checkboxes for class form
 async function fillTeacherCheckboxes() {
   try {
-    const res = await fetch("https://goldlincschools.onrender.com/api/teachers", { 
+    const res = await fetch(`${BACKEND_URL}/api/teachers`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -139,13 +133,11 @@ async function fillTeacherCheckboxes() {
   }
 }
 
-// Load classes
 async function loadClasses() {
   const tbody = document.getElementById('classesTableBody');
   if (!tbody) return;
-  
   try {
-    const res = await fetch(API_BASE + "/classes", { 
+    const res = await fetch(`${API_BASE}/classes`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -153,12 +145,10 @@ async function loadClasses() {
       return;
     }
     const classes = await res.json();
-    
     if (!classes.length) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="4">No classes found.</td></tr>';
       return;
     }
-    
     tbody.innerHTML = classes.map(c =>
       `<tr>
         <td class="py-2 px-3">${c.name}</td>
@@ -184,7 +174,6 @@ async function loadClasses() {
   }
 }
 
-// Delete class
 window.deleteClass = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -207,7 +196,6 @@ window.deleteClass = async function(id, btn) {
   }
 };
 
-// Edit class
 window.editClass = function(id) {
   fetch(`${API_BASE}/classes/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -218,13 +206,10 @@ window.editClass = function(id) {
       if (!form) return;
       form.name.value = cls.name || "";
       form.arms.value = cls.arms && cls.arms.length ? cls.arms.join(', ') : "";
-      
-      // Preselect teachers
       const teacherCheckboxes = form.querySelectorAll('input[name="teacherIds"]');
       teacherCheckboxes.forEach(cb => {
         cb.checked = cls.teachers?.some(t => t._id === cb.value || t.id === cb.value);
       });
-      
       form.setAttribute('data-edit-id', id);
       const msg = document.getElementById('classMessage');
       if (msg) msg.textContent = "Editing class. Save to update.";
@@ -232,7 +217,6 @@ window.editClass = function(id) {
     .catch(err => console.error('Error editing class:', err));
 };
 
-// Add/Update class
 document.addEventListener('DOMContentLoaded', () => {
   const classForm = document.getElementById('classForm');
   if (classForm) {
@@ -240,23 +224,17 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const form = this;
       const data = Object.fromEntries(new FormData(form));
-      
-      // Process arms
       data.arms = data.arms 
         ? data.arms.split(',').map(a => a.trim()).filter(a => a) 
         : [];
-      
-      // Get checked teachers
       const teacherCheckboxes = form.querySelectorAll('input[name="teacherIds"]:checked');
       data.teacherIds = Array.from(teacherCheckboxes).map(cb => cb.value);
-      
       const editId = form.getAttribute('data-edit-id');
       const msgEl = document.getElementById('classMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
       try {
         const method = editId ? "PUT" : "POST";
-        const url = API_BASE + "/classes" + (editId ? "/" + editId : "");
+        const url = `${API_BASE}/classes${editId ? "/" + editId : ""}`;
         const res = await fetch(url, {
           method,
           headers: { 
@@ -265,7 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify(data)
         });
-        
         if (msgEl) msgEl.textContent = res.ok ? "Saved!" : "Failed!";
         if (res.ok) {
           form.reset();
@@ -281,17 +258,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ============ SESSIONS MANAGEMENT ============
-
 async function loadSessions() {
   await fillDropdown("/sessions", "termSessionSelect");
   await fillDropdown("/sessions", "resultsSessionSelect");
-  
   const tbody = document.getElementById('sessionsTableBody');
   if (!tbody) return;
-  
   try {
-    const res = await fetch(API_BASE + "/sessions", { 
+    const res = await fetch(`${API_BASE}/sessions`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -299,15 +272,13 @@ async function loadSessions() {
       return;
     }
     const sessions = await res.json();
-    
     if (!sessions.length) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="4">No sessions found.</td></tr>';
       return;
     }
-    
     tbody.innerHTML = sessions.map(s =>
       `<tr>
-        <td class="py-2 px-3">${s.name}</td>
+        <td class="py-2 px-3">${formatSessionName(s.name)}</td>
         <td class="py-2 px-3">${s.startDate ? s.startDate.slice(0, 10) : ''}</td>
         <td class="py-2 px-3">${s.endDate ? s.endDate.slice(0, 10) : ''}</td>
         <td class="py-2 px-3">
@@ -326,7 +297,6 @@ async function loadSessions() {
   }
 }
 
-// Delete session
 window.deleteSession = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -349,7 +319,6 @@ window.deleteSession = async function(id, btn) {
   }
 };
 
-// Edit session
 window.editSession = function(id) {
   fetch(`${API_BASE}/sessions/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -358,7 +327,7 @@ window.editSession = function(id) {
     .then(session => {
       const form = document.getElementById('sessionForm');
       if (!form) return;
-      form.name.value = session.name || "";
+      form.name.value = formatSessionName(session.name) || "";
       form.startDate.value = session.startDate ? session.startDate.slice(0, 10) : "";
       form.endDate.value = session.endDate ? session.endDate.slice(0, 10) : "";
       form.setAttribute('data-edit-id', id);
@@ -368,7 +337,6 @@ window.editSession = function(id) {
     .catch(err => console.error('Error editing session:', err));
 };
 
-// Save session
 document.addEventListener('DOMContentLoaded', () => {
   const sessionForm = document.getElementById('sessionForm');
   if (sessionForm) {
@@ -376,13 +344,15 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const form = this;
       const data = Object.fromEntries(new FormData(form));
+      if (data.name) {
+        data.name = formatSessionName(data.name);
+      }
       const editId = form.getAttribute('data-edit-id');
       const msgEl = document.getElementById('sessionMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
       try {
         const method = editId ? "PUT" : "POST";
-        const url = API_BASE + "/sessions" + (editId ? "/" + editId : "");
+        const url = `${API_BASE}/sessions${editId ? "/" + editId : ""}`;
         const res = await fetch(url, {
           method,
           headers: { 
@@ -391,7 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify(data)
         });
-        
         if (msgEl) msgEl.textContent = res.ok ? "Saved!" : "Failed!";
         if (res.ok) {
           form.reset();
@@ -406,14 +375,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ============ TERMS MANAGEMENT ============
-
 async function loadTerms() {
   const tbody = document.getElementById('termsTableBody');
   if (!tbody) return;
-  
   try {
-    const res = await fetch(API_BASE + "/terms", { 
+    const res = await fetch(`${API_BASE}/terms`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -421,16 +387,14 @@ async function loadTerms() {
       return;
     }
     const terms = await res.json();
-    
     if (!terms.length) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">No terms found.</td></tr>';
       return;
     }
-    
     tbody.innerHTML = terms.map(t =>
       `<tr>
         <td class="py-2 px-3">${t.name}</td>
-        <td class="py-2 px-3">${t.session?.name || '-'}</td>
+        <td class="py-2 px-3">${t.session?.name ? formatSessionName(t.session.name) : '-'}</td>
         <td class="py-2 px-3">${t.startDate ? t.startDate.slice(0, 10) : ''}</td>
         <td class="py-2 px-3">${t.endDate ? t.endDate.slice(0, 10) : ''}</td>
         <td class="py-2 px-3">
@@ -449,7 +413,6 @@ async function loadTerms() {
   }
 }
 
-// Delete term
 window.deleteTerm = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -472,7 +435,6 @@ window.deleteTerm = async function(id, btn) {
   }
 };
 
-// Edit term
 window.editTerm = function(id) {
   fetch(`${API_BASE}/terms/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -492,7 +454,6 @@ window.editTerm = function(id) {
     .catch(err => console.error('Error editing term:', err));
 };
 
-// Save term
 document.addEventListener('DOMContentLoaded', () => {
   const termForm = document.getElementById('termForm');
   if (termForm) {
@@ -503,10 +464,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const editId = form.getAttribute('data-edit-id');
       const msgEl = document.getElementById('termMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
       try {
         const method = editId ? "PUT" : "POST";
-        const url = API_BASE + "/terms" + (editId ? "/" + editId : "");
+        const url = `${API_BASE}/terms${editId ? "/" + editId : ""}`;
         const res = await fetch(url, {
           method,
           headers: { 
@@ -515,7 +475,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify(data)
         });
-        
         if (msgEl) msgEl.textContent = res.ok ? "Saved!" : "Failed!";
         if (res.ok) {
           form.reset();
@@ -530,21 +489,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ============ EXAMS MANAGEMENT ============
-
-// Fill exam dropdowns
 fillDropdown("/terms", "examTermSelect");
 fillDropdown("/classes", "examClassSelect");
 fillDropdown("/classes", "cbtClassSelect");
 fillDropdown("/classes", "resultsClassSelect");
 
-// Load exam schedules
 async function loadExamSchedules() {
   const tbody = document.getElementById('examScheduleTableBody');
   if (!tbody) return;
-  
   try {
-    const res = await fetch(API_BASE + "/exams/schedules", { 
+    const res = await fetch(`${API_BASE}/exams/schedules`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -552,12 +506,10 @@ async function loadExamSchedules() {
       return;
     }
     const exams = await res.json();
-    
     if (!exams.length) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">No exams scheduled.</td></tr>';
       return;
     }
-    
     tbody.innerHTML = exams.map(ex =>
       `<tr>
         <td class="py-2 px-3">${ex.title}</td>
@@ -580,7 +532,6 @@ async function loadExamSchedules() {
   }
 }
 
-// Delete exam schedule
 window.deleteExamSchedule = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -603,7 +554,6 @@ window.deleteExamSchedule = async function(id, btn) {
   }
 };
 
-// Edit exam schedule
 window.editExamSchedule = function(id) {
   fetch(`${API_BASE}/exams/schedules/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -623,7 +573,6 @@ window.editExamSchedule = function(id) {
     .catch(err => console.error('Error editing exam schedule:', err));
 };
 
-// Save exam schedule
 document.addEventListener('DOMContentLoaded', () => {
   const examScheduleForm = document.getElementById('examScheduleForm');
   if (examScheduleForm) {
@@ -634,10 +583,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const editId = form.getAttribute('data-edit-id');
       const msgEl = document.getElementById('examScheduleMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
       try {
         const method = editId ? "PUT" : "POST";
-        const url = API_BASE + "/exams/schedules" + (editId ? "/" + editId : "");
+        const url = `${API_BASE}/exams/schedules${editId ? "/" + editId : ""}`;
         const res = await fetch(url, {
           method,
           headers: { 
@@ -646,7 +594,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify(data)
         });
-        
         if (msgEl) msgEl.textContent = res.ok ? "Saved!" : "Failed!";
         if (res.ok) {
           form.reset();
@@ -661,10 +608,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Fill exams dropdown for modes
 async function fillExamDropdown() {
   try {
-    const res = await fetch(API_BASE + "/exams/schedules", { 
+    const res = await fetch(`${API_BASE}/exams/schedules`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -678,13 +624,11 @@ async function fillExamDropdown() {
   }
 }
 
-// Load exam modes
 async function loadExamModes() {
   const tbody = document.getElementById('examModeTableBody');
   if (!tbody) return;
-  
   try {
-    const res = await fetch(API_BASE + "/exams/modes", { 
+    const res = await fetch(`${API_BASE}/exams/modes`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -692,12 +636,10 @@ async function loadExamModes() {
       return;
     }
     const modes = await res.json();
-    
     if (!modes.length) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="4">No exam modes set.</td></tr>';
       return;
     }
-    
     tbody.innerHTML = modes.map(m =>
       `<tr>
         <td class="py-2 px-3">${m.exam?.title || '-'}</td>
@@ -716,7 +658,6 @@ async function loadExamModes() {
   }
 }
 
-// Edit exam mode
 window.editExamMode = function(id) {
   fetch(`${API_BASE}/exams/modes/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -735,7 +676,6 @@ window.editExamMode = function(id) {
     .catch(err => console.error('Error editing exam mode:', err));
 };
 
-// Save exam mode
 document.addEventListener('DOMContentLoaded', () => {
   const examModeForm = document.getElementById('examModeForm');
   if (examModeForm) {
@@ -746,10 +686,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const editId = form.getAttribute('data-edit-id');
       const msgEl = document.getElementById('examModeMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
       try {
         const method = editId ? "PUT" : "POST";
-        const url = API_BASE + "/exams/modes" + (editId ? "/" + editId : "");
+        const url = `${API_BASE}/exams/modes${editId ? "/" + editId : ""}`;
         const res = await fetch(url, {
           method,
           headers: { 
@@ -758,7 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify(data)
         });
-        
         if (msgEl) msgEl.textContent = res.ok ? "Saved!" : "Failed!";
         if (res.ok) {
           form.reset();
@@ -773,14 +711,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ============ CBT & MOCKS MANAGEMENT ============
-
 async function loadCBTs() {
   const tbody = document.getElementById('cbtTableBody');
   if (!tbody) return;
-  
   try {
-    const res = await fetch(API_BASE + "/cbt/mocks", { 
+    const res = await fetch(`${API_BASE}/cbt/mocks`, { 
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -788,12 +723,10 @@ async function loadCBTs() {
       return;
     }
     const cbts = await res.json();
-    
     if (!cbts.length) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">No CBT/mocks found.</td></tr>';
       return;
     }
-    
     tbody.innerHTML = cbts.map(c =>
       `<tr>
         <td class="py-2 px-3">${c.title}</td>
@@ -816,7 +749,6 @@ async function loadCBTs() {
   }
 }
 
-// Delete CBT/Mock
 window.deleteCBT = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
@@ -839,7 +771,6 @@ window.deleteCBT = async function(id, btn) {
   }
 };
 
-// Edit CBT/Mock
 window.editCBT = function(id) {
   fetch(`${API_BASE}/cbt/mocks/${id}`, { 
     headers: { Authorization: "Bearer " + token }
@@ -859,7 +790,6 @@ window.editCBT = function(id) {
     .catch(err => console.error('Error editing CBT:', err));
 };
 
-// Save CBT/Mock
 document.addEventListener('DOMContentLoaded', () => {
   const cbtForm = document.getElementById('cbtForm');
   if (cbtForm) {
@@ -870,10 +800,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const editId = form.getAttribute('data-edit-id');
       const msgEl = document.getElementById('cbtMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
       try {
         const method = editId ? "PUT" : "POST";
-        const url = API_BASE + "/cbt/mocks" + (editId ? "/" + editId : "");
+        const url = `${API_BASE}/cbt/mocks${editId ? "/" + editId : ""}`;
         const res = await fetch(url, {
           method,
           headers: { 
@@ -882,7 +811,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify(data)
         });
-        
         if (msgEl) msgEl.textContent = res.ok ? "Saved!" : "Failed!";
         if (res.ok) {
           form.reset();
@@ -897,30 +825,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ============ RESULTS & CBT PUSH ============
-
 async function loadResults(filter = {}) {
   const tbody = document.getElementById('resultsTableBody');
   if (!tbody) return;
-  
   tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="7">Loading...</td></tr>';
-  
   try {
     let results = [];
-    
     if (filter.type === "CBT") {
-      const res = await fetch("https://goldlincschools.onrender.com/api/result", { 
+      const res = await fetch(`${BACKEND_URL}/api/result`, { 
         headers: { Authorization: "Bearer " + token } 
       });
       if (!res.ok) throw new Error('Failed to fetch CBT results');
-      
       results = await res.json();
-      
       if (!results.length) {
         tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="7">No CBT results found.</td></tr>';
         return;
       }
-      
       tbody.innerHTML = results.map(r =>
         `<tr>
           <td class="py-2 px-3">${r.studentName || '-'}</td>
@@ -938,24 +858,19 @@ async function loadResults(filter = {}) {
       ).join('');
       return;
     }
-    
-    let url = API_BASE + "/results/cbt-mocks";
+    let url = `${API_BASE}/results/cbt-mocks`;
     if (filter.sessionId || filter.classId || filter.type) {
       url += '?' + new URLSearchParams(filter).toString();
     }
-    
     const res = await fetch(url, { 
       headers: { Authorization: "Bearer " + token } 
     });
     if (!res.ok) throw new Error('Failed to fetch results');
-    
     results = await res.json();
-    
     if (!results.length) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="7">No results found.</td></tr>';
       return;
     }
-    
     tbody.innerHTML = results.map(r =>
       `<tr>
         <td class="py-2 px-3">${r.student?.name || '-'}</td>
@@ -977,7 +892,6 @@ async function loadResults(filter = {}) {
   }
 }
 
-// Filter results form
 document.addEventListener('DOMContentLoaded', () => {
   const resultsForm = document.getElementById('resultsFilterForm');
   if (resultsForm) {
@@ -989,24 +903,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Delete CBT result
 window.deleteCBTResult = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    let res = await fetch(`https://goldlincschools.onrender.com/api/result/${id}`, { 
+    let res = await fetch(`${BACKEND_URL}/api/result/${id}`, { 
       method: "DELETE", 
       headers: { Authorization: "Bearer " + token } 
     });
-    
     if (!res.ok) {
-      const url = API_BASE + `/results/cbt-mocks/${id}`;
+      const url = `${API_BASE}/results/cbt-mocks/${id}`;
       res = await fetch(url, { 
         method: "DELETE", 
         headers: { Authorization: "Bearer " + token } 
       });
     }
-    
     if (res.ok) {
       loadResults();
     } else {
@@ -1021,17 +932,16 @@ window.deleteCBTResult = async function(id, btn) {
   }
 };
 
-// Fill push CBT dropdowns
 async function fillPushCBTSessionDropdown() {
   try {
-    const res = await fetch("https://goldlincschools.onrender.com/api/academics/sessions", { 
+    const res = await fetch(`${API_BASE}/sessions`, { 
       headers: { Authorization: "Bearer " + token } 
     });
     if (!res.ok) return;
     const data = await res.json();
     const select = document.getElementById('pushCBTSessionSelect');
     if (select) {
-      select.innerHTML = data.map(s => `<option value="${s._id}">${s.name}</option>`).join('');
+      select.innerHTML = data.map(s => `<option value="${s._id}">${formatSessionName(s.name)}</option>`).join('');
     }
   } catch (err) {
     console.error('Error filling push CBT session dropdown:', err);
@@ -1040,21 +950,20 @@ async function fillPushCBTSessionDropdown() {
 
 async function fillPushCBTTermDropdown() {
   try {
-    const res = await fetch("https://goldlincschools.onrender.com/api/academics/terms", { 
+    const res = await fetch(`${API_BASE}/terms`, { 
       headers: { Authorization: "Bearer " + token } 
     });
     if (!res.ok) return;
     const data = await res.json();
     const select = document.getElementById('pushCBTTermSelect');
     if (select) {
-      select.innerHTML = data.map(t => `<option value="${t._id}">${t.name} (${t.session?.name || "-"})</option>`).join('');
+      select.innerHTML = data.map(t => `<option value="${t._id}">${t.name} (${t.session?.name ? formatSessionName(t.session.name) : "-"})</option>`).join('');
     }
   } catch (err) {
     console.error('Error filling push CBT term dropdown:', err);
   }
 }
 
-// Push CBT Results Modal
 document.addEventListener('DOMContentLoaded', () => {
   const pushCBTResultsBtn = document.getElementById('pushCBTResultsBtn');
   const pushCBTModal = document.getElementById('pushCBTModal');
@@ -1062,7 +971,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const pushCBTResultsMessage = document.getElementById('pushCBTResultsMessage');
   const pushCBTModalFeedback = document.getElementById('pushCBTModalFeedback');
   const cancelPushCBTModal = document.getElementById('cancelPushCBTModal');
-  
   if (pushCBTResultsBtn) {
     pushCBTResultsBtn.addEventListener('click', () => {
       fillPushCBTSessionDropdown();
@@ -1071,14 +979,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pushCBTModalFeedback) pushCBTModalFeedback.textContent = "";
     });
   }
-  
   if (cancelPushCBTModal) {
     cancelPushCBTModal.addEventListener('click', () => {
       pushCBTModal.style.display = 'none';
       if (pushCBTModalFeedback) pushCBTModalFeedback.textContent = "";
     });
   }
-  
   if (pushCBTModalForm) {
     pushCBTModalForm.onsubmit = async function(e) {
       e.preventDefault();
@@ -1086,11 +992,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const scoreField = formData.get('scoreField');
       const sessionId = formData.get('sessionId');
       const termId = formData.get('termId');
-      
       if (pushCBTModalFeedback) pushCBTModalFeedback.textContent = "Pushing CBT results...";
-      
       try {
-        const res = await fetch("https://goldlincschools.onrender.com/api/results/push-cbt", {
+        const res = await fetch(`${BACKEND_URL}/api/results/push-cbt`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1098,7 +1002,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify({ scoreField, sessionId, termId })
         });
-        
         const data = await res.json();
         if (data.success) {
           if (pushCBTModalFeedback) pushCBTModalFeedback.textContent = `Done! Inserted: ${data.inserted}, Skipped: ${data.skipped}`;
@@ -1118,9 +1021,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ============ SUBJECTS MANAGEMENT ============
-
-// Assign subject to class
 document.addEventListener('DOMContentLoaded', () => {
   const assignSubjectForm = document.getElementById('assignSubjectForm');
   if (assignSubjectForm) {
@@ -1130,9 +1030,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = Object.fromEntries(new FormData(form));
       const msgEl = document.getElementById('assignSubjectMessage');
       if (msgEl) msgEl.textContent = "Saving...";
-      
       try {
-        const res = await fetch(API_BASE + `/classes/${data.classId}/subjects`, {
+        const res = await fetch(`${API_BASE}/classes/${data.classId}/subjects`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json", 
@@ -1140,7 +1039,6 @@ document.addEventListener('DOMContentLoaded', () => {
           },
           body: JSON.stringify({ subjectName: data.subjectName, teacherId: data.teacherId })
         });
-        
         const resp = await res.json();
         if (msgEl) {
           msgEl.textContent = res.ok ? "Assigned!" : ("Error: " + (resp.error || "Unknown"));
@@ -1157,22 +1055,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Load uploaded subjects
 async function loadUploadedSubjects() {
   const tbody = document.getElementById('uploadedSubjectsTableBody');
   if (!tbody) return;
-  
   tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Loading...</td></tr>';
-  
   try {
-    const res = await fetch("https://goldlincschools.onrender.com/api/academics/classes", { 
+    const res = await fetch(`${API_BASE}/classes`, { 
       headers: { Authorization: "Bearer " + token } 
     });
     if (!res.ok) throw new Error('Failed to fetch classes');
-    
     const classes = await res.json();
     let rows = [];
-    
     classes.forEach(cls => {
       if (Array.isArray(cls.subjects)) {
         cls.subjects.forEach(subj => {
@@ -1183,7 +1076,7 @@ async function loadUploadedSubjects() {
               <td class="py-2 px-3">${cls.name || '-'}</td>
               <td class="py-2 px-3">${
                 subj.teacher 
-                  ? (subj.teacher.name || `${subj.teacher.first_name || ''} ${subj.teacher.last_name || ''}`) 
+                  ? (subj.teacher.name || `${subj.teacher.first_name \vert{}\vert{} ''}${subj.teacher.last_name || ''}`) 
                   : '-'
               }</td>
               <td class="py-2 px-3">${subj.uploadedAt ? new Date(subj.uploadedAt).toLocaleDateString() : '-'}</td>
@@ -1200,7 +1093,6 @@ async function loadUploadedSubjects() {
         });
       }
     });
-    
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">No subjects uploaded.</td></tr>';
     } else {
@@ -1212,21 +1104,18 @@ async function loadUploadedSubjects() {
   }
 }
 
-// View subject
 window.viewSubject = function(id) {
   alert("Subject details for " + id);
 };
 
-// Delete subject from class
 window.deleteSubjectFromClass = async function(classId, subjectId, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    const res = await fetch(`https://goldlincschools.onrender.com/api/academics/classes/${classId}/subjects/${subjectId}`, {
+    const res = await fetch(`${API_BASE}/classes/${classId}/subjects/${subjectId}`, {
       method: "DELETE",
       headers: { Authorization: "Bearer " + token }
     });
-    
     if (res.ok) {
       loadUploadedSubjects();
     } else {
@@ -1242,10 +1131,7 @@ window.deleteSubjectFromClass = async function(classId, subjectId, btn) {
   }
 };
 
-// ============ PAGE INITIALIZATION ============
-
 document.addEventListener('DOMContentLoaded', () => {
-  // Load initial data
   fillTeacherCheckboxes();
   fillClassDropdown();
   fillTeacherDropdown2();
