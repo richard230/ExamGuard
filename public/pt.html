@@ -147,7 +147,7 @@
         </div>
         <div class="p-4 mx-4 my-5 bg-brand-800/50 rounded-2xl border border-brand-500/30 backdrop-blur-sm">
             <label class="block text-[10px] font-bold text-brand-500 uppercase tracking-wider mb-1.5 px-1">Active Ward Account</label>
-            <select id="wardSelector" onchange="switchWard()" class="w-full bg-brand-900 border border-brand-800 rounded-xl text-xs font-bold text-white focus:ring-1 focus:ring-brand-500 cursor-pointer">
+            <select id="wardSelector" onchange="switchWard(this)" class="w-full bg-brand-900 border border-brand-800 rounded-xl text-xs font-bold text-white focus:ring-1 focus:ring-brand-500 cursor-pointer">
                 <option value="">Select Student</option>
             </select>
         </div>
@@ -193,7 +193,7 @@
             </div>
             <div class="bg-brand-800 p-4 rounded-2xl border border-brand-500/30 mb-4">
                 <label class="block text-[10px] font-bold text-brand-500 uppercase tracking-wider mb-2">Switch Active Ward</label>
-                <select id="mobileWardSelector" onchange="switchWard()" class="w-full bg-brand-900 border border-brand-800 rounded-xl text-sm font-bold text-white py-2.5 px-3">
+                <select id="mobileWardSelector" onchange="switchWard(this)" class="w-full bg-brand-900 border border-brand-800 rounded-xl text-sm font-bold text-white py-2.5 px-3">
                     <option value="">Select Student</option>
                 </select>
             </div>
@@ -419,6 +419,7 @@
    ========================================================= */
 
 const API_BASE = window.API_BASE || "https://examguard-8rxe.onrender.com/api";
+
 function decodeJwtPayload(token) {
     try {
         const parts = token.split('.');
@@ -444,12 +445,9 @@ function decodeJwtPayload(token) {
 
 function isTokenValid(token) {
     if (!token) return false;
-
     const payload = decodeJwtPayload(token);
-
     if (!payload) return false;
 
-    // JWT exp is in seconds
     if (payload.exp && Date.now() >= payload.exp * 1000) {
         return false;
     }
@@ -462,23 +460,13 @@ function getParentToken() {
     const normalToken = localStorage.getItem('token');
     const authToken = localStorage.getItem('authToken');
 
-    // Prefer a valid parent token
-    if (isTokenValid(parentToken)) {
-        return parentToken;
-    }
-
-    // Then check the normal application token
-    if (isTokenValid(normalToken)) {
-        return normalToken;
-    }
-
-    // Finally check authToken if your login uses it
-    if (isTokenValid(authToken)) {
-        return authToken;
-    }
+    if (isTokenValid(parentToken)) return parentToken;
+    if (isTokenValid(normalToken)) return normalToken;
+    if (isTokenValid(authToken)) return authToken;
 
     return '';
 }
+
 let parentData = null;
 let currentSchool = null;
 let allStudents = [];
@@ -500,13 +488,13 @@ async function initializeDashboard() {
         showLoadingSpinner('Loading Parent Dashboard', 'Connecting to school portal...');
 
         updateLoadingStatus('Loading parent information...');
-await loadParentData();
+        await loadParentData();
 
-updateLoadingStatus('Loading school information...');
-loadCurrentSchool();
+        updateLoadingStatus('Loading school information...');
+        loadCurrentSchool();
 
-updateLoadingStatus('Loading student information...');
-await loadStudents();
+        updateLoadingStatus('Loading student information...');
+        await loadStudents();
 
         if (allStudents.length > 0) {
             currentSelectedStudent = String(allStudents[0]._id);
@@ -546,9 +534,6 @@ function updateLoadingStatus(status) {
     if (statusEl) statusEl.textContent = status;
 }
 
-/* =========================================================
-   ERROR MODAL UTILITIES
-   ========================================================= */
 function showErrorModal(title, message, onConfirm = null) {
     const modal = document.getElementById('errorModal');
     const card = document.getElementById('errorModalCard');
@@ -591,7 +576,6 @@ function closeErrorModal() {
 
 function getAuthHeaders() {
     const currentToken = getParentToken();
-
     return {
         'Authorization': `Bearer ${currentToken}`,
         'Content-Type': 'application/json'
@@ -612,19 +596,14 @@ function loadCurrentSchool() {
         console.log('🏫 Loading current school from parent profile...');
 
         if (!parentData || !parentData.school) {
-            throw new Error(
-                'Your parent account is not linked to a valid school.'
-            );
+            throw new Error('Your parent account is not linked to a valid school.');
         }
 
         currentSchool = parentData.school;
-
         console.log('✅ Current school:', currentSchool);
 
         applySchoolBranding(currentSchool);
-
         return currentSchool;
-
     } catch (err) {
         console.error('❌ Error loading school:', err);
         throw err;
@@ -677,17 +656,11 @@ function applySchoolBranding(school) {
 async function loadParentData() {
     try {
         console.log('👨‍👩‍👧 Loading parent profile...');
-
         const token = getParentToken();
 
         if (!token) {
-            throw new Error(
-                'No valid parent authentication token was found. Please log in again.'
-            );
+            throw new Error('No valid parent authentication token was found. Please log in again.');
         }
-
-        console.log('🔐 Parent token found.');
-        console.log('🔐 Token payload:', decodeJwtPayload(token));
 
         const res = await fetch(`${API_BASE}/parents/me`, {
             method: 'GET',
@@ -698,57 +671,30 @@ async function loadParentData() {
         });
 
         const rawResponse = await res.text();
-
         let data = {};
 
         try {
             data = rawResponse ? JSON.parse(rawResponse) : {};
         } catch {
-            data = {
-                message: rawResponse
-            };
+            data = { message: rawResponse };
         }
 
-        console.log('📡 /parents/me response:', {
-            status: res.status,
-            data
-        });
-
         if (res.status === 401) {
-            // Remove stale parent authentication
             localStorage.removeItem('parentToken');
-
-            throw new Error(
-                data.message ||
-                data.error ||
-                'Your parent session has expired or the authentication token is unauthorized. Please log in again.'
-            );
+            throw new Error(data.message || data.error || 'Your parent session has expired. Please log in again.');
         }
 
         if (res.status === 403) {
-            throw new Error(
-                data.message ||
-                data.error ||
-                'You are authenticated but do not have permission to access the parent portal.'
-            );
+            throw new Error(data.message || data.error || 'You do not have permission to access the parent portal.');
         }
 
         if (!res.ok) {
-            throw new Error(
-                data.message ||
-                data.error ||
-                `Unable to load parent profile. HTTP ${res.status}`
-            );
+            throw new Error(data.message || data.error || `Unable to load parent profile. HTTP ${res.status}`);
         }
 
         parentData = data;
-
-        console.log('✅ Parent data loaded:', parentData);
-
         updateParentUI();
-
         return parentData;
-
     } catch (err) {
         console.error('❌ Error loading parent:', err);
         throw err;
@@ -820,11 +766,6 @@ function populateWardSelectors() {
         }
     });
 
-    const desktopSelector = document.getElementById('wardSelector');
-    const mobileSelector = document.getElementById('mobileWardSelector');
-
-
-
     console.log('✓ Ward selectors populated.');
 }
 
@@ -860,19 +801,24 @@ async function switchToStudent(studentId) {
     }
 }
 
-function switchWard() {
-    const desktopSelector = document.getElementById('wardSelector');
-    const mobileSelector = document.getElementById('mobileWardSelector');
+function switchWard(element) {
+    let studentId = '';
 
-    const studentId =
-        desktopSelector?.value ||
-        mobileSelector?.value ||
-        '';
+    if (element && element.value) {
+        studentId = element.value;
+    } else if (element && element.target) {
+        studentId = element.target.value;
+    } else {
+        const desktopSelector = document.getElementById('wardSelector');
+        const mobileSelector = document.getElementById('mobileWardSelector');
+        studentId = desktopSelector?.value || mobileSelector?.value || '';
+    }
 
     if (studentId) {
         switchToStudent(studentId);
     }
 }
+
 async function loadStudentDetails() {
     if (!currentSelectedStudent) {
         showNoStudentState();
