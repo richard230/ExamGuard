@@ -309,8 +309,13 @@
           </div>
           <form id="assignSubjectForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Class</label>
-              <select name="classId" id="assignClassSelect" required class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></select>
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Classes</label>
+              <div class="flex items-center gap-2 mb-2">
+                <button type="button" id="selectAllSubjectClasses" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 border border-blue-200">Select All</button>
+                <button type="button" id="clearSubjectClasses" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 text-slate-600 border border-slate-200">Clear</button>
+                <span id="subjectClassCount" class="text-xs text-slate-500">0 selected</span>
+              </div>
+              <div id="assignClassOptions" class="bg-slate-50 border border-slate-300 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1"></div>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Subject Name</label>
@@ -750,7 +755,7 @@
         sidebarOverlay.classList.add('hidden');
       }
     });
-    const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+    const BACKEND_URL = window.BACKEND_URL || 'https://goldlincschools.onrender.com';
     const API_ROOT = `${BACKEND_URL}/api`;
     const API_BASE = `${API_ROOT}/academics`;
     const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
@@ -974,8 +979,9 @@ function showTab(tab) {
   document.querySelectorAll('[data-section]').forEach(sec => sec.classList.toggle('hidden', sec.dataset.section !== tab));
   document.querySelectorAll('.nav a').forEach(nav => nav.classList.toggle('active', nav.dataset.tab === tab));
   if (tab === "subjects") loadUploadedSubjects();
-  if (["subjects", "exams", "cbt", "results"].includes(tab)) fillClassDropdown();
-  if (["exams", "cbt"].includes(tab)) fillTermDropdowns();
+  if (["subjects", "exams", "cbt", "results"].includes(tab)) {
+    fillClassDropdown();
+  }
 }
 document.querySelectorAll('.tablist button').forEach(btn => {
   btn.addEventListener('click', () => showTab(btn.dataset.tab));
@@ -983,32 +989,30 @@ document.querySelectorAll('.tablist button').forEach(btn => {
 function showExamTab(tab) {
   document.querySelectorAll('#examTabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.examtab === tab));
   document.querySelectorAll('#examTabContent > div').forEach(sec => sec.classList.toggle('hidden', sec.dataset.examsection !== tab));
-  if(tab==='schedule'){fillClassDropdown();fillTermDropdowns();}
-  if(tab==='mode') fillExamDropdown();
-  if(tab==='cbt'){fillClassDropdown();fillTermDropdowns();}
 }
 document.querySelectorAll('#examTabs button').forEach(btn => {
   btn.addEventListener('click', () => showExamTab(btn.dataset.examtab));
 });
 async function fillDropdown(endpoint, selectId, valueKey = 'name') {
   try {
-    const res = await apiFetch(API_BASE + endpoint, {
-      headers: { Authorization: "Bearer " + token }
-    });
-    if (!res.ok) return;
-    const data = await res.json();
+    const res = await apiFetch(API_BASE + endpoint, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) return [];
+    const raw = await res.json();
+    const data = Array.isArray(raw) ? raw : (raw.terms || raw.sessions || raw.classes || raw.data || raw.results || []);
     const select = document.getElementById(selectId);
     if (select) {
-      select.innerHTML = data.map(d => {
+      const currentValue = select.value;
+      select.innerHTML = `<option value="">Select</option>` + data.map(d => {
         let text = d[valueKey];
-        if (endpoint.includes('/sessions') && valueKey === 'name') {
-          text = formatSessionName(text);
-        }
-        return `<option value="${d._id}">${text}</option>`;
+        if (endpoint.includes('/sessions') && valueKey === 'name') text = formatSessionName(text);
+        return `<option value="${d._id}">${text || 'Unnamed'}</option>`;
       }).join('');
+      if (currentValue && data.some(d => String(d._id) === String(currentValue))) select.value = currentValue;
     }
+    return data;
   } catch (err) {
     console.error('Error filling dropdown:', err);
+    return [];
   }
 }
 async function fillTeacherDropdown() {
@@ -1029,42 +1033,46 @@ async function fillTeacherDropdown() {
   }
 }
 async function fillClassDropdown() {
-  const selectIds = [
-    'assignClassSelect',
-    'examClassSelect',
-    'cbtClassSelect',
-    'resultsClassSelect'
-  ];
+  const selectIds = ['examClassSelect','cbtClassSelect','resultsClassSelect'];
   try {
-    const res = await apiFetch(`${API_BASE}/classes`, {
-      headers: { Authorization: "Bearer " + token }
-    });
-    if (!res.ok) {
-      console.error('Failed to load classes for dropdowns:', res.status);
-      return [];
-    }
+    const res = await apiFetch(`${API_BASE}/classes`, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) return [];
     const raw = await res.json();
-    const data = Array.isArray(raw)
-      ? raw
-      : (raw.classes || raw.data || raw.results || []);
-    const options = data.map(c =>
-      `<option value="${c._id}">${c.name || 'Unnamed Class'}</option>`
-    ).join('');
+    const data = Array.isArray(raw) ? raw : (raw.classes || raw.data || raw.results || []);
+    const options = data.map(c => `<option value="${c._id}">${c.name || 'Unnamed Class'}</option>`).join('');
     selectIds.forEach(id => {
       const select = document.getElementById(id);
       if (!select) return;
       const currentValue = select.value;
       select.innerHTML = `<option value="">Select Class</option>${options}`;
-      if (currentValue && data.some(c => String(c._id) === String(currentValue))) {
-        select.value = currentValue;
-      }
+      if (currentValue && data.some(c => String(c._id) === String(currentValue))) select.value = currentValue;
     });
+    const container = document.getElementById('assignClassOptions');
+    if (container) {
+      const selected = new Set(Array.from(container.querySelectorAll('input[name="subjectClassIds"]:checked')).map(cb => cb.value));
+      container.innerHTML = data.length ? data.map(c => `<label class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white cursor-pointer text-sm text-slate-700"><input type="checkbox" name="subjectClassIds" value="${c._id}" class="subject-class-checkbox w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" ${selected.has(String(c._id)) ? 'checked' : ''}><span>${c.name || 'Unnamed Class'}</span></label>`).join('') : '<div class="text-sm text-slate-400 p-2">No classes found.</div>';
+      container.querySelectorAll('.subject-class-checkbox').forEach(cb => cb.addEventListener('change', updateSubjectClassCount));
+    }
     window.academicsClasses = data;
+    updateSubjectClassCount();
     return data;
   } catch (err) {
     console.error('Error filling class dropdowns:', err);
     return [];
   }
+}
+function updateSubjectClassCount() {
+  const count = document.querySelectorAll('#assignClassOptions input[name="subjectClassIds"]:checked').length;
+  const el = document.getElementById('subjectClassCount');
+  if (el) el.textContent = `${count} selected`;
+}
+function selectAllSubjectClasses() {
+  document.querySelectorAll('#assignClassOptions input[name="subjectClassIds"]').forEach(cb => cb.checked = true);
+  updateSubjectClassCount();
+}
+function clearSubjectClasses() {
+  document.querySelectorAll('#assignClassOptions input[name="subjectClassIds"]').forEach(cb => cb.checked = false);
+  updateSubjectClassCount();
 }
 async function fillTeacherDropdown2() {
   try {
@@ -1346,39 +1354,48 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-async function fillTermDropdowns(sessionId='') {
-  const selectIds=['examTermSelect','pushCBTTermSelect'];
-  try {
-    const res=await apiFetch(`${API_BASE}/terms`,{headers:{Authorization:'Bearer '+token}});
-    if(!res.ok) return [];
-    const raw=await res.json();
-    const data=Array.isArray(raw)?raw:(raw.terms||raw.data||raw.results||[]);
-    const filtered=sessionId?data.filter(t=>String(t.session?._id||t.sessionId||t.session?.id||'')===String(sessionId)):data;
-    const options=filtered.map(t=>`<option value="${t._id}">${t.name||'Unnamed Term'}${t.session?.name?' ('+formatSessionName(t.session.name)+')':''}</option>`).join('');
-    selectIds.forEach(id=>{
-      const select=document.getElementById(id);
-      if(!select) return;
-      const currentValue=select.value;
-      select.innerHTML=`<option value="">Select Term</option>${options}`;
-      if(currentValue&&filtered.some(t=>String(t._id)===String(currentValue))) select.value=currentValue;
-    });
-    window.academicsTerms=data;
-    return data;
-  }catch(err){console.error('Error filling term dropdowns:',err);return []}
+async function loadTermDropdowns() {
+  await fillDropdown("/terms", "examTermSelect");
+  await fillDropdown("/terms", "pushCBTTermSelect");
 }
 async function loadTerms() {
-  await fillTermDropdowns();
-  const tbody=document.getElementById('termsTableBody');
-  if(!tbody) return;
+  await loadTermDropdowns();
+  const tbody = document.getElementById('termsTableBody');
+  if (!tbody) return;
   try {
-    const res=await apiFetch(`${API_BASE}/terms`,{headers:{Authorization:'Bearer '+token}});
-    if(!res.ok){tbody.innerHTML='<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';return;}
-    const raw=await res.json();
-    const terms=Array.isArray(raw)?raw:(raw.terms||raw.data||raw.results||[]);
-    window.academicsTerms=terms;
-    if(!terms.length){tbody.innerHTML='<tr><td class="py-2 px-3" colspan="5">No terms found.</td></tr>';return;}
-    tbody.innerHTML=terms.map(t=>`<tr><td class="py-2 px-3">${t.name||'-'}</td><td class="py-2 px-3">${t.session?.name?formatSessionName(t.session.name):'-'}</td><td class="py-2 px-3">${normalizeDateValue(t.startDate||t.start_date||t.start)}</td><td class="py-2 px-3">${normalizeDateValue(t.endDate||t.end_date||t.end)}</td><td class="py-2 px-3"><button class="px-2 py-1 rounded bg-[#2647a6] text-white text-xs" onclick="editTerm('${t._id}')" title="Edit"><i class="fa fa-edit"></i></button><button class="px-2 py-1 rounded bg-red-600 text-white text-xs" onclick="deleteTerm('${t._id}', this)" title="Delete"><i class="fa fa-trash"></i></button></td></tr>`).join('');
-  }catch(err){tbody.innerHTML='<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';console.error('Error loading terms:',err)}
+    const res = await apiFetch(`${API_BASE}/terms`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    if (!res.ok) {
+      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';
+      return;
+    }
+    const rawTerms = await res.json();
+    const terms = Array.isArray(rawTerms) ? rawTerms : (rawTerms.terms || rawTerms.data || rawTerms.results || []);
+    if (!terms.length) {
+      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">No terms found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = terms.map(t =>
+      `<tr>
+        <td class="py-2 px-3">${t.name}</td>
+        <td class="py-2 px-3">${t.session?.name ? formatSessionName(t.session.name) : '-'}</td>
+        <td class="py-2 px-3">${t.startDate ? t.startDate.slice(0, 10) : ''}</td>
+        <td class="py-2 px-3">${t.endDate ? t.endDate.slice(0, 10) : ''}</td>
+        <td class="py-2 px-3">
+          <button class="px-2 py-1 rounded bg-[#2647a6] text-white text-xs" onclick="editTerm('${t._id}')" title="Edit">
+            <i class="fa fa-edit"></i>
+          </button>
+          <button class="px-2 py-1 rounded bg-red-600 text-white text-xs" onclick="deleteTerm('${t._id}', this)" title="Delete">
+            <i class="fa fa-trash"></i>
+          </button>
+        </td>
+      </tr>`
+    ).join('');
+  } catch (err) {
+    tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';
+    console.error('Error loading terms:', err);
+  }
 }
 window.deleteTerm = async function(id, btn) {
   btn.disabled = true;
@@ -1917,8 +1934,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pushCBTResultsBtn.addEventListener('click', () => {
       fillPushCBTSessionDropdown();
       fillPushCBTTermDropdown();
-      fillTermDropdowns();
-      fillClassDropdown();
       pushCBTModal.style.display = 'flex';
       if (pushCBTModalFeedback) pushCBTModalFeedback.textContent = "";
     });
@@ -1966,32 +1981,51 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 document.addEventListener('DOMContentLoaded', () => {
   const assignSubjectForm = document.getElementById('assignSubjectForm');
+  const selectAllBtn = document.getElementById('selectAllSubjectClasses');
+  const clearBtn = document.getElementById('clearSubjectClasses');
+  if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllSubjectClasses);
+  if (clearBtn) clearBtn.addEventListener('click', clearSubjectClasses);
   if (assignSubjectForm) {
     assignSubjectForm.onsubmit = async function(e) {
       e.preventDefault();
       const form = e.target;
-      const data = Object.fromEntries(new FormData(form));
+      const classIds = Array.from(form.querySelectorAll('input[name="subjectClassIds"]:checked')).map(cb => cb.value);
+      const subjectName = form.subjectName.value.trim();
+      const teacherId = form.teacherId.value;
       const msgEl = document.getElementById('assignSubjectMessage');
-      if (msgEl) msgEl.textContent = "Saving...";
+      if (!classIds.length) {
+        if (msgEl) msgEl.textContent = 'Select at least one class.';
+        return;
+      }
+      if (!subjectName || !teacherId) {
+        if (msgEl) msgEl.textContent = 'Enter the subject and select a teacher.';
+        return;
+      }
+      if (msgEl) msgEl.textContent = `Assigning ${subjectName} to ${classIds.length} class${classIds.length === 1 ? '' : 'es'}...`;
       try {
-        const res = await apiFetch(`${API_BASE}/classes/${data.classId}/subjects`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-          },
-          body: JSON.stringify({ subjectName: data.subjectName, teacherId: data.teacherId })
-        });
-        const resp = await res.json();
-        if (msgEl) {
-          msgEl.textContent = res.ok ? "Assigned!" : ("Error: " + (resp.error || "Unknown"));
-        }
-        if (res.ok) {
-          form.reset();
-          loadUploadedSubjects();
+        const results = await Promise.allSettled(classIds.map(async classId => {
+          const res = await apiFetch(`${API_BASE}/classes/${classId}/subjects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ subjectName, teacherId })
+          });
+          const data = await res.json().catch(() => ({}));
+          return { ok: res.ok, data };
+        }));
+        const successful = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
+        const failed = results.length - successful;
+        if (successful) {
+          if (msgEl) msgEl.textContent = failed ? `Assigned to ${successful} class${successful === 1 ? '' : 'es'}; ${failed} failed.` : `Assigned to all ${successful} selected class${successful === 1 ? '' : 'es'}.`;
+          form.subjectName.value = '';
+          form.teacherId.value = '';
+          clearSubjectClasses();
+          await loadUploadedSubjects();
+        } else if (msgEl) {
+          const firstFailure = results.find(r => r.status === 'fulfilled' && r.value.data)?.value?.data?.error;
+          msgEl.textContent = 'Assignment failed' + (firstFailure ? `: ${firstFailure}` : '.');
         }
       } catch (err) {
-        if (msgEl) msgEl.textContent = "Network error.";
+        if (msgEl) msgEl.textContent = 'Network error.';
         console.error('Error assigning subject:', err);
       }
     };
@@ -2090,7 +2124,7 @@ async function initializeAcademicsPage() {
       fillExamDropdown(),
       loadSessions(),
       loadTerms(),
-      fillTermDropdowns(),
+      loadTermDropdowns(),
       loadClasses(),
       loadExamSchedules(),
       loadExamModes(),
@@ -2098,7 +2132,7 @@ async function initializeAcademicsPage() {
       loadResults(),
       loadUploadedSubjects()
     ]);
-    await Promise.all([fillClassDropdown(),fillTermDropdowns()]);
+    await fillClassDropdown();
   } catch (error) {
     console.error('Academics initialization failed:', error);
     alert(error.message || 'Unable to load this school portal.');
