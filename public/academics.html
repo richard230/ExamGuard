@@ -32,7 +32,6 @@
     }
   </script>
   <style>
-
     :root {
       --school-primary: #1E3A8A;
       --school-secondary: #F59E0B;
@@ -751,7 +750,7 @@
         sidebarOverlay.classList.add('hidden');
       }
     });
-    const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+    const BACKEND_URL = window.BACKEND_URL || 'https://goldlincschools.onrender.com';
     const API_ROOT = `${BACKEND_URL}/api`;
     const API_BASE = `${API_ROOT}/academics`;
     const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
@@ -763,7 +762,6 @@
     let currentSchool = null;
     let schoolSubdomain = '';
     let publicSchoolId = '';
-
     function getTenantSubdomain() {
       const saved = localStorage.getItem('schoolSubdomain');
       if (saved) return saved.toLowerCase();
@@ -777,7 +775,6 @@
       }
       return '';
     }
-
     function decodeJwtPayload(jwt) {
       try {
         const part = jwt.split('.')[1];
@@ -789,7 +786,6 @@
         return null;
       }
     }
-
     function authHeaders(extra = {}) {
       const headers = {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -798,16 +794,13 @@
       if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
       return { ...headers, ...extra };
     }
-
     async function apiFetch(url, options = {}) {
       const merged = { ...options, headers: authHeaders(options.headers || {}) };
       return fetch(url, merged);
     }
-
     function schoolInitials(name) {
       return (name || 'School').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') || 'SC';
     }
-
     function handleLogoError(img) {
       if (!img || img.dataset.fallbackApplied === '1') return;
       img.dataset.fallbackApplied = '1';
@@ -819,7 +812,6 @@
         wrapper.replaceChild(fallback, img);
       }
     }
-
     function applySchoolBranding(school) {
       currentSchool = school || {};
       const branding = currentSchool.branding || {};
@@ -828,14 +820,12 @@
       const primary = branding.primaryColor || branding.primary || '#1E3A8A';
       const secondary = branding.secondaryColor || branding.secondary || '#F59E0B';
       const accent = branding.accentColor || branding.accent || '#10B981';
-
       document.documentElement.style.setProperty('--school-primary', primary);
       document.documentElement.style.setProperty('--school-secondary', secondary);
       document.documentElement.style.setProperty('--school-accent', accent);
       document.documentElement.style.setProperty('--school-primary-dark', primary);
       document.documentElement.style.setProperty('--school-primary-light', branding.lightColor || '#DBEAFE');
       document.documentElement.style.setProperty('--school-primary-soft', '#EFF6FF');
-
       const nameEl = document.getElementById('schoolBrandName');
       const logoEl = document.getElementById('schoolLogo');
       if (nameEl) { nameEl.textContent = name; nameEl.title = name; }
@@ -847,22 +837,12 @@
       }
       document.title = `${name} | Academics`;
     }
-
     async function loadSchoolConfig() {
-      /*
-       * IMPORTANT:
-       * Academics is an authenticated school-admin page.
-       * The JWT + /auth/me are the authoritative source of the current school.
-       * Do NOT trust a previously saved localStorage schoolSubdomain because it
-       * can belong to another school or contain an old/general configuration.
-       */
       if (!token) {
         throw new Error('No authentication token found. Please sign in again.');
       }
-
       const hostSubdomain = getTenantSubdomain();
       const meUrl = `${API_ROOT}/auth/me`;
-
       try {
         const meRes = await fetch(meUrl, {
           method: 'GET',
@@ -871,11 +851,9 @@
             Accept: 'application/json'
           }
         });
-
         if (!meRes.ok) {
           throw new Error(`Failed to load your school account (HTTP ${meRes.status})`);
         }
-
         const meRaw = await meRes.json();
         const currentUser = meRaw.user || meRaw.data?.user || meRaw;
         const schoolFromMe =
@@ -883,85 +861,59 @@
           meRaw.data?.school ||
           currentUser?.school ||
           null;
-
         if (!currentUser?.schoolId) {
           throw new Error('Your account is not linked to a school.');
         }
-
         if (!schoolFromMe?._id) {
           throw new Error('Your school configuration was not returned by the server.');
         }
-
-        /* The authenticated Mongo schoolId is the tenant authority. */
         const authenticatedSchoolId = String(currentUser.schoolId);
         const returnedSchoolId = String(schoolFromMe._id);
-
         if (authenticatedSchoolId !== returnedSchoolId) {
           throw new Error('The authenticated school and returned school configuration do not match.');
         }
-
         currentSchool = schoolFromMe;
         publicSchoolId = schoolFromMe.schoolId || '';
         schoolSubdomain = String(schoolFromMe.subdomain || hostSubdomain || '').toLowerCase();
-
         if (schoolSubdomain) {
           localStorage.setItem('schoolSubdomain', schoolSubdomain);
         }
         if (publicSchoolId) {
           localStorage.setItem('schoolId', publicSchoolId);
         }
-
-        /* Cache only this authenticated school's configuration. */
         if (schoolSubdomain) {
           localStorage.setItem(
             `examguard_school_config_${schoolSubdomain}`,
             JSON.stringify(schoolFromMe)
           );
         }
-
         applySchoolBranding(schoolFromMe);
         return schoolFromMe;
-
       } catch (authError) {
         console.error('Authenticated school context failed:', authError);
-
-        /*
-         * Optional public-config fallback.
-         * This is used only when the authenticated /auth/me route fails.
-         * If the public endpoint returns a different school, reject it rather
-         * than accidentally branding the page with general/another-school data.
-         */
         if (!hostSubdomain) throw authError;
-
         try {
           const res = await fetch(
             `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(hostSubdomain)}`,
             { headers: { Accept: 'application/json' } }
           );
-
           if (!res.ok) throw new Error(`School configuration failed (HTTP ${res.status})`);
-
           const raw = await res.json();
           const school = raw.school || raw.data || raw;
-
           if (!school?._id && !school?.schoolId) {
             throw new Error('Invalid school configuration returned by server.');
           }
-
           const payload = decodeJwtPayload(token);
           const tokenSchoolId = payload?.schoolId ? String(payload.schoolId) : '';
           const configMongoId = school?._id ? String(school._id) : '';
-
           if (tokenSchoolId && configMongoId && tokenSchoolId !== configMongoId) {
             throw new Error(
               'The school configuration endpoint returned a different school. The current school configuration was not applied.'
             );
           }
-
           currentSchool = school;
           publicSchoolId = school.schoolId || '';
           schoolSubdomain = String(school.subdomain || hostSubdomain).toLowerCase();
-
           applySchoolBranding(school);
           return school;
         } catch (fallbackError) {
@@ -970,7 +922,6 @@
         }
       }
     }
-
     function verifySchoolContext() {
       if (!token || !currentSchool) return true;
       const payload = decodeJwtPayload(token);
@@ -982,26 +933,19 @@
       }
       return true;
     }
-
 function normalizeDateValue(value) {
   if (!value) return '';
-
-  // Handles ISO strings, Date values, timestamps and YYYY-MM-DD values.
   try {
     const date = new Date(value);
     if (!Number.isNaN(date.getTime())) {
-      // Use the calendar date represented by the stored value without
-      // accidentally displaying the previous/next day because of timezone.
       if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
         return value;
       }
       return date.toISOString().slice(0, 10);
     }
   } catch (e) {}
-
   return String(value).slice(0, 10);
 }
-
 function getSessionStartDate(session) {
   return normalizeDateValue(
     session?.startDate ??
@@ -1011,7 +955,6 @@ function getSessionStartDate(session) {
     session?.session_start_date
   );
 }
-
 function getSessionEndDate(session) {
   return normalizeDateValue(
     session?.endDate ??
@@ -1021,7 +964,6 @@ function getSessionEndDate(session) {
     session?.session_end_date
   );
 }
-
 function formatSessionName(str) {
   if (!str) return str;
   const match = str.match(/(\d{4})\D*(\d{4})/);
@@ -1032,12 +974,8 @@ function showTab(tab) {
   document.querySelectorAll('[data-section]').forEach(sec => sec.classList.toggle('hidden', sec.dataset.section !== tab));
   document.querySelectorAll('.nav a').forEach(nav => nav.classList.toggle('active', nav.dataset.tab === tab));
   if (tab === "subjects") loadUploadedSubjects();
-
-  // Hidden academic sections can be opened after initial page load. Refresh
-  // their class selectors whenever a section that uses classes is opened.
-  if (["subjects", "exams", "cbt", "results"].includes(tab)) {
-    fillClassDropdown();
-  }
+  if (["subjects", "exams", "cbt", "results"].includes(tab)) fillClassDropdown();
+  if (["exams", "cbt"].includes(tab)) fillTermDropdowns();
 }
 document.querySelectorAll('.tablist button').forEach(btn => {
   btn.addEventListener('click', () => showTab(btn.dataset.tab));
@@ -1045,13 +983,16 @@ document.querySelectorAll('.tablist button').forEach(btn => {
 function showExamTab(tab) {
   document.querySelectorAll('#examTabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.examtab === tab));
   document.querySelectorAll('#examTabContent > div').forEach(sec => sec.classList.toggle('hidden', sec.dataset.examsection !== tab));
+  if(tab==='schedule'){fillClassDropdown();fillTermDropdowns();}
+  if(tab==='mode') fillExamDropdown();
+  if(tab==='cbt'){fillClassDropdown();fillTermDropdowns();}
 }
 document.querySelectorAll('#examTabs button').forEach(btn => {
   btn.addEventListener('click', () => showExamTab(btn.dataset.examtab));
 });
 async function fillDropdown(endpoint, selectId, valueKey = 'name') {
   try {
-    const res = await apiFetch(API_BASE + endpoint, { 
+    const res = await apiFetch(API_BASE + endpoint, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -1072,14 +1013,14 @@ async function fillDropdown(endpoint, selectId, valueKey = 'name') {
 }
 async function fillTeacherDropdown() {
   try {
-    const res = await apiFetch(`${BACKEND_URL}/api/teachers`, { 
+    const res = await apiFetch(`${BACKEND_URL}/api/teachers`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
     const data = await res.json();
     const select = document.getElementById('classTeacherSelect');
     if (select) {
-      select.innerHTML = data.map(t => 
+      select.innerHTML = data.map(t =>
         `<option value="${t.id}">${t.name} (${t.email})</option>`
       ).join('');
     }
@@ -1094,42 +1035,30 @@ async function fillClassDropdown() {
     'cbtClassSelect',
     'resultsClassSelect'
   ];
-
   try {
-    // One authenticated request supplies the class list to every class dropdown.
     const res = await apiFetch(`${API_BASE}/classes`, {
       headers: { Authorization: "Bearer " + token }
     });
-
     if (!res.ok) {
       console.error('Failed to load classes for dropdowns:', res.status);
       return [];
     }
-
     const raw = await res.json();
     const data = Array.isArray(raw)
       ? raw
       : (raw.classes || raw.data || raw.results || []);
-
     const options = data.map(c =>
       `<option value="${c._id}">${c.name || 'Unnamed Class'}</option>`
     ).join('');
-
     selectIds.forEach(id => {
       const select = document.getElementById(id);
       if (!select) return;
-
       const currentValue = select.value;
       select.innerHTML = `<option value="">Select Class</option>${options}`;
-
-      // Preserve a value if the dropdown was already populated/edited.
       if (currentValue && data.some(c => String(c._id) === String(currentValue))) {
         select.value = currentValue;
       }
     });
-
-    // Keep a reusable copy so opening/switching sections never depends on
-    // whether a particular section was visible during initial page load.
     window.academicsClasses = data;
     return data;
   } catch (err) {
@@ -1139,14 +1068,14 @@ async function fillClassDropdown() {
 }
 async function fillTeacherDropdown2() {
   try {
-    const res = await apiFetch(`${BACKEND_URL}/api/teachers`, { 
+    const res = await apiFetch(`${BACKEND_URL}/api/teachers`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
     const data = await res.json();
     const select = document.getElementById('assignSubjectTeacherSelect');
     if (select) {
-      select.innerHTML = data.map(t => 
+      select.innerHTML = data.map(t =>
         `<option value="${t.id}">${t.name} (${t.email})</option>`
       ).join('');
     }
@@ -1162,7 +1091,7 @@ function toggleTeacherDropdown() {
 }
 async function fillTeacherCheckboxes() {
   try {
-    const res = await apiFetch(`${BACKEND_URL}/api/teachers`, { 
+    const res = await apiFetch(`${BACKEND_URL}/api/teachers`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -1171,7 +1100,7 @@ async function fillTeacherCheckboxes() {
     if (container) {
       container.innerHTML = data.map(t =>
         `<label style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer;">
-          <input type="checkbox" name="teacherIds" value="${t.id}" style="margin-right: 8px;"> 
+          <input type="checkbox" name="teacherIds" value="${t.id}" style="margin-right: 8px;">
           ${t.name} (${t.email})
         </label>`
       ).join('');
@@ -1184,7 +1113,7 @@ async function loadClasses() {
   const tbody = document.getElementById('classesTableBody');
   if (!tbody) return;
   try {
-    const res = await apiFetch(`${API_BASE}/classes`, { 
+    const res = await apiFetch(`${API_BASE}/classes`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -1201,8 +1130,8 @@ async function loadClasses() {
         <td class="py-2 px-3">${c.name}</td>
         <td class="py-2 px-3">${c.arms && c.arms.length ? c.arms.join(', ') : '-'}</td>
         <td class="py-2 px-3">${
-          c.teachers && c.teachers.length 
-            ? c.teachers.map(t => `${t.first_name ?? t.name ?? ''} ${t.last_name ?? ''}`).join(', ') 
+          c.teachers && c.teachers.length
+            ? c.teachers.map(t => `${t.first_name ?? t.name ?? ''} ${t.last_name ?? ''}`).join(', ')
             : '-'
         }</td>
         <td class="py-2 px-3">
@@ -1224,9 +1153,9 @@ window.deleteClass = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    const res = await apiFetch(`${API_BASE}/classes/${id}`, { 
-      method: "DELETE", 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/classes/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + token }
     });
     if (res.ok) {
       loadClasses();
@@ -1242,7 +1171,7 @@ window.deleteClass = async function(id, btn) {
   }
 };
 window.editClass = function(id) {
-  apiFetch(`${API_BASE}/classes/${id}`, { 
+  apiFetch(`${API_BASE}/classes/${id}`, {
     headers: { Authorization: "Bearer " + token }
   })
     .then(res => res.json())
@@ -1268,8 +1197,8 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const form = this;
       const data = Object.fromEntries(new FormData(form));
-      data.arms = data.arms 
-        ? data.arms.split(',').map(a => a.trim()).filter(a => a) 
+      data.arms = data.arms
+        ? data.arms.split(',').map(a => a.trim()).filter(a => a)
         : [];
       const teacherCheckboxes = form.querySelectorAll('input[name="teacherIds"]:checked');
       data.teacherIds = Array.from(teacherCheckboxes).map(cb => cb.value);
@@ -1281,9 +1210,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `${API_BASE}/classes${editId ? "/" + editId : ""}`;
         const res = await apiFetch(url, {
           method,
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": "Bearer " + token 
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify(data)
         });
@@ -1307,7 +1236,7 @@ async function loadSessions() {
   const tbody = document.getElementById('sessionsTableBody');
   if (!tbody) return;
   try {
-    const res = await apiFetch(`${API_BASE}/sessions`, { 
+    const res = await apiFetch(`${API_BASE}/sessions`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -1346,9 +1275,9 @@ window.deleteSession = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    const res = await apiFetch(`${API_BASE}/sessions/${id}`, { 
-      method: "DELETE", 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/sessions/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + token }
     });
     if (res.ok) {
       loadSessions();
@@ -1364,7 +1293,7 @@ window.deleteSession = async function(id, btn) {
   }
 };
 window.editSession = function(id) {
-  apiFetch(`${API_BASE}/sessions/${id}`, { 
+  apiFetch(`${API_BASE}/sessions/${id}`, {
     headers: { Authorization: "Bearer " + token }
   })
     .then(res => res.json())
@@ -1398,9 +1327,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `${API_BASE}/sessions${editId ? "/" + editId : ""}`;
         const res = await apiFetch(url, {
           method,
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": "Bearer " + token 
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify(data)
         });
@@ -1417,50 +1346,47 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 });
-async function loadTerms() {
-  const tbody = document.getElementById('termsTableBody');
-  if (!tbody) return;
+async function fillTermDropdowns(sessionId='') {
+  const selectIds=['examTermSelect','pushCBTTermSelect'];
   try {
-    const res = await apiFetch(`${API_BASE}/terms`, { 
-      headers: { Authorization: "Bearer " + token }
+    const res=await apiFetch(`${API_BASE}/terms`,{headers:{Authorization:'Bearer '+token}});
+    if(!res.ok) return [];
+    const raw=await res.json();
+    const data=Array.isArray(raw)?raw:(raw.terms||raw.data||raw.results||[]);
+    const filtered=sessionId?data.filter(t=>String(t.session?._id||t.sessionId||t.session?.id||'')===String(sessionId)):data;
+    const options=filtered.map(t=>`<option value="${t._id}">${t.name||'Unnamed Term'}${t.session?.name?' ('+formatSessionName(t.session.name)+')':''}</option>`).join('');
+    selectIds.forEach(id=>{
+      const select=document.getElementById(id);
+      if(!select) return;
+      const currentValue=select.value;
+      select.innerHTML=`<option value="">Select Term</option>${options}`;
+      if(currentValue&&filtered.some(t=>String(t._id)===String(currentValue))) select.value=currentValue;
     });
-    if (!res.ok) {
-      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';
-      return;
-    }
-    const terms = await res.json();
-    if (!terms.length) {
-      tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">No terms found.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = terms.map(t =>
-      `<tr>
-        <td class="py-2 px-3">${t.name}</td>
-        <td class="py-2 px-3">${t.session?.name ? formatSessionName(t.session.name) : '-'}</td>
-        <td class="py-2 px-3">${t.startDate ? t.startDate.slice(0, 10) : ''}</td>
-        <td class="py-2 px-3">${t.endDate ? t.endDate.slice(0, 10) : ''}</td>
-        <td class="py-2 px-3">
-          <button class="px-2 py-1 rounded bg-[#2647a6] text-white text-xs" onclick="editTerm('${t._id}')" title="Edit">
-            <i class="fa fa-edit"></i>
-          </button>
-          <button class="px-2 py-1 rounded bg-red-600 text-white text-xs" onclick="deleteTerm('${t._id}', this)" title="Delete">
-            <i class="fa fa-trash"></i>
-          </button>
-        </td>
-      </tr>`
-    ).join('');
-  } catch (err) {
-    tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';
-    console.error('Error loading terms:', err);
-  }
+    window.academicsTerms=data;
+    return data;
+  }catch(err){console.error('Error filling term dropdowns:',err);return []}
+}
+async function loadTerms() {
+  await fillTermDropdowns();
+  const tbody=document.getElementById('termsTableBody');
+  if(!tbody) return;
+  try {
+    const res=await apiFetch(`${API_BASE}/terms`,{headers:{Authorization:'Bearer '+token}});
+    if(!res.ok){tbody.innerHTML='<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';return;}
+    const raw=await res.json();
+    const terms=Array.isArray(raw)?raw:(raw.terms||raw.data||raw.results||[]);
+    window.academicsTerms=terms;
+    if(!terms.length){tbody.innerHTML='<tr><td class="py-2 px-3" colspan="5">No terms found.</td></tr>';return;}
+    tbody.innerHTML=terms.map(t=>`<tr><td class="py-2 px-3">${t.name||'-'}</td><td class="py-2 px-3">${t.session?.name?formatSessionName(t.session.name):'-'}</td><td class="py-2 px-3">${normalizeDateValue(t.startDate||t.start_date||t.start)}</td><td class="py-2 px-3">${normalizeDateValue(t.endDate||t.end_date||t.end)}</td><td class="py-2 px-3"><button class="px-2 py-1 rounded bg-[#2647a6] text-white text-xs" onclick="editTerm('${t._id}')" title="Edit"><i class="fa fa-edit"></i></button><button class="px-2 py-1 rounded bg-red-600 text-white text-xs" onclick="deleteTerm('${t._id}', this)" title="Delete"><i class="fa fa-trash"></i></button></td></tr>`).join('');
+  }catch(err){tbody.innerHTML='<tr><td class="py-2 px-3" colspan="5">Error loading terms.</td></tr>';console.error('Error loading terms:',err)}
 }
 window.deleteTerm = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    const res = await apiFetch(`${API_BASE}/terms/${id}`, { 
-      method: "DELETE", 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/terms/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + token }
     });
     if (res.ok) {
       loadTerms();
@@ -1476,7 +1402,7 @@ window.deleteTerm = async function(id, btn) {
   }
 };
 window.editTerm = function(id) {
-  apiFetch(`${API_BASE}/terms/${id}`, { 
+  apiFetch(`${API_BASE}/terms/${id}`, {
     headers: { Authorization: "Bearer " + token }
   })
     .then(res => res.json())
@@ -1508,9 +1434,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `${API_BASE}/terms${editId ? "/" + editId : ""}`;
         const res = await apiFetch(url, {
           method,
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": "Bearer " + token 
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify(data)
         });
@@ -1531,7 +1457,7 @@ async function loadExamSchedules() {
   const tbody = document.getElementById('examScheduleTableBody');
   if (!tbody) return;
   try {
-    const res = await apiFetch(`${API_BASE}/exams/schedules`, { 
+    const res = await apiFetch(`${API_BASE}/exams/schedules`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -1568,9 +1494,9 @@ window.deleteExamSchedule = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    const res = await apiFetch(`${API_BASE}/exams/schedules/${id}`, { 
-      method: "DELETE", 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/exams/schedules/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + token }
     });
     if (res.ok) {
       loadExamSchedules();
@@ -1586,7 +1512,7 @@ window.deleteExamSchedule = async function(id, btn) {
   }
 };
 window.editExamSchedule = function(id) {
-  apiFetch(`${API_BASE}/exams/schedules/${id}`, { 
+  apiFetch(`${API_BASE}/exams/schedules/${id}`, {
     headers: { Authorization: "Bearer " + token }
   })
     .then(res => res.json())
@@ -1618,9 +1544,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `${API_BASE}/exams/schedules${editId ? "/" + editId : ""}`;
         const res = await apiFetch(url, {
           method,
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": "Bearer " + token 
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify(data)
         });
@@ -1639,7 +1565,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 async function fillExamDropdown() {
   try {
-    const res = await apiFetch(`${API_BASE}/exams/schedules`, { 
+    const res = await apiFetch(`${API_BASE}/exams/schedules`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
@@ -1656,7 +1582,7 @@ async function loadExamModes() {
   const tbody = document.getElementById('examModeTableBody');
   if (!tbody) return;
   try {
-    const res = await apiFetch(`${API_BASE}/exams/modes`, { 
+    const res = await apiFetch(`${API_BASE}/exams/modes`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -1686,7 +1612,7 @@ async function loadExamModes() {
   }
 }
 window.editExamMode = function(id) {
-  apiFetch(`${API_BASE}/exams/modes/${id}`, { 
+  apiFetch(`${API_BASE}/exams/modes/${id}`, {
     headers: { Authorization: "Bearer " + token }
   })
     .then(res => res.json())
@@ -1717,9 +1643,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `${API_BASE}/exams/modes${editId ? "/" + editId : ""}`;
         const res = await apiFetch(url, {
           method,
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": "Bearer " + token 
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify(data)
         });
@@ -1740,7 +1666,7 @@ async function loadCBTs() {
   const tbody = document.getElementById('cbtTableBody');
   if (!tbody) return;
   try {
-    const res = await apiFetch(`${API_BASE}/cbt/mocks`, { 
+    const res = await apiFetch(`${API_BASE}/cbt/mocks`, {
       headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
@@ -1777,9 +1703,9 @@ window.deleteCBT = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    const res = await apiFetch(`${API_BASE}/cbt/mocks/${id}`, { 
-      method: "DELETE", 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/cbt/mocks/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + token }
     });
     if (res.ok) {
       loadCBTs();
@@ -1795,7 +1721,7 @@ window.deleteCBT = async function(id, btn) {
   }
 };
 window.editCBT = function(id) {
-  apiFetch(`${API_BASE}/cbt/mocks/${id}`, { 
+  apiFetch(`${API_BASE}/cbt/mocks/${id}`, {
     headers: { Authorization: "Bearer " + token }
   })
     .then(res => res.json())
@@ -1827,9 +1753,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `${API_BASE}/cbt/mocks${editId ? "/" + editId : ""}`;
         const res = await apiFetch(url, {
           method,
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": "Bearer " + token 
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify(data)
         });
@@ -1853,8 +1779,8 @@ async function loadResults(filter = {}) {
   try {
     let results = [];
     if (filter.type === "CBT") {
-      const res = await apiFetch(`${BACKEND_URL}/api/result`, { 
-        headers: { Authorization: "Bearer " + token } 
+      const res = await apiFetch(`${BACKEND_URL}/api/result`, {
+        headers: { Authorization: "Bearer " + token }
       });
       if (!res.ok) throw new Error('Failed to fetch CBT results');
       results = await res.json();
@@ -1883,8 +1809,8 @@ async function loadResults(filter = {}) {
     if (filter.sessionId || filter.classId || filter.type) {
       url += '?' + new URLSearchParams(filter).toString();
     }
-    const res = await apiFetch(url, { 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(url, {
+      headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) throw new Error('Failed to fetch results');
     results = await res.json();
@@ -1926,15 +1852,15 @@ window.deleteCBTResult = async function(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
   try {
-    let res = await apiFetch(`${BACKEND_URL}/api/result/${id}`, { 
-      method: "DELETE", 
-      headers: { Authorization: "Bearer " + token } 
+    let res = await apiFetch(`${BACKEND_URL}/api/result/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) {
       const url = `${API_BASE}/results/cbt-mocks/${id}`;
-      res = await apiFetch(url, { 
-        method: "DELETE", 
-        headers: { Authorization: "Bearer " + token } 
+      res = await apiFetch(url, {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + token }
       });
     }
     if (res.ok) {
@@ -1952,8 +1878,8 @@ window.deleteCBTResult = async function(id, btn) {
 };
 async function fillPushCBTSessionDropdown() {
   try {
-    const res = await apiFetch(`${API_BASE}/sessions`, { 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/sessions`, {
+      headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
     const data = await res.json();
@@ -1967,8 +1893,8 @@ async function fillPushCBTSessionDropdown() {
 }
 async function fillPushCBTTermDropdown() {
   try {
-    const res = await apiFetch(`${API_BASE}/terms`, { 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/terms`, {
+      headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) return;
     const data = await res.json();
@@ -1991,6 +1917,8 @@ document.addEventListener('DOMContentLoaded', () => {
     pushCBTResultsBtn.addEventListener('click', () => {
       fillPushCBTSessionDropdown();
       fillPushCBTTermDropdown();
+      fillTermDropdowns();
+      fillClassDropdown();
       pushCBTModal.style.display = 'flex';
       if (pushCBTModalFeedback) pushCBTModalFeedback.textContent = "";
     });
@@ -2048,9 +1976,9 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const res = await apiFetch(`${API_BASE}/classes/${data.classId}/subjects`, {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json", 
-            "Authorization": "Bearer " + token 
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
           body: JSON.stringify({ subjectName: data.subjectName, teacherId: data.teacherId })
         });
@@ -2074,8 +2002,8 @@ async function loadUploadedSubjects() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td class="py-2 px-3" colspan="5">Loading...</td></tr>';
   try {
-    const res = await apiFetch(`${API_BASE}/classes`, { 
-      headers: { Authorization: "Bearer " + token } 
+    const res = await apiFetch(`${API_BASE}/classes`, {
+      headers: { Authorization: "Bearer " + token }
     });
     if (!res.ok) throw new Error('Failed to fetch classes');
     const classes = await res.json();
@@ -2089,8 +2017,8 @@ async function loadUploadedSubjects() {
               <td class="py-2 px-3">${subj.subject?.name || '-'}</td>
               <td class="py-2 px-3">${cls.name || '-'}</td>
               <td class="py-2 px-3">${
-                subj.teacher 
-                  ? (subj.teacher.name || `${subj.teacher.first_name || ''}${subj.teacher.last_name || ''}`) 
+                subj.teacher
+                  ? (subj.teacher.name || `${subj.teacher.first_name || ''}${subj.teacher.last_name || ''}`)
                   : '-'
               }</td>
               <td class="py-2 px-3">${subj.uploadedAt ? new Date(subj.uploadedAt).toLocaleDateString() : '-'}</td>
@@ -2146,7 +2074,6 @@ function logoutUser() {
   ['adminToken', 'token', 'authToken'].forEach(key => localStorage.removeItem(key));
   window.location.href = 'login.html';
 }
-
 async function initializeAcademicsPage() {
   token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken');
   if (!token) {
@@ -2156,8 +2083,6 @@ async function initializeAcademicsPage() {
   try {
     await loadSchoolConfig();
     verifySchoolContext();
-
-    // All academic requests now run only after the tenant has been resolved.
     await Promise.allSettled([
       fillTeacherCheckboxes(),
       fillTeacherDropdown2(),
@@ -2165,6 +2090,7 @@ async function initializeAcademicsPage() {
       fillExamDropdown(),
       loadSessions(),
       loadTerms(),
+      fillTermDropdowns(),
       loadClasses(),
       loadExamSchedules(),
       loadExamModes(),
@@ -2172,17 +2098,12 @@ async function initializeAcademicsPage() {
       loadResults(),
       loadUploadedSubjects()
     ]);
-
-    // Populate every class dropdown after the class list has definitely been
-    // requested. This avoids race conditions between hidden sections and the
-    // Class Setup table loading.
-    await fillClassDropdown();
+    await Promise.all([fillClassDropdown(),fillTermDropdowns()]);
   } catch (error) {
     console.error('Academics initialization failed:', error);
     alert(error.message || 'Unable to load this school portal.');
   }
 }
-
 document.addEventListener('DOMContentLoaded', initializeAcademicsPage);
   </script>
 </body>
