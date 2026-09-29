@@ -643,15 +643,35 @@ document.getElementById('fetchStudentsBtn').addEventListener('click',async funct
     const tbody=document.getElementById('manualResultsTbody');
     tbody.innerHTML='<tr><td colspan="5" class="p-8 text-center text-slate-500 font-medium">Loading students...</td></tr>';
     try{
-        const res = await fetch(
-            `${API_ROOT}/student?class=${encodeURIComponent(classId || className)}`,
+        // The existing student endpoint is class-name based. Keep that
+        // behaviour so it remains compatible with the working backend.
+        // The class Mongo/ObjectId is still retained for result submission.
+        let res = await fetch(
+            `${API_ROOT}/student?class=${encodeURIComponent(className)}`,
             {
                 method: "GET",
                 headers: getAuthHeaders()
             }
         );
-        const data=await res.json();
-        const students=Array.isArray(data)?data:(data.students||[]);
+
+        // Some newer deployments may expose class-ID filtering instead.
+        // Only try that form if the legacy class-name request returned no students.
+        let data = await res.json();
+        let students = Array.isArray(data) ? data : (data.students || data.data || []);
+
+        if (Array.isArray(students) && students.length === 0 && classId && classId !== className) {
+            const fallbackRes = await fetch(
+                `${API_ROOT}/student?class=${encodeURIComponent(classId)}`,
+                {
+                    method: "GET",
+                    headers: getAuthHeaders()
+                }
+            );
+            if (fallbackRes.ok) {
+                data = await fallbackRes.json();
+                students = Array.isArray(data) ? data : (data.students || data.data || []);
+            }
+        }
         if(!Array.isArray(students)||students.length===0){
             tbody.innerHTML='<tr><td colspan="5"><div class="empty-state py-12 text-center text-slate-400"><div class="empty-state-icon text-4xl mb-2">👥</div><div class="empty-state-title text-base font-semibold text-slate-700">No students found</div><p class="text-xs text-slate-500 mt-1">No students enrolled in this class</p></div></td></tr>';
             return;
