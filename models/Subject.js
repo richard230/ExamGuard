@@ -31,7 +31,7 @@ const subjectSchema = new Schema({
 });
 
 subjectSchema.index(
-  { schoolId: 1, name: 1 },
+  { schoolId: 1, name: 1, classId: 1 },
   { unique: true }
 );
 
