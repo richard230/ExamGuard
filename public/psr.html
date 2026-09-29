@@ -390,120 +390,318 @@
         }
 
         async function loadSchoolConfig() {
-            const subdomain = getTenantSubdomain();
-            if (!subdomain) {
-                throw new Error('School could not be identified from this portal address.');
-            }
-            console.log('🏫 Loading school configuration:', subdomain);
-            const cacheKey = `examguard_school_config_${subdomain}`;
-            let cachedSchool = null;
-            try {
-                cachedSchool = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-            } catch (error) {
-                console.warn('Could not read cached school configuration.');
-            }
-            if (cachedSchool) {
-                currentSchool = cachedSchool;
-                applySchoolBranding(currentSchool);
-            }
-            try {
-                const response = await fetch(
-                    `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`,
-                    {
-                        method: 'GET',
-                        headers: { 'Accept': 'application/json' }
-                    }
-                );
-                if (!response.ok) {
-                    throw new Error(`School configuration request failed (${response.status})`);
+        async function loadSchoolConfig() {
+    const subdomain = getTenantSubdomain();
+
+    if (!subdomain) {
+        throw new Error(
+            'School could not be identified from this portal address.'
+        );
+    }
+
+    console.log(
+        '🏫 Loading school configuration:',
+        subdomain
+    );
+
+    const cacheKey =
+        `examguard_school_config_${subdomain}`;
+
+    let cachedConfig = null;
+
+    try {
+        cachedConfig = JSON.parse(
+            localStorage.getItem(cacheKey) || 'null'
+        );
+    } catch (error) {
+        console.warn(
+            'Could not read cached school configuration.'
+        );
+    }
+
+    if (cachedConfig) {
+        currentSchool = cachedConfig;
+        applySchoolBranding(currentSchool);
+    }
+
+    try {
+        const response = await fetch(
+            `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
                 }
-                const result = await response.json();
-                const school = result.school || result.data?.school || result.data || result;
-                if (!school || (!school.schoolId && !school._id && !school.id)) {
-                    throw new Error('Invalid school configuration received from server.');
-                }
-                currentSchool = school;
-                localStorage.setItem(cacheKey, JSON.stringify(currentSchool));
-                localStorage.setItem('schoolSubdomain', subdomain);
-                if (currentSchool.schoolId) {
-                    localStorage.setItem('schoolId', currentSchool.schoolId);
-                }
-                applySchoolBranding(currentSchool);
-                console.log('✅ School configuration loaded:', currentSchool);
-                return currentSchool;
-            } catch (error) {
-                console.error('❌ School config error:', error);
-                if (cachedSchool) {
-                    console.warn('⚠️ Using cached school configuration.');
-                    currentSchool = cachedSchool;
-                    applySchoolBranding(currentSchool);
-                    return currentSchool;
-                }
-                throw error;
             }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `School configuration request failed (${response.status})`
+            );
         }
+
+        const result = await response.json();
+
+        console.log(
+            '📋 Raw school configuration response:',
+            result
+        );
+
+        const config =
+            result.data ||
+            result;
+
+        const school = config.school || {};
+        const branding = config.branding || {};
+
+        if (
+            !school.schoolId &&
+            !school._id &&
+            !school.id
+        ) {
+            throw new Error(
+                'Invalid school configuration received from server.'
+            );
+        }
+
+        /*
+         * Keep the school details and branding together.
+         * The logo is located at:
+         * config.branding.logos.main
+         */
+        currentSchool = {
+            ...school,
+            branding,
+            academic: config.academic || {},
+            localization: config.localization || {},
+            authentication: config.authentication || {},
+            portals: config.portals || {},
+            features: config.features || {},
+            payments: config.payments || {},
+            communication: config.communication || {},
+            pwa: config.pwa || {}
+        };
+
+        localStorage.setItem(
+            cacheKey,
+            JSON.stringify(currentSchool)
+        );
+
+        localStorage.setItem(
+            'schoolSubdomain',
+            subdomain
+        );
+
+        if (currentSchool.schoolId) {
+            localStorage.setItem(
+                'schoolId',
+                currentSchool.schoolId
+            );
+        }
+
+        applySchoolBranding(currentSchool);
+
+        console.log(
+            '✅ School configuration loaded:',
+            currentSchool
+        );
+
+        return currentSchool;
+    } catch (error) {
+        console.error(
+            '❌ School config error:',
+            error
+        );
+
+        if (cachedConfig) {
+            console.warn(
+                '⚠️ Using cached school configuration.'
+            );
+
+            currentSchool = cachedConfig;
+            applySchoolBranding(currentSchool);
+            return currentSchool;
+        }
+
+        throw error;
+    }
+}
 
         function applySchoolBranding(school) {
-            if (!school) return;
-            const branding = school.branding || {};
-            const schoolName = school.schoolName || school.name || 'School';
-            const logo = school.logoUrl || branding.logoUrl || branding.logo || '';
-            const primary = branding.primary || branding.primaryColor || school.primaryColor || '#0284c7';
-            const secondary = branding.secondary || branding.secondaryColor || school.secondaryColor || '#075985';
-            const accent = branding.accent || branding.accentColor || school.accentColor || '#fbbf24';
-            const email = school.email || school.adminEmail || branding.email || '';
-            const phone = school.phone || school.phoneNumber || branding.phone || '';
-            const motto = school.motto || branding.motto || 'Parent Portal';
+    if (!school) return;
 
-            document.documentElement.style.setProperty('--school-primary', primary);
-            document.documentElement.style.setProperty('--school-secondary', secondary);
-            document.documentElement.style.setProperty('--school-accent', accent);
-            document.title = `Check Child's Results | ${schoolName}`;
+    const branding = school.branding || {};
+    const logos = branding.logos || {};
 
-            const logoElement = document.getElementById('schoolLogo');
-            if (logoElement) {
-                if (logo) {
-                    logoElement.src = logo;
-                    logoElement.alt = `${schoolName} Logo`;
-                    logoElement.classList.remove('hidden');
-                } else {
-                    logoElement.removeAttribute('src');
-                    logoElement.alt = `${schoolName} Logo`;
-                }
-            }
+    const schoolName =
+        school.schoolName ||
+        school.name ||
+        'School';
 
-            const nameElement = document.getElementById('schoolName');
-            if (nameElement) nameElement.textContent = schoolName;
+    const logo =
+        school.logoUrl ||
+        school.logo ||
+        branding.logoUrl ||
+        branding.logo ||
+        logos.main ||
+        logos.light ||
+        logos.dark ||
+        '';
 
-            const mottoElement = document.getElementById('schoolMotto');
-            if (mottoElement) mottoElement.textContent = motto;
+    const colors = branding.colors || {};
 
-            const emailElement = document.getElementById('schoolEmail');
-            if (emailElement) emailElement.textContent = email || '--';
+    const primary =
+        colors.primary ||
+        branding.primary ||
+        branding.primaryColor ||
+        school.primaryColor ||
+        '#0284c7';
 
-            const phoneElement = document.getElementById('schoolPhone');
-            if (phoneElement) phoneElement.textContent = phone || '--';
+    const secondary =
+        colors.secondary ||
+        branding.secondary ||
+        branding.secondaryColor ||
+        school.secondaryColor ||
+        '#075985';
 
-            if (logo) {
-                let favicon = document.querySelector('link[rel="icon"]');
-                if (!favicon) {
-                    favicon = document.createElement('link');
-                    favicon.rel = 'icon';
-                    document.head.appendChild(favicon);
-                }
-                favicon.href = logo;
-            }
+    const accent =
+        colors.accent ||
+        branding.accent ||
+        branding.accentColor ||
+        school.accentColor ||
+        '#fbbf24';
 
-            let themeColor = document.querySelector('meta[name="theme-color"]');
-            if (!themeColor) {
-                themeColor = document.createElement('meta');
-                themeColor.name = 'theme-color';
-                document.head.appendChild(themeColor);
-            }
-            themeColor.content = primary;
+    const contact = school.contact || {};
 
-            console.log('🎨 School branding applied:', { schoolName, logo, primary, secondary, accent });
+    const email =
+        contact.email ||
+        school.email ||
+        school.adminEmail ||
+        '';
+
+    const phone =
+        contact.phone ||
+        school.phone ||
+        school.phoneNumber ||
+        '';
+
+    const motto =
+        school.motto ||
+        branding.motto ||
+        'Parent Portal';
+
+    document.documentElement.style.setProperty(
+        '--school-primary',
+        primary
+    );
+
+    document.documentElement.style.setProperty(
+        '--school-secondary',
+        secondary
+    );
+
+    document.documentElement.style.setProperty(
+        '--school-accent',
+        accent
+    );
+
+    document.title =
+        `Check Child's Results | ${schoolName}`;
+
+    const logoElement =
+        document.getElementById('schoolLogo');
+
+    if (logoElement) {
+        if (logo) {
+            logoElement.src = logo;
+            logoElement.alt = `${schoolName} Logo`;
+            logoElement.classList.remove('hidden');
+            logoElement.style.display = 'block';
+
+            logoElement.onerror = function () {
+                console.error(
+                    '❌ School logo failed to load:',
+                    this.src
+                );
+
+                this.onerror = null;
+                this.style.display = 'none';
+            };
+        } else {
+            console.warn(
+                '⚠️ No school logo URL found.'
+            );
+
+            logoElement.removeAttribute('src');
+            logoElement.alt = `${schoolName} Logo`;
+            logoElement.style.display = 'none';
         }
+    }
+
+    const nameElement =
+        document.getElementById('schoolName');
+
+    if (nameElement) {
+        nameElement.textContent = schoolName;
+    }
+
+    const mottoElement =
+        document.getElementById('schoolMotto');
+
+    if (mottoElement) {
+        mottoElement.textContent = motto;
+    }
+
+    const emailElement =
+        document.getElementById('schoolEmail');
+
+    if (emailElement) {
+        emailElement.textContent = email || '--';
+    }
+
+    const phoneElement =
+        document.getElementById('schoolPhone');
+
+    if (phoneElement) {
+        phoneElement.textContent = phone || '--';
+    }
+
+    if (logo) {
+        let favicon =
+            document.querySelector('link[rel="icon"]');
+
+        if (!favicon) {
+            favicon = document.createElement('link');
+            favicon.rel = 'icon';
+            document.head.appendChild(favicon);
+        }
+
+        favicon.href = logo;
+    }
+
+    let themeColor =
+        document.querySelector('meta[name="theme-color"]');
+
+    if (!themeColor) {
+        themeColor = document.createElement('meta');
+        themeColor.name = 'theme-color';
+        document.head.appendChild(themeColor);
+    }
+
+    themeColor.content = primary;
+
+    console.log(
+        '🎨 School branding applied:',
+        {
+            schoolName,
+            logo,
+            primary,
+            secondary,
+            accent
+        }
+    );
+}
 
         function validateSchoolContext() {
             const jwtPayload = decodeJwtPayload(token);
