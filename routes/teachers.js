@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -30,6 +29,19 @@ function getSchoolId(req) {
     throw new Error('Teacher is not linked to a valid school.');
   }
   return new mongoose.Types.ObjectId(schoolId);
+}
+
+async function backfillLegacyTeacherAssignments(teacherId, schoolId) {
+  await Assignment.updateMany(
+    {
+      teacher: teacherId,
+      $or: [
+        { schoolId: { $exists: false } },
+        { schoolId: null }
+      ]
+    },
+    { $set: { schoolId } }
+  );
 }
 
 function requireOwnTeacher(req, res) {
@@ -365,8 +377,13 @@ router.get('/students', tenantTeacherAuth, async (req, res) => {
 // GET /api/teachers/:id/assignments
 router.get('/:id/assignments', tenantTeacherAuth, async (req, res) => {
   try {
-    const assignments = await Assignment.find({ schoolId: getSchoolId(req), teacher: req.staff._id })
-      .populate({ path: 'class', select: 'name' }) // ensures .class.name is available
+    const schoolId = getSchoolId(req);
+    await backfillLegacyTeacherAssignments(req.staff._id, schoolId);
+
+    const assignments = await Assignment.find({ schoolId, teacher: req.staff._id })
+      .populate({ path: 'class', select: 'name' })
+      .populate({ path: 'subject', select: 'name' })
+      .populate({ path: 'cbt', select: 'title' })
       .sort({ dueDate: 1 });
     res.json({ assignments });
   } catch (err) {
@@ -388,11 +405,53 @@ router.post('/:id/assignments', tenantTeacherAuth, async (req, res) => {
       });
     }
 
-    // If type is QUESTION_BANK, cbt is required
+    if (!validId(classId)) {
+      return res.status(400).json({ error: 'Valid class ID is required.' });
+    }
+
+    if (!validId(subject)) {
+      return res.status(400).json({ error: 'Valid subject ID is required.' });
+    }
+
+    const cls = await Class.findOne({
+      _id: classId,
+      schoolId,
+      teachers: teacherId
+    });
+
+    if (!cls) {
+      return res.status(403).json({ error: 'Class is not assigned to this teacher.' });
+    }
+
+    const subjectExists = await Subject.exists({
+      _id: subject,
+      schoolId
+    });
+
+    if (!subjectExists) {
+      return res.status(403).json({ error: 'Subject is not available in this school.' });
+    }
+
     if (type === 'QUESTION_BANK' && !cbt) {
-      return res.status(400).json({ 
-        error: 'CBT ID is required for QUESTION_BANK type assignments. Please select an exam first.' 
+      return res.status(400).json({
+        error: 'CBT ID is required for QUESTION_BANK type assignments. Please select an exam first.'
       });
+    }
+
+    if (cbt) {
+      if (!validId(cbt)) {
+        return res.status(400).json({ error: 'Valid CBT ID is required.' });
+      }
+
+      const cbtExists = await CBT.exists({
+        _id: cbt,
+        schoolId,
+        teacher: teacherId
+      });
+
+      if (!cbtExists) {
+        return res.status(403).json({ error: 'CBT is not available to this teacher.' });
+      }
     }
 
     const assignment = new Assignment({
@@ -404,8 +463,9 @@ router.post('/:id/assignments', tenantTeacherAuth, async (req, res) => {
       type: type || 'STANDARD',
       dueDate,
       cbt: cbt || null,
-      questionsAllocated: questionsAllocated || [],
-      teacher: teacherId
+      questionsAllocated: Array.isArray(questionsAllocated) ? questionsAllocated : [],
+      teacher: teacherId,
+      createdBy: teacherId
     });
 
     await assignment.save();
@@ -495,7 +555,9 @@ router.get('/:id/draft-results', tenantTeacherAuth, async (req, res) => {
 // POST /api/teachers/:id/draft-results
 router.post('/:id/draft-results', tenantTeacherAuth, async (req, res) => {
   try {
-    const input = req.body;
+    const input = { ...req.body };
+    delete input.schoolId;
+    delete input.teacher;
     const schoolId = getSchoolId(req);
     let draft = await DraftResult.findOne({
       schoolId,
@@ -508,6 +570,8 @@ router.post('/:id/draft-results', tenantTeacherAuth, async (req, res) => {
       draft = new DraftResult({ ...input, schoolId, teacher: req.staff._id });
     } else {
       Object.assign(draft, input);
+      draft.schoolId = schoolId;
+      draft.teacher = req.staff._id;
     }
     draft.updated = new Date();
     await draft.save();
@@ -565,11 +629,32 @@ router.post('/classes/:classId/subjects', tenantTeacherAuth, async (req, res) =>
 router.patch('/:id/assignments/:assignmentId/submissions/:submissionId', tenantTeacherAuth, async (req, res) => {
   try {
     const { score } = req.body;
+    const schoolId = getSchoolId(req);
+
+    const assignment = await Assignment.findOne({
+      _id: req.params.assignmentId,
+      schoolId,
+      teacher: req.staff._id
+    });
+
+    if (!assignment) {
+      return res.status(404).json({ error: 'Assignment not found or not owned by teacher.' });
+    }
+
     const submission = await AssignmentSubmission.findOneAndUpdate(
-      { _id: req.params.submissionId, schoolId: getSchoolId(req), assignment: req.params.assignmentId },
+      {
+        _id: req.params.submissionId,
+        schoolId,
+        assignment: assignment._id
+      },
       { score, status: 'Graded' },
       { new: true }
     );
+
+    if (!submission) {
+      return res.status(404).json({ error: 'Submission not found.' });
+    }
+
     res.json({ success: true, submission });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -578,15 +663,54 @@ router.patch('/:id/assignments/:assignmentId/submissions/:submissionId', tenantT
 // PATCH /api/teachers/:id/assignments/:assignmentId - Update assignment
 router.patch('/:id/assignments/:assignmentId', tenantTeacherAuth, async (req, res) => {
   try {
+    const schoolId = getSchoolId(req);
     const update = { ...req.body };
     delete update.schoolId;
     delete update.teacher;
+    delete update.createdBy;
+
+    if (update.class !== undefined) {
+      if (!validId(update.class) || !(await Class.exists({
+        _id: update.class,
+        schoolId,
+        teachers: req.staff._id
+      }))) {
+        return res.status(403).json({ error: 'Class is not assigned to this teacher.' });
+      }
+    }
+
+    if (update.subject !== undefined) {
+      if (!validId(update.subject) || !(await Subject.exists({
+        _id: update.subject,
+        schoolId
+      }))) {
+        return res.status(403).json({ error: 'Subject is not available in this school.' });
+      }
+    }
+
+    if (update.cbt !== undefined && update.cbt !== null && update.cbt !== '') {
+      if (!validId(update.cbt) || !(await CBT.exists({
+        _id: update.cbt,
+        schoolId,
+        teacher: req.staff._id
+      }))) {
+        return res.status(403).json({ error: 'CBT is not available to this teacher.' });
+      }
+    }
+
     const assignment = await Assignment.findOneAndUpdate(
-      { _id: req.params.assignmentId, schoolId: getSchoolId(req), teacher: req.staff._id },
+      { _id: req.params.assignmentId, schoolId, teacher: req.staff._id },
       update,
-      { new: true }
+      { new: true, runValidators: true }
     );
     if (!assignment) return res.status(404).json({ error: "Assignment not found or not owned by teacher." });
+
+    await assignment.populate([
+      { path: 'class', select: 'name' },
+      { path: 'subject', select: 'name' },
+      { path: 'cbt', select: 'title' }
+    ]);
+
     res.json({ success: true, assignment });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -642,7 +766,11 @@ router.delete('/:id/assignments/:assignmentId', tenantTeacherAuth, async (req, r
 // DELETE /api/teachers/:id/notifications/:notificationId - Delete notification
 router.delete('/:id/notifications/:notificationId', tenantTeacherAuth, async (req, res) => {
   try {
-    const notification = await Notification.findOneAndDelete({ _id: req.params.notificationId, teacher: req.params.id });
+    const notification = await Notification.findOneAndDelete({
+      _id: req.params.notificationId,
+      teacher: req.staff._id,
+      schoolId: getSchoolId(req)
+    });
     if (!notification) return res.status(404).json({ error: "Notification not found or not owned by teacher." });
     res.json({ success: true });
   } catch (err) {
