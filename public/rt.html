@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=0.85">
-    <title>Gold and Linc Schools | Faculty LMS & Multi-Editor Console</title>
+    <title>Faculty LMS | School Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
@@ -155,10 +155,10 @@
     <aside class="hidden md:flex flex-col w-72 bg-brand-900 text-white shrink-0 shadow-2xl relative z-30 border-r border-brand-800">
         <div class="p-6 border-b border-brand-800/60 bg-brand-950/20 flex items-center space-x-3">
             <div class="bg-white p-1 rounded-xl shadow-inner flex items-center justify-center shrink-0">
-                <img src="https://res.cloudinary.com/da7o22rnq/image/upload/v1779961202/editor-uploads/frngf21mg4fcrnmccobm.png" class="h-9 w-auto object-contain" alt="Gold and Linc Logo">
+                <img id="schoolLogo" src="mainlogo.png" class="h-9 w-auto object-contain" alt="School Logo">
             </div>
             <div>
-                <span class="block text-base font-extrabold tracking-tight uppercase font-serif">Gold & Linc</span>
+                <span id="schoolBrandName" class="block text-base font-extrabold tracking-tight uppercase font-serif">School</span>
                 <span class="block text-[10px] text-brand-500 uppercase tracking-widest font-extrabold -mt-0.5">Faculty Terminal</span>
             </div>
         </div>
@@ -210,8 +210,8 @@
 
     <header class="md:hidden w-full bg-brand-900 text-white h-16 px-4 flex items-center justify-between shadow-md sticky top-0 z-40">
         <div class="flex items-center space-x-2.5">
-            <img src="https://res.cloudinary.com/da7o22rnq/image/upload/v1779961202/editor-uploads/frngf21mg4fcrnmccobm.png" class="h-7 w-auto bg-white p-0.5 rounded-lg" alt="Logo">
-            <span class="font-serif font-bold text-sm tracking-wide">Gold & Linc LMS</span>
+            <img id="mobileSchoolLogo" src="mainlogo.png" class="h-7 w-auto bg-white p-0.5 rounded-lg" alt="School Logo">
+            <span id="mobileSchoolName" class="font-serif font-bold text-sm tracking-wide">School LMS</span>
         </div>
         <button type="button" onclick="openBottomNav()" class="bg-brand-800 border border-brand-500/40 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition active:scale-95 flex items-center">
             <span>LMS Menu</span>
@@ -252,7 +252,7 @@
                 </div>
                 <div class="text-xs">
                     <p class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Academic Term Node</p>
-                    <p class="text-sm font-black text-slate-900">2025/2026 Session &bull; First Term</p>
+                    <p id="academicTermNode" class="text-sm font-black text-slate-900">Loading academic session...</p>
                     <span class="inline-flex bg-brand-50 text-brand-800 font-bold px-1.5 py-0.5 rounded text-[10px] mt-0.5">Continuous Assessment Cycle</span>
                 </div>
             </div>
@@ -827,8 +827,13 @@ function redirectToAttendance() {
     window.location.href = attendanceUrl;
 }
     // ============ API CONFIGURATION ============
-    const API_BASE_URL = "https://goldlincschools.onrender.com";
-    const token = localStorage.getItem('teacherToken') || localStorage.getItem('token') || "";
+    const API_BASE_URL = window.BACKEND_URL || "https://examguard-8rxe.onrender.com";
+    const API_ROOT = `${API_BASE_URL}/api`;
+    const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+    const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || "goldlincschools.com.ng";
+    let token = localStorage.getItem("teacherToken") || localStorage.getItem("token") || localStorage.getItem("authToken") || "";
+    let currentSchool = null;
+    let schoolSubdomain = "";
 // ============ LOADING SPINNER SYSTEM ============
 function showLoadingSpinner(message = 'Loading Dashboard', status = 'Initializing system...') {
     const overlay = document.getElementById('loadingOverlay');
@@ -876,10 +881,72 @@ function updateLoadingStatus(status) {
 
     // ============ AUTH HEADERS ============
     function authHeaders() {
-        return token 
-            ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } 
-            : { 'Content-Type': 'application/json' };
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers.Authorization = "Bearer " + token;
+        if (currentSchool?.schoolId) headers["X-School-Code"] = currentSchool.schoolId;
+        return headers;
     }
+function decodeJwtPayload(value) {
+    try {
+        const part = String(value || "").split(".")[1];
+        if (!part) return null;
+        return JSON.parse(decodeURIComponent(atob(part.replace(/-/g,"+").replace(/_/g,"/")).split("").map(c=>"%"+("00"+c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+    } catch (e) { return null; }
+}
+function getTenantSubdomain() {
+    const saved = localStorage.getItem("schoolSubdomain");
+    if (saved) return saved.toLowerCase();
+    const host = window.location.hostname.toLowerCase();
+    const suffix = "." + BASE_DOMAIN.toLowerCase();
+    if (host.endsWith(suffix)) {
+        const sub = host.slice(0, -suffix.length).split(".")[0];
+        if (sub && sub !== "www") return sub;
+    }
+    return "";
+}
+function normalizeSchool(raw) {
+    const school = raw?.school || raw?.data?.school || raw?.data || raw || {};
+    return school && typeof school === "object" ? school : {};
+}
+function applySchoolBranding() {
+    const name = currentSchool?.schoolName || currentSchool?.name || "School";
+    const logo = currentSchool?.logoUrl || currentSchool?.branding?.logo || currentSchool?.branding?.lightLogo || currentSchool?.branding?.darkLogo || "mainlogo.png";
+    const title = `${name} | Faculty LMS`;
+    document.title = title;
+    document.querySelectorAll("#schoolBrandName,#mobileSchoolName").forEach(el => el.textContent = name);
+    const logoNodes = document.querySelectorAll("#schoolLogo,#mobileSchoolLogo");
+    logoNodes.forEach(el => { el.src = logo; el.alt = `${name} Logo`; el.onerror = function(){ this.onerror=null; this.src="mainlogo.png"; }; });
+    const primary = currentSchool?.branding?.primaryColor || "#075985";
+    const secondary = currentSchool?.branding?.secondaryColor || "#f59e0b";
+    document.documentElement.style.setProperty("--school-primary", primary);
+    document.documentElement.style.setProperty("--school-secondary", secondary);
+    document.querySelectorAll(".sidebar-btn-active").forEach(el => el.style.background = `linear-gradient(to right, ${primary}, ${primary})`);
+    document.querySelectorAll(".border-gold-400").forEach(el => el.style.borderColor = secondary);
+}
+async function loadSchoolContext() {
+    const tenant = getTenantSubdomain();
+    schoolSubdomain = tenant;
+    let authSchool = null;
+    try {
+        const meRes = await fetch(`${API_ROOT}/auth/me`, { headers: token ? { Authorization: "Bearer " + token } : {} });
+        if (meRes.ok) authSchool = normalizeSchool(await meRes.json());
+    } catch (e) {}
+    if (authSchool?._id || authSchool?.schoolId) currentSchool = authSchool;
+    if (!currentSchool && tenant) {
+        try {
+            const cfgRes = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(tenant)}`);
+            if (cfgRes.ok) currentSchool = normalizeSchool(await cfgRes.json());
+        } catch (e) {}
+    }
+    if (!currentSchool || !currentSchool._id) throw new Error("Unable to determine the current school. Please sign in from your school portal.");
+    const payload = decodeJwtPayload(token);
+    if (payload?.schoolId && String(payload.schoolId) !== String(currentSchool._id)) throw new Error("Your teacher account belongs to a different school. Please sign in through the correct school portal.");
+    if (currentSchool.subdomain) { schoolSubdomain = currentSchool.subdomain; localStorage.setItem("schoolSubdomain", currentSchool.subdomain); }
+    if (currentSchool.schoolId) localStorage.setItem("schoolId", currentSchool.schoolId);
+    localStorage.setItem(`examguard_school_config_${schoolSubdomain || "current"}`, JSON.stringify(currentSchool));
+    applySchoolBranding();
+}
+
 
     // ============ SPINNER & LOADING HELPERS ============
     function setButtonLoading(button, isLoading) {
@@ -1540,13 +1607,41 @@ async function createCollectionAPI(name, classId, subjectId) {
         }
     }
 
+async function loadAcademicFilters() {
+    const sessionSelect = document.getElementById("gb-session-select");
+    const termSelect = document.getElementById("gb-term-select");
+    try {
+        const [sessionRes, termRes] = await Promise.all([
+            fetch(`${API_ROOT}/academics/sessions`, { headers: authHeaders() }),
+            fetch(`${API_ROOT}/academics/terms`, { headers: authHeaders() })
+        ]);
+        const sessions = sessionRes.ok ? await sessionRes.json() : [];
+        const terms = termRes.ok ? await termRes.json() : [];
+        const sessionItems = Array.isArray(sessions) ? sessions : (sessions.sessions || sessions.data || []);
+        const termItems = Array.isArray(terms) ? terms : (terms.terms || terms.data || []);
+        if (sessionSelect && sessionItems.length) {
+            sessionSelect.innerHTML = '<option value="">Session</option>';
+            sessionItems.forEach(s => { const id=s._id||s.id||s.name; const name=s.name||s.session||s.title||id; sessionSelect.insertAdjacentHTML("beforeend", `<option value="${id}">${name}</option>`); });
+            const active=sessionItems.find(s=>s.isActive||s.active||s.current); if(active) sessionSelect.value=active._id||active.id||active.name;
+        }
+        if (termSelect && termItems.length) {
+            termSelect.innerHTML = '<option value="">Term</option>';
+            termItems.forEach(t => { const id=t._id||t.id||t.name; const name=t.name||t.term||t.title||id; termSelect.insertAdjacentHTML("beforeend", `<option value="${id}">${name}</option>`); });
+            const active=termItems.find(t=>t.isActive||t.active||t.current); if(active) termSelect.value=active._id||active.id||active.name;
+        }
+        const s=sessionSelect?.selectedOptions?.[0]?.textContent || "Session";
+        const t=termSelect?.selectedOptions?.[0]?.textContent || "Term";
+        const node=document.getElementById("academicTermNode"); if(node) node.textContent=`${s} • ${t}`;
+    } catch(e) { console.warn("Academic filters could not be loaded:",e); }
+}
     // ============ MAIN INITIALIZATION ============
     async function initSystemNode() {
     try {
-        showLoadingSpinner('Loading Faculty Dashboard', 'Initializing system...');
-
-        // Step 1: Load teacher profile
-        updateLoadingStatus('Loading teacher information...');
+        showLoadingSpinner("Loading Faculty Dashboard", "Determining school...");
+        token = localStorage.getItem("teacherToken") || localStorage.getItem("token") || localStorage.getItem("authToken") || "";
+        if (!token) throw new Error("Your session has expired. Please sign in again.");
+        await loadSchoolContext();
+        updateLoadingStatus("Loading teacher information...");
         teacher = await fetchTeacherProfile();
         if (!teacher) {
             hideLoadingSpinner();
@@ -1565,6 +1660,7 @@ async function createCollectionAPI(name, classId, subjectId) {
         document.getElementById('profileName').value = teacher.name || '';
         document.getElementById('profileTitle').value = teacher.designation || '';
         document.getElementById('profileDept').value = teacher.department || '';
+        await loadAcademicFilters();
 
         // Step 2: Load classes and students
         updateLoadingStatus('Loading class data...');
