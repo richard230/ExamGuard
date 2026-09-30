@@ -165,9 +165,33 @@ async function getSessionSettings(schoolId) {
 // 3. findOrCreateByName - Scoped by schoolId
 async function findOrCreateByName(Model, name, schoolId, extra = {}) {
   if (!name) return null;
+
   let doc = await Model.findOne({ schoolId, name });
   if (doc) return doc;
-  doc = new Model({ schoolId, name, ...extra });
+
+  const modelName = Model.modelName;
+
+  if (modelName === 'Session') {
+    const startDate = extra.startDate || extra.sessionStartDate || null;
+    const endDate = extra.endDate || extra.sessionEndDate || null;
+
+    if (!startDate || !endDate) {
+      throw new Error(
+        `Session "${name}" was not found for this school. Create the session with startDate and endDate before uploading results.`
+      );
+    }
+
+    doc = new Model({
+      schoolId,
+      name,
+      startDate,
+      endDate,
+      ...extra
+    });
+  } else {
+    doc = new Model({ schoolId, name, ...extra });
+  }
+
   await doc.save();
   return doc;
 }
@@ -721,7 +745,7 @@ router.post('/upsert', async (req, res) => {
     const schoolId = getAuthSchoolId(req);
     if (!schoolId) return res.status(401).json({ error: 'Unauthorized: Missing school context' });
 
-    const { session, term, class: className, subject, resultType, results } = req.body;
+    const { session, term, class: className, subject, resultType, results, startDate, endDate, sessionStartDate, sessionEndDate } = req.body;
     if (!results || results.length === 0) {
       return res.status(400).json({ success: false, error: 'No results provided' });
     }
@@ -732,7 +756,24 @@ router.post('/upsert', async (req, res) => {
       });
     }
 
-    const sessionObj = await findOrCreateByName(Session, session, schoolId);
+    let sessionObj;
+    try {
+      sessionObj = await findOrCreateByName(
+        Session,
+        session,
+        schoolId,
+        {
+          startDate: startDate || sessionStartDate,
+          endDate: endDate || sessionEndDate
+        }
+      );
+    } catch (sessionError) {
+      return res.status(400).json({
+        success: false,
+        error: sessionError.message
+      });
+    }
+
     const termObj = await findOrCreateByName(Term, term, schoolId);
     const classObj = await findOrCreateByName(Class, className, schoolId);
     const subjectObj = await findOrCreateByName(Subject, subject, schoolId);
@@ -836,7 +877,24 @@ router.post('/upload', async (req, res) => {
       });
     }
 
-    const sessionObj = await findOrCreateByName(Session, session, schoolId);
+    let sessionObj;
+    try {
+      sessionObj = await findOrCreateByName(
+        Session,
+        session,
+        schoolId,
+        {
+          startDate: startDate || sessionStartDate,
+          endDate: endDate || sessionEndDate
+        }
+      );
+    } catch (sessionError) {
+      return res.status(400).json({
+        success: false,
+        error: sessionError.message
+      });
+    }
+
     const termObj = await findOrCreateByName(Term, term, schoolId);
     const classObj = await findOrCreateByName(Class, className, schoolId);
     const subjectObj = await findOrCreateByName(Subject, subject, schoolId);
