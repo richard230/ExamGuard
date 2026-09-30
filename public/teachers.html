@@ -37,7 +37,7 @@ body{font-family:'Inter',sans-serif;}
 <aside class="sidebar fixed top-0 left-0 z-50 w-64 h-screen transition-transform -translate-x-full md:translate-x-0 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800" id="sidebar" role="navigation" aria-label="Admin navigation">
 <div class="p-4">
 <div class="brand flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
-<img src="mainlogo.png" alt="Logo" class="w-10 h-10 rounded-lg object-cover bg-white p-0.5 border border-amber-400">
+<img id="schoolLogo" src="" alt="School Logo" class="w-10 h-10 rounded-lg object-cover bg-white p-0.5 border border-amber-400" onerror="handleLogoError(this)">
 <div class="min-w-0">
 <div id="schoolBrandName" class="title font-bold text-amber-400 text-sm leading-tight truncate">Loading School...</div>
 <div class="subtitle text-xs text-slate-400 truncate">Staff Management</div>
@@ -538,10 +538,13 @@ function handleLogoError(img){
   if(!img || img.dataset.fallbackApplied === '1') return;
   img.dataset.fallbackApplied = '1';
 
+  img.removeAttribute('src');
+  img.alt = `${currentSchool?.schoolName || currentSchool?.name || 'School'} Logo`;
+
   const wrapper = img.parentElement;
   if(wrapper){
     const fallback = document.createElement('div');
-    fallback.className = 'w-full h-full flex items-center justify-center bg-blue-600 text-white font-extrabold text-sm';
+    fallback.className = 'w-10 h-10 rounded-lg flex items-center justify-center bg-blue-600 text-white font-extrabold text-xs border border-amber-400';
     fallback.textContent = schoolInitials(
       currentSchool?.schoolName || currentSchool?.name
     );
@@ -563,6 +566,8 @@ function getSchoolBrandingConfig(school){
       branding.logo ||
       branding.logoUrl ||
       branding.logos?.main ||
+      branding.logos?.light ||
+      branding.logos?.dark ||
       branding.lightLogo ||
       branding.darkLogo ||
       ''
@@ -674,7 +679,17 @@ async function loadSchoolConfig(){
     console.warn('Full school config could not be loaded; using authenticated school data.', configError);
   }
 
+  // /api/schools/config returns its Mongo identifier as `school.id`
+  // (not `school._id`). Normalize both response shapes so the tenant
+  // validation works with the actual backend response.
   const resolvedSchool = fullSchool || schoolFromMe;
+  if(resolvedSchool && !resolvedSchool._id && resolvedSchool.id){
+    resolvedSchool._id = resolvedSchool.id;
+  }
+  // Keep the compact /auth/me schoolId as a fallback public school identifier.
+  if(resolvedSchool && !resolvedSchool.schoolId && schoolFromMe?.schoolId){
+    resolvedSchool.schoolId = schoolFromMe.schoolId;
+  }
 
   if(!resolvedSchool?._id){
     throw new Error('Your school configuration was not returned by the server.');
@@ -846,6 +861,24 @@ document.getElementById('staffEnrollForm').onsubmit=async function(e){
 e.preventDefault();
 const form=e.target;
 const formData=new FormData(form);
+
+// Always bind the new staff record to the authenticated school's Mongo ID.
+// The backend Staff schema requires schoolId.
+const authenticatedSchoolId = currentSchool?._id || currentSchool?.id || '';
+if(!authenticatedSchoolId){
+  throw new Error('School context is not available. Please reload the page and sign in again.');
+}
+formData.set('schoolId', String(authenticatedSchoolId));
+
+// Optional enum fields must not be submitted as an empty string.
+// An empty marital_status is rejected by the Staff schema.
+['marital_status','gender','dob'].forEach(fieldName=>{
+  const value=formData.get(fieldName);
+  if(value === null || String(value).trim() === ''){
+    formData.delete(fieldName);
+  }
+});
+
 const submitBtn=form.querySelector('button[type="submit"]');
 const originalText=submitBtn.innerHTML;
 submitBtn.disabled=true;
