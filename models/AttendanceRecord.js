@@ -1,13 +1,60 @@
 const mongoose = require('mongoose');
+
 const AttendanceRecordSchema = new mongoose.Schema({
-  date: { type: Date, required: true },
-  userId: { type: String, required: true }, // student_id, regNo, or staffId
-  name: { type: String, required: true },
-  role: { type: String, enum: ['student', 'teaching', 'non-teaching'], required: true },
-  class: String, // for students
-  department: String, // for staff
-  status: { type: String, enum: ['Present', 'Absent', 'Late', 'Excused', 'Leave'], required: true },
-  remark: String,
-  recordedBy: { type: String }, // admin/staff id or name
+  schoolId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'School',
+    required: true,
+    index: true
+  },
+
+  date: { type: Date, required: true, index: true },
+
+  userId: {
+    type: String,
+    required: true,
+    trim: true
+  }, // student_id, regNo, or staffId
+
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+
+  role: {
+    type: String,
+    enum: ['student', 'teaching', 'non-teaching'],
+    required: true,
+    index: true
+  },
+
+  class: { type: String, trim: true }, // for students
+  department: { type: String, trim: true }, // for staff
+
+  status: {
+    type: String,
+    enum: ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED', 'Leave'],
+    required: true,
+    index: true
+  },
+
+  remark: { type: String, trim: true },
+  recordedBy: { type: String, trim: true }
 }, { timestamps: true });
+
+// Multi-school query indexes.
+AttendanceRecordSchema.index({ schoolId: 1, date: -1 });
+AttendanceRecordSchema.index({ schoolId: 1, userId: 1, date: -1 });
+AttendanceRecordSchema.index({ schoolId: 1, role: 1, date: -1 });
+AttendanceRecordSchema.index({ schoolId: 1, status: 1, date: -1 });
+AttendanceRecordSchema.index({ schoolId: 1, class: 1, date: -1 });
+AttendanceRecordSchema.index({ schoolId: 1, department: 1, date: -1 });
+
+// A person can have only one attendance record per school per day.
+AttendanceRecordSchema.index(
+  { schoolId: 1, userId: 1, date: 1 },
+  { unique: true, name: 'unique_school_user_attendance_date' }
+);
+
 module.exports = mongoose.model('AttendanceRecord', AttendanceRecordSchema);
