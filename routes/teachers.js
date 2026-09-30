@@ -18,15 +18,17 @@ const teacherAuth = require('../middleware/teacherAuth');
 function validId(value) {
   return mongoose.Types.ObjectId.isValid(value);
 }
+
 function getAdminSchoolId(req) {
-    const schoolId = req.user?.schoolId;
+  const schoolId = req.user?.schoolId;
 
-    if (!schoolId || !mongoose.Types.ObjectId.isValid(schoolId)) {
-        throw new Error('Your account is not linked to a valid school.');
-    }
+  if (!schoolId || !mongoose.Types.ObjectId.isValid(schoolId)) {
+    throw new Error('Your account is not linked to a valid school.');
+  }
 
-    return new mongoose.Types.ObjectId(schoolId);
+  return new mongoose.Types.ObjectId(schoolId);
 }
+
 function getSchoolId(req) {
   if (!req.staff || !req.staff.schoolId) throw new Error('Teacher is not linked to a school.');
   if (!validId(req.staff.schoolId)) throw new Error('Invalid school context.');
@@ -81,11 +83,69 @@ function schoolFilter(schoolId, extra = {}) {
   return { schoolId, ...extra };
 }
 
+/* ==========================================================================
+   1. ADMIN / SUPERADMIN ROUTES (Uses authMiddleware)
+   ========================================================================== */
+
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+
+    if (!['admin', 'superadmin'].includes(role)) {
+      return res.status(403).json({
+        error: 'You are not authorized to view teachers.'
+      });
+    }
+
+    const schoolId = getAdminSchoolId(req);
+
+    const teachers = await Staff.find({
+      schoolId,
+      access_level: 'Teacher'
+    })
+      .select('first_name last_name email phone designation department photo')
+      .lean();
+
+    res.json(
+      teachers.map(teacher => ({
+        id: teacher._id,
+        first_name: teacher.first_name,
+        last_name: teacher.last_name,
+        name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim(),
+        email: teacher.email,
+        phone: teacher.phone,
+        designation: teacher.designation,
+        department: teacher.department,
+        photo_url: teacher.photo || null
+      }))
+    );
+  } catch (error) {
+    errorResponse(res, error);
+  }
+});
+
+/* ==========================================================================
+   2. TEACHER PORTAL MIDDLEWARE
+   All routes declared below this line will be protected by teacherAuth
+   ========================================================================== */
+
+router.use(teacherAuth);
+
+/* ==========================================================================
+   3. TEACHER PORTAL ROUTES
+   ========================================================================== */
+
 router.get('/me', async (req, res) => {
   try {
     if (!requireTeacher(req, res)) return;
     const schoolId = getSchoolId(req);
-    const teacher = await Staff.findOne({ _id: req.staff._id, schoolId }).lean();
+
+    const teacher = await Staff.findOne({
+      _id: req.staff._id,
+      schoolId,
+      access_level: 'Teacher'
+    }).lean();
+
     if (!teacher) return res.status(404).json({ error: 'Teacher not found.' });
 
     const classes = await Class.find(classFilter(schoolId, { teachers: teacher._id }))
@@ -116,8 +176,6 @@ router.get('/me', async (req, res) => {
   }
 });
 
-router.use(teacherAuth);
-
 router.patch('/me', async (req, res) => {
   try {
     if (!requireTeacher(req, res)) return;
@@ -145,41 +203,6 @@ router.patch('/me', async (req, res) => {
   } catch (error) {
     errorResponse(res, error);
   }
-});
-
-router.get('/', authMiddleware, async (req, res) => {
-    try {
-        const role = String(req.user?.role || '').toLowerCase();
-
-        if (!['admin', 'superadmin'].includes(role)) {
-            return res.status(403).json({
-                error: 'You are not authorized to view teachers.'
-            });
-        }
-
-        const schoolId = getAdminSchoolId(req);
-
-        const teachers = await Staff.find({
-            schoolId,
-            access_level: 'Teacher'
-        }).select(
-            'first_name last_name email phone designation department photo'
-        ).lean();
-
-        res.json(teachers.map(teacher => ({
-            id: teacher._id,
-            first_name: teacher.first_name,
-            last_name: teacher.last_name,
-            name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim(),
-            email: teacher.email,
-            phone: teacher.phone,
-            designation: teacher.designation,
-            department: teacher.department,
-            photo_url: teacher.photo || null
-        })));
-    } catch (error) {
-        errorResponse(res, error);
-    }
 });
 
 router.get('/classes', async (req, res) => {
