@@ -755,11 +755,24 @@ router.get('/:id/question-bank', tenantTeacherAuth, async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    const schoolId = getSchoolId(req);
+
+    await Collection.updateMany(
+      {
+        teacher: req.staff._id,
+        $or: [
+          { schoolId: { $exists: false } },
+          { schoolId: null }
+        ]
+      },
+      { $set: { schoolId } }
+    );
+
     // Fetch from Collections (new model)
-    const collections = await Collection.find({ schoolId: getSchoolId(req), teacher: req.staff._id }).sort({ createdAt: -1 });
+    const collections = await Collection.find({ schoolId, teacher: req.staff._id }).sort({ createdAt: -1 });
 
     // Fetch from CBT documents (legacy - for migration)
-    const cbts = await CBT.find({ schoolId: getSchoolId(req), teacher: req.staff._id }).sort({ createdAt: -1 });
+    const cbts = await CBT.find({ schoolId, teacher: req.staff._id }).sort({ createdAt: -1 });
 
     // Transform CBT documents into collection format for legacy data
     const legacyCBTCollections = cbts.map(cbt => ({
@@ -1143,7 +1156,18 @@ router.get('/:id/collections', tenantTeacherAuth, async (req, res) => {
     if (String(req.params.id) !== String(req.staff._id)) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const collections = await Collection.find({ schoolId: getSchoolId(req), teacher: req.staff._id }).sort({ createdAt: -1 });
+    const schoolId = getSchoolId(req);
+    await Collection.updateMany(
+      {
+        teacher: req.staff._id,
+        $or: [
+          { schoolId: { $exists: false } },
+          { schoolId: null }
+        ]
+      },
+      { $set: { schoolId } }
+    );
+    const collections = await Collection.find({ schoolId, teacher: req.staff._id }).sort({ createdAt: -1 });
     res.json({ collections });
   } catch (err) {
     res.status(500).json({ error: err.message });
