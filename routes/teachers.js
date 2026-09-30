@@ -218,26 +218,90 @@ router.get('/classes', async (req, res) => {
 });
 
 router.get('/subjects', async (req, res) => {
-  try {
-    if (!requireTeacher(req, res)) return;
-    const { classId } = req.query;
-    if (!validId(classId)) return res.status(400).json({ error: 'Valid classId is required.' });
+    try {
+        if (!requireTeacher(req, res)) return;
 
-    const schoolId = getSchoolId(req);
-    const cls = await Class.findOne(classFilter(schoolId, { _id: classId, teachers: req.staff._id }))
-      .populate('subjects.subject')
-      .populate('subjects.teacher');
+        const schoolId = getSchoolId(req);
+        const classId = req.query.classId;
 
-    if (!cls) return res.status(404).json({ error: 'Class not found or not assigned to teacher.' });
+        if (!classId || !validId(classId)) {
+            return res.status(400).json({
+                error: 'Valid classId is required.'
+            });
+        }
 
-    res.json(
-      (cls.subjects || [])
-        .filter(s => s.teacher && String(s.teacher._id) === String(req.staff._id))
-        .map(s => ({ id: s.subject?._id, name: s.subject?.name }))
-    );
-  } catch (error) {
-    errorResponse(res, error);
-  }
+        const cls = await Class.findOne({
+            _id: classId,
+            schoolId
+        }).populate([
+            {
+                path: 'subjects.subject',
+                model: 'Subject'
+            },
+            {
+                path: 'subjects.teacher',
+                model: 'Staff',
+                select: 'first_name last_name email access_level schoolId'
+            }
+        ]);
+
+        if (!cls) {
+            return res.status(404).json({
+                error: 'Class not found in this school.'
+            });
+        }
+
+        const teacherId = String(req.staff._id);
+
+        const subjects = (cls.subjects || [])
+            .filter(item => {
+                const assignedTeacherId =
+                    item?.teacher?._id ||
+                    item?.teacher;
+
+                return (
+                    !assignedTeacherId ||
+                    String(assignedTeacherId) === teacherId
+                );
+            })
+            .map(item => {
+                const subject =
+                    item?.subject?._id
+                        ? item.subject
+                        : null;
+
+                if (!subject) return null;
+
+                const teacher =
+                    item?.teacher?._id
+                        ? item.teacher
+                        : null;
+
+                return {
+                    _id: subject._id,
+                    id: subject._id,
+                    name: subject.name,
+                    teacher: teacher
+                        ? {
+                            _id: teacher._id,
+                            id: teacher._id,
+                            name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim(),
+                            email: teacher.email || ''
+                        }
+                        : null
+                };
+            })
+            .filter(Boolean);
+
+        res.json(subjects);
+
+    } catch (err) {
+        console.error('Error fetching teacher subjects:', err);
+
+        res.status(500).json({
+            error: err.message
+        });
+    }
 });
 
 router.get('/students', async (req, res) => {
