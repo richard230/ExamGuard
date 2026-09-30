@@ -18,7 +18,15 @@ const teacherAuth = require('../middleware/teacherAuth');
 function validId(value) {
   return mongoose.Types.ObjectId.isValid(value);
 }
+function getAdminSchoolId(req) {
+    const schoolId = req.user?.schoolId;
 
+    if (!schoolId || !mongoose.Types.ObjectId.isValid(schoolId)) {
+        throw new Error('Your account is not linked to a valid school.');
+    }
+
+    return new mongoose.Types.ObjectId(schoolId);
+}
 function getSchoolId(req) {
   if (!req.staff || !req.staff.schoolId) throw new Error('Teacher is not linked to a school.');
   if (!validId(req.staff.schoolId)) throw new Error('Invalid school context.');
