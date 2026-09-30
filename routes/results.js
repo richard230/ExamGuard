@@ -169,31 +169,87 @@ async function findOrCreateByName(Model, name, schoolId, extra = {}) {
   let doc = await Model.findOne({ schoolId, name });
   if (doc) return doc;
 
-  const modelName = Model.modelName;
-
-  if (modelName === 'Session') {
-    const startDate = extra.startDate || extra.sessionStartDate || null;
-    const endDate = extra.endDate || extra.sessionEndDate || null;
-
+  if (Model.modelName === 'Session') {
+    const startDate = extra.startDate || extra.sessionStartDate;
+    const endDate = extra.endDate || extra.sessionEndDate;
     if (!startDate || !endDate) {
-      throw new Error(
-        `Session "${name}" was not found for this school. Create the session with startDate and endDate before uploading results.`
-      );
+      throw new Error(`Session "${name}" was not found for this school. Create the session with startDate and endDate before uploading results.`);
     }
-
-    doc = new Model({
-      schoolId,
-      name,
-      startDate,
-      endDate,
-      ...extra
-    });
+    doc = new Model({ schoolId, name, startDate, endDate });
   } else {
     doc = new Model({ schoolId, name, ...extra });
   }
 
   await doc.save();
   return doc;
+}
+
+async function resolveSession({ sessionId, session, schoolId, startDate, endDate, sessionStartDate, sessionEndDate }) {
+  const id = sessionId || (session && mongoose.Types.ObjectId.isValid(session) ? session : null);
+
+  if (id) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new Error('A valid session ID is required.');
+    }
+    const sessionObj = await Session.findOne({ _id: id, schoolId });
+    if (!sessionObj) {
+      throw new Error('Session not found for this school.');
+    }
+    return sessionObj;
+  }
+
+  if (!session) {
+    throw new Error('A valid session ID is required.');
+  }
+
+  return findOrCreateByName(Session, session, schoolId, {
+    startDate: startDate || sessionStartDate,
+    endDate: endDate || sessionEndDate
+  });
+}
+
+async function resolveTerm({ termId, term, sessionObj, schoolId }) {
+  const sessionId = sessionObj?._id;
+
+  if (termId) {
+    if (!mongoose.Types.ObjectId.isValid(termId)) {
+      throw new Error('A valid term ID is required.');
+    }
+    const query = { _id: termId, schoolId };
+    if (sessionId) query.session = sessionId;
+    const termObj = await Term.findOne(query);
+    if (!termObj) {
+      throw new Error('Term not found for this school or selected session.');
+    }
+    return termObj;
+  }
+
+  if (!term) return null;
+
+  const query = { schoolId, name: term };
+  if (sessionId) query.session = sessionId;
+
+  let termObj = await Term.findOne(query);
+  if (termObj) return termObj;
+
+  if (!sessionId) {
+    throw new Error('A valid session ID is required before resolving the term.');
+  }
+
+  termObj = new Term({ schoolId, name: term, session: sessionId });
+  await termObj.save();
+  return termObj;
+}
+
+async function resolveSchoolReference(Model, { id, name, schoolId }) {
+  if (id) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new Error(`A valid ${Model.modelName.toLowerCase()} ID is required.`);
+    }
+    return Model.findOne({ _id: id, schoolId });
+  }
+  if (!name) return null;
+  return findOrCreateByName(Model, name, schoolId);
 }
 
 // 4. findOrCreateStudent - Scoped by schoolId
@@ -745,11 +801,11 @@ router.post('/upsert', async (req, res) => {
     const schoolId = getAuthSchoolId(req);
     if (!schoolId) return res.status(401).json({ error: 'Unauthorized: Missing school context' });
 
-    const { session, term, class: className, subject, resultType, results, startDate, endDate, sessionStartDate, sessionEndDate } = req.body;
+    const { sessionId, termId, classId, subjectId, session, term, class: className, subject, resultType, results, startDate, endDate, sessionStartDate, sessionEndDate } = req.body;
     if (!results || results.length === 0) {
       return res.status(400).json({ success: false, error: 'No results provided' });
     }
-    if (!session || !term || !className || !subject) {
+    if ((!sessionId && !session) || (!termId && !term) || (!classId && !className) || (!subjectId && !subject)) {
       return res.status(400).json({ 
         success: false, 
         error: 'Missing required fields: session, term, class, subject' 
@@ -757,29 +813,25 @@ router.post('/upsert', async (req, res) => {
     }
 
     let sessionObj;
-
-if (!session || !mongoose.Types.ObjectId.isValid(session)) {
-  return res.status(400).json({
-    success: false,
-    error: 'A valid session ID is required.'
-  });
-}
-
-sessionObj = await Session.findOne({
-  _id: session,
-  schoolId
-});
-
-if (!sessionObj) {
-  return res.status(404).json({
-    success: false,
-    error: 'Selected session was not found for this school.'
-  });
-}
-
-    const termObj = await findOrCreateByName(Term, term, schoolId);
-    const classObj = await findOrCreateByName(Class, className, schoolId);
-    const subjectObj = await findOrCreateByName(Subject, subject, schoolId);
+    let termObj;
+    let classObj;
+    let subjectObj;
+    try {
+      sessionObj = await resolveSession({
+        sessionId,
+        session,
+        schoolId,
+        startDate,
+        endDate,
+        sessionStartDate,
+        sessionEndDate
+      });
+      termObj = await resolveTerm({ termId, term, sessionObj, schoolId });
+      classObj = await resolveSchoolReference(Class, { id: classId, name: className, schoolId });
+      subjectObj = await resolveSchoolReference(Subject, { id: subjectId, name: subject, schoolId });
+    } catch (referenceError) {
+      return res.status(400).json({ success: false, error: referenceError.message });
+    }
 
     if (!sessionObj || !termObj || !classObj || !subjectObj) {
       return res.status(400).json({ 
@@ -869,11 +921,11 @@ router.post('/upload', async (req, res) => {
     const schoolId = getAuthSchoolId(req);
     if (!schoolId) return res.status(401).json({ error: 'Unauthorized: Missing school context' });
 
-    const { session, term, class: className, subject, resultType, results, upsert } = req.body;
+    const { sessionId, termId, classId, subjectId, session, term, class: className, subject, resultType, results, upsert, startDate, endDate, sessionStartDate, sessionEndDate } = req.body;
     if (!results || results.length === 0) {
       return res.status(400).json({ success: false, error: 'No results provided' });
     }
-    if (!session || !term || !className || !subject) {
+    if ((!sessionId && !session) || (!termId && !term) || (!classId && !className) || (!subjectId && !subject)) {
       return res.status(400).json({ 
         success: false, 
         error: 'Missing required fields: session, term, class, subject' 
@@ -881,26 +933,25 @@ router.post('/upload', async (req, res) => {
     }
 
     let sessionObj;
+    let termObj;
+    let classObj;
+    let subjectObj;
     try {
-      sessionObj = await findOrCreateByName(
-        Session,
+      sessionObj = await resolveSession({
+        sessionId,
         session,
         schoolId,
-        {
-          startDate: startDate || sessionStartDate,
-          endDate: endDate || sessionEndDate
-        }
-      );
-    } catch (sessionError) {
-      return res.status(400).json({
-        success: false,
-        error: sessionError.message
+        startDate,
+        endDate,
+        sessionStartDate,
+        sessionEndDate
       });
+      termObj = await resolveTerm({ termId, term, sessionObj, schoolId });
+      classObj = await resolveSchoolReference(Class, { id: classId, name: className, schoolId });
+      subjectObj = await resolveSchoolReference(Subject, { id: subjectId, name: subject, schoolId });
+    } catch (referenceError) {
+      return res.status(400).json({ success: false, error: referenceError.message });
     }
-
-    const termObj = await findOrCreateByName(Term, term, schoolId);
-    const classObj = await findOrCreateByName(Class, className, schoolId);
-    const subjectObj = await findOrCreateByName(Subject, subject, schoolId);
 
     if (!sessionObj || !termObj || !classObj || !subjectObj) {
       return res.status(400).json({ 
