@@ -1,1013 +1,543 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950 text-slate-200">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Developer Suite & Browser Console</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Dev Browser Console</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Flowbite & Tailwind CDN -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    .font-mono { font-family: 'Fira Code', monospace; }
-    
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #090d16; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #334155; }
-    
-    .dom-node:hover { background-color: rgba(59, 130, 246, 0.12); }
-    .dom-node.active { background-color: rgba(59, 130, 246, 0.25); border-left: 2px solid #3b82f6; }
-    
-    .tab-btn.active {
-      color: #60a5fa;
-      border-bottom-color: #3b82f6;
-      background-color: rgba(30, 41, 59, 0.5);
-    }
-
-    /* Status Code Badge Accents */
-    .status-2xx { background-color: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .status-3xx { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .status-4xx, .status-5xx, .status-failed { background-color: rgba(244, 63, 94, 0.15); color: #f87171; border: 1px solid rgba(244, 63, 94, 0.3); }
-  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
 </head>
-<body class="h-full flex flex-col text-xs select-none antialiased bg-slate-950 text-slate-300 overflow-hidden">
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+<div class="container mx-auto py-6 px-2">
+  <h1 class="text-3xl font-bold mb-6 text-center text-blue-400">Web Dev Browser Console</h1>
+  <!-- Browser Controls -->
+  <div class="flex items-center gap-2 mb-4">
+    <input id="browser-url" type="text" value="https://gold-swart-nine.vercel.app/" class="w-full bg-gray-800 text-gray-200 rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-400" placeholder="Enter a URL...">
+    <button id="browser-go" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 font-semibold">Go</button>
+    <button id="browser-back" class="bg-gray-700 hover:bg-gray-800 text-white rounded px-2 py-2 ml-2" title="Back">&larr;</button>
+    <button id="browser-forward" class="bg-gray-700 hover:bg-gray-800 text-white rounded px-2 py-2" title="Forward">&rarr;</button>
+    <button id="browser-refresh" class="bg-gray-700 hover:bg-gray-800 text-white rounded px-2 py-2" title="Refresh">&#x21bb;</button>
+  </div>
+  <!-- Browser View -->
+  <div class="bg-gray-800 border border-gray-700 rounded overflow-hidden mb-5" style="height: 480px;">
+    <iframe id="browser-frame" src="https://gold-swart-nine.vercel.app/" class="w-full h-full" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+  </div>
+  <!-- Tabs -->
+  <div class="mb-6 border-b border-gray-700">
+    <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="console-tabs" data-tabs-toggle="#console-tabs-content" role="tablist">
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="logs-tab" data-tabs-target="#logs" type="button" role="tab" aria-controls="logs" aria-selected="true">Console</button></li>
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="network-tab" data-tabs-target="#network" type="button" role="tab" aria-controls="network" aria-selected="false">Network</button></li>
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="elements-tab" data-tabs-target="#elements" type="button" role="tab" aria-controls="elements" aria-selected="false">Elements</button></li>
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="webprops-tab" data-tabs-target="#webprops" type="button" role="tab" aria-controls="webprops" aria-selected="false">Web Properties</button></li>
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="storage-tab" data-tabs-target="#storage" type="button" role="tab" aria-controls="storage" aria-selected="false">Storage</button></li>
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="cookies-tab" data-tabs-target="#cookies" type="button" role="tab" aria-controls="cookies" aria-selected="false">Cookies</button></li>
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="performance-tab" data-tabs-target="#performance" type="button" role="tab" aria-controls="performance" aria-selected="false">Performance</button></li>
+      <li class="mr-2"><button class="inline-block p-4 rounded-t-lg border-b-2" id="api-tester-tab" data-tabs-target="#api-tester" type="button" role="tab" aria-controls="api-tester" aria-selected="false">API Tester</button></li>
+    </ul>
+  </div>
+  <div id="console-tabs-content">
+    <div class="hidden" id="logs" role="tabpanel" aria-labelledby="logs-tab"></div>
+    <div class="hidden" id="network" role="tabpanel" aria-labelledby="network-tab"></div>
+    <div class="hidden" id="elements" role="tabpanel" aria-labelledby="elements-tab"></div>
+    <div class="hidden" id="webprops" role="tabpanel" aria-labelledby="webprops-tab"></div>
+    <div class="hidden" id="storage" role="tabpanel" aria-labelledby="storage-tab"></div>
+    <div class="hidden" id="cookies" role="tabpanel" aria-labelledby="cookies-tab"></div>
+    <div class="hidden" id="performance" role="tabpanel" aria-labelledby="performance-tab"></div>
+    <div class="hidden" id="api-tester" role="tabpanel" aria-labelledby="api-tester-tab"></div>
+  </div>
+</div>
+<script>
+// Browser Navigation
+const browserFrame = document.getElementById('browser-frame');
+const browserUrl = document.getElementById('browser-url');
+const browserGo = document.getElementById('browser-go');
+const browserBack = document.getElementById('browser-back');
+const browserForward = document.getElementById('browser-forward');
+const browserRefresh = document.getElementById('browser-refresh');
+let historyStack = [browserUrl.value], historyIndex = 0;
 
-  <!-- TOP BAR / NAVIGATION ENGINE -->
-  <header class="bg-slate-900 border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2.5 shadow-lg shrink-0">
-    <!-- Navigation Tools -->
-    <div class="flex items-center gap-1.5">
-      <button id="inspect-tool" title="Inspect Element" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-blue-400 border border-slate-700/60 transition-all">
-        <i class="fa-solid fa-mouse-pointer"></i>
-      </button>
-      <div class="h-4 w-[1px] bg-slate-800 mx-1"></div>
-      <button id="browser-back" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 border border-slate-700/60 transition-all" title="Back"><i class="fa-solid fa-arrow-left"></i></button>
-      <button id="browser-forward" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 border border-slate-700/60 transition-all" title="Forward"><i class="fa-solid fa-arrow-right"></i></button>
-      <button id="browser-refresh" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-all" title="Reload Frame"><i class="fa-solid fa-rotate-right"></i></button>
-    </div>
+function setFrameSrc(url, push=true) {
+  browserFrame.src = url;
+  browserUrl.value = url;
+  if(push) {
+    historyStack = historyStack.slice(0, historyIndex+1);
+    historyStack.push(url);
+    historyIndex = historyStack.length-1;
+  }
+  updateNavButtons();
+  notifyLimitedAccess();
+}
+browserGo.onclick = () => setFrameSrc(browserUrl.value);
+browserUrl.onkeydown = e => { if(e.key==='Enter') setFrameSrc(browserUrl.value); };
+browserBack.onclick = () => {
+  if(historyIndex>0) {
+    historyIndex--;
+    setFrameSrc(historyStack[historyIndex], false);
+  }
+};
+browserForward.onclick = () => {
+  if(historyIndex<historyStack.length-1) {
+    historyIndex++;
+    setFrameSrc(historyStack[historyIndex], false);
+  }
+};
+browserRefresh.onclick = () => browserFrame.contentWindow.location.reload();
+function updateNavButtons() {
+  browserBack.disabled = historyIndex<=0;
+  browserForward.disabled = historyIndex>=historyStack.length-1;
+}
 
-    <!-- URL Address Bar -->
-    <div class="flex-1 min-w-[220px] max-w-2xl flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all">
-      <i class="fa-solid fa-lock text-emerald-500 text-[10px]"></i>
-      <input id="browser-url" type="text" value="about:blank" class="w-full bg-transparent text-slate-200 focus:outline-none font-mono text-xs" placeholder="Enter URL or run HTML data string...">
-      <button id="browser-go" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-md font-semibold transition-all shrink-0">Go</button>
-    </div>
+// Notify if limited access to page (cross-origin)
+function notifyLimitedAccess() {
+  setTimeout(()=>{
+    try {
+      let _ = browserFrame.contentWindow.document.body.innerHTML;
+      limitedAccess = false;
+    } catch {
+      limitedAccess = true;
+    }
+    renderTab();
+  }, 600);
+}
+let limitedAccess = false;
 
-    <!-- Mobile Screen View Switcher & Presets -->
-    <div class="flex items-center gap-2">
-      <!-- Layout View Mode Switcher for Mobile/Tablet -->
-      <div class="flex md:hidden items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
-        <button id="view-mode-split" class="px-2 py-1 rounded text-[10px] font-semibold bg-blue-600 text-white">Split</button>
-        <button id="view-mode-frame" class="px-2 py-1 rounded text-[10px] font-semibold text-slate-400 hover:text-white">Frame</button>
-        <button id="view-mode-tools" class="px-2 py-1 rounded text-[10px] font-semibold text-slate-400 hover:text-white">DevTools</button>
-      </div>
+// ---- UI Helper ----
+function htmlEscape(str) {
+  return (str||'').replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
 
-      <div class="hidden sm:flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg p-1">
-        <select id="device-preset" class="bg-transparent text-slate-200 focus:outline-none cursor-pointer px-1">
-          <option value="responsive" class="bg-slate-900">Responsive View</option>
-          <option value="iphone14" class="bg-slate-900">iPhone 14 Pro (393 x 852)</option>
-          <option value="pixel7" class="bg-slate-900">Pixel 7 (412 x 915)</option>
-          <option value="ipad" class="bg-slate-900">iPad Air (820 x 1180)</option>
-          <option value="desktop" class="bg-slate-900">Desktop (1920 x 1080)</option>
-        </select>
-        <span class="text-slate-700">|</span>
-        <input id="viewport-w" type="number" class="w-10 bg-transparent text-center text-slate-300 font-mono focus:outline-none" value="100" min="20" max="100">%
-      </div>
+// ---- Log Capture (Host Page) ----
+const logEntries = [];
+['log','warn','error','info'].forEach(type=>{
+  const orig=console[type];
+  console[type]=function(...args){
+    logEntries.push({type,msg:args.map(a=>typeof a==='object'?JSON.stringify(a):a).join(' '),time:new Date()});
+    orig.apply(console,args);
+    if(currentTab==='logs') renderLogs();
+  }
+});
 
-      <button id="toggle-orientation" class="p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-300 hover:text-white transition-all" title="Rotate Viewport">
-        <i class="fa-solid fa-mobile-screen-button"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- MAIN WORKSPACE SPLIT -->
-  <main class="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden relative">
-    
-    <!-- IFRAME PREVIEW CONTAINER -->
-    <section id="pane-frame" class="flex-1 min-h-0 min-w-0 bg-slate-950 flex flex-col justify-center items-center p-2 md:p-3 overflow-auto border-b md:border-b-0 md:border-r border-slate-800/80 relative">
-      <div id="viewport-container" class="w-full h-full bg-white transition-all shadow-2xl relative border border-slate-800 rounded-md overflow-hidden flex flex-col">
-        <iframe id="browser-frame" class="w-full h-full border-0 flex-1" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
-      </div>
-      <!-- CORS Notice Overlay -->
-      <div id="cors-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-amber-950/90 border border-amber-600/80 text-amber-200 px-4 py-2 rounded-lg shadow-2xl flex items-center gap-2 backdrop-blur-md z-30">
-        <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
-        <span>Cross-Origin restriction active. External origin security policy engaged.</span>
-      </div>
-    </section>
-
-    <!-- DEVTOOLS PANELS -->
-    <section id="pane-devtools" class="w-full md:w-[50%] flex flex-col bg-slate-900 shrink-0 border-t md:border-t-0 border-slate-800/80 min-h-0 min-w-0 flex-1 md:flex-none">
-      
-      <!-- DevTools Navigation Tabs -->
-      <nav class="flex border-b border-slate-800/80 bg-slate-950/90 overflow-x-auto text-slate-400 shrink-0 no-scrollbar" id="devtools-tabs">
-        <button class="tab-btn active px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="console"><i class="fa-solid fa-terminal text-xs"></i> Console</button>
-        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="elements"><i class="fa-solid fa-code text-xs"></i> Elements</button>
-        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="network"><i class="fa-solid fa-network-wired text-xs"></i> Network</button>
-        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="storage"><i class="fa-solid fa-database text-xs"></i> Storage</button>
-        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="performance"><i class="fa-solid fa-gauge-high text-xs"></i> Performance</button>
-        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="api-tester"><i class="fa-solid fa-paper-plane text-xs"></i> API Client</button>
-        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="audits"><i class="fa-solid fa-shield-halved text-xs"></i> Audits</button>
-        <button class="tab-btn px-3.5 py-2.5 border-b-2 border-transparent hover:text-slate-200 flex items-center gap-2 font-medium transition-all shrink-0" data-tab="snippets"><i class="fa-solid fa-code-commit text-xs"></i> Snippets</button>
-      </nav>
-
-      <!-- TAB CONTENTS WRAPPER (Strict min-h-0 constraint for inner scrolling) -->
-      <div class="flex-1 min-h-0 relative bg-slate-900 overflow-hidden">
-
-        <!-- 1. CONSOLE TAB -->
-        <div id="tab-console" class="tab-content h-full flex flex-col p-3 min-h-0">
-          <!-- Console Toolbar -->
-          <div class="flex flex-wrap items-center justify-between pb-2 mb-2 border-b border-slate-800/80 gap-2 shrink-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <button id="clear-console" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/60 rounded text-slate-300 transition-all flex items-center gap-1">
-                <i class="fa-solid fa-ban text-[10px]"></i> Clear
-              </button>
-              <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[11px]">
-                <button class="console-level-btn text-slate-400 font-semibold px-1.5 py-0.5 rounded hover:bg-slate-800 active" data-level="all">All <span id="cnt-all" class="text-slate-500">0</span></button>
-                <button class="console-level-btn text-blue-400 font-semibold px-1.5 py-0.5 rounded hover:bg-slate-800" data-level="log">Logs <span id="cnt-log" class="text-slate-500">0</span></button>
-                <button class="console-level-btn text-amber-400 font-semibold px-1.5 py-0.5 rounded hover:bg-slate-800" data-level="warn">Warnings <span id="cnt-warn" class="text-slate-500">0</span></button>
-                <button class="console-level-btn text-rose-400 font-semibold px-1.5 py-0.5 rounded hover:bg-slate-800" data-level="error">Errors <span id="cnt-err" class="text-slate-500">0</span></button>
-              </div>
-            </div>
-            <input id="console-search" type="text" placeholder="Filter logs..." class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 w-36 focus:outline-none focus:border-blue-500">
-          </div>
-          <!-- Logs Container -->
-          <div id="console-logs" class="flex-1 min-h-0 overflow-y-auto font-mono text-xs space-y-1 bg-slate-950/60 p-2 rounded-lg border border-slate-800/60"></div>
-          <!-- REPL Prompt -->
-          <div class="mt-2 flex items-center gap-2 border-t border-slate-800/80 pt-2 shrink-0">
-            <span class="text-blue-400 font-bold font-mono text-sm">&gt;</span>
-            <input id="console-repl" type="text" placeholder="Evaluate JS in target frame..." class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-1.5 text-slate-100 font-mono focus:outline-none focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/50">
-          </div>
-        </div>
-
-        <!-- 2. ELEMENTS & STYLES TAB -->
-        <div id="tab-elements" class="tab-content hidden h-full flex flex-col md:flex-row min-h-0">
-          <!-- DOM Tree -->
-          <div class="flex-1 min-h-0 p-3 overflow-y-auto font-mono text-xs border-b md:border-b-0 md:border-r border-slate-800/80" id="dom-tree"></div>
-          
-          <!-- CSS Styles Inspector & Box Model Pane -->
-          <div class="w-full md:w-80 p-3 bg-slate-950/80 min-h-0 overflow-y-auto border-t md:border-t-0 border-slate-800/80 shrink-0 flex flex-col gap-3">
-            <h4 class="font-semibold text-blue-400 border-b border-slate-800 pb-1.5 flex items-center justify-between shrink-0">
-              <span>Styles & Computed Inspector</span>
-              <i class="fa-solid fa-sliders text-slate-500"></i>
-            </h4>
-            <div id="selected-element-info" class="text-slate-400 font-mono bg-slate-900 p-2 rounded border border-slate-800 truncate shrink-0">Select an element from tree</div>
-            
-            <!-- Box Model Graphic -->
-            <div class="bg-slate-900 p-2 border border-slate-800 rounded shrink-0">
-              <span class="text-[10px] text-slate-400 font-semibold mb-1 block uppercase">Box Model Visualizer</span>
-              <div class="bg-amber-950/40 border border-amber-600/40 p-2 rounded text-center text-[10px] font-mono text-amber-300">
-                margin
-                <div class="bg-amber-900/40 border border-amber-500/40 p-2 rounded text-amber-200">
-                  border
-                  <div class="bg-emerald-950/40 border border-emerald-600/40 p-2 rounded text-emerald-300">
-                    padding
-                    <div class="bg-blue-900/50 border border-blue-500/50 p-2 rounded text-blue-200 font-bold">
-                      <span id="bm-size">auto × auto</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Styles Rule Container -->
-            <div id="element-styles-container" class="space-y-2 font-mono flex-1 min-h-0"></div>
-          </div>
-        </div>
-
-        <!-- 3. NETWORK TAB (RICH REASON & DETAIL PANEL) -->
-        <div id="tab-network" class="tab-content hidden h-full flex flex-col p-3 min-h-0">
-          <div class="flex flex-wrap justify-between items-center pb-2 mb-2 border-b border-slate-800/80 gap-2 shrink-0">
-            <div class="flex items-center gap-2">
-              <button id="clear-network" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/60 rounded text-slate-300 transition-all">
-                <i class="fa-solid fa-ban text-[10px] mr-1"></i> Clear
-              </button>
-              <input id="network-filter" type="text" placeholder="Filter requests..." class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 w-36 focus:outline-none focus:border-blue-500">
-            </div>
-            <span id="network-count" class="text-slate-400 font-mono">0 requests captured</span>
-          </div>
-
-          <div class="flex-1 min-h-0 flex flex-col md:flex-row gap-2 overflow-hidden">
-            <!-- Network Request Table -->
-            <div class="flex-1 min-h-0 overflow-auto bg-slate-950/50 rounded-lg border border-slate-800/60">
-              <table class="w-full text-left font-mono border-collapse">
-                <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0 z-10 shadow-sm">
-                  <tr>
-                    <th class="p-2 w-28">Status & Reason</th>
-                    <th class="p-2 w-16">Method</th>
-                    <th class="p-2">URL / Resource</th>
-                    <th class="p-2 w-20">Type</th>
-                    <th class="p-2 w-16">Time</th>
-                    <th class="p-2 w-16 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody id="network-table-body" class="divide-y divide-slate-800/60"></tbody>
-              </table>
-            </div>
-
-            <!-- Request Detail Drawer -->
-            <div id="network-detail-pane" class="hidden w-full md:w-72 bg-slate-950 border border-slate-800/80 rounded-lg p-3 overflow-y-auto flex-col shrink-0 font-mono text-xs">
-              <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
-                <span class="font-bold text-blue-400">Request Details</span>
-                <button id="close-net-detail" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-              </div>
-              <div id="net-detail-content" class="space-y-3"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4. STORAGE TAB -->
-        <div id="tab-storage" class="tab-content hidden h-full flex flex-col p-3 min-h-0">
-          <div class="flex flex-wrap gap-2 mb-2 shrink-0 justify-between items-center">
-            <div class="flex items-center gap-2">
-              <select id="storage-type-select" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 focus:outline-none">
-                <option value="localStorage">Local Storage</option>
-                <option value="sessionStorage">Session Storage</option>
-                <option value="cookies">Cookies</option>
-              </select>
-              <button id="refresh-storage" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700/60 rounded text-slate-300"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
-              <button id="clear-storage" class="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/80 text-rose-200 rounded"><i class="fa-solid fa-trash mr-1"></i> Clear All</button>
-            </div>
-            <button id="add-storage-item" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold">+ Add Key</button>
-          </div>
-          <div class="flex-1 min-h-0 overflow-auto bg-slate-950/50 rounded-lg border border-slate-800/60">
-            <table class="w-full text-left font-mono border-collapse">
-              <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 sticky top-0 z-10">
-                <tr>
-                  <th class="p-2 w-1/3">Key</th>
-                  <th class="p-2">Value</th>
-                  <th class="p-2 w-16 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="storage-table-body" class="divide-y divide-slate-800/60"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 5. PERFORMANCE TAB -->
-        <div id="tab-performance" class="tab-content hidden h-full flex flex-col p-4 min-h-0 overflow-y-auto space-y-4">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
-            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
-              <span class="text-slate-400 block mb-1">FPS Status</span>
-              <span id="perf-fps" class="text-xl font-bold text-emerald-400 font-mono">60 FPS</span>
-            </div>
-            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
-              <span class="text-slate-400 block mb-1">DOM Nodes</span>
-              <span id="perf-dom-count" class="text-xl font-bold text-blue-400 font-mono">0</span>
-            </div>
-            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
-              <span class="text-slate-400 block mb-1">JS Memory</span>
-              <span id="perf-memory" class="text-xl font-bold text-purple-400 font-mono">12.4 MB</span>
-            </div>
-            <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
-              <span class="text-slate-400 block mb-1">Page Load Time</span>
-              <span id="perf-load-time" class="text-xl font-bold text-amber-400 font-mono">0 ms</span>
-            </div>
-          </div>
-          <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-lg">
-            <h4 class="text-blue-400 font-semibold mb-2 flex items-center gap-2">
-              <i class="fa-solid fa-chart-simple"></i> Navigation Timing Waterfall
-            </h4>
-            <div id="perf-waterfall" class="space-y-1.5 font-mono"></div>
-          </div>
-        </div>
-
-        <!-- 6. API TESTER TAB -->
-        <div id="tab-api-tester" class="tab-content hidden h-full flex flex-col p-3 min-h-0 space-y-3">
-          <!-- Request Bar -->
-          <div class="flex gap-2 shrink-0 flex-wrap sm:flex-nowrap">
-            <select id="api-req-method" class="bg-slate-950 border border-slate-800 text-blue-400 font-bold font-mono px-3 py-1.5 rounded-lg focus:outline-none">
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-              <option value="PATCH">PATCH</option>
-            </select>
-            <input id="api-req-url" type="text" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-slate-200 font-mono focus:outline-none focus:border-blue-500 min-w-[180px]" placeholder="https://jsonplaceholder.typicode.com/todos/1">
-            <button id="api-req-send" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0">
-              <i class="fa-solid fa-paper-plane text-xs"></i> Send
-            </button>
-          </div>
-          
-          <!-- Request Inputs -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 shrink-0">
-            <div>
-              <label class="text-slate-400 font-medium block mb-1 text-[11px]">Headers (JSON):</label>
-              <textarea id="api-req-headers" class="w-full h-16 bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono focus:outline-none resize-none" placeholder='{"Content-Type": "application/json"}'></textarea>
-            </div>
-            <div>
-              <label class="text-slate-400 font-medium block mb-1 text-[11px]">Payload Body:</label>
-              <textarea id="api-req-body" class="w-full h-16 bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono focus:outline-none resize-none" placeholder='{"title": "Test Task"}'></textarea>
-            </div>
-          </div>
-          
-          <!-- Response Output -->
-          <div class="flex-1 min-h-0 flex flex-col bg-slate-950 border border-slate-800/80 rounded-lg p-3">
-            <div id="api-res-meta" class="text-slate-400 text-xs mb-2 font-mono flex items-center justify-between border-b border-slate-800/60 pb-2 shrink-0">
-              <span>Response output will appear here...</span>
-            </div>
-            <div class="flex-1 min-h-0 overflow-auto">
-              <pre id="api-res-body" class="font-mono text-xs text-emerald-400 whitespace-pre-wrap"></pre>
-            </div>
-          </div>
-        </div>
-
-        <!-- 7. AUDITS TAB -->
-        <div id="tab-audits" class="tab-content hidden h-full flex flex-col p-3 min-h-0 overflow-y-auto space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-800/80 shrink-0">
-            <h3 class="text-blue-400 font-semibold flex items-center gap-2">
-              <i class="fa-solid fa-list-check"></i> Accessibility & Document Health Audit
-            </h3>
-            <button id="run-audit-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-semibold transition-all">
-              <i class="fa-solid fa-play mr-1"></i> Run Audit
-            </button>
-          </div>
-          <div id="audit-results" class="space-y-2 font-mono">
-            <div class="text-slate-500">Click "Run Audit" to analyze DOM nodes, accessibility markers, alt tags, and missing element tags.</div>
-          </div>
-        </div>
-
-        <!-- 8. SNIPPETS TAB -->
-        <div id="tab-snippets" class="tab-content hidden h-full flex flex-col p-3 space-y-2 min-h-0">
-          <label class="text-slate-400 font-medium shrink-0">Executable JS Code Injection:</label>
-          <textarea id="snippet-code" class="flex-1 min-h-0 bg-slate-950 border border-slate-800 rounded-lg p-3 text-emerald-300 font-mono resize-none focus:outline-none" placeholder="// Inject code into running iframe context...
-document.body.style.border = '4px solid #3b82f6';
-console.log('Snippet executed successfully!');"></textarea>
-          <button id="run-snippet-btn" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2 rounded-lg transition-all shrink-0">
-            <i class="fa-solid fa-bolt mr-1"></i> Execute Snippet
-          </button>
-        </div>
-
-      </div>
-    </section>
-
-  </main>
-
-  <!-- JAVASCRIPT LOGIC ENGINE -->
-  <script>
-    // Global State Management
-    const frame = document.getElementById('browser-frame');
-    const urlInput = document.getElementById('browser-url');
-    let historyStack = [];
-    let historyIndex = -1;
-    let inspectMode = false;
-    let capturedNetwork = [];
-    let consoleLogsData = [];
-    let activeConsoleFilter = 'all';
-
-    // Standard HTTP Status Reason Phrase Mapping
-    const HTTP_REASONS = {
-      200: 'OK',
-      201: 'Created',
-      204: 'No Content',
-      301: 'Moved Permanently',
-      304: 'Not Modified',
-      400: 'Bad Request',
-      401: 'Unauthorized',
-      403: 'Forbidden',
-      404: 'Not Found',
-      500: 'Internal Error',
-      502: 'Bad Gateway',
-      503: 'Service Unavailable'
-    };
-
-    // Default Demo Target Page HTML
-    const defaultPage = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Target Demo Workspace</title>
-        <style>
-          body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; background: #f8fafc; color: #0f172a; }
-          .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-          button { background: #2563eb; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-right: 0.5rem; margin-top: 0.5rem; }
-          button:hover { background: #1d4ed8; }
-          .btn-err { background: #dc2626; } .btn-err:hover { background: #b91c1c; }
-        </style>
-      </head>
-      <body>
-        <div class="card" id="main-card">
-          <h1>DevTools Test Environment</h1>
-          <p>Interact with controls below to generate console logs, trigger API network requests, or test errors.</p>
-          <button id="demo-btn" onclick="triggerDemo()">Fetch API Request</button>
-          <button class="btn-err" onclick="triggerError()">Simulate Error</button>
-        </div>
-        <script>
-          console.log("Frame environment initialized.");
-          function triggerDemo() {
-            console.info("Triggering sample HTTP fetch...");
-            fetch('https://jsonplaceholder.typicode.com/todos/1')
-              .then(r => r.json())
-              .then(d => console.log("Fetched Payload:", d))
-              .catch(e => console.error("Fetch Exception:", e));
-          }
-          function triggerError() {
-            console.warn("User triggered test warning!");
-            throw new Error("Simulated uncaught JS exception.");
-          }
-        <\/script>
-      </body>
-      </html>
-    `;
-
-    // Initialize Target Frame Content
-    loadUrl('data:text/html;charset=utf-8,' + encodeURIComponent(defaultPage));
-
-    // ---- NAVIGATION CONTROLS ----
-    document.getElementById('browser-go').onclick = () => loadUrl(urlInput.value);
-    urlInput.onkeydown = e => { if (e.key === 'Enter') loadUrl(urlInput.value); };
-    
-    document.getElementById('browser-back').onclick = () => {
-      if (historyIndex > 0) { historyIndex--; navigateToHistory(); }
-    };
-    document.getElementById('browser-forward').onclick = () => {
-      if (historyIndex < historyStack.length - 1) { historyIndex++; navigateToHistory(); }
-    };
-    document.getElementById('browser-refresh').onclick = () => {
-      try { frame.contentWindow.location.reload(); } catch { frame.src = frame.src; }
-    };
-
-    function loadUrl(url) {
-      if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:')) {
-        url = 'https://' + url;
+// ---- Network Capture (Host Page) ----
+const networkEntries = [];
+function wrapFetch(){
+  if(window.fetch){
+    const origFetch=window.fetch;
+    window.fetch=async function(...args){
+      const start=performance.now();
+      try{
+        const res=await origFetch.apply(this,args);
+        const clone=res.clone(); let body='';
+        try{body=await clone.text();}catch{}
+        networkEntries.push({
+          time:new Date(),method:args[1]?.method||'GET',url:args[0],status:res.status,
+          duration:(performance.now()-start).toFixed(1),
+          response: body  // No truncation
+        });
+        if(currentTab==='network') renderNetwork();
+        return res;
+      }catch(err){
+        networkEntries.push({
+          time:new Date(),method:args[1]?.method||'GET',url:args[0],status:'ERROR',
+          duration:(performance.now()-start).toFixed(1),
+          response:String(err)
+        });
+        if(currentTab==='network') renderNetwork();
+        throw err;
       }
-      urlInput.value = url;
-      frame.src = url;
-      historyStack = historyStack.slice(0, historyIndex + 1);
-      historyStack.push(url);
-      historyIndex = historyStack.length - 1;
-      updateNavButtons();
-    }
-
-    function navigateToHistory() {
-      const url = historyStack[historyIndex];
-      urlInput.value = url;
-      frame.src = url;
-      updateNavButtons();
-    }
-
-    function updateNavButtons() {
-      document.getElementById('browser-back').disabled = historyIndex <= 0;
-      document.getElementById('browser-forward').disabled = historyIndex >= historyStack.length - 1;
-    }
-
-    // ---- MOBILE RESPONSIVE VIEW SWITCHER ----
-    const paneFrame = document.getElementById('pane-frame');
-    const paneTools = document.getElementById('pane-devtools');
-
-    document.getElementById('view-mode-split').onclick = () => setMobileView('split');
-    document.getElementById('view-mode-frame').onclick = () => setMobileView('frame');
-    document.getElementById('view-mode-tools').onclick = () => setMobileView('tools');
-
-    function setMobileView(mode) {
-      document.querySelectorAll('#view-mode-split, #view-mode-frame, #view-mode-tools').forEach(b => {
-        b.classList.remove('bg-blue-600', 'text-white');
-        b.classList.add('text-slate-400');
+    };
+  }
+}
+function wrapXHR(){
+  const OrigXHR=window.XMLHttpRequest;
+  function XHRWrap(){
+    const xhr=new OrigXHR();
+    let url='',method='',start=0;
+    xhr._open=xhr.open;
+    xhr.open=function(m,u){method=m;url=u;xhr._open.apply(xhr,arguments);};
+    xhr._send=xhr.send;
+    xhr.send=function(){
+      start=performance.now();
+      xhr.addEventListener('loadend',function(){
+        networkEntries.push({
+          time:new Date(),method,url,status:xhr.status,
+          duration:(performance.now()-start).toFixed(1),
+          response: xhr.responseText // No truncation
+        });
+        if(currentTab==='network') renderNetwork();
       });
-
-      if (mode === 'split') {
-        paneFrame.classList.remove('hidden');
-        paneTools.classList.remove('hidden');
-        document.getElementById('view-mode-split').classList.add('bg-blue-600', 'text-white');
-      } else if (mode === 'frame') {
-        paneFrame.classList.remove('hidden');
-        paneTools.classList.add('hidden');
-        document.getElementById('view-mode-frame').classList.add('bg-blue-600', 'text-white');
-      } else if (mode === 'tools') {
-        paneFrame.classList.add('hidden');
-        paneTools.classList.remove('hidden');
-        document.getElementById('view-mode-tools').classList.add('bg-blue-600', 'text-white');
-      }
-    }
-
-    // ---- DEVICE VIEWPORT PRESETS ----
-    const devicePreset = document.getElementById('device-preset');
-    const viewportContainer = document.getElementById('viewport-container');
-    const viewportW = document.getElementById('viewport-w');
-    let isLandscape = false;
-
-    devicePreset.onchange = applyDeviceViewport;
-    viewportW.oninput = () => { viewportContainer.style.width = viewportW.value + '%'; };
-    document.getElementById('toggle-orientation').onclick = () => {
-      isLandscape = !isLandscape;
-      applyDeviceViewport();
+      xhr._send.apply(xhr,arguments);
     };
+    return xhr;
+  }
+  window.XMLHttpRequest=XHRWrap;
+}
+wrapFetch();wrapXHR();
 
-    function applyDeviceViewport() {
-      const preset = devicePreset.value;
-      if (preset === 'responsive') {
-        viewportContainer.style.width = '100%';
-        viewportContainer.style.height = '100%';
-      } else {
-        let w = 393, h = 852;
-        if (preset === 'pixel7') { w = 412; h = 915; }
-        if (preset === 'ipad') { w = 820; h = 1180; }
-        if (preset === 'desktop') { w = 1920; h = 1080; }
-        
-        if (isLandscape) [w, h] = [h, w];
-        viewportContainer.style.width = w + 'px';
-        viewportContainer.style.height = h + 'px';
+// ---- Tab Render ----
+const tabIds = ['logs','network','elements','webprops','storage','cookies','performance','api-tester'];
+let currentTab = tabIds[0];
+function showTab(tabId){
+  tabIds.forEach(id=>{
+    document.getElementById(id).classList.toggle('hidden',id!==tabId);
+    document.getElementById(id+'-tab').classList.toggle('border-blue-400',id===tabId);
+    document.getElementById(id+'-tab').setAttribute('aria-selected',id===tabId);
+  });
+  currentTab=tabId;
+  renderTab();
+}
+// Set up tab switching
+tabIds.forEach(id=>{
+  document.getElementById(id+'-tab').onclick = ()=>showTab(id);
+});
+showTab(currentTab);
+
+function renderTab(){
+  if(currentTab==='api-tester') renderApiTester();
+  else if(limitedAccess) {
+    document.getElementById(currentTab).innerHTML =
+      `<div class="p-6 text-center text-red-400 font-semibold">
+        Due to browser security, developer features are limited for external sites.<br>
+        <span class="text-xs text-gray-400">Only pages from the same origin as this app will show complete developer info.</span>
+      </div>`;
+    return;
+  }
+  if(currentTab==='logs') renderLogs();
+  if(currentTab==='network') renderNetwork();
+  if(currentTab==='elements') renderElements();
+  if(currentTab==='webprops') renderWebProps();
+  if(currentTab==='storage') renderStorage();
+  if(currentTab==='cookies') renderCookies();
+  if(currentTab==='performance') renderPerformance();
+}
+
+// ---- Console Logs Tab ----
+function renderLogs(){
+  const wrap = document.getElementById('logs');
+  let iframeLogs = [];
+  try {
+    iframeLogs = browserFrame.contentWindow._devConsoleLogs || [];
+  } catch {}
+  wrap.innerHTML = `
+    <div class="mb-2 flex gap-2"><button onclick="clearLogs()" class="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1">Clear</button></div>
+    <div class="overflow-y-auto max-h-[60vh]">
+      ${iframeLogs.length===0?'<div class="text-gray-400">No logs yet.</div>':
+        iframeLogs.slice(-300).map(e=>
+          `<div class="mb-2 flex items-start gap-2 text-sm">
+            <span class="font-mono text-gray-400">${e.time}</span>
+            <span class="font-bold ${e.type==='error'?'text-red-400':e.type==='warn'?'text-yellow-400':e.type==='info'?'text-blue-400':'text-gray-100'}">${e.type.toUpperCase()}</span>
+            <span class="break-all">${htmlEscape(e.msg)}</span>
+          </div>`
+        ).join('')
       }
+    </div>
+  `;
+}
+window.clearLogs = function(){
+  try { browserFrame.contentWindow._devConsoleLogs = []; } catch {}
+  renderLogs();
+}
+
+// ---- Network Tab ----
+function renderNetwork(){
+  const wrap = document.getElementById('network');
+  let iframeNetwork = [];
+  try {
+    iframeNetwork = browserFrame.contentWindow._devConsoleNetwork || [];
+  } catch {}
+  wrap.innerHTML = `
+    <div class="mb-2 flex gap-2"><button onclick="clearNetwork()" class="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1">Clear</button></div>
+    <div class="overflow-x-auto max-h-[60vh]">
+      ${iframeNetwork.length===0?'<div class="text-gray-400">No network requests captured.</div>':
+        `<table class="table-auto w-full text-xs border border-gray-700">
+          <thead class="bg-gray-800 text-blue-400">
+            <tr>
+              <th class="p-2">Time</th><th class="p-2">Method</th><th class="p-2">URL</th>
+              <th class="p-2">Status</th><th class="p-2">Duration</th><th class="p-2">Response</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${iframeNetwork.slice(-300).map(e=>
+              `<tr class="border-t border-gray-700">
+                <td class="p-2 font-mono text-gray-400">${e.time}</td>
+                <td class="p-2">${e.method}</td>
+                <td class="p-2 break-all">${htmlEscape(e.url)}</td>
+                <td class="p-2">${e.status}</td>
+                <td class="p-2">${e.duration}</td>
+                <td class="p-2 break-all">${htmlEscape(e.response||'')}</td>
+              </tr>`
+            ).join('')}
+          </tbody>
+        </table>`
+      }
+    </div>
+  `;
+}
+window.clearNetwork = function(){
+  try { browserFrame.contentWindow._devConsoleNetwork = []; } catch {}
+  renderNetwork();
+}
+
+// ---- Elements Tab ----
+function renderElements(){
+  const wrap = document.getElementById('elements');
+  let html = '';
+  try {
+    html = renderElementTree(browserFrame.contentWindow.document.body,0);
+  } catch {}
+  wrap.innerHTML = `<div class="mb-2"><button onclick="renderElements()" class="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1">Refresh</button></div>
+  <div class="overflow-x-auto max-h-[60vh] font-mono text-xs">${html}</div>`;
+}
+function renderElementTree(node,depth){
+  if(!node) return '';
+  let out = '&nbsp;'.repeat(depth*2);
+  if(node.nodeType===Node.ELEMENT_NODE){
+    out += `<span class="text-blue-400">&lt;${node.tagName.toLowerCase()}</span>`;
+    if(node.id) out += ` <span class="text-green-400">id="${node.id}"</span>`;
+    if(node.className) out += ` <span class="text-yellow-200">class="${htmlEscape(node.className)}"</span>`;
+    out += '<span class="text-blue-400">&gt;</span>';
+    if(node.childNodes.length){
+      out += '<br>';
+      for(const child of node.childNodes) out += renderElementTree(child,depth+1);
     }
+    out += '&nbsp;'.repeat(depth*2)+`<span class="text-blue-400">&lt;/${node.tagName.toLowerCase()}&gt;</span><br>`;
+  }else if(node.nodeType===Node.TEXT_NODE){
+    const txt=node.textContent.trim();
+    if(txt) out += `<span class="text-gray-300">${htmlEscape(txt)}</span><br>`;
+  }
+  return out;
+}
 
-    // ---- TAB ENGINE ----
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+// ---- Web Properties Tab ----
+function renderWebProps(){
+  const wrap = document.getElementById('webprops');
+  let nav, loc, doc, scr;
+  try {
+    nav = browserFrame.contentWindow.navigator;
+    loc = browserFrame.contentWindow.location;
+    doc = {
+      title: browserFrame.contentWindow.document.title,
+      URL: browserFrame.contentWindow.document.URL,
+      referrer: browserFrame.contentWindow.document.referrer,
+      readyState: browserFrame.contentWindow.document.readyState,
+      lastModified: browserFrame.contentWindow.document.lastModified
+    };
+    scr = browserFrame.contentWindow.screen;
+  } catch {}
+  const props = [
+    {title:'Navigator', obj:nav},
+    {title:'Location', obj:loc},
+    {title:'Document', obj:doc},
+    {title:'Screen', obj:scr}
+  ];
+  wrap.innerHTML = props.map(p=>
+    `<div class="mb-4">
+      <h3 class="text-lg text-blue-400 font-semibold">${p.title}</h3>
+      <pre class="bg-gray-800 rounded p-2 overflow-x-auto text-xs">${htmlEscape(JSON.stringify(p.obj,null,2))}</pre>
+    </div>`
+  ).join('');
+}
 
-        const tab = btn.dataset.tab;
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-        document.getElementById('tab-' + tab).classList.remove('hidden');
+// ---- Storage Tab ----
+function renderStorage(){
+  const wrap = document.getElementById('storage');
+  let localS, sessionS;
+  try {
+    localS = browserFrame.contentWindow.localStorage;
+    sessionS = browserFrame.contentWindow.sessionStorage;
+  } catch {}
+  wrap.innerHTML = `
+    <div class="mb-2 flex gap-2">
+      <button onclick="renderStorage()" class="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1">Refresh</button>
+      <button onclick="clearStorage()" class="btn btn-sm bg-red-600 hover:bg-red-700 text-white rounded px-3 py-1">Clear All</button>
+    </div>
+    <div class="mb-4"><h3 class="text-blue-400 font-semibold">localStorage</h3>${renderStorageList(localS)}</div>
+    <div><h3 class="text-blue-400 font-semibold">sessionStorage</h3>${renderStorageList(sessionS)}</div>
+  `;
+}
+function renderStorageList(storage){
+  if(!storage || storage.length===0) return '<div class="text-gray-400">(empty)</div>';
+  let out = `<table class="table-auto w-full text-xs border border-gray-700 mb-2">
+    <thead><tr class="bg-gray-800 text-blue-400"><th class="p-2">Key</th><th class="p-2">Value</th></tr></thead><tbody>`;
+  for(let i=0;i<storage.length;i++){
+    const k=storage.key(i);
+    out += `<tr class="border-t border-gray-700"><td class="p-2">${htmlEscape(k)}</td><td class="p-2 break-all">${htmlEscape(storage.getItem(k))}</td></tr>`;
+  }
+  out += '</tbody></table>';
+  return out;
+}
+window.clearStorage = function(){
+  try {
+    browserFrame.contentWindow.localStorage.clear();
+    browserFrame.contentWindow.sessionStorage.clear();
+  } catch {}
+  renderStorage();
+}
 
-        if (tab === 'elements') renderDomTree();
-        if (tab === 'storage') renderStorageTable();
-        if (tab === 'performance') renderPerformanceMetrics();
+// ---- Cookies Tab ----
+function renderCookies(){
+  const wrap = document.getElementById('cookies');
+  let cookies = [];
+  try {
+    cookies = browserFrame.contentWindow.document.cookie.split('; ').map(c=>c.split('='));
+  } catch {}
+  wrap.innerHTML = `<div class="mb-2 flex gap-2">
+    <button onclick="renderCookies()" class="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1">Refresh</button>
+    <button onclick="clearCookies()" class="btn btn-sm bg-red-600 hover:bg-red-700 text-white rounded px-3 py-1">Clear All</button>
+  </div>`;
+  if(!cookies[0]||cookies[0][0]==='') wrap.innerHTML += '<div class="text-gray-400">No cookies.</div>';
+  else {
+    wrap.innerHTML += `<table class="table-auto w-full text-xs border border-gray-700 mb-2">
+      <thead><tr class="bg-gray-800 text-blue-400"><th class="p-2">Name</th><th class="p-2">Value</th></tr></thead><tbody>
+      ${cookies.map(([k,v])=>
+        `<tr class="border-t border-gray-700"><td class="p-2">${htmlEscape(k)}</td><td class="p-2 break-all">${htmlEscape(v)}</td></tr>`
+      ).join('')}
+      </tbody></table>`;
+  }
+}
+window.clearCookies = function(){
+  try {
+    const cookies = browserFrame.contentWindow.document.cookie.split('; ');
+    for(const c of cookies){
+      const eq=c.indexOf('=');
+      const name=eq>-1?c.substring(0,eq):c;
+      browserFrame.contentWindow.document.cookie=name+'=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+    }
+  } catch {}
+  renderCookies();
+}
+
+// ---- Performance Tab ----
+function renderPerformance(){
+  const wrap = document.getElementById('performance');
+  let perf={}, mem={};
+  try {
+    perf=browserFrame.contentWindow.performance.getEntriesByType('navigation')[0]||{};
+    mem=browserFrame.contentWindow.performance.memory||"Not supported";
+  } catch {}
+  wrap.innerHTML = `<div class="mb-2 flex gap-2"><button onclick="renderPerformance()" class="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1">Refresh</button></div>
+    <div class="mb-4"><h3 class="text-blue-400 font-semibold">Navigation Timing</h3>
+    <table class="table-auto w-full text-xs border border-gray-700 mb-2">
+      <thead><tr class="bg-gray-800 text-blue-400"><th class="p-2">Property</th><th class="p-2">Value</th></tr></thead><tbody>
+        ${Object.entries(perf).filter(([k,v])=>typeof v==='number').map(([k,v])=>
+          `<tr class="border-t border-gray-700"><td class="p-2">${htmlEscape(k)}</td><td class="p-2">${htmlEscape(String(v))}</td></tr>`
+        ).join('')}
+      </tbody></table>
+    </div>
+    <div><h3 class="text-blue-400 font-semibold">Memory (experimental)</h3>
+    <pre class="bg-gray-800 rounded p-2 overflow-x-auto text-xs">${htmlEscape(JSON.stringify(mem,null,2))}</pre></div>`;
+}
+
+// ---- API Tester Tab ----
+function renderApiTester(){
+  const wrap = document.getElementById('api-tester');
+  wrap.innerHTML = `
+    <div class="mb-2">
+      <label for="api-url" class="block mb-2">API URL:</label>
+      <input id="api-url" class="w-full bg-gray-800 text-gray-200 p-2 rounded mb-2" value="https://goldlincschools.onrender.com/api/auth">
+      <select id="api-method" class="bg-gray-800 text-gray-200 rounded mb-2">
+        <option>GET</option>
+        <option>POST</option>
+      </select>
+      <textarea id="api-body" class="w-full bg-gray-800 text-gray-200 p-2 rounded mb-2" rows="3" placeholder="Request Body (for POST)"></textarea>
+      <button id="api-send" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
+      <pre id="api-response" class="mt-4 bg-gray-900 text-green-300 p-4 rounded"></pre>
+    </div>
+  `;
+  document.getElementById('api-send').onclick = sendApiRequest;
+}
+function sendApiRequest() {
+  const url = document.getElementById('api-url').value;
+  const method = document.getElementById('api-method').value;
+  const body = document.getElementById('api-body').value;
+  fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: method === 'POST' && body ? body : undefined,
+  })
+  .then(async res => {
+    const contentType = res.headers.get('content-type');
+    let txt;
+    if(contentType && contentType.includes('application/json')) {
+      txt = JSON.stringify(await res.json(), null, 2);
+    } else {
+      txt = await res.text();
+    }
+    document.getElementById('api-response').textContent = txt;
+  })
+  .catch(e => {
+    document.getElementById('api-response').textContent = e.message;
+  });
+}
+
+// ---- Inject Dev Console into iframe when same-origin ----
+browserFrame.onload = function() {
+  try {
+    let win = browserFrame.contentWindow;
+    // Logs
+    win._devConsoleLogs = [];
+    ['log','warn','error','info'].forEach(type=>{
+      const orig=win.console[type];
+      win.console[type]=function(...args){
+        win._devConsoleLogs.push({type,msg:args.map(a=>typeof a==='object'?JSON.stringify(a):a).join(' '),time:new Date().toLocaleTimeString()});
+        orig.apply(win.console,args);
       };
     });
-
-    // ---- IFRAME HOOKING & LOG CAPTURE ----
-    frame.onload = () => {
-      document.getElementById('cors-banner').classList.add('hidden');
-      try {
-        const win = frame.contentWindow;
-
-        // Intercept Console
-        ['log', 'warn', 'error', 'info'].forEach(type => {
-          const orig = win.console[type];
-          win.console[type] = function(...args) {
-            appendConsoleLog(type, args);
-            if (orig) orig.apply(win.console, args);
-          };
-        });
-
-        // Intercept Global Uncaught Errors
-        win.onerror = function(msg, url, line) {
-          appendConsoleLog('error', [`Uncaught Error: ${msg} (${line})`]);
+    // Network
+    win._devConsoleNetwork = [];
+    if(win.fetch){
+      const origFetch=win.fetch;
+      win.fetch=async function(...args){
+        const start=performance.now();
+        try{
+          const res=await origFetch.apply(this,args);
+          const clone=res.clone(); let body='';
+          try{body=await clone.text();}catch{}
+          win._devConsoleNetwork.push({
+            time:new Date().toLocaleTimeString(),method:args[1]?.method||'GET',url:args[0],status:res.status,
+            duration:(performance.now()-start).toFixed(1),
+            response:body.length>200?body.slice(0,200)+'...':body
+          });
+          return res;
+        }catch(err){
+          win._devConsoleNetwork.push({
+            time:new Date().toLocaleTimeString(),method:args[1]?.method||'GET',url:args[0],status:'ERROR',
+            duration:(performance.now()-start).toFixed(1),
+            response:String(err)
+          });
+          throw err;
+        }
+      };
+    }
+    if(win.XMLHttpRequest){
+      const OrigXHR=win.XMLHttpRequest;
+      function XHRWrap(){
+        const xhr=new OrigXHR();
+        let url='',method='',start=0;
+        xhr._open=xhr.open;
+        xhr.open=function(m,u){method=m;url=u;xhr._open.apply(xhr,arguments);};
+        xhr._send=xhr.send;
+        xhr.send=function(){
+          start=performance.now();
+          xhr.addEventListener('loadend',function(){
+            win._devConsoleNetwork.push({
+              time:new Date().toLocaleTimeString(),method,url,status:xhr.status,
+              duration:(performance.now()-start).toFixed(1),
+              response:xhr.responseText?.slice(0,200)
+            });
+          });
+          xhr._send.apply(xhr,arguments);
         };
-
-        // Intercept Fetch Requests for Network Tab
-        if (win.fetch) {
-          const origFetch = win.fetch;
-          win.fetch = async function(...args) {
-            const start = performance.now();
-            const url = typeof args[0] === 'string' ? args[0] : args[0].url;
-            const method = args[1]?.method || 'GET';
-            try {
-              const res = await origFetch.apply(this, args);
-              const duration = (performance.now() - start).toFixed(1);
-              const reason = HTTP_REASONS[res.status] || res.statusText || 'OK';
-              recordNetwork({
-                method,
-                url,
-                status: res.status,
-                reason,
-                time: duration + 'ms',
-                type: 'fetch',
-                headers: args[1]?.headers || {}
-              });
-              return res;
-            } catch (err) {
-              const duration = (performance.now() - start).toFixed(1);
-              recordNetwork({
-                method,
-                url,
-                status: 'FAILED',
-                reason: 'CORS / Network Error',
-                time: duration + 'ms',
-                type: 'fetch',
-                headers: args[1]?.headers || {}
-              });
-              throw err;
-            }
-          };
-        }
-
-        renderDomTree();
-      } catch (err) {
-        document.getElementById('cors-banner').classList.remove('hidden');
+        return xhr;
       }
-    };
-
-    // ---- CONSOLE ENGINE ----
-    const consoleLogs = document.getElementById('console-logs');
-    document.getElementById('clear-console').onclick = () => { 
-      consoleLogs.innerHTML = '';
-      consoleLogsData = [];
-      updateConsoleCounters();
-    };
-
-    document.querySelectorAll('.console-level-btn').forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll('.console-level-btn').forEach(b => b.classList.remove('active', 'bg-slate-800'));
-        btn.classList.add('active', 'bg-slate-800');
-        activeConsoleFilter = btn.dataset.level;
-        renderConsoleLogs();
-      };
-    });
-
-    document.getElementById('console-search').oninput = renderConsoleLogs;
-
-    function appendConsoleLog(type, args) {
-      const entry = { type, args, time: new Date().toLocaleTimeString() };
-      consoleLogsData.push(entry);
-      updateConsoleCounters();
-      renderConsoleLogs();
+      win.XMLHttpRequest=XHRWrap;
     }
+  } catch {}
+  // Notify for cross-origin
+  notifyLimitedAccess();
+};
 
-    function updateConsoleCounters() {
-      document.getElementById('cnt-all').innerText = consoleLogsData.length;
-      document.getElementById('cnt-log').innerText = consoleLogsData.filter(l => l.type === 'log').length;
-      document.getElementById('cnt-warn').innerText = consoleLogsData.filter(l => l.type === 'warn').length;
-      document.getElementById('cnt-err').innerText = consoleLogsData.filter(l => l.type === 'error').length;
-    }
-
-    function renderConsoleLogs() {
-      const query = document.getElementById('console-search').value.toLowerCase();
-      consoleLogs.innerHTML = '';
-
-      consoleLogsData.forEach(entry => {
-        if (activeConsoleFilter !== 'all' && entry.type !== activeConsoleFilter) return;
-
-        const formattedMsg = entry.args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
-        if (query && !formattedMsg.toLowerCase().includes(query)) return;
-
-        const row = document.createElement('div');
-        row.className = `p-1.5 border-b border-slate-800/60 flex items-start gap-2 log-${entry.type}`;
-
-        let badgeStyle = 'bg-slate-800 text-slate-300';
-        if (entry.type === 'warn') badgeStyle = 'bg-amber-950/80 text-amber-400 border border-amber-800/60';
-        if (entry.type === 'error') badgeStyle = 'bg-rose-950/80 text-rose-400 border border-rose-800/60';
-        if (entry.type === 'info') badgeStyle = 'bg-blue-950/80 text-blue-400 border border-blue-800/60';
-
-        row.innerHTML = `
-          <span class="text-slate-500 font-mono text-[10px] shrink-0">${entry.time}</span>
-          <span class="font-bold text-[9px] uppercase px-1.5 py-0.5 rounded ${badgeStyle} shrink-0">${entry.type}</span>
-          <pre class="flex-1 whitespace-pre-wrap text-slate-200 font-mono text-xs overflow-x-auto">${escapeHtml(formattedMsg)}</pre>
-        `;
-        consoleLogs.appendChild(row);
-      });
-      consoleLogs.scrollTop = consoleLogs.scrollHeight;
-    }
-
-    // Console REPL Evaluator
-    const replInput = document.getElementById('console-repl');
-    replInput.onkeydown = e => {
-      if (e.key === 'Enter') {
-        const cmd = replInput.value.trim();
-        if (!cmd) return;
-        appendConsoleLog('log', ['> ' + cmd]);
-        try {
-          const res = frame.contentWindow.eval(cmd);
-          appendConsoleLog('info', [res]);
-        } catch (err) {
-          appendConsoleLog('error', [err.message]);
-        }
-        replInput.value = '';
-      }
-    };
-
-    // ---- ELEMENTS DOM TREE & CSS INSPECTOR ----
-    function renderDomTree() {
-      const container = document.getElementById('dom-tree');
-      try {
-        const body = frame.contentDocument.body;
-        container.innerHTML = buildDomNodeHtml(body, 0);
-      } catch {
-        container.innerHTML = '<span class="text-slate-500">DOM tree restricted by origin policy.</span>';
-      }
-    }
-
-    function buildDomNodeHtml(node, depth) {
-      if (!node || node.nodeType !== 1) return '';
-      const tag = node.tagName.toLowerCase();
-      const id = node.id ? ` id="${node.id}"` : '';
-      const cls = node.className ? ` class="${node.className}"` : '';
-      
-      let html = `<div class="dom-node cursor-pointer py-0.5 px-1 rounded transition-colors" style="padding-left: ${depth * 12}px" onclick="inspectDomNode(this, '${tag}', '${node.id}')">`;
-      html += `<span class="text-blue-400">&lt;${tag}</span><span class="text-amber-300">${id}</span><span class="text-purple-300">${cls}</span><span class="text-blue-400">&gt;</span>`;
-      
-      if (node.children.length === 0) {
-        const txt = node.textContent.trim().slice(0, 30);
-        if (txt) html += `<span class="text-slate-300"> ${escapeHtml(txt)} </span>`;
-      }
-      html += `<span class="text-blue-400">&lt;/${tag}&gt;</span></div>`;
-
-      for (let child of node.children) {
-        html += buildDomNodeHtml(child, depth + 1);
-      }
-      return html;
-    }
-
-    function inspectDomNode(el, tag, id) {
-      document.querySelectorAll('.dom-node').forEach(n => n.classList.remove('active'));
-      el.classList.add('active');
-      document.getElementById('selected-element-info').innerText = `<${tag}${id ? ' id="' + id + '"' : ''}>`;
-
-      // Read computed styles inside target iframe
-      try {
-        const doc = frame.contentDocument;
-        const targetEl = id ? doc.getElementById(id) : doc.querySelector(tag);
-        if (targetEl) {
-          const style = frame.contentWindow.getComputedStyle(targetEl);
-          document.getElementById('bm-size').innerText = `${Math.round(targetEl.offsetWidth)} × ${Math.round(targetEl.offsetHeight)}`;
-          
-          const stylesContainer = document.getElementById('element-styles-container');
-          stylesContainer.innerHTML = `
-            <div class="bg-slate-900 p-2 rounded border border-slate-800 text-[11px]">
-              <span class="text-slate-400">display:</span> <span class="text-amber-300">${style.display}</span><br>
-              <span class="text-slate-400">position:</span> <span class="text-amber-300">${style.position}</span><br>
-              <span class="text-slate-400">color:</span> <span class="text-emerald-300">${style.color}</span><br>
-              <span class="text-slate-400">background-color:</span> <span class="text-emerald-300">${style.backgroundColor}</span><br>
-              <span class="text-slate-400">font-family:</span> <span class="text-purple-300 truncate block">${style.fontFamily}</span>
-            </div>
-          `;
-        }
-      } catch {}
-    }
-
-    // ---- NETWORK MONITOR ENGINE ----
-    const netTable = document.getElementById('network-table-body');
-    const netDetailPane = document.getElementById('network-detail-pane');
-    
-    document.getElementById('clear-network').onclick = () => {
-      capturedNetwork = [];
-      netTable.innerHTML = '';
-      netDetailPane.classList.add('hidden');
-      document.getElementById('network-count').innerText = '0 requests captured';
-    };
-
-    document.getElementById('close-net-detail').onclick = () => {
-      netDetailPane.classList.add('hidden');
-    };
-
-    function recordNetwork(req) {
-      capturedNetwork.push(req);
-      document.getElementById('network-count').innerText = `${capturedNetwork.length} requests captured`;
-
-      const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-800/50 cursor-pointer transition-colors';
-      
-      let statusClass = 'status-2xx';
-      if (typeof req.status === 'number' && req.status >= 300 && req.status < 400) statusClass = 'status-3xx';
-      if (typeof req.status === 'number' && req.status >= 400) statusClass = 'status-4xx';
-      if (req.status === 'FAILED') statusClass = 'status-failed';
-
-      tr.onclick = () => showNetworkDetails(req);
-
-      tr.innerHTML = `
-        <td class="p-2">
-          <span class="px-1.5 py-0.5 rounded font-bold text-[10px] ${statusClass}">
-            ${req.status} ${req.reason}
-          </span>
-        </td>
-        <td class="p-2 font-bold text-blue-400">${req.method}</td>
-        <td class="p-2 text-slate-300 truncate max-w-xs" title="${escapeHtml(req.url)}">${escapeHtml(req.url)}</td>
-        <td class="p-2 text-slate-400 uppercase text-[10px]">${req.type}</td>
-        <td class="p-2 text-slate-400">${req.time}</td>
-        <td class="p-2 text-right">
-          <button onclick="event.stopPropagation(); copyCurl('${req.url}', '${req.method}')" class="text-blue-400 hover:underline">cURL</button>
-        </td>
-      `;
-      netTable.appendChild(tr);
-    }
-
-    function showNetworkDetails(req) {
-      netDetailPane.classList.remove('hidden');
-      netDetailPane.classList.add('flex');
-      
-      document.getElementById('net-detail-content').innerHTML = `
-        <div>
-          <span class="text-slate-500 uppercase text-[10px] font-bold block">Request URL</span>
-          <span class="text-slate-200 break-all">${escapeHtml(req.url)}</span>
-        </div>
-        <div>
-          <span class="text-slate-500 uppercase text-[10px] font-bold block">HTTP Status & Reason</span>
-          <span class="text-emerald-400 font-bold">${req.status} - ${req.reason}</span>
-        </div>
-        <div>
-          <span class="text-slate-500 uppercase text-[10px] font-bold block">Method & Type</span>
-          <span class="text-blue-400 font-bold">${req.method} (${req.type})</span>
-        </div>
-        <div>
-          <span class="text-slate-500 uppercase text-[10px] font-bold block">Response Time</span>
-          <span class="text-amber-400">${req.time}</span>
-        </div>
-      `;
-    }
-
-    function copyCurl(url, method) {
-      const curl = `curl -X ${method} "${url}"`;
-      navigator.clipboard.writeText(curl);
-      alert('cURL copied to clipboard!');
-    }
-
-    // ---- STORAGE ENGINE (LOCALSTORAGE, SESSIONSTORAGE & COOKIES) ----
-    const storageSelect = document.getElementById('storage-type-select');
-    document.getElementById('refresh-storage').onclick = renderStorageTable;
-    storageSelect.onchange = renderStorageTable;
-
-    document.getElementById('add-storage-item').onclick = () => {
-      const key = prompt('Enter Storage Key:');
-      if (!key) return;
-      const val = prompt('Enter Storage Value:');
-      
-      try {
-        const win = frame.contentWindow;
-        if (storageSelect.value === 'localStorage') win.localStorage.setItem(key, val || '');
-        if (storageSelect.value === 'sessionStorage') win.sessionStorage.setItem(key, val || '');
-        if (storageSelect.value === 'cookies') win.document.cookie = `${key}=${val || ''}; path=/`;
-        renderStorageTable();
-      } catch {
-        alert('Cannot write storage due to cross-origin policies.');
-      }
-    };
-
-    document.getElementById('clear-storage').onclick = () => {
-      try {
-        const win = frame.contentWindow;
-        if (storageSelect.value === 'localStorage') win.localStorage.clear();
-        if (storageSelect.value === 'sessionStorage') win.sessionStorage.clear();
-        if (storageSelect.value === 'cookies') {
-          win.document.cookie.split(";").forEach(c => {
-            win.document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-          });
-        }
-        renderStorageTable();
-      } catch { alert('Storage clearing restricted.'); }
-    };
-
-    function renderStorageTable() {
-      const tbody = document.getElementById('storage-table-body');
-      tbody.innerHTML = '';
-      try {
-        const win = frame.contentWindow;
-        const type = storageSelect.value;
-
-        if (type === 'cookies') {
-          const rawCookies = win.document.cookie;
-          if (!rawCookies) {
-            tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-slate-500">No cookies found.</td></tr>';
-            return;
-          }
-          rawCookies.split(';').forEach(c => {
-            const [k, v] = c.trim().split('=');
-            if (k) appendStorageRow(tbody, k, v || '');
-          });
-        } else {
-          let store = type === 'localStorage' ? win.localStorage : win.sessionStorage;
-          if (store.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-slate-500">Storage store is empty.</td></tr>';
-            return;
-          }
-          for (let i = 0; i < store.length; i++) {
-            const k = store.key(i);
-            appendStorageRow(tbody, k, store.getItem(k));
-          }
-        }
-      } catch {
-        tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-slate-500">Storage restricted by origin policy.</td></tr>';
-      }
-    }
-
-    function appendStorageRow(tbody, key, value) {
-      const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-800/40';
-      tr.innerHTML = `
-        <td class="p-2 text-blue-400 font-bold">${escapeHtml(key)}</td>
-        <td class="p-2 text-slate-300 truncate max-w-xs">${escapeHtml(value)}</td>
-        <td class="p-2 text-right">
-          <button onclick="deleteStorageKey('${key}')" class="text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    }
-
-    function deleteStorageKey(key) {
-      try {
-        const win = frame.contentWindow;
-        const type = storageSelect.value;
-        if (type === 'localStorage') win.localStorage.removeItem(key);
-        if (type === 'sessionStorage') win.sessionStorage.removeItem(key);
-        if (type === 'cookies') win.document.cookie = `${key}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-        renderStorageTable();
-      } catch {}
-    }
-
-    // ---- PERFORMANCE ENGINE ----
-    function renderPerformanceMetrics() {
-      try {
-        const doc = frame.contentDocument;
-        document.getElementById('perf-dom-count').innerText = doc.getElementsByTagName('*').length;
-        
-        const navEntry = frame.contentWindow.performance.getEntriesByType('navigation')[0];
-        if (navEntry) {
-          document.getElementById('perf-load-time').innerText = Math.round(navEntry.loadEventEnd - navEntry.startTime) + ' ms';
-          document.getElementById('perf-waterfall').innerHTML = `
-            <div class="text-slate-400">DNS Lookup: <span class="text-slate-200">${Math.round(navEntry.domainLookupEnd - navEntry.domainLookupStart)} ms</span></div>
-            <div class="text-slate-400">Response Delay: <span class="text-slate-200">${Math.round(navEntry.responseEnd - navEntry.requestStart)} ms</span></div>
-            <div class="text-slate-400">DOM Processing: <span class="text-slate-200">${Math.round(navEntry.domInteractive)} ms</span></div>
-          `;
-        }
-      } catch {}
-    }
-
-    // ---- API CLIENT (POSTMAN) ENGINE ----
-    document.getElementById('api-req-send').onclick = async () => {
-      const method = document.getElementById('api-req-method').value;
-      const url = document.getElementById('api-req-url').value;
-      const headersRaw = document.getElementById('api-req-headers').value;
-      const bodyRaw = document.getElementById('api-req-body').value;
-
-      const meta = document.getElementById('api-res-meta');
-      const bodyOut = document.getElementById('api-res-body');
-
-      meta.innerHTML = '<span class="text-blue-400 font-semibold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Executing request...</span>';
-      bodyOut.innerText = '';
-
-      const start = performance.now();
-      try {
-        let headers = {};
-        if (headersRaw) headers = JSON.parse(headersRaw);
-
-        const options = { method, headers };
-        if (method !== 'GET' && bodyRaw) options.body = bodyRaw;
-
-        const res = await fetch(url, options);
-        const duration = (performance.now() - start).toFixed(1);
-        
-        const statusClass = res.ok ? 'bg-emerald-950 text-emerald-400 border-emerald-800' : 'bg-rose-950 text-rose-400 border-rose-800';
-
-        meta.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${statusClass}">${res.status} ${res.statusText || 'Response Received'}</span>
-            <span class="text-slate-400">Time: <span class="text-slate-200">${duration} ms</span></span>
-          </div>
-        `;
-
-        const txt = await res.text();
-        try {
-          bodyOut.innerText = JSON.stringify(JSON.parse(txt), null, 2);
-        } catch {
-          bodyOut.innerText = txt;
-        }
-      } catch (err) {
-        meta.innerHTML = '<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle-xmark mr-1"></i> Request Failed</span>';
-        bodyOut.innerText = err.message;
-      }
-    };
-
-    // ---- AUTOMATED DOM AUDITS ENGINE ----
-    document.getElementById('run-audit-btn').onclick = () => {
-      const container = document.getElementById('audit-results');
-      container.innerHTML = '';
-
-      try {
-        const doc = frame.contentDocument;
-        const issues = [];
-
-        const imgs = doc.querySelectorAll('img:not([alt])');
-        if (imgs.length) issues.push({ type: 'warning', msg: `Found ${imgs.length} image(s) missing 'alt' attributes.` });
-
-        if (!doc.title) issues.push({ type: 'error', msg: 'Document is missing a <title> tag.' });
-
-        const ids = new Set();
-        doc.querySelectorAll('[id]').forEach(el => {
-          if (ids.has(el.id)) issues.push({ type: 'error', msg: `Duplicate ID attribute found: #${el.id}` });
-          ids.add(el.id);
-        });
-
-        if (issues.length === 0) {
-          container.innerHTML = '<div class="text-emerald-400 font-bold flex items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> All structural audits passed! No issues detected.</div>';
-        } else {
-          issues.forEach(i => {
-            const color = i.type === 'error' ? 'text-rose-400' : 'text-amber-400';
-            const icon = i.type === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation';
-            container.innerHTML += `<div class="${color} flex items-center gap-1.5"><i class="fa-solid ${icon}"></i> ${i.msg}</div>`;
-          });
-        }
-      } catch {
-        container.innerHTML = '<div class="text-slate-500">Audits restricted on cross-origin domains.</div>';
-      }
-    };
-
-    // ---- SNIPPET RUNNER ----
-    document.getElementById('run-snippet-btn').onclick = () => {
-      const code = document.getElementById('snippet-code').value;
-      try {
-        frame.contentWindow.eval(code);
-        alert('Snippet injected and executed in frame context!');
-      } catch (err) {
-        alert('Execution error: ' + err.message);
-      }
-    };
-
-    // Helper Utility
-    function escapeHtml(str) {
-      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-  </script>
+</script>
 </body>
 </html>
