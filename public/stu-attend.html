@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gold & Linc | Faculty Attendance Terminal</title>
+    <title>Faculty Attendance Terminal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,16 +40,25 @@
     </style>
 </head>
 <body class="antialiased min-h-screen text-slate-800 flex flex-col">
+    <div id="schoolConfigSpinner"
+         class="fixed inset-0 z-[99999] bg-white/90 backdrop-blur-sm flex items-center justify-center">
+        <div class="flex flex-col items-center gap-3">
+            <div class="w-10 h-10 rounded-full border-4 border-slate-200 border-t-brand-500 animate-spin"></div>
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Loading School Configuration...</p>
+        </div>
+    </div>
 
     <header class="bg-brand-900 text-white shadow-sm border-b border-brand-800 sticky top-0 z-40 shrink-0">
         <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="h-9 w-9 bg-white text-brand-900 rounded-xl flex items-center justify-center font-black text-sm tracking-tighter shadow-inner">
-                    G&L
+                <div id="schoolLogoWrap" class="h-9 w-9 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-inner border border-white/30">
+                    <img id="schoolLogo" src="" alt="School Logo"
+                         class="w-full h-full object-contain p-1"
+                         onerror="handleLogoError(this)">
                 </div>
-                <div>
-                    <h1 class="text-xs font-black tracking-widest uppercase text-brand-200">Faculty Terminal</h1>
-                    <p class="text-xs font-medium opacity-80">Institutional Attendance Management Deck</p>
+                <div class="min-w-0">
+                    <h1 id="schoolHeaderName" class="text-xs font-black tracking-widest uppercase text-brand-200 truncate">Loading School...</h1>
+                    <p id="schoolHeaderSubtitle" class="text-xs font-medium opacity-80">Institutional Attendance Management Deck</p>
                 </div>
             </div>
             <div class="flex items-center space-x-6">
@@ -213,9 +222,409 @@
     </div>
 
     <script>
-        // ============ API CONFIGURATION ============
-        const API_BASE_URL = "https://goldlincschools.onrender.com";
-        const token = localStorage.getItem('teacherToken') || localStorage.getItem('token') || "";
+        // ============ MULTI-SCHOOL API CONFIGURATION ============
+        const BACKEND_URL = window.BACKEND_URL || 'https://goldlincschools.onrender.com';
+        const API_ROOT = `${BACKEND_URL}/api`;
+        const SCHOOL_CONFIG_ENDPOINT =
+            window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+
+        const BASE_DOMAINS = [
+            window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng',
+            'examguard.com.ng'
+        ];
+
+        const token =
+            localStorage.getItem('teacherToken') ||
+            localStorage.getItem('token') ||
+            localStorage.getItem('authToken') ||
+            '';
+
+        let currentSchool = null;
+        let publicSchoolId = '';
+        let schoolSubdomain = '';
+
+        function decodeJwtPayload(value) {
+            try {
+                const part = String(value || '').split('.')[1];
+                if (!part) return null;
+
+                const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+                const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+
+                return JSON.parse(atob(padded));
+            } catch (error) {
+                console.warn('Unable to decode JWT payload:', error);
+                return null;
+            }
+        }
+
+        function getTenantSubdomain() {
+            const saved = localStorage.getItem('schoolSubdomain');
+            if (saved) return saved.toLowerCase();
+
+            const host = window.location.hostname.toLowerCase();
+
+            for (const baseDomain of BASE_DOMAINS) {
+                const suffix = '.' + baseDomain.toLowerCase();
+
+                if (host.endsWith(suffix)) {
+                    const sub = host.slice(0, -suffix.length).split('.')[0];
+                    if (sub && sub !== 'www') return sub;
+                }
+            }
+
+            return '';
+        }
+
+        function normalizeSchool(raw) {
+            const candidate =
+                raw?.school ||
+                raw?.data?.school ||
+                raw?.data ||
+                raw ||
+                {};
+
+            return candidate && typeof candidate === 'object' ? candidate : {};
+        }
+
+        function getSchoolBrandingConfig(school) {
+            const branding = school?.branding || {};
+            const colors = branding?.colors || {};
+
+            return {
+                primary:
+                    branding.primaryColor ||
+                    branding.primary ||
+                    colors.primary ||
+                    '#0c4a6e',
+
+                secondary:
+                    branding.secondaryColor ||
+                    branding.secondary ||
+                    colors.secondary ||
+                    '#0ea5e9',
+
+                accent:
+                    branding.accentColor ||
+                    branding.accent ||
+                    colors.accent ||
+                    '#10b981',
+
+                light:
+                    branding.lightColor ||
+                    colors.light ||
+                    '#f8fafc',
+
+                logo:
+                    school?.logoUrl ||
+                    branding.logo ||
+                    branding.logoUrl ||
+                    branding.logos?.main ||
+                    branding.logos?.light ||
+                    branding.logos?.dark ||
+                    branding.lightLogo ||
+                    branding.darkLogo ||
+                    ''
+            };
+        }
+
+        function schoolInitials(name) {
+            const words = String(name || 'School')
+                .trim()
+                .split(/\\s+/)
+                .filter(Boolean);
+
+            if (!words.length) return 'SCH';
+            if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+
+            return words.slice(0, 3).map(word => word[0]).join('').toUpperCase();
+        }
+
+        function handleLogoError(img) {
+            if (!img || img.dataset.fallbackApplied === '1') return;
+
+            img.dataset.fallbackApplied = '1';
+            img.removeAttribute('src');
+
+            const wrap = document.getElementById('schoolLogoWrap');
+            if (wrap) {
+                wrap.innerHTML = '';
+                const fallback = document.createElement('div');
+                fallback.className =
+                    'w-full h-full flex items-center justify-center bg-brand-900 text-white font-black text-[10px] tracking-tight';
+                fallback.textContent = schoolInitials(
+                    currentSchool?.schoolName || currentSchool?.name
+                );
+                wrap.appendChild(fallback);
+            }
+        }
+
+        function applySchoolBranding(school) {
+            currentSchool = school || {};
+
+            const name =
+                currentSchool.schoolName ||
+                currentSchool.name ||
+                'School';
+
+            const abbreviation =
+                currentSchool.abbreviation ||
+                name;
+
+            const branding = getSchoolBrandingConfig(currentSchool);
+
+            document.documentElement.style.setProperty('--school-primary', branding.primary);
+            document.documentElement.style.setProperty('--school-secondary', branding.secondary);
+            document.documentElement.style.setProperty('--school-accent', branding.accent);
+            document.documentElement.style.setProperty('--school-light', branding.light);
+
+            let styleEl = document.getElementById('dynamic-school-branding');
+
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = 'dynamic-school-branding';
+                document.head.appendChild(styleEl);
+            }
+
+            styleEl.textContent = `
+                .bg-brand-900 { background-color: var(--school-primary) !important; }
+                .bg-brand-800 { background-color: color-mix(in srgb, var(--school-primary) 88%, black) !important; }
+                .bg-brand-600 { background-color: var(--school-primary) !important; }
+                .bg-brand-500 { background-color: var(--school-secondary) !important; }
+                .bg-brand-50 { background-color: color-mix(in srgb, var(--school-primary) 7%, white) !important; }
+
+                .text-brand-900 { color: var(--school-primary) !important; }
+                .text-brand-800 { color: var(--school-primary) !important; }
+                .text-brand-600 { color: var(--school-primary) !important; }
+                .text-brand-500 { color: var(--school-secondary) !important; }
+                .text-brand-200 { color: color-mix(in srgb, var(--school-secondary) 75%, white) !important; }
+
+                .border-brand-900 { border-color: var(--school-primary) !important; }
+                .border-brand-800 { border-color: color-mix(in srgb, var(--school-primary) 85%, black) !important; }
+                .border-brand-500 { border-color: var(--school-secondary) !important; }
+
+                .ring-brand-500 { --tw-ring-color: var(--school-secondary) !important; }
+            `;
+
+            const headerName = document.getElementById('schoolHeaderName');
+            if (headerName) {
+                headerName.textContent = abbreviation;
+                headerName.title = name;
+            }
+
+            const subtitle = document.getElementById('schoolHeaderSubtitle');
+            if (subtitle) {
+                subtitle.textContent = `${name} • Attendance Management`;
+                subtitle.title = name;
+            }
+
+            const logo = document.getElementById('schoolLogo');
+
+            if (logo) {
+                logo.dataset.fallbackApplied = '0';
+                logo.alt = `${name} Logo`;
+
+                if (branding.logo) {
+                    logo.src = branding.logo;
+                } else {
+                    handleLogoError(logo);
+                }
+            }
+
+            document.title = `${name} | Faculty Attendance Terminal`;
+        }
+
+        function authHeaders(extra = {}) {
+            const headers = {
+                'Accept': 'application/json',
+                ...extra
+            };
+
+            if (token) {
+                headers.Authorization = 'Bearer ' + token;
+            }
+
+            if (publicSchoolId) {
+                headers['X-School-Code'] = publicSchoolId;
+            }
+
+            return headers;
+        }
+
+        async function apiFetch(url, options = {}) {
+            const requestOptions = { ...options };
+            requestOptions.headers = authHeaders(requestOptions.headers || {});
+
+            if (
+                requestOptions.body &&
+                !(requestOptions.body instanceof FormData) &&
+                typeof requestOptions.body === 'string' &&
+                !requestOptions.headers['Content-Type']
+            ) {
+                requestOptions.headers['Content-Type'] = 'application/json';
+            }
+
+            return fetch(url, requestOptions);
+        }
+
+        async function loadSchoolConfig() {
+            if (!token) {
+                throw new Error('No authentication token found. Please sign in again.');
+            }
+
+            const hostSubdomain = getTenantSubdomain();
+
+            // Establish tenant from the authenticated account first.
+            const meRes = await fetch(`${API_ROOT}/auth/me`, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json'
+                }
+            });
+
+            if (!meRes.ok) {
+                throw new Error(
+                    `Failed to load your school account (HTTP ${meRes.status}).`
+                );
+            }
+
+            const meRaw = await meRes.json();
+            const currentUser =
+                meRaw.user ||
+                meRaw.data?.user ||
+                meRaw;
+
+            const schoolFromMe =
+                meRaw.school ||
+                meRaw.data?.school ||
+                currentUser?.school ||
+                null;
+
+            if (!currentUser?.schoolId) {
+                throw new Error('Your account is not linked to a school.');
+            }
+
+            const authenticatedMongoSchoolId = String(currentUser.schoolId);
+
+            // /schools/config expects the public schoolId, subdomain, or domain.
+            // Prefer the authenticated account's public schoolId.
+            const publicIdForConfig =
+                schoolFromMe?.schoolId ||
+                localStorage.getItem('schoolId') ||
+                '';
+
+            let fullSchool = null;
+
+            if (publicIdForConfig) {
+                const configRes = await fetch(
+                    `${SCHOOL_CONFIG_ENDPOINT}?schoolId=${encodeURIComponent(publicIdForConfig)}`,
+                    {
+                        headers: {
+                            Accept: 'application/json'
+                        }
+                    }
+                );
+
+                if (configRes.ok) {
+                    const configRaw = await configRes.json();
+                    fullSchool = normalizeSchool(configRaw);
+                } else if (configRes.status !== 404) {
+                    throw new Error(
+                        `Failed to load school configuration (HTTP ${configRes.status}).`
+                    );
+                }
+            }
+
+            // If public schoolId wasn't available, resolve by tenant subdomain.
+            if (!fullSchool && hostSubdomain) {
+                const configRes = await fetch(
+                    `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(hostSubdomain)}`,
+                    {
+                        headers: {
+                            Accept: 'application/json'
+                        }
+                    }
+                );
+
+                if (configRes.ok) {
+                    const configRaw = await configRes.json();
+                    fullSchool = normalizeSchool(configRaw);
+                }
+            }
+
+            const resolvedSchool = fullSchool || normalizeSchool(schoolFromMe);
+
+            // /api/schools/config returns Mongo ID as school.id.
+            if (resolvedSchool && !resolvedSchool._id && resolvedSchool.id) {
+                resolvedSchool._id = resolvedSchool.id;
+            }
+
+            if (!resolvedSchool?._id) {
+                throw new Error('Your school configuration was not returned by the server.');
+            }
+
+            // Hard tenant isolation check.
+            if (String(resolvedSchool._id) !== authenticatedMongoSchoolId) {
+                throw new Error(
+                    'The authenticated school and returned school configuration do not match.'
+                );
+            }
+
+            currentSchool = resolvedSchool;
+
+            publicSchoolId =
+                resolvedSchool.schoolId ||
+                schoolFromMe?.schoolId ||
+                '';
+
+            schoolSubdomain = String(
+                resolvedSchool.subdomain ||
+                schoolFromMe?.subdomain ||
+                hostSubdomain ||
+                ''
+            ).toLowerCase();
+
+            if (publicSchoolId) {
+                localStorage.setItem('schoolId', publicSchoolId);
+            }
+
+            if (schoolSubdomain) {
+                localStorage.setItem('schoolSubdomain', schoolSubdomain);
+                localStorage.setItem(
+                    `examguard_school_config_${schoolSubdomain}`,
+                    JSON.stringify(resolvedSchool)
+                );
+            }
+
+            // Verify the JWT tenant against the returned school one more time.
+            const payload = decodeJwtPayload(token);
+
+            if (
+                payload?.schoolId &&
+                String(payload.schoolId) !== String(resolvedSchool._id)
+            ) {
+                throw new Error(
+                    'Your account belongs to a different school. Please sign in from the correct school portal.'
+                );
+            }
+
+            applySchoolBranding(resolvedSchool);
+
+            return resolvedSchool;
+        }
+
+        function hideSchoolConfigSpinner() {
+            const spinner = document.getElementById('schoolConfigSpinner');
+
+            if (!spinner) return;
+
+            spinner.style.opacity = '0';
+
+            setTimeout(() => {
+                spinner.style.display = 'none';
+            }, 250);
+        }
 
         // ============ STATE MANAGEMENT ============
         let teacher = null;
@@ -226,16 +635,17 @@
         let attendanceHistory = {};
         let activeSelectedStudentId = null;
 
-        // ============ AUTH HEADERS ============
-        function authHeaders() {
-            return token 
-                ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } 
-                : { 'Content-Type': 'application/json' };
-        }
-
         // ============ INITIALIZATION ============
         async function initializeAttendancePage() {
             try {
+                if (!token) {
+                    throw new Error('Your session has expired. Please sign in again.');
+                }
+
+                // Establish and lock the authenticated tenant before ANY
+                // teacher, class, student, or attendance request is made.
+                await loadSchoolConfig();
+
                 // Get class identifier from URL parameter
                 const urlParams = new URLSearchParams(window.location.search);
                 let classIdentifier = urlParams.get('classId');
@@ -301,12 +711,15 @@
 
             } catch (error) {
                 console.error('Initialization error:', error);
+                hideSchoolConfigSpinner();
                 await showCustomModal({ 
                     title: 'Error', 
-                    message: 'Failed to initialize attendance page. Check console for details.', 
+                    message: error.message || 'Failed to initialize attendance page. Check console for details.', 
                     type: 'alert', 
                     icon: '❌' 
                 });
+            } finally {
+                hideSchoolConfigSpinner();
             }
         }
 
@@ -314,7 +727,7 @@
         async function resolveClassToId(classIdentifier) {
             try {
                 // First, fetch all teacher's classes
-                const res = await fetch(`${API_BASE_URL}/api/teachers/classes`, { 
+                const res = await apiFetch(`${API_ROOT}/teachers/classes`, { 
                     headers: authHeaders() 
                 });
                 
@@ -407,7 +820,7 @@
         // ============ API CALLS ============
         async function fetchTeacherProfile() {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/teachers/me`, { headers: authHeaders() });
+                const res = await apiFetch(`${API_ROOT}/teachers/me`, { headers: authHeaders() });
                 if (!res.ok) return null;
                 return await res.json();
             } catch (e) {
@@ -419,7 +832,7 @@
         async function loadClassStudents() {
             try {
                 console.log('Loading students for class:', selectedClass);
-                const res = await fetch(`${API_BASE_URL}/api/teachers/students?classId=${encodeURIComponent(selectedClass)}`, { 
+                const res = await apiFetch(`${API_ROOT}/teachers/students?classId=${encodeURIComponent(selectedClass)}`, { 
                     headers: authHeaders() 
                 });
                 if (!res.ok) {
@@ -654,6 +1067,7 @@
                 const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
 
                 const attendanceData = {
+                    schoolId: publicSchoolId || undefined,
                     classId: selectedClass,
                     date: dateStr,
                     attendance: workingSessionAttendanceState
@@ -669,8 +1083,8 @@
                 }
 
                 // Submit attendance to backend
-                const submitRes = await fetch(
-                    `${API_BASE_URL}/api/teachers/${teacherId}/attendance`,
+                const submitRes = await apiFetch(
+                    `${API_ROOT}/teachers/${teacherId}/attendance`,
                     {
                         method: 'POST',
                         headers: authHeaders(),
