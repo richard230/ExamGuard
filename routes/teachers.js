@@ -12,7 +12,6 @@ const Subject = require('../models/Subject');
 const Student = require('../models/Student');
 const ResultCBT = require('../models/ResultCBT');
 const CBT = require('../models/CBTExam');
-const Exam = require('../models/Exam');
 
 const teacherAuth = require('../middleware/teacherAuth');
 
