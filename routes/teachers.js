@@ -219,6 +219,60 @@ router.patch('/me', tenantTeacherAuth, async (req, res) => {
   });
 });
 
+router.get('/:id/students', tenantTeacherAuth, async (req, res) => {
+    try {
+        if (String(req.params.id) !== String(req.staff._id)) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const { classId } = req.query;
+
+        if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+            return res.status(400).json({
+                error: 'Valid classId is required'
+            });
+        }
+
+        const schoolId = getSchoolId(req);
+
+        const cls = await Class.findOne({
+            _id: classId,
+            schoolId,
+            teachers: req.staff._id
+        });
+
+        if (!cls) {
+            return res.status(404).json({
+                error: 'Class not found or not assigned to this teacher.'
+            });
+        }
+
+        const students = await Student.find({
+            schoolId,
+            class: cls.name
+        }).sort({
+            firstname: 1,
+            surname: 1
+        });
+
+        res.json(students.map(stu => ({
+            _id: stu._id,
+            id: stu._id,
+            name: `${stu.firstname || ''} ${stu.surname || ''}`.trim(),
+            firstName: stu.firstname || stu.first_name || '',
+            lastName: stu.surname || stu.last_name || '',
+            regNo: stu.regNo || stu.registration_number || '',
+            email: stu.studentEmail || stu.email || '',
+            class: stu.class,
+            className: cls.name
+        })));
+
+    } catch (err) {
+        console.error('Error fetching teacher class students:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/teachers - List all teachers (for assignments or admin)
 router.get('/', authMiddleware, async (req, res) => {
   try {
