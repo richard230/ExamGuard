@@ -757,22 +757,25 @@ router.post('/upsert', async (req, res) => {
     }
 
     let sessionObj;
-    try {
-      sessionObj = await findOrCreateByName(
-        Session,
-        session,
-        schoolId,
-        {
-          startDate: startDate || sessionStartDate,
-          endDate: endDate || sessionEndDate
-        }
-      );
-    } catch (sessionError) {
-      return res.status(400).json({
-        success: false,
-        error: sessionError.message
-      });
-    }
+
+if (!session || !mongoose.Types.ObjectId.isValid(session)) {
+  return res.status(400).json({
+    success: false,
+    error: 'A valid session ID is required.'
+  });
+}
+
+sessionObj = await Session.findOne({
+  _id: session,
+  schoolId
+});
+
+if (!sessionObj) {
+  return res.status(404).json({
+    success: false,
+    error: 'Selected session was not found for this school.'
+  });
+}
 
     const termObj = await findOrCreateByName(Term, term, schoolId);
     const classObj = await findOrCreateByName(Class, className, schoolId);
