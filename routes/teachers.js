@@ -116,6 +116,8 @@ router.get('/me', async (req, res) => {
   }
 });
 
+router.use(teacherAuth);
+
 router.patch('/me', async (req, res) => {
   try {
     if (!requireTeacher(req, res)) return;
