@@ -1287,6 +1287,19 @@ function updateGradebookProgress() {
         }
     }
 
+    async function loadCollections() {
+        try {
+            assessmentDatabase = await fetchUnifiedQuestionBank();
+            renderCollections();
+            return assessmentDatabase;
+        } catch (e) {
+            console.error('Error loading collections:', e);
+            assessmentDatabase = [];
+            renderCollections();
+            return [];
+        }
+    }
+
 async function createCollection() {
     const collectionName = document.getElementById('newCollectionName').value.trim();
     
@@ -1519,10 +1532,10 @@ async function createCollectionAPI(name, classId, subjectId) {
         const res = await fetch(`${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/collections`, {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 name: name,
-                class: classId,
-                subject: subjectId
+                classId: classId || null,
+                subjectId: subjectId || null
             })
         });
         if (!res.ok) throw new Error('Failed to create collection');
@@ -3771,31 +3784,40 @@ async function saveGradebookChanges(event) {
     }
 
     try {
-        const classId = document.getElementById('gradebookClassFilter').value;
-        const className = document.querySelector('#gradebookClassFilter option:checked')?.textContent || classId;
-        const session = document.getElementById('gb-session-select').value;
-        const term = document.getElementById('gb-term-select').value;
-        const resultType = document.getElementById('gb-result-type-select').value;
+        const classSelect = document.getElementById('gradebookClassFilter');
+        const sessionSelect = document.getElementById('gb-session-select');
+        const termSelect = document.getElementById('gb-term-select');
+        const resultTypeSelect = document.getElementById('gb-result-type-select');
 
-        // ✅ VALIDATION
+        const classId = classSelect?.value || '';
+        const className = classSelect?.selectedOptions?.[0]?.textContent?.trim() || classId;
+        const sessionId = sessionSelect?.value || '';
+        const sessionName = sessionSelect?.selectedOptions?.[0]?.textContent?.trim() || '';
+        const termId = termSelect?.value || '';
+        const termName = termSelect?.selectedOptions?.[0]?.textContent?.trim() || '';
+        const resultType = resultTypeSelect?.value || '';
+
         if (!classId) throw new Error('Please select a class');
-        if (!session) throw new Error('Please select a session');
-        if (!term) throw new Error('Please select a term');
+        if (!sessionId || !sessionName || sessionName === 'Session') throw new Error('Please select a session');
+        if (!termId || !termName || termName === 'Term') throw new Error('Please select a term');
         if (!resultType) throw new Error('Please select a result type');
 
         console.log('Fetching student data for class:', className);
-        
-        // Step 1: Fetch full student data for the class
-        const studentRes = await fetch(`${API_BASE_URL}/api/student?class=${encodeURIComponent(className)}`, {
-            headers: authHeaders()
-        });
-        
+
+        const studentRes = await fetch(
+            `${API_BASE_URL}/api/teachers/${encodeURIComponent(teacher.id)}/students?classId=${encodeURIComponent(classId)}`,
+            { headers: authHeaders() }
+        );
+
         if (!studentRes.ok) {
-            throw new Error('Failed to fetch student data');
+            const errorData = await studentRes.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to fetch student data');
         }
-        
+
         const studentData = await studentRes.json();
-        const fullStudents = Array.isArray(studentData) ? studentData : (studentData.students || []);
+        const fullStudents = Array.isArray(studentData)
+            ? studentData
+            : (studentData.students || []);
 
         if (!fullStudents || fullStudents.length === 0) {
             throw new Error('No student data found for this class');
@@ -3815,7 +3837,6 @@ async function saveGradebookChanges(event) {
             throw new Error('No student records found');
         }
 
-        // Organize results by subject
         const resultsBySubject = {};
 
         subjects.forEach(subj => {
@@ -3823,53 +3844,67 @@ async function saveGradebookChanges(event) {
             resultsBySubject[subjectName] = [];
         });
 
-        // Step 2: Collect grades from gradebook table
-        rows.forEach((row, rowIdx) => {
+        rows.forEach(row => {
             const cells = row.querySelectorAll('td');
-            const studentNameCell = cells[1];
-            
+            const studentNameCell = cells[2];
+
             if (!studentNameCell) return;
 
             const studentName = studentNameCell.textContent.trim();
+            const rowStudentId = row.getAttribute('data-student-id');
 
-            // Find the full student object from fetched data
-            const fullStudent = fullStudents.find(s => {
-                const fullName = `${s.firstname || ''} ${s.surname || ''}`.trim();
-                return fullName === studentName || s.name === studentName;
-            });
-
-            if (!fullStudent) {
-                console.warn('Full student data not found for:', studentName);
+            if (!rowStudentId) {
+                console.warn('Student ID missing on gradebook row:', studentName);
                 return;
             }
 
-            // Get all input fields in this row (scores for each subject)
+            const fullStudent = fullStudents.find(s =>
+                String(s._id || s.id || '') === String(rowStudentId)
+            );
+
+            const studentIdForResult =
+                fullStudent?.student_id ||
+                fullStudent?.studentId ||
+                fullStudent?._id ||
+                fullStudent?.id ||
+                rowStudentId;
+
             const inputs = row.querySelectorAll('input[type="number"]');
 
-            inputs.forEach((input, inputIdx) => {
-                if (inputIdx < subjects.length) {
-                    const score = input.value.trim();
-                    
-                    // Only add if score is entered
-                    if (score !== '' && score !== null && score !== undefined) {
-                        const subjectName = subjects[inputIdx].name || subjects[inputIdx];
+            inputs.forEach(input => {
+                const score = input.value.trim();
 
-                        resultsBySubject[subjectName].push({
-                            student_id: fullStudent.student_id || fullStudent._id,
-                            student_name: studentName,
-                            score: parseInt(score) || 0,
-                            grade: calculateGrade(parseInt(score) || 0),
-                            remarks: '',
-                            resultType: resultType
-                        });
-                    }
+                if (score === '') return;
+
+                const subjectName = input.getAttribute('data-subject');
+
+                if (!subjectName || !resultsBySubject[subjectName]) {
+                    console.warn('Subject mapping missing for score input:', input);
+                    return;
                 }
+
+                resultsBySubject[subjectName].push({
+                    student_id: studentIdForResult,
+                    student_name: studentName,
+                    score: Number(score),
+                    grade: calculateGrade(Number(score)),
+                    remarks: '',
+                    resultType: resultType
+                });
             });
         });
 
         console.log('Results by subject:', resultsBySubject);
+        console.log('Result upload academic context:', {
+            sessionId,
+            sessionName,
+            termId,
+            termName,
+            classId,
+            className,
+            resultType
+        });
 
-        // Check if any results were entered
         const hasAnyResults = Object.values(resultsBySubject).some(arr => arr.length > 0);
         if (!hasAnyResults) {
             throw new Error('Please enter at least one score before saving');
@@ -3884,10 +3919,13 @@ async function saveGradebookChanges(event) {
             if (subjectResults.length === 0) continue;
 
             const payload = {
-                session: session,
-                term: term,
+                session: sessionName,
+                term: termName,
                 class: className,
                 subject: subjectName,
+                sessionId: sessionId,
+                termId: termId,
+                classId: classId,
                 resultType: resultType,
                 results: subjectResults,
                 upsert: true
