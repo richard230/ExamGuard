@@ -254,16 +254,32 @@ async function resolveSchoolReference(Model, { id, name, schoolId }) {
 
 // 4. findOrCreateStudent - Scoped by schoolId
 async function findOrCreateStudent(row, schoolId, classId) {
-  if (!row.student_id) return null;
-  let student = await Student.findOne({ schoolId, student_id: row.student_id });
-  if (student) return student;
-  student = new Student({
-    schoolId,
-    student_id: row.student_id,
-    name: row.student_name,
-    class: classId || null
-  });
-  await student.save();
+  const identifier = row.student_id || row.studentId || row._id || row.id;
+  if (!identifier) return null;
+
+  let student = null;
+
+  if (mongoose.Types.ObjectId.isValid(identifier)) {
+    student = await Student.findOne({
+      _id: identifier,
+      schoolId
+    });
+  }
+
+  if (!student) {
+    student = await Student.findOne({
+      schoolId,
+      student_id: identifier
+    });
+  }
+
+  if (!student && row.regNo) {
+    student = await Student.findOne({
+      schoolId,
+      regNo: row.regNo
+    });
+  }
+
   return student;
 }
 
@@ -848,7 +864,7 @@ router.post('/upsert', async (req, res) => {
       try {
         const student = await findOrCreateStudent(row, schoolId, classObj._id);
         if (!student) {
-          errors.push(`${row.student_name}: Could not find or create student`);
+          errors.push(`${row.student_name}: Student not found in this school (ID: ${row.student_id || row.studentId || row._id || row.id || 'missing'}).`);
           continue;
         }
 
@@ -975,20 +991,31 @@ router.post('/upload', async (req, res) => {
           continue;
         }
 
-        let student = await Student.findOne({ _id: studentId, schoolId }).catch(() => null);
-        if (!student) {
-          student = await Student.findOne({ student_id: studentId, schoolId });
+        let student = null;
+
+        if (mongoose.Types.ObjectId.isValid(studentId)) {
+          student = await Student.findOne({
+            _id: studentId,
+            schoolId
+          });
         }
 
         if (!student) {
-          student = new Student({
-            schoolId,
+          student = await Student.findOne({
             student_id: studentId,
-            name: row.student_name,
-            regNo: row.regNo || '',
-            class: classObj._id
+            schoolId
           });
-          await student.save();
+        }
+
+        if (!student && row.regNo) {
+          student = await Student.findOne({
+            regNo: row.regNo,
+            schoolId
+          });
+        }
+
+        if (!student) {
+          throw new Error(`Student not found in this school (ID: ${studentId}).`);
         }
 
         const resultData = {
