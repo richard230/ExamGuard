@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=0.850">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
     <title>Assignment Evaluation Terminal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -79,9 +79,22 @@
             align-items: center;
             justify-content: center;
         }
+
+        /* Shared LMS skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.4s ease-in-out infinite;
+            border-radius: 0.5rem;
+        }
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .parabolic-top { border-radius: 1.5rem 1.5rem 0 0; }
     </style>
 </head>
-<body class="antialiased min-h-screen text-slate-800">
+<body class="antialiased min-h-screen text-slate-800 pb-20 md:pb-0">
 
     <!-- LOADING SPINNER OVERLAY -->
     <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-60 hidden backdrop-blur-sm">
@@ -110,7 +123,8 @@
             </div>
             <div class="flex items-center space-x-4">
                 <div class="text-right hidden sm:block">
-                    <p id="headerTeacherName" class="text-xs font-bold text-white">Loading...</p>
+                    <div id="teacherHeaderSkeleton" class="skeleton h-3 w-24 mb-1"></div>
+                    <p id="headerTeacherName" class="text-xs font-bold text-white hidden">Loading...</p>
                     <p id="headerTeacherDept" class="text-[10px] font-mono text-brand-200">—</p>
                 </div>
                 <div id="headerTeacherAvatar" class="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center font-bold text-xs text-white border-2 border-brand-200 shadow-sm">
@@ -119,6 +133,79 @@
             </div>
         </div>
     </header>
+
+    <!-- MOBILE LMS HEADER -->
+    <header class="md:hidden w-full bg-brand-900 text-white h-14 px-4 flex items-center justify-between shadow-md sticky top-16 z-30">
+        <div class="flex items-center min-w-0 space-x-2.5">
+            <div class="h-8 w-8 bg-white rounded-lg flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                <img id="mobileSchoolLogo" src="" alt="School Logo"
+                     class="h-full w-full object-contain p-1" loading="lazy" decoding="async"
+                     onerror="handleLogoError(this)">
+            </div>
+            <div class="min-w-0">
+                <span id="mobileSchoolName" class="block font-bold text-xs tracking-wide truncate">School LMS</span>
+                <span class="block text-[9px] text-brand-200 truncate">Assignment Evaluation</span>
+            </div>
+        </div>
+        <button type="button" onclick="openBottomNav()" aria-label="Open LMS menu"
+                class="bg-brand-800 border border-brand-500/40 px-3 py-1.5 rounded-xl text-[10px] font-bold text-white active:scale-95 flex items-center gap-1.5">
+            <span>LMS Menu</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+    </header>
+
+    <!-- MOBILE LMS DRAWER -->
+    <div id="bottomDrawerOverlay" onclick="closeBottomNav(event)"
+         class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] hidden transition-opacity duration-300 opacity-0">
+        <div id="bottomDrawerCard" onclick="event.stopPropagation()"
+             class="absolute bottom-0 inset-x-0 bg-brand-900 text-white parabolic-top transform translate-y-full transition-transform duration-300 border-t-2 border-brand-500 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+            <div class="w-12 h-1.5 bg-brand-700 rounded-full mx-auto mb-5"></div>
+            <div class="flex items-center justify-between mb-3">
+                <div class="min-w-0">
+                    <p class="text-[10px] uppercase tracking-widest font-extrabold text-brand-200">Faculty LMS</p>
+                    <p id="drawerSchoolName" class="text-sm font-black truncate">School</p>
+                </div>
+                <button type="button" onclick="closeBottomNav()" class="h-8 w-8 rounded-full bg-brand-800 flex items-center justify-center text-white">×</button>
+            </div>
+            <div class="grid grid-cols-1 gap-2 text-xs font-bold">
+                <button type="button" onclick="returnToHub(); closeBottomNav();"
+                        class="w-full bg-brand-800 hover:bg-brand-700 p-3.5 rounded-xl flex items-center justify-between">
+                    <span>Teacher Dashboard</span><span>→</span>
+                </button>
+                <button type="button" onclick="window.scrollTo({top:0,behavior:'smooth'}); closeBottomNav();"
+                        class="w-full bg-brand-800 hover:bg-brand-700 p-3.5 rounded-xl flex items-center justify-between">
+                    <span>Assignment Overview</span><span>↑</span>
+                </button>
+                <button type="button" onclick="document.getElementById('viewAsmSubmissionsTableBody')?.scrollIntoView({behavior:'smooth',block:'start'}); closeBottomNav();"
+                        class="w-full bg-brand-800 hover:bg-brand-700 p-3.5 rounded-xl flex items-center justify-between">
+                    <span>Student Submissions</span><span>→</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE BOTTOM TOOLBAR -->
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-[60] bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-8px_30px_rgba(15,23,42,0.10)]"
+         style="padding-bottom: env(safe-area-inset-bottom);">
+        <div class="h-16 grid grid-cols-3 items-center px-3">
+            <button type="button" onclick="returnToHub()" class="flex flex-col items-center justify-center gap-1 text-slate-500 active:text-brand-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="M15 18l-6-6 6-6"/></svg>
+                <span class="text-[9px] font-extrabold uppercase tracking-wide">Back</span>
+            </button>
+            <button type="button" onclick="window.scrollTo({top:0,behavior:'smooth'})" class="flex flex-col items-center justify-center gap-1 text-brand-700">
+                <span class="h-8 w-8 rounded-full bg-brand-50 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="M4 6h16M4 12h10M4 18h16"/></svg>
+                </span>
+                <span class="text-[9px] font-extrabold uppercase tracking-wide">Assignment</span>
+            </button>
+            <button type="button" onclick="openBottomNav()" class="flex flex-col items-center justify-center gap-1 text-slate-500 active:text-brand-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <span class="text-[9px] font-extrabold uppercase tracking-wide">Menu</span>
+            </button>
+        </div>
+    </nav>
 
     <!-- Main Workspace Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -134,7 +221,8 @@
                         Return to Hub
                     </button>
                     <div>
-                        <h2 id="viewAsmMainTitle" class="text-base font-black text-brand-900 uppercase tracking-wide">Loading Assignment...</h2>
+                        <div id="assignmentTitleSkeleton" class="skeleton h-4 w-48 mb-1"></div>
+                        <h2 id="viewAsmMainTitle" class="text-base font-black text-brand-900 uppercase tracking-wide hidden">Loading Assignment...</h2>
                         <div class="flex flex-wrap items-center gap-2 mt-1 text-[11px] font-bold text-slate-500">
                             <span id="viewAsmClassBadge" class="bg-brand-50 text-brand-800 px-2 py-0.5 rounded">...</span>
                             <span id="viewAsmSubjectBadge" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded">...</span>
@@ -372,6 +460,7 @@
                 light: branding.lightColor || colors.light || '#f8fafc',
                 logo:
                     school?.logoUrl ||
+                    school?.logo ||
                     branding.logo ||
                     branding.logoUrl ||
                     branding.logos?.main ||
@@ -390,21 +479,45 @@
             return words.slice(0, 3).map(word => word[0]).join('').toUpperCase();
         }
 
+        function resolveSchoolAssetUrl(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+            if (raw.startsWith('//')) return window.location.protocol + raw;
+            if (raw.startsWith('/')) return `${BACKEND_URL}${raw}`;
+            return raw;
+        }
+
+        function setSchoolLogo(src, name) {
+            const url = resolveSchoolAssetUrl(src);
+            const apply = (img) => {
+                if (!img) return;
+                img.dataset.fallbackApplied = '0';
+                img.alt = `${name} Logo`;
+                img.loading = 'lazy';
+                img.decoding = 'async';
+                if (url) img.src = url;
+                else handleLogoError(img);
+            };
+            apply(document.getElementById('schoolLogo'));
+            apply(document.getElementById('mobileSchoolLogo'));
+        }
+
         function handleLogoError(img) {
             if (!img || img.dataset.fallbackApplied === '1') return;
             img.dataset.fallbackApplied = '1';
             img.removeAttribute('src');
 
-            const wrap = document.getElementById('schoolLogoWrap');
+            const name = currentSchool?.schoolName || currentSchool?.name || 'School';
+            const wrap = img?.closest('#schoolLogoWrap');
             if (wrap) {
                 wrap.innerHTML = '';
                 const fallback = document.createElement('div');
-                fallback.className =
-                    'w-full h-full flex items-center justify-center bg-brand-900 text-white font-black text-[10px]';
-                fallback.textContent = schoolInitials(
-                    currentSchool?.schoolName || currentSchool?.name
-                );
+                fallback.className = 'w-full h-full flex items-center justify-center bg-brand-900 text-white font-black text-[10px]';
+                fallback.textContent = schoolInitials(name);
                 wrap.appendChild(fallback);
+            } else if (img?.id === 'mobileSchoolLogo' && img.parentElement) {
+                img.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-brand-900 text-white font-black text-[9px]">${schoolInitials(name)}</div>`;
             }
         }
 
@@ -456,16 +569,13 @@
                 subtitle.title = name;
             }
 
-            const logo = document.getElementById('schoolLogo');
-            if (logo) {
-                logo.dataset.fallbackApplied = '0';
-                logo.alt = `${name} Logo`;
-                if (branding.logo) {
-                    logo.src = branding.logo;
-                } else {
-                    handleLogoError(logo);
-                }
-            }
+            setSchoolLogo(branding.logo, name);
+
+            const mobileName = document.getElementById('mobileSchoolName');
+            if (mobileName) mobileName.textContent = name;
+
+            const drawerName = document.getElementById('drawerSchoolName');
+            if (drawerName) drawerName.textContent = name;
 
             document.title = `${name} | Assignment Evaluation Terminal`;
         }
@@ -677,13 +787,6 @@
             return path.filename || path.originalName || 'Unknown File';
         }
 
-        // ============ AUTH HEADERS ============
-        function authHeaders() {
-            return token 
-                ? { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } 
-                : { 'Content-Type': 'application/json' };
-        }
-
         // ============ MODAL FUNCTIONS ============
         function triggerAlertNotification(title, message, icon = "✅") {
             document.getElementById('modalTitle').textContent = title;
@@ -771,7 +874,7 @@
                 if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
                     previewContent.innerHTML = `
                         <div class="flex justify-center">
-                            <img src="${fileUrl}" alt="Preview" class="max-w-full max-h-96 rounded-lg shadow-md" onerror="document.getElementById('previewContent').innerHTML='<p class=\"text-slate-500\">Unable to load image preview</p>'">
+                            <img src="${fileUrl}" alt="Preview" loading="lazy" decoding="async" class="max-w-full max-h-96 rounded-lg shadow-md" onerror="document.getElementById('previewContent').innerHTML='<p class=\"text-slate-500\">Unable to load image preview</p>'">
                         </div>
                     `;
                 } else if (ext === 'pdf') {
@@ -959,6 +1062,8 @@
                 })
                 : 'N/A';
 
+            document.getElementById('assignmentTitleSkeleton')?.classList.add('hidden');
+            document.getElementById('viewAsmMainTitle')?.classList.remove('hidden');
             document.getElementById('viewAsmMainTitle').textContent = currentAssignment.title;
             document.getElementById('viewAsmClassBadge').textContent = currentAssignment.class?.name || '—';
             document.getElementById('viewAsmSubjectBadge').textContent = currentAssignment.subject?.name || currentAssignment.subject || '—';
@@ -1424,6 +1529,27 @@ function restoreAlertModal() {
                 console.error('Error deleting assignment:', error);
                 triggerAlertNotification("Error", "Failed to delete assignment", "❌");
             }
+        }
+
+        function openBottomNav() {
+            const overlay = document.getElementById('bottomDrawerOverlay');
+            const card = document.getElementById('bottomDrawerCard');
+            if (!overlay || !card) return;
+            overlay.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                overlay.classList.remove('opacity-0');
+                card.classList.remove('translate-y-full');
+            });
+        }
+
+        function closeBottomNav(event) {
+            if (event && event.target?.id !== 'bottomDrawerOverlay') return;
+            const overlay = document.getElementById('bottomDrawerOverlay');
+            const card = document.getElementById('bottomDrawerCard');
+            if (!overlay || !card) return;
+            overlay.classList.add('opacity-0');
+            card.classList.add('translate-y-full');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
         }
 
         function returnToHub() {
