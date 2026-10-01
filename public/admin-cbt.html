@@ -231,7 +231,7 @@
               <span id="schoolFallback" class="hidden font-bold text-brand-400 text-base">GL</span>
             </div>
             <div class="min-w-0 flex-1">
-              <b id="schoolName" class="title block truncate text-sm font-bold text-white">Gold and Linc Schools</b>
+              <b id="schoolName" class="title block truncate text-sm font-bold text-white">School</b>
               <span class="subtitle inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Admin Portal
               </span>
@@ -464,12 +464,154 @@
 
     // ============ PAGE INITIALIZATION & UI LOGIC ============
 
+const API_BASE = window.API_BASE_URL || 'https://examguard-8rxe.onrender.com';
+const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng';
+const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE}/api/schools/config`;
+let currentUser = null;
+let currentSchool = null;
+let schoolConfig = null;
+
+function getToken() {
+  return localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
+}
+
+function getTenantSubdomain() {
+  const saved = localStorage.getItem('schoolSubdomain');
+  if (saved) return saved.toLowerCase().trim();
+  const host = window.location.hostname.toLowerCase();
+  if (host.endsWith(`.${BASE_DOMAIN}`)) {
+    const prefix = host.slice(0, -(BASE_DOMAIN.length + 1));
+    if (prefix && !prefix.includes('.')) return prefix;
+  }
+  return '';
+}
+
+function getConfiguredSchoolId() {
+  return schoolConfig?.schoolId || schoolConfig?.publicSchoolId || schoolConfig?.school?.schoolId || '';
+}
+
+function getConfiguredMongoSchoolId() {
+  return schoolConfig?._id || schoolConfig?.id || schoolConfig?.school?._id || schoolConfig?.school?.id || '';
+}
+
+function normalizeSchoolConfig(raw) {
+  return raw?.school || raw?.data || raw || null;
+}
+
+async function loadSchoolConfig() {
+  const subdomain = getTenantSubdomain();
+  if (!subdomain) return null;
+  try {
+    const res = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`School configuration request failed (${res.status})`);
+    const raw = await res.json();
+    const config = normalizeSchoolConfig(raw);
+    if (!config) throw new Error('Invalid school configuration.');
+    schoolConfig = config;
+    localStorage.setItem(`examguard_school_config_${subdomain}`, JSON.stringify(config));
+    localStorage.setItem('schoolSubdomain', subdomain);
+    if (config.schoolId) localStorage.setItem('schoolId', config.schoolId);
+    return config;
+  } catch (error) {
+    const cached = localStorage.getItem(`examguard_school_config_${subdomain}`);
+    if (cached) {
+      try {
+        schoolConfig = JSON.parse(cached);
+        return schoolConfig;
+      } catch (_) {}
+    }
+    console.warn('School configuration could not be loaded:', error);
+    return null;
+  }
+}
+
+function applySchoolBranding() {
+  const school = currentSchool || schoolConfig || {};
+  const branding = school.branding || {};
+  const name = school.schoolName || school.name || 'School';
+  const logo = school.logoUrl || branding.logo || branding.lightLogo || branding.darkLogo || '';
+  const primary = branding.primaryColor || '#2563eb';
+  const secondary = branding.secondaryColor || '#f59e0b';
+
+  document.title = `CBT Admin Dashboard | ${name}`;
+  document.querySelectorAll('#schoolName').forEach(el => el.textContent = name);
+  document.querySelectorAll('#schoolLogo').forEach(img => {
+    if (logo) {
+      img.src = logo;
+      img.alt = `${name} Logo`;
+      img.onerror = () => {
+        img.classList.add('hidden');
+        document.getElementById('schoolFallback')?.classList.remove('hidden');
+      };
+    }
+  });
+  const fallback = document.getElementById('schoolFallback');
+  if (fallback) fallback.textContent = name.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase();
+  document.documentElement.style.setProperty('--school-primary', primary);
+  document.documentElement.style.setProperty('--school-secondary', secondary);
+}
+
+async function loadAuthenticatedUser() {
+  const token = getToken();
+  if (!token) throw new Error('Authentication required. Please sign in again.');
+  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.message || 'Unable to authenticate this account.');
+  currentUser = data.user || data;
+  currentSchool = data.school || data.currentSchool || null;
+  if (!currentUser?.schoolId) throw new Error('Your account is not linked to a school.');
+  if (!['superadmin', 'admin'].includes(String(currentUser.role || '').toLowerCase())) {
+    throw new Error('This page is only available to school administrators.');
+  }
+  const configMongoId = getConfiguredMongoSchoolId();
+  if (configMongoId && String(configMongoId) !== String(currentUser.schoolId)) {
+    throw new Error('This school portal does not match your authenticated school.');
+  }
+  if (currentSchool) schoolConfig = currentSchool;
+  localStorage.setItem('schoolMongoId', String(currentUser.schoolId));
+  if (currentSchool?.schoolId) localStorage.setItem('schoolId', currentSchool.schoolId);
+  if (currentSchool?.subdomain) localStorage.setItem('schoolSubdomain', currentSchool.subdomain);
+  applySchoolBranding();
+  const adminName = document.getElementById('adminName');
+  if (adminName) adminName.textContent = currentUser.name || currentUser.email || 'Admin';
+  return currentUser;
+}
+
+function tenantQuery(extra = {}) {
+  const params = new URLSearchParams();
+  const publicSchoolId = getConfiguredSchoolId();
+  if (publicSchoolId) params.set('schoolId', publicSchoolId);
+  Object.entries(extra).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') params.set(key, value);
+  });
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+async function initializeAdminCBT() {
+  try {
+    await loadSchoolConfig();
+    await loadAuthenticatedUser();
+    showExams();
+  } catch (error) {
+    console.error('CBT tenant initialization failed:', error);
+    const spinner = document.getElementById('pageSpinnerOverlay');
+    if (spinner) spinner.style.display = 'none';
+    const content = document.getElementById('contentArea');
+    if (content) content.innerHTML = `<div class="min-h-[500px] flex items-center justify-center"><div class="max-w-md text-center p-8 rounded-2xl bg-white border border-red-200 shadow-sm"><div class="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 text-red-600 flex items-center justify-center"><i class="fa-solid fa-shield-halved text-2xl"></i></div><h2 class="text-xl font-bold text-slate-900 mb-2">School Access Required</h2><p class="text-slate-600">${error.message || 'Unable to load this school portal.'}</p><a href="login.html" class="inline-flex mt-5 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold">Sign In Again</a></div></div>`;
+  }
+}
+
 // Authentication helper - gets token from localStorage
 function getAuthHeaders() {
-  const token = localStorage.getItem('authToken');
+  const token = getToken();
+  const publicSchoolId = getConfiguredSchoolId();
   return {
     'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` })
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...(publicSchoolId && { 'X-School-Code': publicSchoolId })
   };
 }
 
@@ -626,7 +768,7 @@ function showExams() {
 }
 
 async function loadExamsTable() {
-  const exams = await fetch('https://goldlincschools.onrender.com/api/exam', {
+  const exams = await fetch(`${API_BASE}/api/exam${tenantQuery()}`, {
     headers: getAuthHeaders()
   }).then(r => r.json()).catch(() => []);
   
@@ -715,10 +857,10 @@ window.showScheduleExam = showScheduleExam;
 async function showUploadExam() {
     setActiveCBTTab('upload');
     document.getElementById('pageTitle').textContent = 'Upload New Exam';
-  const classes = await fetch('https://goldlincschools.onrender.com/api/classes', {
+  const classes = await fetch(`${API_BASE}/api/classes${tenantQuery()}`, {
     headers: getAuthHeaders()
   }).then(r => r.json()).catch(() => []);
-  const subjects = await fetch('https://goldlincschools.onrender.com/api/subjects', {
+  const subjects = await fetch(`${API_BASE}/api/subjects${tenantQuery()}`, {
     headers: getAuthHeaders()
   }).then(r => r.json()).catch(() => []);
   document.getElementById('contentArea').innerHTML = `
@@ -921,7 +1063,7 @@ async function showUploadExam() {
       if (!file) return;
       const formData = new FormData();
       formData.append('image', file);
-      const res = await fetch('https://goldlincschools.onrender.com/api/upload/image', { 
+      const res = await fetch(`${API_BASE}/api/upload/image`, { 
         method: 'POST', 
         body: formData,
         headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}` }
@@ -1024,7 +1166,7 @@ async function showUploadExam() {
         `<div class="p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg flex items-center gap-2"><i class="fa fa-spinner fa-spin"></i> Uploading...</div>`;
 
       try {
-        const res = await fetch('https://goldlincschools.onrender.com/api/exam', {
+        const res = await fetch(`${API_BASE}/api/exam${tenantQuery()}`, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify(payload)
@@ -1068,7 +1210,7 @@ async function showScheduleExam() {
     </div>
   `;
 
-  const exams = await fetch('https://goldlincschools.onrender.com/api/exam', {
+  const exams = await fetch(`${API_BASE}/api/exam${tenantQuery()}`, {
     headers: getAuthHeaders()
   }).then(r => r.json()).catch(() => []);
 
@@ -1153,7 +1295,7 @@ async function showScheduleExam() {
     previewDiv.innerHTML = `<div class="flex items-center text-blue-600 font-semibold py-6"><i class="fa fa-spinner fa-spin mr-2"></i> Merging questions...</div>`;
 
     const questionSets = await Promise.all(selected.map(id =>
-      fetch(`https://goldlincschools.onrender.com/api/exam/${id}`, {
+      fetch(`${API_BASE}/api/exam/${id}`, {
         headers: getAuthHeaders()
       }).then(r => r.json())
     ));
@@ -1200,7 +1342,7 @@ async function showScheduleExam() {
       return;
     }
 
-    const firstExam = await fetch(`https://goldlincschools.onrender.com/api/exam/${selected[0]}`, {
+    const firstExam = await fetch(`${API_BASE}/api/exam/${selected[0]}`, {
       headers: getAuthHeaders()
     }).then(r => r.json());
     const classId = firstExam.class || firstExam.classId;
@@ -1221,7 +1363,7 @@ async function showScheduleExam() {
     };
     
     try {
-      const res = await fetch('https://goldlincschools.onrender.com/api/exam/merge', {
+      const res = await fetch(`${API_BASE}/api/exam/merge`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -1292,7 +1434,7 @@ async function showResults() {
     </div>
   `;
 
-  const results = await fetch('https://goldlincschools.onrender.com/api/result', {
+  const results = await fetch(`${API_BASE}/api/result${tenantQuery()}`, {
     headers: getAuthHeaders()
   }).then(r => r.json()).catch(() => []);
   
@@ -1358,7 +1500,7 @@ async function showResults() {
       <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e40af; padding-bottom: 15px;">
-          <h1 style="color: #0f172a; margin: 0; font-size: 24px; font-weight: bold;">ExamGuard International School</h1>
+          <h1 style="color: #0f172a; margin: 0; font-size: 24px; font-weight: bold;">${(currentSchool?.schoolName || schoolConfig?.schoolName || 'School')}</h1>
           <p style="color: #6b7280; margin: 5px 0; font-size: 14px;">Student Results Report</p>
           <p style="color: #6b7280; margin: 5px 0; font-size: 12px;">Generated on: ${currentDate}</p>
         </div>
@@ -1583,7 +1725,7 @@ async function showStudentActivity() {
       </div>
     </div>
   `;
-  const acts = await fetch('https://goldlincschools.onrender.com/api/activity', {
+  const acts = await fetch(`${API_BASE}/api/activity${tenantQuery()}`, {
     headers: getAuthHeaders()
   }).then(r => r.json()).catch(() => []);
   
@@ -1644,7 +1786,7 @@ async function showStudentActivity() {
 // ============ ACTION HANDLERS ============
 
 window.viewExam = async function(id) {
-  const ex = await fetch(`https://goldlincschools.onrender.com/api/exam/${id}`, {
+  const ex = await fetch(`${API_BASE}/api/exam/${id}`, {
     headers: getAuthHeaders()
   }).then(r=>r.json());
   if(ex.error){alert(ex.error); return;}
@@ -1697,7 +1839,7 @@ window.viewExam = async function(id) {
 }
 
 window.editExam = async function(id) {
-  const ex = await fetch(`https://goldlincschools.onrender.com/api/exam/${id}`, {
+  const ex = await fetch(`${API_BASE}/api/exam/${id}`, {
     headers: getAuthHeaders()
   }).then(r=>r.json());
   if(ex.error){alert(ex.error); return;}
@@ -1707,7 +1849,7 @@ window.editExam = async function(id) {
 
 window.deleteExam = async function(id) {
   if (!confirm('Delete this exam?')) return;
-  const res = await fetch(`https://goldlincschools.onrender.com/api/exam/${id}`, {
+  const res = await fetch(`${API_BASE}/api/exam/${id}`, {
     method:'DELETE',
     headers: getAuthHeaders()
   }).then(r=>r.json());
@@ -1716,7 +1858,7 @@ window.deleteExam = async function(id) {
 
 window.stopExam = async function(id) {
   if (!confirm('Stop this exam for all students?')) return;
-  await fetch(`https://goldlincschools.onrender.com/api/exam/${id}/stop`, {
+  await fetch(`${API_BASE}/api/exam/${id}/stop`, {
     method:'POST',
     headers: getAuthHeaders()
   });
@@ -1724,7 +1866,7 @@ window.stopExam = async function(id) {
 }
 
 window.viewResult = async function(id) {
-  const r = await fetch(`https://goldlincschools.onrender.com/api/result/${id}`, {
+  const r = await fetch(`${API_BASE}/api/result/${id}`, {
     headers: getAuthHeaders()
   }).then(r=>r.json());
   if(r.error){alert(r.error); return;}
@@ -1755,7 +1897,7 @@ window.viewResult = async function(id) {
 
 window.deleteResult = async function(id) {
   if (!confirm('Delete this result?')) return;
-  const res = await fetch(`https://goldlincschools.onrender.com/api/result/${id}`, { 
+  const res = await fetch(`${API_BASE}/api/result/${id}`, { 
     method: 'DELETE',
     headers: getAuthHeaders()
   }).then(r => r.json()).catch(() => ({}));
@@ -1767,7 +1909,7 @@ window.deleteResult = async function(id) {
 }
 
 window.viewActivity = async function(id) {
-  const a = await fetch(`https://goldlincschools.onrender.com/api/activity/${id}`, {
+  const a = await fetch(`${API_BASE}/api/activity/${id}`, {
     headers: getAuthHeaders()
   }).then(r=>r.json());
   if(a.error){alert(a.error); return;}
@@ -1794,7 +1936,7 @@ window.viewActivity = async function(id) {
 }
 
 // ============ INITIALIZE ============
-showExams();
+initializeAdminCBT();
   </script>
 </body>
 </html>
