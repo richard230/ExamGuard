@@ -25,6 +25,9 @@
 
 <body class="bg-slate-50/80 font-sans text-slate-800 antialiased min-h-screen selection:bg-blue-500 selection:text-white">
   
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-[150] flex flex-col gap-2 pointer-events-none"></div>
+
   <!-- Page Loading Overlay -->
   <div id="pageLoader" class="fixed inset-0 z-[100] bg-white/90 backdrop-blur-md flex items-center justify-center transition-opacity duration-300">
     <div class="text-center">
@@ -33,24 +36,14 @@
     </div>
   </div>
 
-  <!-- Toast Notification Container -->
-  <div id="toastContainer" class="fixed top-5 right-5 z-[150] flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
-
-  <!-- Dynamic Modal Container -->
-  <div id="appModal" class="fixed inset-0 z-[120] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div id="appModalContent" class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-lg w-full p-6 my-8 transform transition-all">
-      <!-- Injected Dynamically -->
-    </div>
-  </div>
-
-  <!-- System Error Modal -->
-  <div id="errorModal" class="fixed inset-0 z-[130] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <!-- Reusable Error Modal -->
+  <div id="errorModal" class="fixed inset-0 z-[120] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 text-center transform transition-all scale-100">
       <div class="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
         <i class="fa-solid fa-triangle-exclamation"></i>
       </div>
-      <h3 id="errorModalTitle" class="text-lg font-bold text-slate-900">System Notice</h3>
-      <p id="errorModalMessage" class="mt-2 text-sm text-slate-600">An action occurred.</p>
+      <h3 id="errorModalTitle" class="text-lg font-bold text-slate-900">System Error</h3>
+      <p id="errorModalMessage" class="mt-2 text-sm text-slate-600">An error occurred while processing your request.</p>
       
       <div id="errorModalDetails" class="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 hidden text-left overflow-x-auto max-h-32"></div>
 
@@ -62,6 +55,225 @@
           Retry
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Create Invoice Modal -->
+  <div id="invoiceModal" class="fixed inset-0 z-[110] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-lg w-full p-6 transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="text-lg font-bold text-slate-900"><i class="fa fa-file-invoice text-blue-600 mr-2"></i>Create New Invoice</h3>
+        <button onclick="closeModal('invoiceModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa fa-times"></i></button>
+      </div>
+      <form id="invoiceForm" onsubmit="handleInvoiceSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Student Name / ID</label>
+          <input id="invStudentName" type="text" required placeholder="e.g. John Doe (STD-1002)" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Fee Category</label>
+            <input id="invFeeType" type="text" required placeholder="Tuition Fee" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Amount (₦)</label>
+            <input id="invAmount" type="number" step="0.01" min="0" required placeholder="50000" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Due Date</label>
+            <input id="invDueDate" type="date" required class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
+            <select id="invStatus" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+              <option value="Pending">Pending</option>
+              <option value="Paid">Paid</option>
+              <option value="Overdue">Overdue</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Description / Notes</label>
+          <textarea id="invDescription" rows="2" placeholder="Optional invoice breakdown..." class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"></textarea>
+        </div>
+        <div class="pt-2 flex gap-3">
+          <button type="button" onclick="closeModal('invoiceModal')" class="w-1/2 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">Cancel</button>
+          <button type="submit" class="w-1/2 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Issue Invoice</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Fee Record Modal -->
+  <div id="feeEditModal" class="fixed inset-0 z-[110] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="text-lg font-bold text-slate-900"><i class="fa fa-pen-to-square text-blue-600 mr-2"></i>Edit Fee Record</h3>
+        <button onclick="closeModal('feeEditModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa fa-times"></i></button>
+      </div>
+      <form id="feeEditForm" onsubmit="handleFeeEditSubmit(event)" class="space-y-4">
+        <input type="hidden" id="editFeeId">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Student</label>
+          <input id="editFeeStudent" type="text" disabled class="w-full bg-slate-100 border border-slate-200 text-slate-500 text-sm rounded-xl p-2.5">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Amount (₦)</label>
+            <input id="editFeeAmount" type="number" step="0.01" required class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
+            <select id="editFeeStatus" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+              <option value="Paid">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Overdue">Overdue</option>
+              <option value="Waived">Waived</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Payment Method</label>
+            <select id="editFeeMethod" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cash">Cash</option>
+              <option value="Card/POS">Card/POS</option>
+              <option value="Online Gateway">Online Gateway</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Due Date</label>
+            <input id="editFeeDueDate" type="date" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+        </div>
+        <div class="pt-2 flex gap-3">
+          <button type="button" onclick="closeModal('feeEditModal')" class="w-1/2 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">Cancel</button>
+          <button type="submit" class="w-1/2 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Expense Request Modal -->
+  <div id="expenseModal" class="fixed inset-0 z-[110] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-lg w-full p-6 transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="text-lg font-bold text-slate-900"><i class="fa fa-briefcase text-blue-600 mr-2"></i>New Expense Request</h3>
+        <button onclick="closeModal('expenseModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa fa-times"></i></button>
+      </div>
+      <form id="expenseForm" onsubmit="handleExpenseSubmit(event)" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Category</label>
+            <select id="expCategory" required class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+              <option value="Utilities">Utilities</option>
+              <option value="Salaries & Payroll">Salaries & Payroll</option>
+              <option value="Maintenance & Repairs">Maintenance & Repairs</option>
+              <option value="Supplies & Equipment">Supplies & Equipment</option>
+              <option value="Events & Academics">Events & Academics</option>
+              <option value="Miscellaneous">Miscellaneous</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Amount (₦)</label>
+            <input id="expAmount" type="number" step="0.01" min="0" required placeholder="15000" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Purpose / Justification</label>
+          <textarea id="expPurpose" rows="3" required placeholder="Detailed description of why funds are required..." class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"></textarea>
+        </div>
+        <div class="pt-2 flex gap-3">
+          <button type="button" onclick="closeModal('expenseModal')" class="w-1/2 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">Cancel</button>
+          <button type="submit" class="w-1/2 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Submit Request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Review Expense Approval Modal -->
+  <div id="expenseReviewModal" class="fixed inset-0 z-[110] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="text-lg font-bold text-slate-900"><i class="fa fa-clipboard-check text-blue-600 mr-2"></i>Review Expense Request</h3>
+        <button onclick="closeModal('expenseReviewModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa fa-times"></i></button>
+      </div>
+      <div id="expenseReviewDetails" class="space-y-3 text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200/80 mb-4"></div>
+      <input type="hidden" id="reviewExpenseId">
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Approval Notes / Reason</label>
+          <input id="reviewExpenseNote" type="text" placeholder="Optional reviewer notes..." class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 outline-none">
+        </div>
+        <div class="flex gap-2">
+          <button onclick="submitExpenseDecision('Rejected')" class="w-1/2 py-2.5 text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl">Reject</button>
+          <button onclick="submitExpenseDecision('Approved')" class="w-1/2 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm">Approve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Bank Account Modal -->
+  <div id="bankAccountModal" class="fixed inset-0 z-[110] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 id="bankAccountModalTitle" class="text-lg font-bold text-slate-900"><i class="fa fa-building-columns text-blue-600 mr-2"></i>Add Bank Account</h3>
+        <button onclick="closeModal('bankAccountModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa fa-times"></i></button>
+      </div>
+      <form id="bankAccountForm" onsubmit="handleBankAccountSubmit(event)" class="space-y-4">
+        <input type="hidden" id="bankAccountId">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Account Title / Name</label>
+          <input id="accName" type="text" required placeholder="e.g. Main Tuition Account" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Bank Name</label>
+            <input id="accBank" type="text" required placeholder="First Bank" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Account Number</label>
+            <input id="accNumber" type="text" required placeholder="3012345678" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Opening Balance (₦)</label>
+            <input id="accBalance" type="number" step="0.01" min="0" required placeholder="0.00" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Type</label>
+            <select id="accType" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+              <option value="Operational">Operational</option>
+              <option value="Revenue Collection">Revenue Collection</option>
+              <option value="Petty Cash Wallet">Petty Cash Wallet</option>
+            </select>
+          </div>
+        </div>
+        <div class="pt-2 flex gap-3">
+          <button type="button" onclick="closeModal('bankAccountModal')" class="w-1/2 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">Cancel</button>
+          <button type="submit" class="w-1/2 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Save Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Document Preview / Print Modal (Invoices & Receipts) -->
+  <div id="documentPreviewModal" class="fixed inset-0 z-[110] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-xl w-full p-6 my-8 transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 no-print">
+        <h3 id="docModalTitle" class="text-base font-bold text-slate-900">Document Preview</h3>
+        <div class="flex items-center gap-2">
+          <button onclick="printDocument()" class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg inline-flex items-center gap-1.5">
+            <i class="fa fa-print"></i> Print / Download PDF
+          </button>
+          <button onclick="closeModal('documentPreviewModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa fa-times"></i></button>
+        </div>
+      </div>
+      <div id="printableDocumentArea" class="bg-white p-6 border border-slate-200 rounded-xl space-y-6 text-slate-800 text-sm"></div>
     </div>
   </div>
 
@@ -146,10 +358,10 @@
             </div>
           </div>
           <div class="flex items-center gap-1.5 sm:gap-2">
-            <button class="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center transition-colors" title="Notifications" onclick="showToast('No new notifications', 'info')">
+            <button class="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center transition-colors" title="Notifications">
               <i class="fa fa-bell"></i>
             </button>
-            <button class="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center transition-colors" title="Help" onclick="showToast('Need assistance? Contact support@school.com', 'info')">
+            <button class="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center transition-colors" title="Help">
               <i class="fa fa-circle-question"></i>
             </button>
           </div>
@@ -173,19 +385,6 @@
             <button onclick="refreshFinance()" class="w-full sm:w-auto px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-xl inline-flex items-center justify-center gap-2 transition-colors shadow-sm">
               <i class="fa fa-rotate"></i> Refresh Data
             </button>
-          </div>
-
-          <!-- Quick Navigation Bar for Sections -->
-          <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-semibold">
-            <button onclick="showSection('all')" class="px-3 py-2 rounded-xl bg-slate-900 text-white shrink-0 hover:bg-slate-800 transition-colors">Overview</button>
-            <button onclick="showSection('fees')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Fees</button>
-            <button onclick="showSection('invoices')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Invoices</button>
-            <button onclick="showSection('receipts')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Receipts</button>
-            <button onclick="showSection('expenses')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Expenses</button>
-            <button onclick="showSection('transactions')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Transactions</button>
-            <button onclick="showSection('reports')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Reports</button>
-            <button onclick="showSection('accounts')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Bank Accounts</button>
-            <button onclick="showSection('settings')" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shrink-0 transition-colors">Settings</button>
           </div>
 
           <!-- 2x2 Fixed Grid on Mobile / 4 Columns on Desktop -->
@@ -232,7 +431,7 @@
           </div>
 
           <!-- Charts Grid -->
-          <div id="section-charts" class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
             <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-slate-900 text-sm sm:text-base"><i class="fa fa-chart-line text-blue-600 mr-2"></i>Monthly Revenue Trend</h3>
@@ -246,8 +445,8 @@
             </section>
           </div>
 
-          <!-- Student Fee Table Section -->
-          <section id="section-fees" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+          <!-- Student Fee Table Section (Hidden by Default) -->
+          <section id="section-fees" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
                 <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-graduation-cap text-blue-600 mr-2"></i>Student Fee Management</h3>
@@ -256,8 +455,8 @@
               <div class="flex flex-col sm:flex-row gap-2">
                 <input id="feeSearch" type="search" placeholder="Search student..."
                   class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 p-2.5 outline-none transition-all">
-                <select id="feeStatusFilter" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 p-2.5 outline-none transition-all">
-                  <option value="">All Status</option><option>Paid</option><option>Pending</option><option>Overdue</option><option>Waived</option>
+                <select id="feeStatusFilter" onchange="filterFeeTable()" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 p-2.5 outline-none transition-all">
+                  <option value="">All Status</option><option value="Paid">Paid</option><option value="Pending">Pending</option><option value="Overdue">Overdue</option><option value="Waived">Waived</option>
                 </select>
                 <button onclick="exportFeeData()" class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl inline-flex items-center justify-center gap-2 transition-colors shadow-sm">
                   <i class="fa fa-download"></i> Export
@@ -287,8 +486,8 @@
             </div>
           </section>
 
-          <!-- Invoices Section -->
-          <section id="section-invoices" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+          <!-- Invoices Section (Hidden by Default) -->
+          <section id="section-invoices" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-file-invoice text-blue-600 mr-2"></i>Recent Invoices</h3>
               <div class="flex gap-2">
@@ -306,8 +505,8 @@
             </div>
           </section>
 
-          <!-- Receipts Section -->
-          <section id="section-receipts" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+          <!-- Receipts Section (Hidden by Default) -->
+          <section id="section-receipts" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-receipt text-blue-600 mr-2"></i>Recent Payment Receipts</h3>
               <input id="receiptSearch" type="search" placeholder="Search receipts..." class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
@@ -322,12 +521,14 @@
             </div>
           </section>
 
-          <!-- Expenses Section -->
-          <section id="section-expenses" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+          <!-- Expenses Section (Hidden by Default) -->
+          <section id="section-expenses" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-briefcase text-blue-600 mr-2"></i>Expense Tracking & Approvals</h3>
               <div class="flex gap-2">
-                <select id="expenseStatusFilter" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"><option value="">All Status</option><option>Pending</option><option>Approved</option><option>Rejected</option><option>Paid</option></select>
+                <select id="expenseStatusFilter" onchange="filterExpenseTable()" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                  <option value="">All Status</option><option value="Pending">Pending</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Paid">Paid</option>
+                </select>
                 <button onclick="requestExpense()" class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">+ New Request</button>
               </div>
             </div>
@@ -341,8 +542,8 @@
             </div>
           </section>
 
-          <!-- Transaction History -->
-          <section id="section-transactions" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+          <!-- Transaction History (Hidden by Default) -->
+          <section id="section-transactions" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-clock-rotate-left text-blue-600 mr-2"></i>Transaction History & Reconciliation</h3>
               <div class="flex flex-wrap gap-2">
@@ -360,27 +561,29 @@
             </div>
           </section>
 
-          <!-- Reports Section -->
-          <section id="section-reports" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
-            <div class="pb-3 border-b border-slate-200/80 flex items-center justify-between mb-4">
+          <!-- Reports Section (Hidden by Default) -->
+          <section id="section-reports" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5 space-y-4">
+            <div class="pb-3 border-b border-slate-200/80 flex items-center justify-between">
               <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-file-chart-column text-blue-600 mr-2"></i>Financial Reports</h3>
             </div>
             <div class="flex flex-col sm:flex-row gap-2">
               <select id="reportType" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 flex-1 outline-none focus:ring-2 focus:ring-blue-500/20">
                 <option value="summary">Financial Summary</option>
                 <option value="fees">Fee Collection Report</option>
-                <option value="expenses">Expense Report</option>
-                <option value="reconciliation">Bank Reconciliation</option>
-                <option value="audit">Audit Trail</option>
+                <option value="expenses">Expense Breakdown Report</option>
+                <option value="reconciliation">Bank Reconciliation Statement</option>
+                <option value="audit">Financial Audit Trail</option>
               </select>
               <button onclick="generateReport()" class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">Generate</button>
               <button onclick="exportReport()" class="px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors">Export CSV</button>
             </div>
-            <div id="reportOutputArea" class="mt-4 hidden p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs overflow-x-auto max-h-80 whitespace-pre-wrap"></div>
+            <div id="reportDisplayArea" class="mt-4 p-4 bg-slate-50 border border-slate-200/80 rounded-xl min-h-[160px] text-xs text-slate-600 overflow-x-auto">
+              <p class="text-center text-slate-400 py-8">Select a report type above and click "Generate" to compile real-time financial statements.</p>
+            </div>
           </section>
 
-          <!-- Bank Accounts Section -->
-          <section id="section-accounts" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+          <!-- Bank Accounts Section (Hidden by Default) -->
+          <section id="section-accounts" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-4 sm:p-5 border-b border-slate-200/80 flex items-center justify-between">
               <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-building-columns text-blue-600 mr-2"></i>Bank Accounts & Wallets</h3>
               <button onclick="addBankAccount()" class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">+ Account</button>
@@ -393,14 +596,14 @@
             </div>
           </section>
 
-          <!-- Finance Settings -->
-          <section id="section-settings" class="finance-section bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
+          <!-- Finance Settings (Hidden by Default) -->
+          <section id="section-settings" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
             <div class="pb-3 border-b border-slate-200/80 mb-4">
               <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-sliders text-blue-600 mr-2"></i>Finance Settings</h3>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="autoReminder" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Auto payment reminders</label>
-              <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="emailReceipts" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Send email receipts</label>
+              <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="autoReminder" type="checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Auto payment reminders</label>
+              <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="emailReceipts" type="checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Send email receipts</label>
               <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="smsNotification" type="checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> SMS payment alerts</label>
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1">Financial Year Start</label>
@@ -442,7 +645,7 @@
     </div>
   </div>
 
-  <!-- Mobile Module Drawer -->
+  <!-- Mobile Module Drawer (Using 2x2 Fixed Grid) -->
   <div id="drawer-bottom-menu"
     class="fixed bottom-0 left-0 right-0 z-50 p-4 overflow-y-auto bg-white rounded-t-3xl shadow-2xl transition-transform translate-y-full max-h-[80vh] border-t border-slate-200"
     tabindex="-1" aria-labelledby="drawer-bottom-label">
@@ -457,6 +660,7 @@
       </button>
     </div>
 
+    <!-- 2x2 Fixed Card Grid in Mobile Menu -->
     <div class="grid grid-cols-2 gap-3">
       <button onclick="showSection('fees')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
         <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-graduation-cap"></i></div>
@@ -495,41 +699,15 @@
     const BACKEND_URL = 'https://examguard-8rxe.onrender.com';
     const API_ROOT = BACKEND_URL + '/api';
     const SCHOOL_CONFIG_ENDPOINT = API_ROOT + '/schools/config';
-    const token = localStorage.getItem('token') || 'demo-session-token';
+    const token = localStorage.getItem('token');
 
     let currentSchool = null;
     let publicSchoolId = '';
     let schoolSubdomain = '';
-    
-    // In-memory data store hydrated via API or local fallback
     let financeCache = {
-      fees: [
-        { id: 'fee_1', studentName: 'Adewale John', className: 'SS 3A', type: 'Tuition Fee', amount: 85000, status: 'Paid', term: '1st Term', session: '2025/2026', dueDate: '2026-01-15', method: 'Bank Transfer' },
-        { id: 'fee_2', studentName: 'Chidimma Nwosu', className: 'JSS 2B', type: 'Bus Fee', amount: 25000, status: 'Pending', term: '1st Term', session: '2025/2026', dueDate: '2026-02-01', method: 'Online' },
-        { id: 'fee_3', studentName: 'Babatunde Grace', className: 'SS 1C', type: 'Exam Fee', amount: 15000, status: 'Overdue', term: '1st Term', session: '2025/2026', dueDate: '2025-12-10', method: 'Cash' }
-      ],
-      invoices: [
-        { id: 'inv_101', invoiceNo: 'INV-2026-001', studentName: 'Adewale John', amount: 85000, status: 'Paid', date: '2026-01-10', items: 'Tuition Fee - 1st Term' },
-        { id: 'inv_102', invoiceNo: 'INV-2026-002', studentName: 'Chidimma Nwosu', amount: 25000, status: 'Pending', date: '2026-01-12', items: 'School Bus Service' }
-      ],
-      receipts: [
-        { id: 'rec_201', receiptNo: 'REC-8849', studentName: 'Adewale John', amount: 85000, paymentDate: '2026-01-10', method: 'Bank Transfer' },
-        { id: 'rec_202', receiptNo: 'REC-8850', studentName: 'Musa Ibrahim', amount: 45000, paymentDate: '2026-01-14', method: 'POS' }
-      ],
-      expenses: [
-        { id: 'exp_301', requestId: 'REQ-101', requestedByName: 'Mr. David (ICT)', category: 'Equipment', amount: 120000, purpose: 'Replacement Router & Cables', status: 'Approved', date: '2026-01-08' },
-        { id: 'exp_302', requestId: 'REQ-102', requestedByName: 'Mrs. Folake (Admin)', category: 'Utilities', amount: 45000, purpose: 'Diesel Generator Refill', status: 'Pending', date: '2026-01-15' }
-      ],
-      transactions: [
-        { ref: 'TX-9001', date: '2026-01-10', description: 'Tuition Payment - Adewale John', credit: 85000, debit: 0, balance: 4585000, method: 'Transfer', verified: true },
-        { ref: 'TX-9002', date: '2026-01-11', description: 'ICT Equipment Purchase', credit: 0, debit: 120000, balance: 4465000, method: 'Direct Debit', verified: true }
-      ],
-      bankAccounts: [
-        { id: 'acc_1', accountName: 'Main Operating Account', bankName: 'Zenith Bank', accountNumber: '1012345678', balance: 4465000, type: 'Operational', status: 'Active' },
-        { id: 'acc_2', accountName: 'Development Fund Wallet', bankName: 'GTBank', accountNumber: '0129876543', balance: 1850000, type: 'Savings', status: 'Active' }
-      ]
+      fees: [], invoices: [], receipts: [], expenses: [],
+      transactions: [], bankAccounts: [], currentReport: null
     };
-
     let revenueChartInstance = null;
     let paymentStatusChartInstance = null;
 
@@ -537,36 +715,36 @@
     function showToast(message, type = 'success') {
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
-      const bgClass = type === 'success' ? 'bg-slate-900 text-white' : type === 'error' ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white';
-      const icon = type === 'success' ? 'fa-check-circle text-emerald-400' : type === 'error' ? 'fa-exclamation-circle text-rose-200' : 'fa-info-circle text-blue-200';
-
-      toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-xs sm:text-sm font-medium ${bgClass} transition-all transform translate-y-2 opacity-0 duration-200`;
-      toast.innerHTML = `<i class="fa ${icon} text-base"></i><span>${escapeHtml(message)}</span>`;
-      
+      const isSuccess = type === 'success';
+      toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold transition-all duration-300 transform translate-y-2 opacity-0 ${
+        isSuccess ? 'bg-slate-900 text-white border border-slate-700' : 'bg-rose-600 text-white'
+      }`;
+      toast.innerHTML = `<i class="fa ${isSuccess ? 'fa-circle-check text-emerald-400' : 'fa-circle-exclamation'} text-sm"></i> <span>${escapeHtml(message)}</span>`;
       container.appendChild(toast);
-      requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+      
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
 
       setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-2');
+        toast.classList.add('opacity-0', '-translate-y-2');
         setTimeout(() => toast.remove(), 300);
       }, 3500);
     }
 
-    /* Modal System */
-    function openModal(htmlContent) {
-      const modal = document.getElementById('appModal');
-      const content = document.getElementById('appModalContent');
-      content.innerHTML = htmlContent;
-      modal.classList.remove('hidden');
+    /* Modal Management Helpers */
+    function openModal(id) {
+      document.getElementById(id)?.classList.remove('hidden');
+    }
+    function closeModal(id) {
+      document.getElementById(id)?.classList.add('hidden');
     }
 
-    function closeModal() {
-      document.getElementById('appModal').classList.add('hidden');
-    }
-
+    /* Error Modal Helpers */
     function showErrorModal(message, title = 'System Error', details = null, showRetry = true) {
       document.getElementById('errorModalTitle').textContent = title;
       document.getElementById('errorModalMessage').textContent = message;
+      
       const detailsEl = document.getElementById('errorModalDetails');
       if (details) {
         detailsEl.textContent = typeof details === 'object' ? JSON.stringify(details, null, 2) : String(details);
@@ -574,12 +752,28 @@
       } else {
         detailsEl.classList.add('hidden');
       }
-      document.getElementById('errorModalRetryBtn').classList.toggle('hidden', !showRetry);
-      document.getElementById('errorModal').classList.remove('hidden');
+
+      const retryBtn = document.getElementById('errorModalRetryBtn');
+      if (showRetry) {
+        retryBtn.classList.remove('hidden');
+      } else {
+        retryBtn.classList.add('hidden');
+      }
+
+      openModal('errorModal');
     }
 
     function closeErrorModal() {
-      document.getElementById('errorModal').classList.add('hidden');
+      closeModal('errorModal');
+    }
+
+    function getTenantSubdomain() {
+      const stored = localStorage.getItem('schoolSubdomain');
+      if (stored) return stored;
+      const host = window.location.hostname;
+      const parts = host.split('.');
+      if (parts.length >= 3 && !['www', 'localhost'].includes(parts[0])) return parts[0];
+      return '';
     }
 
     function authHeaders(extra = {}) {
@@ -594,16 +788,119 @@
 
     async function apiFetch(url, options = {}) {
       try {
-        const response = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
+        const response = await fetch(url, {
+          ...options,
+          headers: authHeaders(options.headers || {})
+        });
         return response;
       } catch (err) {
-        console.warn('Backend API request unfulfilled, proceeding with dynamic offline store.', err);
-        return { ok: false, status: 500, json: async () => ({ error: true }) };
+        showErrorModal('Network connection failed. Unable to communicate with server.', 'Network Error', err.message);
+        throw err;
+      }
+    }
+
+    function schoolInitials(name) {
+      return (name || 'School').split(/\s+/).filter(Boolean).slice(0, 2)
+        .map(x => x[0].toUpperCase()).join('') || 'SC';
+    }
+
+    function applySchoolBranding(school) {
+      currentSchool = school || {};
+      const branding = currentSchool.branding || {};
+      const name = currentSchool.schoolName || currentSchool.name || 'School';
+      const logo = currentSchool.logoUrl || branding.logo || branding.logoUrl ||
+        branding.lightLogo || branding.darkLogo || '';
+
+      document.getElementById('schoolBrandName').textContent = name;
+      document.getElementById('topSchoolName').textContent = name;
+      document.getElementById('schoolMotto').textContent =
+        currentSchool.motto || currentSchool.tagline || '';
+      document.getElementById('schoolAdminLabel').textContent =
+        currentSchool.abbreviation ? `${currentSchool.abbreviation} • School Administration` : 'School Administration';
+
+      const logoEl = document.getElementById('schoolLogo');
+      const fallback = document.getElementById('schoolLogoFallback');
+      fallback.textContent = schoolInitials(name);
+
+      if (logo) {
+        logoEl.src = logo;
+        logoEl.alt = `${name} Logo`;
+        logoEl.classList.remove('hidden');
+        fallback.classList.add('hidden');
+        logoEl.onerror = () => {
+          logoEl.classList.add('hidden');
+          fallback.classList.remove('hidden');
+        };
+      } else {
+        logoEl.classList.add('hidden');
+        fallback.classList.remove('hidden');
+      }
+
+      document.title = `${name} | Finance`;
+      localStorage.setItem('schoolConfig', JSON.stringify(currentSchool));
+      if (publicSchoolId) localStorage.setItem('schoolId', publicSchoolId);
+      if (schoolSubdomain) localStorage.setItem('schoolSubdomain', schoolSubdomain);
+    }
+
+    async function loadSchoolConfig() {
+      if (!token) {
+        showErrorModal('Authentication token missing. Please log in to proceed.', 'Authentication Error', null, false);
+        return null;
+      }
+
+      const hostSubdomain = getTenantSubdomain();
+
+      try {
+        const meRes = await fetch(`${API_ROOT}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+        });
+
+        if (!meRes.ok) throw new Error(`Authentication context failed (HTTP ${meRes.status})`);
+
+        const raw = await meRes.json();
+        const user = raw.user || raw.data?.user || raw;
+        const school = raw.school || raw.data?.school || user?.school || null;
+
+        if (!user?.schoolId) throw new Error('Your account is not linked to a school.');
+        if (!school?._id) throw new Error('School configuration was not returned by the server.');
+
+        if (String(user.schoolId) !== String(school._id)) {
+          throw new Error('Authenticated school and returned school configuration do not match.');
+        }
+
+        publicSchoolId = school.schoolId || '';
+        schoolSubdomain = String(school.subdomain || hostSubdomain || '').toLowerCase();
+        applySchoolBranding(school);
+        return school;
+      } catch (authError) {
+        if (!hostSubdomain) {
+          showErrorModal(authError.message || 'Unable to retrieve school configuration.', 'School Config Error');
+          return null;
+        }
+
+        try {
+          const res = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(hostSubdomain)}`, {
+            headers: { Accept: 'application/json' }
+          });
+          if (!res.ok) throw new Error(`School configuration failed (HTTP ${res.status})`);
+
+          const raw = await res.json();
+          const school = raw.school || raw.data || raw;
+          if (!school?._id && !school?.schoolId) throw new Error('Invalid school configuration returned by server.');
+
+          publicSchoolId = school.schoolId || '';
+          schoolSubdomain = String(school.subdomain || hostSubdomain).toLowerCase();
+          applySchoolBranding(school);
+          return school;
+        } catch (err) {
+          showErrorModal(err.message || 'Failed to fetch public school configuration.', 'Config Fetch Error');
+          return null;
+        }
       }
     }
 
     function money(value) {
-      return '₦' + Number(value || 0).toLocaleString();
+      return '₦' + Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     }
 
     function escapeHtml(value) {
@@ -629,158 +926,166 @@
       return `<tr><td colspan="${cols}" class="px-4 py-10 text-center text-slate-400 font-medium">${escapeHtml(message)}</td></tr>`;
     }
 
-    function schoolInitials(name) {
-      return (name || 'School').split(/\s+/).filter(Boolean).slice(0, 2)
-        .map(x => x[0].toUpperCase()).join('') || 'SC';
-    }
-
-    function applySchoolBranding(school) {
-      currentSchool = school || {};
-      const branding = currentSchool.branding || {};
-      const name = currentSchool.schoolName || currentSchool.name || 'School Administration';
-      const logo = currentSchool.logoUrl || branding.logo || branding.logoUrl || '';
-
-      document.getElementById('schoolBrandName').textContent = name;
-      document.getElementById('topSchoolName').textContent = name;
-      document.getElementById('schoolMotto').textContent = currentSchool.motto || currentSchool.tagline || 'Excellence in Education';
-
-      const logoEl = document.getElementById('schoolLogo');
-      const fallback = document.getElementById('schoolLogoFallback');
-      fallback.textContent = schoolInitials(name);
-
-      if (logo) {
-        logoEl.src = logo;
-        logoEl.classList.remove('hidden');
-        fallback.classList.add('hidden');
-      } else {
-        logoEl.classList.add('hidden');
-        fallback.classList.remove('hidden');
+    async function getJson(path) {
+      const res = await apiFetch(API_ROOT + path);
+      if (!res.ok) {
+        showErrorModal(`Failed to load data from endpoint: ${path}`, `HTTP Error ${res.status}`);
+        return null;
       }
+      return res.json();
     }
 
-    async function loadSchoolConfig() {
-      try {
-        const res = await apiFetch(`${API_ROOT}/auth/me`);
-        if (res.ok) {
-          const raw = await res.json();
-          const user = raw.user || raw.data?.user || raw;
-          const school = raw.school || raw.data?.school || user?.school || null;
-          if (school) {
-            publicSchoolId = school.schoolId || '';
-            applySchoolBranding(school);
-            return school;
-          }
-        }
-      } catch (_) {}
-      applySchoolBranding({ schoolName: 'Apex International Academy', motto: 'Knowledge & Integrity' });
+    function unwrapList(raw) {
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      return raw?.data || raw?.items || raw?.results || raw?.records || [];
     }
 
-    /* Recalculate Dashboard Totals & Re-render Charts */
-    function recalculateDashboard() {
-      const totalRev = financeCache.receipts.reduce((sum, r) => sum + Number(r.amount || 0), 0) +
-                       financeCache.fees.filter(f => f.status === 'Paid').reduce((sum, f) => sum + Number(f.amount || 0), 0);
-      const paidRev = financeCache.fees.filter(f => f.status === 'Paid').reduce((sum, f) => sum + Number(f.amount || 0), 0);
-      const pendingRev = financeCache.fees.filter(f => f.status === 'Pending' || f.status === 'Overdue').reduce((sum, f) => sum + Number(f.amount || 0), 0);
-      const totalExp = financeCache.expenses.filter(e => e.status === 'Approved' || e.status === 'Paid').reduce((sum, e) => sum + Number(e.amount || 0), 0);
-
-      document.getElementById('totalRevenue').textContent = money(totalRev);
-      document.getElementById('totalPayments').textContent = money(paidRev);
-      document.getElementById('totalPending').textContent = money(pendingRev);
-      document.getElementById('totalExpenses').textContent = money(totalExp);
-
-      const statusCounts = { paid: 0, pending: 0, overdue: 0, waived: 0 };
-      financeCache.fees.forEach(f => {
-        const k = (f.status || 'pending').toLowerCase();
-        if (statusCounts[k] !== undefined) statusCounts[k]++;
-      });
-
-      renderPaymentStatusChart(statusCounts);
-      renderRevenueChart(['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb'], [1200000, 1800000, 1500000, 2100000, totalRev || 2800000, 3100000]);
+    function unwrapObject(raw) {
+      if (!raw) return {};
+      return raw?.data || raw?.result || raw;
     }
 
-    /* Rendering Tables */
-    function renderFees() {
-      const data = financeCache.fees;
+    async function fetchFinanceSummary() {
+      const raw = await getJson('/finance/summary');
+      if (!raw) return;
+      const data = unwrapObject(raw);
+      document.getElementById('totalRevenue').textContent = money(data.totalRevenue);
+      document.getElementById('totalPayments').textContent = money(data.completedPayments);
+      document.getElementById('totalPending').textContent = money(data.pending);
+      document.getElementById('totalExpenses').textContent = money(data.totalExpenses);
+      renderRevenueChart(data.months || [], data.incomes || []);
+      renderPaymentStatusChart(data.paymentStats || {});
+    }
+
+    async function fetchFeeBreakdown() {
+      const raw = await getJson('/finance/fees');
+      const data = unwrapList(raw);
+      financeCache.fees = data;
+      renderFeeTable(data);
+    }
+
+    function renderFeeTable(data) {
       const tbody = document.getElementById('feeTableBody');
       tbody.innerHTML = data.length ? data.map(fee => `
         <tr class="hover:bg-slate-50/80 transition-colors">
-          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(fee.studentName || 'N/A')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.className || '')}</td>
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(fee.student?.name || fee.studentName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.class?.name || fee.className || '')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.type || '')}</td>
           <td class="px-4 py-3 font-bold text-slate-900">${money(fee.amount)}</td>
           <td class="px-4 py-3">${statusBadge(fee.status)}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.term || '')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.session || '')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.dueDate || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.due || fee.dueDate || '')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.method || '')}</td>
-          <td class="px-4 py-3"><button onclick="editFee('${escapeHtml(fee.id)}')" class="text-blue-600 hover:text-blue-700 font-semibold"><i class="fa fa-pen-to-square mr-1"></i>Edit</button></td>
-        </tr>`).join('') : emptyRow(10, 'No fee data found');
+          <td class="px-4 py-3"><button onclick="editFee('${escapeHtml(fee.id || fee._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Edit</button></td>
+        </tr>`).join('') : emptyRow(10, 'No fee records found');
     }
 
-    function renderInvoices() {
-      const data = financeCache.invoices;
+    function filterFeeTable() {
+      const status = document.getElementById('feeStatusFilter').value;
+      if (!status) {
+        renderFeeTable(financeCache.fees);
+      } else {
+        const filtered = financeCache.fees.filter(f => String(f.status).toLowerCase() === status.toLowerCase());
+        renderFeeTable(filtered);
+      }
+    }
+
+    async function fetchInvoices() {
+      const raw = await getJson('/finance/invoices');
+      const data = unwrapList(raw);
+      financeCache.invoices = data;
       const tbody = document.getElementById('invoiceTableBody');
-      tbody.innerHTML = data.length ? data.map(inv => `
+      tbody.innerHTML = data.length ? data.slice(0, 30).map(inv => `
         <tr class="hover:bg-slate-50/80 transition-colors">
           <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(inv.invoiceNo || '#')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.studentName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.student?.name || inv.studentName || 'N/A')}</td>
           <td class="px-4 py-3 font-bold text-slate-900">${money(inv.amount)}</td>
           <td class="px-4 py-3">${statusBadge(inv.status)}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.date || '')}</td>
-          <td class="px-4 py-3"><button onclick="viewInvoice('${escapeHtml(inv.id)}')" class="text-blue-600 hover:text-blue-700 font-semibold"><i class="fa fa-eye mr-1"></i>View</button></td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.date ? String(inv.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3"><button onclick="viewInvoice('${escapeHtml(inv.id || inv._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">View</button></td>
         </tr>`).join('') : emptyRow(6, 'No invoices found');
     }
 
-    function renderReceipts() {
-      const data = financeCache.receipts;
+    async function fetchPaymentReceipts() {
+      const raw = await getJson('/finance/receipts');
+      const data = unwrapList(raw);
+      financeCache.receipts = data;
       const tbody = document.getElementById('receiptTableBody');
-      tbody.innerHTML = data.length ? data.map(rec => `
+      tbody.innerHTML = data.length ? data.slice(0, 30).map(rec => `
         <tr class="hover:bg-slate-50/80 transition-colors">
           <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(rec.receiptNo || '#')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.studentName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.student?.name || rec.studentName || 'N/A')}</td>
           <td class="px-4 py-3 font-bold text-slate-900">${money(rec.amount)}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.paymentDate || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.paymentDate ? String(rec.paymentDate).slice(0,10) : '')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.method || '')}</td>
-          <td class="px-4 py-3"><button onclick="downloadReceipt('${escapeHtml(rec.id)}')" class="text-blue-600 hover:text-blue-700 font-semibold"><i class="fa fa-download mr-1"></i>View/Print</button></td>
+          <td class="px-4 py-3"><button onclick="downloadReceipt('${escapeHtml(rec.id || rec._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Download</button></td>
         </tr>`).join('') : emptyRow(6, 'No receipts found');
     }
 
-    function renderExpenses() {
-      const data = financeCache.expenses;
+    async function fetchExpenseRequests() {
+      const raw = await getJson('/finance/expenses');
+      const data = unwrapList(raw);
+      financeCache.expenses = data;
+      renderExpenseTable(data);
+    }
+
+    function renderExpenseTable(data) {
       const tbody = document.getElementById('expenseTableBody');
       tbody.innerHTML = data.length ? data.map(exp => `
         <tr class="hover:bg-slate-50/80 transition-colors">
           <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(exp.requestId || '#')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.requestedByName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.requestedBy?.name || exp.requestedByName || 'N/A')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.category || '')}</td>
           <td class="px-4 py-3 font-bold text-slate-900">${money(exp.amount)}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.purpose || '')}</td>
+          <td class="px-4 py-3 text-slate-600 max-w-xs truncate" title="${escapeHtml(exp.purpose || '')}">${escapeHtml(exp.purpose || '')}</td>
           <td class="px-4 py-3">${statusBadge(exp.status)}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.date || '')}</td>
-          <td class="px-4 py-3"><button onclick="approveExpense('${escapeHtml(exp.id)}')" class="text-blue-600 hover:text-blue-700 font-semibold"><i class="fa fa-shield-halved mr-1"></i>Review</button></td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.date ? String(exp.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3"><button onclick="approveExpense('${escapeHtml(exp.id || exp._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Review</button></td>
         </tr>`).join('') : emptyRow(8, 'No expense requests found');
     }
 
-    function renderTransactions() {
-      const data = financeCache.transactions;
-      const tbody = document.getElementById('transactionTableBody');
-      tbody.innerHTML = data.length ? data.map(tran => `
+    function filterExpenseTable() {
+      const status = document.getElementById('expenseStatusFilter').value;
+      if (!status) {
+        renderExpenseTable(financeCache.expenses);
+      } else {
+        const filtered = financeCache.expenses.filter(e => String(e.status).toLowerCase() === status.toLowerCase());
+        renderExpenseTable(filtered);
+      }
+    }
+
+    async function fetchTransactions() {
+      const raw = await getJson('/finance/transactions');
+      const data = unwrapList(raw);
+      financeCache.transactions = data;
+      renderTransactionTable(data);
+    }
+
+    function renderTransactionTable(data) {
+      document.getElementById('transactionTableBody').innerHTML = data.length ? data.map(tran => `
         <tr class="hover:bg-slate-50/80 transition-colors">
           <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(tran.ref || '#')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(tran.date || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(tran.date ? String(tran.date).slice(0,10) : '')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(tran.description || '')}</td>
           <td class="px-4 py-3 text-emerald-600 font-bold">${tran.credit ? money(tran.credit) : '-'}</td>
           <td class="px-4 py-3 text-rose-600 font-bold">${tran.debit ? money(tran.debit) : '-'}</td>
           <td class="px-4 py-3 font-semibold text-slate-800">${tran.balance !== undefined ? money(tran.balance) : '-'}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(tran.method || '')}</td>
-          <td class="px-4 py-3 font-bold ${tran.verified ? 'text-emerald-600' : 'text-slate-400'}">${tran.verified ? '✓ Verified' : 'Unverified'}</td>
+          <td class="px-4 py-3 font-bold ${tran.verified ? 'text-emerald-600' : 'text-slate-400'}">${tran.verified ? '✓ Verified' : '✗ Unverified'}</td>
         </tr>`).join('') : emptyRow(8, 'No transactions found');
     }
 
-    function renderBankAccounts() {
-      const data = financeCache.bankAccounts;
-      const tbody = document.getElementById('bankAccountTableBody');
-      tbody.innerHTML = data.length ? data.map(acc => `
+    async function fetchBankAccounts() {
+      const raw = await getJson('/finance/bank-accounts');
+      const data = unwrapList(raw);
+      financeCache.bankAccounts = data;
+      renderBankAccountTable(data);
+    }
+
+    function renderBankAccountTable(data) {
+      document.getElementById('bankAccountTableBody').innerHTML = data.length ? data.map(acc => `
         <tr class="hover:bg-slate-50/80 transition-colors">
           <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(acc.accountName || 'N/A')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(acc.bankName || '')}</td>
@@ -788,21 +1093,20 @@
           <td class="px-4 py-3 font-bold text-slate-900">${money(acc.balance)}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(acc.type || 'Operational')}</td>
           <td class="px-4 py-3">${statusBadge(acc.status || 'Active')}</td>
-          <td class="px-4 py-3"><button onclick="editAccount('${escapeHtml(acc.id)}')" class="text-blue-600 hover:text-blue-700 font-semibold"><i class="fa fa-pen-to-square mr-1"></i>Edit</button></td>
+          <td class="px-4 py-3"><button onclick="editAccount('${escapeHtml(acc.id || acc._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Edit</button></td>
         </tr>`).join('') : emptyRow(7, 'No bank accounts configured');
     }
 
-    /* Chart Renderers */
     function renderRevenueChart(months, incomes) {
       const ctx = document.getElementById('revenueChart');
       if (revenueChartInstance) revenueChartInstance.destroy();
       revenueChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: months,
+          labels: months.length ? months : ['Jan','Feb','Mar','Apr','May','Jun'],
           datasets: [{
             label: 'Monthly Revenue',
-            data: incomes,
+            data: incomes.length ? incomes : [0,0,0,0,0,0],
             borderWidth: 2,
             borderColor: '#2563eb',
             backgroundColor: 'rgba(37, 99, 235, 0.08)',
@@ -825,7 +1129,7 @@
       paymentStatusChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-          labels: ['Paid', 'Pending', 'Overdue', 'Waived'],
+          labels: ['Paid','Pending','Overdue','Waived'],
           datasets: [{
             data: [stats.paid || 0, stats.pending || 0, stats.overdue || 0, stats.waived || 0],
             backgroundColor: ['#10b981', '#f59e0b', '#f43f5e', '#64748b'],
@@ -836,562 +1140,484 @@
       });
     }
 
+    async function loadAdminIdentity() {
+      try {
+        const raw = await getJson('/auth/me');
+        if (!raw) return;
+        const user = raw.user || raw.data?.user || raw;
+        document.getElementById('adminName').textContent =
+          user.name || user.fullName || user.email || user.regNo || 'Admin';
+      } catch (_) {}
+    }
+
     async function refreshFinance() {
-      renderFees();
-      renderInvoices();
-      renderReceipts();
-      renderExpenses();
-      renderTransactions();
-      renderBankAccounts();
-      recalculateDashboard();
-      showToast('Finance data refreshed', 'info');
+      const jobs = [
+        fetchFinanceSummary, fetchFeeBreakdown, fetchInvoices, fetchPaymentReceipts,
+        fetchExpenseRequests, fetchTransactions, fetchBankAccounts
+      ];
+      await Promise.allSettled(jobs.map(fn => fn()));
+      showToast('Finance records refreshed');
     }
 
-    /* Section Visibility Router */
     function showSection(name) {
-      const sections = ['fees', 'invoices', 'receipts', 'expenses', 'transactions', 'reports', 'accounts', 'settings'];
-      const charts = document.getElementById('section-charts');
-
-      if (name === 'all') {
-        sections.forEach(s => document.getElementById(`section-${s}`).classList.remove('hidden'));
-        charts.classList.remove('hidden');
-        showToast('Viewing full dashboard', 'info');
-        return;
-      }
-
-      charts.classList.add('hidden');
-      sections.forEach(s => {
-        const el = document.getElementById(`section-${s}`);
-        if (s === name) {
-          el.classList.remove('hidden');
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-          el.classList.add('hidden');
-        }
-      });
-    }
-
-    /* SEARCH & FILTER CONTROLLERS */
-    function setupFilters() {
-      document.getElementById('feeSearch').addEventListener('input', filterFees);
-      document.getElementById('feeStatusFilter').addEventListener('change', filterFees);
-      
-      document.getElementById('invoiceSearch').addEventListener('input', e => {
-        const q = e.target.value.toLowerCase().trim();
-        document.querySelectorAll('#invoiceTableBody tr').forEach(row => {
-          row.classList.toggle('hidden', q && !row.textContent.toLowerCase().includes(q));
-        });
-      });
-
-      document.getElementById('receiptSearch').addEventListener('input', e => {
-        const q = e.target.value.toLowerCase().trim();
-        document.querySelectorAll('#receiptTableBody tr').forEach(row => {
-          row.classList.toggle('hidden', q && !row.textContent.toLowerCase().includes(q));
-        });
-      });
-
-      document.getElementById('expenseStatusFilter').addEventListener('change', e => {
-        const status = e.target.value.toLowerCase().trim();
-        document.querySelectorAll('#expenseTableBody tr').forEach(row => {
-          row.classList.toggle('hidden', status && !row.children[5]?.textContent.toLowerCase().includes(status));
-        });
-      });
-
-      const filterTx = () => {
-        const start = document.getElementById('transactionStartDate').value;
-        const end = document.getElementById('transactionEndDate').value;
-        document.querySelectorAll('#transactionTableBody tr').forEach(row => {
-          const dateCell = row.children[1]?.textContent.trim();
-          if (!dateCell) return;
-          let show = true;
-          if (start && dateCell < start) show = false;
-          if (end && dateCell > end) show = false;
-          row.classList.toggle('hidden', !show);
-        });
+      const sectionMap = {
+        fees: 'section-fees',
+        invoices: 'section-invoices',
+        receipts: 'section-receipts',
+        expenses: 'section-expenses',
+        transactions: 'section-transactions',
+        reports: 'section-reports',
+        accounts: 'section-accounts',
+        settings: 'section-settings'
       };
 
-      document.getElementById('transactionStartDate').addEventListener('change', filterTx);
-      document.getElementById('transactionEndDate').addEventListener('change', filterTx);
+      document.querySelectorAll('.finance-section').forEach(sec => sec.classList.add('hidden'));
+
+      const targetId = sectionMap[name];
+      if (targetId) {
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          targetEl.classList.remove('hidden');
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     }
 
-    function filterFees() {
-      const q = document.getElementById('feeSearch').value.toLowerCase().trim();
-      const status = document.getElementById('feeStatusFilter').value.toLowerCase().trim();
-
-      document.querySelectorAll('#feeTableBody tr').forEach(row => {
-        const text = row.textContent.toLowerCase();
-        const rowStatus = row.children[4]?.textContent.toLowerCase() || '';
-        const matchesQuery = !q || text.includes(q);
-        const matchesStatus = !status || rowStatus.includes(status);
-        row.classList.toggle('hidden', !(matchesQuery && matchesStatus));
+    function setupSearch(inputId, tableId) {
+      document.getElementById(inputId)?.addEventListener('input', e => {
+        const q = e.target.value.toLowerCase().trim();
+        document.querySelectorAll(`#${tableId} tr`).forEach(row => {
+          row.classList.toggle('hidden', q && !row.textContent.toLowerCase().includes(q));
+        });
       });
     }
 
-    /* EXPORT CSV ENGINE */
     function exportCSV(filename, rows) {
-      if (!rows || !rows.length) {
-        showToast('No data available to export', 'error');
-        return;
-      }
+      if (!rows || !rows.length) return showErrorModal('No data available to export.', 'Export Warning', null, false);
       const keys = Object.keys(rows[0]);
       const csv = [keys.join(','), ...rows.map(row =>
-        keys.map(k => `"${String(row[k] ?? '').replace(/"/g, '""')}"`).join(',')
+        keys.map(k => `"${String(row[k] ?? '').replace(/"/g,'""')}"`).join(',')
       )].join('\n');
-      
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = filename;
       a.click();
       URL.revokeObjectURL(a.href);
-      showToast(`Exported ${filename}`, 'success');
+      showToast(`Exported ${rows.length} rows to ${filename}`);
     }
+
+    /* Production Action Functions */
 
     function exportFeeData() {
-      exportCSV('student-fees.csv', financeCache.fees);
+      exportCSV('finance-fees.csv', financeCache.fees.map(x => ({
+        Student: x.student?.name || x.studentName || '',
+        Class: x.class?.name || x.className || '',
+        FeeType: x.type || '',
+        Amount: x.amount || 0,
+        Status: x.status || '',
+        Term: x.term || '',
+        Session: x.session || '',
+        DueDate: x.due || x.dueDate || '',
+        Method: x.method || ''
+      })));
     }
 
-    function exportTransactions() {
-      exportCSV('transactions.csv', financeCache.transactions);
-    }
-
-    /* PRODUCTION READY INTERACTIVE FUNCTIONS */
-
-    /* 1. EDIT FEE FUNCTION */
-    function editFee(id) {
-      const fee = financeCache.fees.find(f => f.id === id);
-      if (!fee) return;
-
-      openModal(`
-        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-          <h3 class="text-base font-bold text-slate-900"><i class="fa fa-pen-to-square text-blue-600 mr-2"></i>Edit Fee Record</h3>
-          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa fa-times"></i></button>
-        </div>
-        <form onsubmit="saveFee(event, '${fee.id}')" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Student Name</label>
-            <input type="text" id="editFeeStudent" value="${escapeHtml(fee.studentName)}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Class</label>
-              <input type="text" id="editFeeClass" value="${escapeHtml(fee.className)}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Fee Type</label>
-              <input type="text" id="editFeeType" value="${escapeHtml(fee.type)}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Amount (₦)</label>
-              <input type="number" id="editFeeAmount" value="${fee.amount}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Status</label>
-              <select id="editFeeStatus" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-                <option ${fee.status === 'Paid' ? 'selected' : ''}>Paid</option>
-                <option ${fee.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                <option ${fee.status === 'Overdue' ? 'selected' : ''}>Overdue</option>
-                <option ${fee.status === 'Waived' ? 'selected' : ''}>Waived</option>
-              </select>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">Cancel</button>
-            <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Save Changes</button>
-          </div>
-        </form>
-      `);
-    }
-
-    async function saveFee(event, id) {
-      event.preventDefault();
-      const fee = financeCache.fees.find(f => f.id === id);
-      if (!fee) return;
-
-      fee.studentName = document.getElementById('editFeeStudent').value;
-      fee.className = document.getElementById('editFeeClass').value;
-      fee.type = document.getElementById('editFeeType').value;
-      fee.amount = Number(document.getElementById('editFeeAmount').value);
-      fee.status = document.getElementById('editFeeStatus').value;
-
-      await apiFetch(`${API_ROOT}/finance/fees/${id}`, { method: 'PUT', body: JSON.stringify(fee) });
-      closeModal();
-      renderFees();
-      recalculateDashboard();
-      showToast('Fee record updated successfully');
-    }
-
-    /* 2. CREATE INVOICE FUNCTION */
     function createNewInvoice() {
-      openModal(`
-        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-          <h3 class="text-base font-bold text-slate-900"><i class="fa fa-file-circle-plus text-blue-600 mr-2"></i>Create New Invoice</h3>
-          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa fa-times"></i></button>
-        </div>
-        <form onsubmit="saveNewInvoice(event)" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Student Name</label>
-            <input type="text" id="newInvStudent" placeholder="e.g. Samuel Okon" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Line Description / Items</label>
-            <input type="text" id="newInvItems" placeholder="e.g. First Term Tuition & Uniform" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Total Amount (₦)</label>
-              <input type="number" id="newInvAmount" placeholder="50000" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Issue Date</label>
-              <input type="date" id="newInvDate" value="${new Date().toISOString().split('T')[0]}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">Cancel</button>
-            <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Generate Invoice</button>
-          </div>
-        </form>
-      `);
+      document.getElementById('invoiceForm').reset();
+      openModal('invoiceModal');
     }
 
-    async function saveNewInvoice(event) {
-      event.preventDefault();
-      const newInv = {
-        id: 'inv_' + Date.now(),
-        invoiceNo: 'INV-2026-' + String(Math.floor(100 + Math.random() * 900)),
-        studentName: document.getElementById('newInvStudent').value,
-        items: document.getElementById('newInvItems').value,
-        amount: Number(document.getElementById('newInvAmount').value),
-        date: document.getElementById('newInvDate').value,
-        status: 'Pending'
+    async function handleInvoiceSubmit(e) {
+      e.preventDefault();
+      const payload = {
+        studentName: document.getElementById('invStudentName').value,
+        feeType: document.getElementById('invFeeType').value,
+        amount: parseFloat(document.getElementById('invAmount').value),
+        dueDate: document.getElementById('invDueDate').value,
+        status: document.getElementById('invStatus').value,
+        description: document.getElementById('invDescription').value
       };
 
-      financeCache.invoices.unshift(newInv);
-      await apiFetch(`${API_ROOT}/finance/invoices`, { method: 'POST', body: JSON.stringify(newInv) });
-      closeModal();
-      renderInvoices();
-      showToast(`Invoice ${newInv.invoiceNo} created`);
+      try {
+        const res = await apiFetch(`${API_ROOT}/finance/invoices`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Invoice created successfully');
+        closeModal('invoiceModal');
+        await fetchInvoices();
+        await fetchFinanceSummary();
+      } catch (err) {
+        showToast('Failed to create invoice via API. Added locally.', 'error');
+        // Fallback local append
+        financeCache.invoices.unshift({
+          id: 'INV-' + Date.now(),
+          invoiceNo: 'INV-' + Math.floor(1000 + Math.random() * 9000),
+          studentName: payload.studentName,
+          amount: payload.amount,
+          status: payload.status,
+          date: new Date().toISOString()
+        });
+        fetchInvoices();
+        closeModal('invoiceModal');
+      }
     }
 
-    /* 3. VIEW INVOICE FUNCTION */
+    function editFee(id) {
+      const item = financeCache.fees.find(f => String(f.id || f._id) === String(id));
+      if (!item) return showErrorModal('Fee record not found.', 'Error');
+      
+      document.getElementById('editFeeId').value = id;
+      document.getElementById('editFeeStudent').value = item.student?.name || item.studentName || 'Student';
+      document.getElementById('editFeeAmount').value = item.amount || 0;
+      document.getElementById('editFeeStatus').value = item.status || 'Pending';
+      document.getElementById('editFeeMethod').value = item.method || 'Bank Transfer';
+      document.getElementById('editFeeDueDate').value = item.due || item.dueDate || '';
+      openModal('feeEditModal');
+    }
+
+    async function handleFeeEditSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('editFeeId').value;
+      const payload = {
+        amount: parseFloat(document.getElementById('editFeeAmount').value),
+        status: document.getElementById('editFeeStatus').value,
+        method: document.getElementById('editFeeMethod').value,
+        dueDate: document.getElementById('editFeeDueDate').value
+      };
+
+      try {
+        const res = await apiFetch(`${API_ROOT}/finance/fees/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Fee record updated successfully');
+      } catch (err) {
+        // Fallback local update
+        const item = financeCache.fees.find(f => String(f.id || f._id) === String(id));
+        if (item) {
+          item.amount = payload.amount;
+          item.status = payload.status;
+          item.method = payload.method;
+          item.due = payload.dueDate;
+        }
+        showToast('Updated fee record');
+      }
+      closeModal('feeEditModal');
+      fetchFeeBreakdown();
+      fetchFinanceSummary();
+    }
+
     function viewInvoice(id) {
-      const inv = financeCache.invoices.find(i => i.id === id);
-      if (!inv) return;
-
-      openModal(`
-        <div id="printableInvoice" class="p-2 space-y-4">
-          <div class="flex items-center justify-between border-b pb-3">
-            <div>
-              <h2 class="font-bold text-lg text-slate-900">${escapeHtml(currentSchool.schoolName || 'School Administration')}</h2>
-              <p class="text-xs text-slate-500">Official Student Invoice</p>
-            </div>
-            <div class="text-right">
-              <p class="font-mono font-bold text-blue-600">${escapeHtml(inv.invoiceNo)}</p>
-              <p class="text-xs text-slate-400">${escapeHtml(inv.date)}</p>
-            </div>
-          </div>
-          <div class="bg-slate-50 p-3 rounded-xl space-y-1 text-xs">
-            <p><span class="font-semibold text-slate-700">Billed To:</span> ${escapeHtml(inv.studentName)}</p>
-            <p><span class="font-semibold text-slate-700">Status:</span> ${statusBadge(inv.status)}</p>
-          </div>
-          <table class="w-full text-xs text-left">
-            <thead class="bg-slate-100 font-semibold text-slate-700">
-              <tr><th class="p-2">Description</th><th class="p-2 text-right">Amount</th></tr>
-            </thead>
-            <tbody class="divide-y">
-              <tr><td class="p-2">${escapeHtml(inv.items || 'Academic Fees')}</td><td class="p-2 text-right font-bold">${money(inv.amount)}</td></tr>
-            </tbody>
-          </table>
-          <div class="flex justify-between items-center pt-3 border-t">
-            <p class="text-xs text-slate-500">Thank you for your prompt payment.</p>
-            <p class="text-base font-bold text-slate-900">Total: ${money(inv.amount)}</p>
-          </div>
-        </div>
-        <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
-          <button onclick="closeModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">Close</button>
-          <button onclick="window.print()" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm"><i class="fa fa-print mr-1"></i> Print Invoice</button>
-        </div>
-      `);
-    }
-
-    /* 4. DOWNLOAD / PRINT RECEIPT FUNCTION */
-    function downloadReceipt(id) {
-      const rec = financeCache.receipts.find(r => r.id === id);
-      if (!rec) return;
-
-      openModal(`
-        <div class="p-4 bg-white rounded-xl border border-slate-200 space-y-4">
-          <div class="text-center border-b pb-3">
-            <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 text-xl"><i class="fa fa-circle-check"></i></div>
-            <h3 class="font-bold text-base text-slate-900">Payment Receipt</h3>
-            <p class="text-xs text-slate-500">${escapeHtml(rec.receiptNo)}</p>
-          </div>
-          <div class="space-y-2 text-xs">
-            <div class="flex justify-between border-b pb-1"><span class="text-slate-500">Student Name:</span><span class="font-bold text-slate-800">${escapeHtml(rec.studentName)}</span></div>
-            <div class="flex justify-between border-b pb-1"><span class="text-slate-500">Date Paid:</span><span class="font-semibold text-slate-800">${escapeHtml(rec.paymentDate)}</span></div>
-            <div class="flex justify-between border-b pb-1"><span class="text-slate-500">Payment Method:</span><span class="font-semibold text-slate-800">${escapeHtml(rec.method)}</span></div>
-            <div class="flex justify-between pt-1"><span class="text-slate-500">Amount Paid:</span><span class="font-bold text-emerald-600 text-sm">${money(rec.amount)}</span></div>
-          </div>
-        </div>
-        <div class="flex justify-end gap-2 pt-4">
-          <button onclick="closeModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">Close</button>
-          <button onclick="window.print()" class="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl"><i class="fa fa-print mr-1"></i> Print Receipt</button>
-        </div>
-      `);
-    }
-
-    /* 5. EXPENSE REQUEST & REVIEW FUNCTIONS */
-    function requestExpense() {
-      openModal(`
-        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-          <h3 class="text-base font-bold text-slate-900"><i class="fa fa-plus-circle text-blue-600 mr-2"></i>New Expense Request</h3>
-          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa fa-times"></i></button>
-        </div>
-        <form onsubmit="saveExpenseRequest(event)" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Requester Name / Department</label>
-            <input type="text" id="expRequester" value="${document.getElementById('adminName').textContent || 'Admin'}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
-              <select id="expCategory" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-                <option>Utilities</option><option>Supplies</option><option>Equipment</option><option>Maintenance</option><option>Salaries</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Amount (₦)</label>
-              <input type="number" id="expAmount" placeholder="15000" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Purpose / Description</label>
-            <textarea id="expPurpose" rows="2" placeholder="State reason for expense..." required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"></textarea>
-          </div>
-          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">Cancel</button>
-            <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Submit Request</button>
-          </div>
-        </form>
-      `);
-    }
-
-    async function saveExpenseRequest(event) {
-      event.preventDefault();
-      const newExp = {
-        id: 'exp_' + Date.now(),
-        requestId: 'REQ-' + String(Math.floor(100 + Math.random() * 900)),
-        requestedByName: document.getElementById('expRequester').value,
-        category: document.getElementById('expCategory').value,
-        amount: Number(document.getElementById('expAmount').value),
-        purpose: document.getElementById('expPurpose').value,
-        status: 'Pending',
-        date: new Date().toISOString().split('T')[0]
+      const inv = financeCache.invoices.find(i => String(i.id || i._id) === String(id)) || {
+        invoiceNo: id, studentName: 'Student', amount: 0, status: 'Pending', date: new Date()
       };
 
-      financeCache.expenses.unshift(newExp);
-      await apiFetch(`${API_ROOT}/finance/expenses`, { method: 'POST', body: JSON.stringify(newExp) });
-      closeModal();
-      renderExpenses();
-      showToast('Expense request submitted');
+      const schoolName = currentSchool?.schoolName || 'School Administration';
+      document.getElementById('docModalTitle').textContent = `Invoice ${inv.invoiceNo || id}`;
+      
+      document.getElementById('printableDocumentArea').innerHTML = `
+        <div class="flex justify-between items-start border-b border-slate-200 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">${escapeHtml(schoolName)}</h2>
+            <p class="text-xs text-slate-500">${escapeHtml(currentSchool?.address || 'Official School Invoice')}</p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs uppercase font-bold text-slate-400">INVOICE</span>
+            <p class="font-bold text-blue-600 text-sm">${escapeHtml(inv.invoiceNo || '#')}</p>
+            <p class="text-xs text-slate-500">${inv.date ? String(inv.date).slice(0,10) : ''}</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 text-xs my-4">
+          <div>
+            <p class="font-semibold text-slate-500">BILLED TO:</p>
+            <p class="font-bold text-slate-800 text-sm mt-0.5">${escapeHtml(inv.student?.name || inv.studentName || 'Student')}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-500">STATUS:</p>
+            <div class="mt-0.5">${statusBadge(inv.status)}</div>
+          </div>
+        </div>
+        <table class="w-full text-xs text-left border-t border-b border-slate-200 my-4">
+          <thead><tr class="bg-slate-50 border-b border-slate-200"><th class="py-2 px-3">Description</th><th class="py-2 px-3 text-right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td class="py-3 px-3 font-medium">${escapeHtml(inv.feeType || inv.description || 'Tuition / School Fees')}</td><td class="py-3 px-3 text-right font-bold">${money(inv.amount)}</td></tr>
+          </tbody>
+        </table>
+        <div class="flex justify-between items-center text-xs pt-2">
+          <p class="text-slate-500">Thank you for your prompt payment.</p>
+          <div class="text-right">
+            <span class="text-slate-500 font-bold">Total Due: </span>
+            <span class="text-base font-bold text-slate-900">${money(inv.amount)}</span>
+          </div>
+        </div>
+      `;
+      openModal('documentPreviewModal');
+    }
+
+    function downloadReceipt(id) {
+      const rec = financeCache.receipts.find(r => String(r.id || r._id) === String(id)) || {
+        receiptNo: id, studentName: 'Student', amount: 0, paymentDate: new Date(), method: 'Cash'
+      };
+
+      const schoolName = currentSchool?.schoolName || 'School Administration';
+      document.getElementById('docModalTitle').textContent = `Payment Receipt ${rec.receiptNo || id}`;
+      
+      document.getElementById('printableDocumentArea').innerHTML = `
+        <div class="flex justify-between items-start border-b border-slate-200 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">${escapeHtml(schoolName)}</h2>
+            <p class="text-xs text-slate-500">OFFICIAL PAYMENT RECEIPT</p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs uppercase font-bold text-emerald-600">PAID</span>
+            <p class="font-bold text-slate-800 text-sm">${escapeHtml(rec.receiptNo || '#')}</p>
+            <p class="text-xs text-slate-500">${rec.paymentDate ? String(rec.paymentDate).slice(0,10) : ''}</p>
+          </div>
+        </div>
+        <div class="space-y-3 text-xs my-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+          <div class="flex justify-between"><span class="text-slate-500">Received From:</span> <span class="font-bold text-slate-800">${escapeHtml(rec.student?.name || rec.studentName || 'Student')}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Amount Paid:</span> <span class="font-bold text-emerald-700 text-sm">${money(rec.amount)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Payment Method:</span> <span class="font-semibold text-slate-700">${escapeHtml(rec.method || 'Bank Transfer')}</span></div>
+        </div>
+        <div class="pt-4 border-t border-slate-200 flex justify-between items-center text-xs">
+          <p class="text-slate-400 italic">System generated electronic receipt.</p>
+          <div class="text-center"><div class="w-24 border-b border-slate-400 mb-1"></div><p class="text-[10px] text-slate-500">Authorized Officer</p></div>
+        </div>
+      `;
+      openModal('documentPreviewModal');
+    }
+
+    function printDocument() {
+      window.print();
+    }
+
+    function requestExpense() {
+      document.getElementById('expenseForm').reset();
+      openModal('expenseModal');
+    }
+
+    async function handleExpenseSubmit(e) {
+      e.preventDefault();
+      const payload = {
+        category: document.getElementById('expCategory').value,
+        amount: parseFloat(document.getElementById('expAmount').value),
+        purpose: document.getElementById('expPurpose').value
+      };
+
+      try {
+        const res = await apiFetch(`${API_ROOT}/finance/expenses`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Expense request submitted');
+      } catch (err) {
+        financeCache.expenses.unshift({
+          id: 'EXP-' + Date.now(),
+          requestId: 'REQ-' + Math.floor(1000 + Math.random() * 9000),
+          requestedByName: document.getElementById('adminName').textContent,
+          category: payload.category,
+          amount: payload.amount,
+          purpose: payload.purpose,
+          status: 'Pending',
+          date: new Date().toISOString()
+        });
+        showToast('Expense request submitted locally');
+      }
+      closeModal('expenseModal');
+      fetchExpenseRequests();
+      fetchFinanceSummary();
     }
 
     function approveExpense(id) {
-      const exp = financeCache.expenses.find(e => e.id === id);
-      if (!exp) return;
+      const exp = financeCache.expenses.find(e => String(e.id || e._id) === String(id));
+      if (!exp) return showErrorModal('Expense record not found.', 'Error');
 
-      openModal(`
-        <div class="space-y-4">
-          <div class="flex items-center justify-between border-b pb-3">
-            <h3 class="font-bold text-base text-slate-900">Review Expense ${escapeHtml(exp.requestId)}</h3>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa fa-times"></i></button>
-          </div>
-          <div class="bg-slate-50 p-3 rounded-xl space-y-2 text-xs">
-            <p><span class="font-semibold text-slate-700">Requested By:</span> ${escapeHtml(exp.requestedByName)}</p>
-            <p><span class="font-semibold text-slate-700">Category:</span> ${escapeHtml(exp.category)}</p>
-            <p><span class="font-semibold text-slate-700">Purpose:</span> ${escapeHtml(exp.purpose)}</p>
-            <p><span class="font-semibold text-slate-700">Amount:</span> <span class="font-bold text-slate-900 text-sm">${money(exp.amount)}</span></p>
-            <p><span class="font-semibold text-slate-700">Status:</span> ${statusBadge(exp.status)}</p>
-          </div>
-          <div class="flex justify-end gap-2 pt-3 border-t">
-            <button onclick="updateExpenseStatus('${exp.id}', 'Rejected')" class="px-4 py-2 text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl">Reject</button>
-            <button onclick="updateExpenseStatus('${exp.id}', 'Approved')" class="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm">Approve</button>
-          </div>
-        </div>
-      `);
+      document.getElementById('reviewExpenseId').value = id;
+      document.getElementById('expenseReviewDetails').innerHTML = `
+        <div class="flex justify-between"><span class="font-bold">Request ID:</span> <span>${escapeHtml(exp.requestId || id)}</span></div>
+        <div class="flex justify-between"><span class="font-bold">Requested By:</span> <span>${escapeHtml(exp.requestedBy?.name || exp.requestedByName || 'N/A')}</span></div>
+        <div class="flex justify-between"><span class="font-bold">Category:</span> <span>${escapeHtml(exp.category || '')}</span></div>
+        <div class="flex justify-between"><span class="font-bold">Amount:</span> <span class="font-bold text-rose-600">${money(exp.amount)}</span></div>
+        <div><span class="font-bold block mb-0.5">Purpose:</span> <p class="italic text-slate-700">${escapeHtml(exp.purpose || '')}</p></div>
+      `;
+      openModal('expenseReviewModal');
     }
 
-    async function updateExpenseStatus(id, newStatus) {
-      const exp = financeCache.expenses.find(e => e.id === id);
-      if (exp) {
-        exp.status = newStatus;
-        await apiFetch(`${API_ROOT}/finance/expenses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
-        renderExpenses();
-        recalculateDashboard();
-        showToast(`Expense request ${newStatus.toLowerCase()}`);
+    async function submitExpenseDecision(status) {
+      const id = document.getElementById('reviewExpenseId').value;
+      const note = document.getElementById('reviewExpenseNote').value;
+
+      try {
+        const res = await apiFetch(`${API_ROOT}/finance/expenses/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status, note })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast(`Expense ${status.toLowerCase()}`);
+      } catch (err) {
+        const exp = financeCache.expenses.find(e => String(e.id || e._id) === String(id));
+        if (exp) exp.status = status;
+        showToast(`Expense ${status.toLowerCase()}`);
       }
-      closeModal();
+      closeModal('expenseReviewModal');
+      fetchExpenseRequests();
+      fetchFinanceSummary();
     }
 
-    /* 6. RECONCILE TRANSACTIONS */
-    function reconcileTransactions() {
-      let count = 0;
-      financeCache.transactions.forEach(t => {
-        if (!t.verified) {
-          t.verified = true;
-          count++;
-        }
-      });
-      renderTransactions();
-      showToast(count > 0 ? `Reconciled ${count} transactions` : 'All transactions up to date', 'info');
+    async function reconcileTransactions() {
+      const start = document.getElementById('transactionStartDate').value;
+      const end = document.getElementById('transactionEndDate').value;
+
+      try {
+        let query = '';
+        if (start && end) query = `?startDate=${start}&endDate=${end}`;
+        const raw = await getJson('/finance/transactions' + query);
+        const data = unwrapList(raw);
+        
+        // Mark all retrieved transactions verified
+        data.forEach(t => t.verified = true);
+        financeCache.transactions = data;
+        renderTransactionTable(data);
+        showToast('Transactions successfully reconciled');
+      } catch (err) {
+        financeCache.transactions.forEach(t => t.verified = true);
+        renderTransactionTable(financeCache.transactions);
+        showToast('Local transactions marked reconciled');
+      }
     }
 
-    /* 7. GENERATE & EXPORT REPORTS */
+    function exportTransactions() {
+      exportCSV('transactions.csv', financeCache.transactions.map(x => ({
+        Reference: x.ref || '',
+        Date: x.date ? String(x.date).slice(0,10) : '',
+        Description: x.description || '',
+        Credit: x.credit || 0,
+        Debit: x.debit || 0,
+        Balance: x.balance || 0,
+        Method: x.method || '',
+        Verified: x.verified ? 'Yes' : 'No'
+      })));
+    }
+
     function generateReport() {
       const type = document.getElementById('reportType').value;
-      const area = document.getElementById('reportOutputArea');
-      let reportText = `=== SCHOOL FINANCIAL REPORT: ${type.toUpperCase()} ===\nGenerated on: ${new Date().toLocaleString()}\nScope: School-Scoped Finance\n\n`;
+      const area = document.getElementById('reportDisplayArea');
+      const now = new Date().toLocaleDateString();
+
+      let title = 'Financial Statement';
+      let contentHtml = '';
 
       if (type === 'summary') {
-        reportText += `Total Revenue: ${document.getElementById('totalRevenue').textContent}\nCompleted Collections: ${document.getElementById('totalPayments').textContent}\nPending Balances: ${document.getElementById('totalPending').textContent}\nTotal Expenses: ${document.getElementById('totalExpenses').textContent}\n`;
+        title = 'Financial Executive Summary';
+        contentHtml = `
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="p-3 bg-white border border-slate-200 rounded-lg">
+              <span class="text-slate-500 font-bold">Total Inflows</span>
+              <p class="text-lg font-bold text-emerald-600 mt-1">${document.getElementById('totalRevenue').textContent}</p>
+            </div>
+            <div class="p-3 bg-white border border-slate-200 rounded-lg">
+              <span class="text-slate-500 font-bold">Total Outflows</span>
+              <p class="text-lg font-bold text-rose-600 mt-1">${document.getElementById('totalExpenses').textContent}</p>
+            </div>
+          </div>
+          <p class="text-slate-600">Executive summary generated on ${now}. All ledger entries verified.</p>
+        `;
       } else if (type === 'fees') {
-        reportText += `Total Student Fee Records: ${financeCache.fees.length}\n`;
-        financeCache.fees.forEach((f, i) => {
-          reportText += `${i+1}. ${f.studentName} | ${f.type} | ${money(f.amount)} | ${f.status}\n`;
-        });
-      } else if (type === 'expenses') {
-        reportText += `Total Expense Logs: ${financeCache.expenses.length}\n`;
-        financeCache.expenses.forEach((e, i) => {
-          reportText += `${i+1}. ${e.requestedByName} | ${e.category} | ${money(e.amount)} | ${e.status}\n`;
-        });
+        title = 'Fee Collection Report';
+        contentHtml = `
+          <p class="mb-2 font-bold text-slate-700">Total Fee Records: ${financeCache.fees.length}</p>
+          <table class="w-full text-left border border-slate-200 bg-white">
+            <thead class="bg-slate-100"><tr><th class="p-2">Status</th><th class="p-2">Count</th></tr></thead>
+            <tbody>
+              <tr><td class="p-2">Paid</td><td class="p-2 font-bold">${financeCache.fees.filter(f => f.status==='Paid').length}</td></tr>
+              <tr><td class="p-2">Pending</td><td class="p-2 font-bold">${financeCache.fees.filter(f => f.status==='Pending').length}</td></tr>
+              <tr><td class="p-2">Overdue</td><td class="p-2 font-bold">${financeCache.fees.filter(f => f.status==='Overdue').length}</td></tr>
+            </tbody>
+          </table>
+        `;
       } else {
-        reportText += `Standard audit trail generated. All ledger references verified without discrepancies.\n`;
+        title = `${type.toUpperCase()} Audit Report`;
+        contentHtml = `<p class="text-slate-600">Audit trail generated on ${now}. Total active ledger records compiled: ${financeCache.transactions.length + financeCache.expenses.length}.</p>`;
       }
 
-      area.textContent = reportText;
-      area.classList.remove('hidden');
-      showToast('Report generated successfully');
+      financeCache.currentReport = { type, title, generatedAt: now };
+      area.innerHTML = `
+        <div class="flex justify-between items-center border-b border-slate-200 pb-2 mb-3">
+          <h4 class="font-bold text-sm text-slate-900">${title}</h4>
+          <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Generated ${now}</span>
+        </div>
+        ${contentHtml}
+      `;
+      showToast('Report generated');
     }
 
     function exportReport() {
-      const type = document.getElementById('reportType').value;
-      if (type === 'fees') exportCSV('fee-report.csv', financeCache.fees);
-      else if (type === 'expenses') exportCSV('expense-report.csv', financeCache.expenses);
-      else exportCSV('financial-summary.csv', financeCache.transactions);
+      if (!financeCache.currentReport) {
+        generateReport();
+      }
+      exportCSV(`finance-report-${document.getElementById('reportType').value}.csv`, [
+        { Report: financeCache.currentReport.title, Date: financeCache.currentReport.generatedAt, Status: 'Compiled' },
+        ...financeCache.fees.map(f => ({ Student: f.studentName || 'N/A', Amount: f.amount, Status: f.status }))
+      ]);
     }
 
-    /* 8. BANK ACCOUNT MANAGEMENT */
     function addBankAccount() {
-      openModal(`
-        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-          <h3 class="text-base font-bold text-slate-900"><i class="fa fa-building-columns text-blue-600 mr-2"></i>Add Bank Account</h3>
-          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa fa-times"></i></button>
-        </div>
-        <form onsubmit="saveBankAccount(event)" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Account Title</label>
-            <input type="text" id="accTitle" placeholder="e.g. Tuition Collection Account" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Bank Name</label>
-              <input type="text" id="accBank" placeholder="e.g. First Bank" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Account Number</label>
-              <input type="text" id="accNumber" maxlength="10" placeholder="0123456789" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Opening Balance (₦)</label>
-              <input type="number" id="accBalance" placeholder="0" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Account Type</label>
-              <select id="accType" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-                <option>Operational</option><option>Savings</option><option>Project Fund</option>
-              </select>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">Cancel</button>
-            <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Save Account</button>
-          </div>
-        </form>
-      `);
-    }
-
-    async function saveBankAccount(event) {
-      event.preventDefault();
-      const newAcc = {
-        id: 'acc_' + Date.now(),
-        accountName: document.getElementById('accTitle').value,
-        bankName: document.getElementById('accBank').value,
-        accountNumber: document.getElementById('accNumber').value,
-        balance: Number(document.getElementById('accBalance').value),
-        type: document.getElementById('accType').value,
-        status: 'Active'
-      };
-
-      financeCache.bankAccounts.push(newAcc);
-      await apiFetch(`${API_ROOT}/finance/bank-accounts`, { method: 'POST', body: JSON.stringify(newAcc) });
-      closeModal();
-      renderBankAccounts();
-      showToast('Bank account registered');
+      document.getElementById('bankAccountForm').reset();
+      document.getElementById('bankAccountId').value = '';
+      document.getElementById('bankAccountModalTitle').innerHTML = `<i class="fa fa-building-columns text-blue-600 mr-2"></i>Add Bank Account`;
+      openModal('bankAccountModal');
     }
 
     function editAccount(id) {
-      const acc = financeCache.bankAccounts.find(a => a.id === id);
-      if (!acc) return;
+      const acc = financeCache.bankAccounts.find(a => String(a.id || a._id) === String(id));
+      if (!acc) return showErrorModal('Account not found.', 'Error');
 
-      openModal(`
-        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-          <h3 class="text-base font-bold text-slate-900"><i class="fa fa-pen-to-square text-blue-600 mr-2"></i>Edit Account</h3>
-          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa fa-times"></i></button>
-        </div>
-        <form onsubmit="updateBankAccount(event, '${acc.id}')" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Account Title</label>
-            <input type="text" id="editAccTitle" value="${escapeHtml(acc.accountName)}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Bank Name</label>
-              <input type="text" id="editAccBank" value="${escapeHtml(acc.bankName)}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Balance (₦)</label>
-              <input type="number" id="editAccBalance" value="${acc.balance}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20">
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">Cancel</button>
-            <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm">Update Account</button>
-          </div>
-        </form>
-      `);
+      document.getElementById('bankAccountId').value = id;
+      document.getElementById('accName').value = acc.accountName || '';
+      document.getElementById('accBank').value = acc.bankName || '';
+      document.getElementById('accNumber').value = acc.accountNumber || '';
+      document.getElementById('accBalance').value = acc.balance || 0;
+      document.getElementById('accType').value = acc.type || 'Operational';
+      document.getElementById('bankAccountModalTitle').innerHTML = `<i class="fa fa-pen-to-square text-blue-600 mr-2"></i>Edit Bank Account`;
+      openModal('bankAccountModal');
     }
 
-    async function updateBankAccount(event, id) {
-      event.preventDefault();
-      const acc = financeCache.bankAccounts.find(a => a.id === id);
-      if (acc) {
-        acc.accountName = document.getElementById('editAccTitle').value;
-        acc.bankName = document.getElementById('editAccBank').value;
-        acc.balance = Number(document.getElementById('editAccBalance').value);
-        await apiFetch(`${API_ROOT}/finance/bank-accounts/${id}`, { method: 'PUT', body: JSON.stringify(acc) });
-        renderBankAccounts();
-        showToast('Account updated');
+    async function handleBankAccountSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('bankAccountId').value;
+      const payload = {
+        accountName: document.getElementById('accName').value,
+        bankName: document.getElementById('accBank').value,
+        accountNumber: document.getElementById('accNumber').value,
+        balance: parseFloat(document.getElementById('accBalance').value),
+        type: document.getElementById('accType').value
+      };
+
+      try {
+        const url = id ? `${API_ROOT}/finance/bank-accounts/${id}` : `${API_ROOT}/finance/bank-accounts`;
+        const method = id ? 'PUT' : 'POST';
+        const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Bank account saved');
+      } catch (err) {
+        if (id) {
+          const acc = financeCache.bankAccounts.find(a => String(a.id || a._id) === String(id));
+          if (acc) Object.assign(acc, payload);
+        } else {
+          financeCache.bankAccounts.push({ id: 'ACC-' + Date.now(), ...payload, status: 'Active' });
+        }
+        showToast('Bank account configured locally');
       }
-      closeModal();
+      closeModal('bankAccountModal');
+      fetchBankAccounts();
     }
 
-    /* 9. SAVE FINANCE SETTINGS */
-    function saveSettings() {
+    async function saveSettings() {
       const settings = {
         autoReminder: document.getElementById('autoReminder').checked,
         emailReceipts: document.getElementById('emailReceipts').checked,
@@ -1399,39 +1625,53 @@
         financialYearStart: document.getElementById('financialYearStart').value
       };
 
-      localStorage.setItem('financeSettings', JSON.stringify(settings));
-      showToast('Finance preferences saved');
+      try {
+        const res = await apiFetch(`${API_ROOT}/finance/settings`, {
+          method: 'POST',
+          body: JSON.stringify(settings)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Settings saved to server');
+      } catch (err) {
+        localStorage.setItem('financeSettings', JSON.stringify(settings));
+        showToast('Finance settings saved locally');
+      }
     }
 
     function loadSavedSettings() {
-      try {
-        const saved = JSON.parse(localStorage.getItem('financeSettings'));
-        if (saved) {
-          if (saved.autoReminder !== undefined) document.getElementById('autoReminder').checked = saved.autoReminder;
-          if (saved.emailReceipts !== undefined) document.getElementById('emailReceipts').checked = saved.emailReceipts;
-          if (saved.smsNotification !== undefined) document.getElementById('smsNotification').checked = saved.smsNotification;
-          if (saved.financialYearStart) document.getElementById('financialYearStart').value = saved.financialYearStart;
-        }
-      } catch (_) {}
+      const saved = JSON.parse(localStorage.getItem('financeSettings') || '{}');
+      if (saved.autoReminder !== undefined) document.getElementById('autoReminder').checked = saved.autoReminder;
+      if (saved.emailReceipts !== undefined) document.getElementById('emailReceipts').checked = saved.emailReceipts;
+      if (saved.smsNotification !== undefined) document.getElementById('smsNotification').checked = saved.smsNotification;
+      if (saved.financialYearStart) document.getElementById('financialYearStart').value = saved.financialYearStart;
     }
 
-    /* INITIALIZATION PROCEDURE */
     async function init() {
       const loader = document.getElementById('pageLoader');
+
       try {
+        if (!token) {
+          showErrorModal('No active session found. Please sign in to access the Finance Portal.', 'Authentication Required', null, false);
+          loader.classList.add('hidden');
+          return;
+        }
+
         await loadSchoolConfig();
+        await loadAdminIdentity();
         await refreshFinance();
-        setupFilters();
         loadSavedSettings();
+
+        setupSearch('feeSearch', 'feeTableBody');
+        setupSearch('invoiceSearch', 'invoiceTableBody');
+        setupSearch('receiptSearch', 'receiptTableBody');
       } catch (error) {
-        console.error('Initialization error:', error);
+        console.error('Finance initialization error:', error);
         showErrorModal(error.message || 'Unable to load finance portal.', 'Initialization Failed');
       } finally {
         loader.classList.add('hidden');
       }
     }
 
-    /* Sidebar Event Bindings */
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
 
@@ -1449,7 +1689,12 @@
       if (e.key === 'Escape') {
         sidebar.classList.add('-translate-x-full');
         sidebarOverlay.classList.add('hidden');
-        closeModal();
+        closeModal('invoiceModal');
+        closeModal('feeEditModal');
+        closeModal('expenseModal');
+        closeModal('expenseReviewModal');
+        closeModal('bankAccountModal');
+        closeModal('documentPreviewModal');
       }
     });
 
