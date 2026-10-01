@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Administrative Payments | School Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config={theme:{extend:{fontFamily:{sans:['"Plus Jakarta Sans"','sans-serif']},colors:{brand:{50:'#eff6ff',100:'#dbeafe',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a'}}}}};
+  </script>
+  <style>
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:#f8fafc;color:#0f172a}
+    ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#f1f5f9}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:9999px}
+    .section-card,.stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+    .section-card{padding:1.5rem;margin-bottom:1.25rem}
+    .section-title{display:flex;align-items:center;gap:.65rem;font-size:1rem;font-weight:800;color:#0f172a;margin-bottom:1.25rem}
+    .section-title i{color:#2563eb}
+    .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem}
+    .stat-card{padding:1.25rem;display:flex;flex-direction:column;gap:.45rem}
+    .stat-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+    .stat-value{font-size:1.5rem;font-weight:800;color:#1d4ed8}
+    .payment-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-bottom:0}
+    .form-group{display:flex;flex-direction:column;gap:.4rem}
+    .form-group label,.modal-field label{font-size:.75rem;font-weight:700;color:#475569}
+    .form-group input,.form-group select,.form-group textarea,.modal-field input,.modal-field select,.modal-field textarea,#salarySearch,#salaryStatusFilter,#adminSearch,#adminStatusFilter{width:100%;border:1px solid #cbd5e1;border-radius:.75rem;background:#f8fafc;padding:.65rem .8rem;font-size:.875rem;color:#0f172a;transition:.2s}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus,.modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus,#salarySearch:focus,#salaryStatusFilter:focus,#adminSearch:focus,#adminStatusFilter:focus{outline:none;background:#fff;border-color:#2563eb;box-shadow:0 0 0 4px rgba(59,130,246,.1)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:0;border-radius:.75rem;padding:.65rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;transition:.2s}
+    .btn:hover{transform:translateY(-1px)}.btn-primary{background:#2563eb;color:#fff}.btn-success{background:#059669;color:#fff}.btn-danger{background:#dc2626;color:#fff}.btn-primary:hover{background:#1d4ed8}.btn-success:hover{background:#047857}.btn-danger:hover{background:#b91c1c}
+    .message{display:none;margin-top:1rem;padding:.75rem 1rem;border-radius:.75rem;font-size:.82rem;font-weight:600}.message.success{display:block;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0}.message.error{display:block;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
+    .table-container{overflow-x:auto;border:1px solid #e2e8f0;border-radius:.875rem}
+    table{width:100%;border-collapse:collapse;min-width:900px}
+    thead{background:#f8fafc}th{padding:.8rem 1rem;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap}td{padding:.8rem 1rem;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#334155}tbody tr:hover{background:#f8fafc}
+    .badge{display:inline-flex;border-radius:9999px;padding:.3rem .65rem;font-size:.68rem;font-weight:800;white-space:nowrap}.badge-paid,.badge-approved{background:#dcfce7;color:#15803d}.badge-unpaid,.badge-rejected{background:#fee2e2;color:#b91c1c}.badge-pending{background:#dbeafe;color:#0369a1}.badge-waived{background:#fef3c7;color:#92400e}
+    .action-btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:.6rem;padding:.45rem .6rem;cursor:pointer}.action-btn-edit{background:#eff6ff;color:#2563eb}.action-btn-delete{background:#fef2f2;color:#dc2626}
+    .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:999;display:none;align-items:center;justify-content:center;padding:1rem}.modal-overlay.active{display:flex}.modal-content{width:100%;max-width:620px;max-height:90vh;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:1rem;box-shadow:0 25px 50px -12px rgba(15,23,42,.25);padding:1.5rem}.modal-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:1rem;margin-bottom:1rem;border-bottom:1px solid #e2e8f0}.modal-header h2{margin:0;font-size:1rem;font-weight:800;color:#0f172a}.modal-close{border:0;background:#f8fafc;border-radius:.65rem;padding:.5rem;color:#64748b;cursor:pointer}.modal-body{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.modal-field{display:flex;flex-direction:column;gap:.4rem}.modal-actions{display:flex;gap:.75rem;padding-top:1rem;border-top:1px solid #e2e8f0}
+    .loading{text-align:center;padding:2.5rem;color:#64748b}.loader-spinner{width:34px;height:34px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto .75rem}@keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:1024px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:768px){.payment-form,.modal-body{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:480px){.stats-grid{grid-template-columns:1fr}.section-card{padding:1rem}}
+  </style></head>
+<body>
+  <div class="min-h-screen">
+    <aside id="sidebar" class="fixed left-0 top-0 z-50 h-screen w-72 -translate-x-full border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-300 ease-in-out md:translate-x-0 overflow-y-auto">
+      <div class="flex h-full flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3.5 border-b border-slate-800 p-5">
+            <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-800 ring-2 ring-slate-700">
+              <img id="schoolLogo" src="mainlogo.png" alt="Logo" class="h-full w-full object-contain">
+              <span id="schoolFallback" class="hidden font-bold text-blue-400 text-base">SC</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <b id="schoolName" class="block truncate text-sm font-bold text-white">School</b>
+              <span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Admin Portal
+              </span>
+            </div>
+          </div>
+          <nav class="space-y-1.5 p-3.5 text-sm font-medium" aria-label="Primary">
+            <a href="admin.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-house w-5 text-center text-slate-500"></i> Dashboard</a>
+            <a href="admission.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-graduation-cap w-5 text-center text-slate-500"></i> Admission</a>
+            <a href="more.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-globe w-5 text-center text-slate-500"></i> Multi-location</a>
+            <a href="people.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-users w-5 text-center text-slate-500"></i> People</a>
+            <a href="academics.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-book-open w-5 text-center text-slate-500"></i> Academics</a>
+            <a href="admin-cbt.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-laptop-code w-5 text-center text-slate-500"></i> CBT Configuration</a>
+            <a href="results.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-file-invoice w-5 text-center text-slate-500"></i> Results</a>
+            <a href="finance.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-chart-line w-5 text-center text-slate-500"></i> Finance</a>
+            <a href="adminfees.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-credit-card w-5 text-center text-slate-500"></i> Fees</a>
+            <a href="adminpayment.html" class="nav-link active flex items-center gap-3 rounded-xl bg-slate-800 px-3.5 py-2.5 text-white"><i class="fa-solid fa-money-bill-transfer w-5 text-center text-blue-400"></i> Payments</a>
+            <a href="attendance.html" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-calendar-check w-5 text-center text-slate-500"></i> Attendance</a>
+            <a href="#" class="nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-gear w-5 text-center text-slate-500"></i> Settings</a>
+          </nav>
+        </div>
+        <div class="border-t border-slate-800 p-4 text-xs text-slate-500">Signed in as <span id="adminName" class="font-semibold text-slate-300">Admin</span></div>
+      </div>
+    </aside>
+    <div id="sidebarOverlay" class="fixed inset-0 z-40 hidden bg-slate-900/60 backdrop-blur-sm md:hidden"></div>
+    <header class="fixed left-0 right-0 top-0 z-30 border-b border-slate-200/80 bg-white/80 backdrop-blur-md md:left-72">
+      <div class="flex h-16 items-center justify-between px-4 md:px-8">
+        <div class="flex items-center gap-3">
+          <button id="sidebarToggle" class="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 active:scale-95 md:hidden" aria-label="Toggle Sidebar"><i class="fa-solid fa-bars text-lg"></i></button>
+          <div>
+            <h1 class="text-base font-bold text-slate-900" id="pageTitle">Administrative Payments</h1>
+            <p class="hidden text-xs font-medium text-slate-500 sm:block">Manage staff salaries and administrative transactions</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="rounded-xl border border-slate-200/80 p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-800" title="Notifications"><i class="fa-regular fa-bell"></i></button>
+          <button class="rounded-xl border border-slate-200/80 p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-800" title="Help"><i class="fa-regular fa-circle-question"></i></button>
+          <button class="rounded-xl border border-slate-200/80 p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-800" title="Settings"><i class="fa-solid fa-sliders"></i></button>
+          <button class="rounded-xl border border-slate-200/80 p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-800" title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+      </div>
+    </header>
+
+<main class="min-h-screen px-4 pb-28 pt-20 md:ml-72 md:px-8 md:pb-10 md:pt-22" id="main" role="main" tabindex="-1">
+      <div class="mx-auto max-w-7xl">
+      <!-- Statistics Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Total Salaries</span>
+          <span class="stat-value" id="statTotalSalaries">₦0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Paid Salaries</span>
+          <span class="stat-value" id="statPaidSalaries" style="color: #15803d;">₦0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Outstanding</span>
+          <span class="stat-value" id="statOutstandingSalaries" style="color: #991b1b;">₦0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Admin Transactions</span>
+          <span class="stat-value" id="statAdminTransactions">₦0</span>
+        </div>
+      </div>
+
+      <!-- Staff Salary Payment Section -->
+      <div class="section-card">
+        <div class="section-title"><i class="fa fa-money-check-alt"></i> Handle Staff Salary Payments</div>
+        <form id="salaryPaymentForm" class="payment-form">
+          <div class="form-group">
+            <label for="staffId">Staff Member</label>
+            <select name="staffId" id="staffId" required>
+              <option value="">Select Staff</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="monthInput">Month</label>
+            <select name="month" id="monthInput" required>
+              <option value="">Select Month</option>
+              <option>January</option>
+              <option>February</option>
+              <option>March</option>
+              <option>April</option>
+              <option>May</option>
+              <option>June</option>
+              <option>July</option>
+              <option>August</option>
+              <option>September</option>
+              <option>October</option>
+              <option>November</option>
+              <option>December</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="yearInput">Year</label>
+            <input type="number" name="year" id="yearInput" min="2020" max="2100" value="2025" required>
+          </div>
+
+          <div class="form-group">
+            <label for="amountInput">Amount (₦)</label>
+            <input type="number" name="amount" id="amountInput" min="0" required>
+          </div>
+
+          <div class="form-group">
+            <label for="methodInput">Payment Method</label>
+            <select name="method" id="methodInput" required>
+              <option value="">Select Method</option>
+              <option>Cash</option>
+              <option>Bank Transfer</option>
+              <option>Check</option>
+              <option>Mobile Money</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="referenceInput">Reference/Cheque No.</label>
+            <input type="text" name="reference" id="referenceInput" placeholder="Optional">
+          </div>
+
+          <button type="submit" class="btn btn-success" style="grid-column: 1/-1;">
+            <i class="fa fa-check"></i> Pay Salary
+          </button>
+        </form>
+        <div id="salaryPaymentMessage" class="message"></div>
+      </div>
+
+      <!-- Staff Salary Transactions Table -->
+      <div class="section-card">
+        <div class="section-title"><i class="fa fa-users"></i> Staff Salary Transactions</div>
+        <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+          <input type="text" id="salarySearch" placeholder="Search staff..." style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ddeaff; border-radius: 6px;">
+          <select id="salaryStatusFilter" style="padding: 8px 12px; border: 1px solid #ddeaff; border-radius: 6px;">
+            <option value="">All Status</option>
+            <option value="Paid">Paid</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Pending">Pending</option>
+            <option value="Waived">Waived</option>
+          </select>
+          <button class="btn btn-primary" onclick="exportSalaryData()">
+            <i class="fa fa-download"></i> Export
+          </button>
+        </div>
+        <div class="table-container">
+          <table id="salaryTable">
+            <thead>
+              <tr>
+                <th>Staff</th>
+                <th>Month</th>
+                <th>Year</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Method</th>
+                <th>Reference</th>
+                <th>Paid Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="salaryTableBody">
+              <tr>
+                <td colspan="9" class="loading">
+                  <div class="loader-spinner"></div>
+                  <p>Loading...</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Administrative Transactions Section -->
+      <div class="section-card">
+        <div class="section-title"><i class="fa fa-university"></i> Administrative Transactions</div>
+        <form id="adminTransactionForm" class="payment-form">
+          <div class="form-group">
+            <label for="transTypeInput">Transaction Type</label>
+            <select name="type" id="transTypeInput" required>
+              <option value="">Select Type</option>
+              <option>Utilities</option>
+              <option>Maintenance</option>
+              <option>Supplies</option>
+              <option>Insurance</option>
+              <option>Contractor</option>
+              <option>Equipment</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="transDescInput">Description</label>
+            <input type="text" name="description" id="transDescInput" placeholder="Brief description" required>
+          </div>
+
+          <div class="form-group">
+            <label for="transAmountInput">Amount (₦)</label>
+            <input type="number" name="amount" id="transAmountInput" min="0" required>
+          </div>
+
+          <div class="form-group">
+            <label for="transVendorInput">Vendor/Recipient</label>
+            <input type="text" name="vendor" id="transVendorInput" placeholder="Name or company" required>
+          </div>
+
+          <div class="form-group">
+            <label for="transMethodInput">Payment Method</label>
+            <select name="method" id="transMethodInput" required>
+              <option value="">Select Method</option>
+              <option>Bank Transfer</option>
+              <option>Check</option>
+              <option>Cash</option>
+              <option>Mobile Money</option>
+              <option>Online</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="transRefInput">Reference Number</label>
+            <input type="text" name="reference" id="transRefInput" placeholder="Transaction/Check number">
+          </div>
+
+          <button type="submit" class="btn btn-success" style="grid-column: 1/-1;">
+            <i class="fa fa-plus"></i> Record Transaction
+          </button>
+        </form>
+        <div id="adminTransactionMessage" class="message"></div>
+      </div>
+
+      <!-- Administrative Transactions Table -->
+      <div class="section-card">
+        <div class="section-title"><i class="fa fa-receipt"></i> Transaction History</div>
+        <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+          <input type="text" id="adminSearch" placeholder="Search transactions..." style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ddeaff; border-radius: 6px;">
+          <select id="adminStatusFilter" style="padding: 8px 12px; border: 1px solid #ddeaff; border-radius: 6px;">
+            <option value="">All Status</option>
+            <option value="Paid">Paid</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+          </select>
+          <button class="btn btn-primary" onclick="exportAdminData()">
+            <i class="fa fa-download"></i> Export
+          </button>
+        </div>
+        <div class="table-container">
+          <table id="adminTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Vendor</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Method</th>
+                <th>Reference</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody">
+              <tr>
+                <td colspan="9" class="loading">
+                  <div class="loader-spinner"></div>
+                  <p>Loading...</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    </main>
+  <!-- Update Payment Modal -->
+  <div class="modal-overlay" id="updatePaymentModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fa fa-edit"></i> Update Payment Status</h2>
+        <button type="button" class="modal-close" onclick="closeUpdatePaymentModal()">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <form id="updatePaymentForm" class="modal-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <input type="hidden" id="updatePaymentId">
+        <input type="hidden" id="updatePaymentType">
+
+        <div class="modal-field">
+          <label>Status</label>
+          <select id="updatePaymentStatus" required>
+            <option value="">Select Status</option>
+            <option>Paid</option>
+            <option>Unpaid</option>
+            <option>Pending</option>
+            <option>Waived</option>
+            <option>Approved</option>
+            <option>Rejected</option>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label>Payment Method</label>
+          <select id="updatePaymentMethod" required>
+            <option value="">Select Method</option>
+            <option>Cash</option>
+            <option>Bank Transfer</option>
+            <option>Check</option>
+            <option>Mobile Money</option>
+            <option>Online</option>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label>Reference/Cheque No.</label>
+          <input type="text" id="updatePaymentRef" placeholder="Optional">
+        </div>
+
+        <div class="modal-field" id="updateWaiveNoteDiv" style="display: none;">
+          <label>Waive Reason</label>
+          <input type="text" id="updateWaiveNote" placeholder="Reason for waiving">
+        </div>
+
+        <div class="modal-field" style="grid-column: 1/-1;">
+          <label>Notes</label>
+          <textarea id="updatePaymentNotes" placeholder="Additional notes" style="resize: vertical; min-height: 80px;"></textarea>
+        </div>
+
+        <div style="grid-column: 1/-1; display: flex; gap: 12px;">
+          <button type="submit" class="btn btn-success" style="flex: 1;">
+            <i class="fa fa-save"></i> Update Status
+          </button>
+          <button type="button" class="btn btn-danger" onclick="deletePaymentRecord()" style="flex: 1;">
+            <i class="fa fa-trash"></i> Delete Record
+          </button>
+        </div>
+      </form>
+      <div id="updatePaymentMessage" class="message" style="margin-top: 16px;"></div>
+    </div>
+  </div>
+
+
+    <nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-lg md:hidden">
+      <div class="grid h-16 grid-cols-5 text-[10px] font-medium text-slate-500">
+        <a href="admin.html" class="flex flex-col items-center justify-center gap-1 hover:text-brand-600"><i class="fa-solid fa-house text-base"></i>Home</a>
+        <a href="people.html" class="flex flex-col items-center justify-center gap-1 hover:text-brand-600"><i class="fa-solid fa-users text-base"></i>People</a>
+        <a href="adminpayment.html" class="flex flex-col items-center justify-center gap-1 text-brand-600"><span class="-mt-6 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg shadow-brand-600/30 ring-4 ring-white"><i class="fa-solid fa-money-bill-transfer text-base"></i></span>Payments</a>
+        <a href="results.html" class="flex flex-col items-center justify-center gap-1 hover:text-brand-600"><i class="fa-solid fa-file-invoice text-base"></i>Results</a>
+        <a href="finance.html" class="flex flex-col items-center justify-center gap-1 hover:text-brand-600"><i class="fa-solid fa-chart-line text-base"></i>Finance</a>
+      </div>
+    </nav>
+
+  <script>
+    const API_ROOT = window.API_BASE_URL || 'https://goldlincschools.onrender.com';
+    const API_BASE = `${API_ROOT}/api`;
+    const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng';
+    const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE}/schools/config`;
+    let token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+    let currentSchool = null;
+    let schoolConfig = null;
+    let currentUser = null;
+
+    function getTenantSubdomain() {
+      const saved = localStorage.getItem('schoolSubdomain');
+      if (saved) return saved.toLowerCase().trim();
+      const host = window.location.hostname.toLowerCase();
+      if (host.endsWith(`.${BASE_DOMAIN}`)) {
+        const prefix = host.slice(0, -(BASE_DOMAIN.length + 1));
+        if (prefix && !prefix.includes('.')) return prefix;
+      }
+      return '';
+    }
+
+    function normalizeSchoolConfig(raw) {
+      return raw?.school || raw?.data || raw || null;
+    }
+
+    function getPublicSchoolId() {
+      return schoolConfig?.schoolId || schoolConfig?.publicSchoolId || schoolConfig?.school?.schoolId || '';
+    }
+
+    function getAuthHeaders(json = false) {
+      const headers = {};
+      if (json) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const publicSchoolId = getPublicSchoolId();
+      if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+      return headers;
+    }
+
+    function tenantQuery(extra = {}) {
+      const params = new URLSearchParams(extra);
+      const publicSchoolId = getPublicSchoolId();
+      if (publicSchoolId) params.set('schoolId', publicSchoolId);
+      const query = params.toString();
+      return query ? `?${query}` : '';
+    }
+
+    async function loadSchoolConfig() {
+      const subdomain = getTenantSubdomain();
+      if (!subdomain) throw new Error('School could not be identified from this portal address.');
+      try {
+        const res = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`);
+        if (!res.ok) throw new Error('Unable to load school configuration.');
+        schoolConfig = normalizeSchoolConfig(await res.json());
+        currentSchool = schoolConfig;
+        localStorage.setItem('schoolSubdomain', subdomain);
+        localStorage.setItem(`examguard_school_config_${subdomain}`, JSON.stringify(schoolConfig));
+        if (getPublicSchoolId()) localStorage.setItem('schoolId', getPublicSchoolId());
+      } catch (error) {
+        const cached = localStorage.getItem(`examguard_school_config_${subdomain}`);
+        if (!cached) throw error;
+        schoolConfig = JSON.parse(cached);
+        currentSchool = schoolConfig;
+      }
+      applySchoolBranding();
+    }
+
+    function applySchoolBranding() {
+      const name = currentSchool?.schoolName || 'School';
+      const logo = currentSchool?.logoUrl || currentSchool?.branding?.logo || '';
+      document.title = `Administrative Payments | ${name}`;
+      document.getElementById('schoolName').textContent = name;
+      const logoEl = document.getElementById('schoolLogo');
+      const fallback = document.getElementById('schoolFallback');
+      if (logo) {
+        logoEl.src = logo;
+        logoEl.classList.remove('hidden');
+        fallback.classList.add('hidden');
+      } else {
+        logoEl.classList.add('hidden');
+        fallback.classList.remove('hidden');
+        fallback.textContent = name.slice(0, 2).toUpperCase();
+      }
+    }
+
+    async function loadAuthenticatedUser() {
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('You are not authorized to access this page.');
+      const data = await res.json();
+      currentUser = data.user || data;
+      const schoolId = currentUser?.schoolId || currentUser?.school?._id;
+      const configMongoId = currentSchool?._id || currentSchool?.id || currentSchool?.school?._id;
+      if (configMongoId && schoolId && String(configMongoId) !== String(schoolId)) {
+        throw new Error('This account does not belong to this school.');
+      }
+      const role = String(currentUser?.role || '').toLowerCase();
+      if (!['admin', 'superadmin'].includes(role)) throw new Error('Administrator access is required.');
+      document.getElementById('adminName').textContent = currentUser?.name || currentUser?.email || 'Admin';
+    }
+
+    function showPageError(message) {
+      const main = document.getElementById('main');
+      main.innerHTML = `<div class="mx-auto max-w-2xl"><div class="rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm"><div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600"><i class="fa-solid fa-shield-halved"></i></div><h2 class="text-lg font-bold text-slate-900">Unable to load Payments</h2><p class="mt-2 text-sm text-slate-500">${message}</p></div></div>`;
+    }
+
+
+    let currentPaymentId = null;
+    let currentPaymentType = null;
+
+    // ==================== SIDEBAR MOBILE TOGGLE ====================
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    function handleResize() {
+      if (window.innerWidth <= 768) {
+        sidebarToggle.style.display = 'flex';
+      } else {
+        sidebarToggle.style.display = 'none';
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+      }
+    }
+
+    function openSidebar() {
+      sidebar.classList.add('active');
+      sidebarOverlay.classList.add('active');
+    }
+
+    function closeSidebar() {
+      sidebar.classList.remove('active');
+      sidebarOverlay.classList.remove('active');
+    }
+
+    sidebarToggle.addEventListener('click', openSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) closeSidebar();
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeSidebar();
+    });
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    // Active nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+      if (link.href === window.location.href || link.href.includes(window.location.pathname)) {
+        link.classList.add('active');
+      }
+    });
+
+    // ==================== WAIVE NOTE TOGGLE ====================
+    document.getElementById('updatePaymentStatus').addEventListener('change', function() {
+      document.getElementById('updateWaiveNoteDiv').style.display = this.value === 'Waived' ? 'block' : 'none';
+    });
+
+    // ==================== LOAD STAFF ====================
+async function loadStaff() {
+  try {
+    const res = await fetch(`${API_BASE}/staffs${tenantQuery({all: 1})}`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    
+    console.log('Staff data:', data); // Debug log
+    
+    const select = document.getElementById('staffId');
+    select.innerHTML = '<option value="">Select Staff</option>' +
+      data.map(s => {
+        // Build name from first_name and last_name
+        const firstName = s.first_name || s.firstname || '';
+        const lastName = s.last_name || s.surname || '';
+        const fullName = `${firstName} ${lastName}`.trim() || 'Unknown Staff';
+        const designation = s.designation || s.position || 'Staff';
+        
+        return `<option value="${s._id || s.id}">${fullName} - ${designation}</option>`;
+      }).join('');
+      
+  } catch (e) {
+    console.error('Error loading staff:', e);
+    const select = document.getElementById('staffId');
+    select.innerHTML = '<option value="">Error loading staff</option>';
+  }
+}
+loadStaff();
+
+    // ==================== SALARY PAYMENT ====================
+    document.getElementById('salaryPaymentForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(this));
+      const messageBox = document.getElementById('salaryPaymentMessage');
+      messageBox.classList.remove('error', 'success');
+      messageBox.textContent = '⏳ Processing...';
+      messageBox.style.display = 'block';
+
+      try {
+        const res = await fetch(`${API_BASE}/payments/salary${tenantQuery()}`, {
+          method: "POST",
+          headers: getAuthHeaders(true),
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          messageBox.classList.add('success');
+          messageBox.innerHTML = '<i class="fa fa-check-circle"></i> Salary paid successfully!';
+          this.reset();
+      
+      
+        } else {
+          const err = await res.json();
+          messageBox.classList.add('error');
+          messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> ' + (err.error || "Error paying salary.");
+        }
+      } catch (e) {
+        messageBox.classList.add('error');
+        messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      }
+    });
+
+    // ==================== LOAD SALARY PAYMENTS ====================
+    async function loadSalaryPayments() {
+      const tbody = document.getElementById('salaryTableBody');
+      tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="loader-spinner"></div><p>Loading...</p></td></tr>';
+
+      try {
+        const res = await fetch(`${API_BASE}/payments/salary${tenantQuery()}`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const pays = await res.json();
+          if (!pays.length) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px;">No salary payments found.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = pays.map(pay => `
+            <tr>
+              <td><strong>${pay.staff ? `${pay.staff.first_name} ${pay.staff.last_name}`.trim() : 'N/A'}</strong></td>
+              <td>${pay.month}</td>
+              <td>${pay.year}</td>
+              <td>₦${(pay.amount || 0).toLocaleString()}</td>
+              <td><span class="badge badge-${(pay.status || 'unpaid').toLowerCase()}">${pay.status || 'Unpaid'}</span></td>
+              <td>${pay.method || '—'}</td>
+              <td>${pay.reference || '—'}</td>
+              <td>${pay.paidDate ? new Date(pay.paidDate).toLocaleDateString() : '—'}</td>
+              <td><button class="action-btn action-btn-edit" onclick="openUpdatePaymentModal('salary', '${pay._id}')"><i class="fa fa-edit"></i></button></td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--danger);">Error loading payments.</td></tr>';
+        }
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--danger);">Network error.</td></tr>';
+      }
+    }
+
+
+    // ==================== ADMIN TRANSACTION ====================
+    document.getElementById('adminTransactionForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(this));
+      const messageBox = document.getElementById('adminTransactionMessage');
+      messageBox.classList.remove('error', 'success');
+      messageBox.textContent = '⏳ Recording...';
+      messageBox.style.display = 'block';
+
+      try {
+        const res = await fetch(`${API_BASE}/payments/admin${tenantQuery()}`, {
+          method: "POST",
+          headers: getAuthHeaders(true),
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          messageBox.classList.add('success');
+          messageBox.innerHTML = '<i class="fa fa-check-circle"></i> Transaction recorded successfully!';
+          this.reset();
+      
+      
+        } else {
+          const err = await res.json();
+          messageBox.classList.add('error');
+          messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> ' + (err.error || "Error recording transaction.");
+        }
+      } catch (e) {
+        messageBox.classList.add('error');
+        messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      }
+    });
+
+    // ==================== LOAD ADMIN TRANSACTIONS ====================
+    async function loadAdminTransactions() {
+      const tbody = document.getElementById('adminTableBody');
+      tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="loader-spinner"></div><p>Loading...</p></td></tr>';
+
+      try {
+        const res = await fetch(`${API_BASE}/payments/admin${tenantQuery()}`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const trans = await res.json();
+          if (!trans.length) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px;">No transactions found.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = trans.map(trn => `
+            <tr>
+              <td>${trn.type}</td>
+              <td>${trn.description}</td>
+              <td><strong>${trn.vendor}</strong></td>
+              <td>₦${(trn.amount || 0).toLocaleString()}</td>
+              <td><span class="badge badge-${(trn.status || 'unpaid').toLowerCase()}">${trn.status || 'Unpaid'}</span></td>
+              <td>${trn.method || '—'}</td>
+              <td>${trn.reference || '—'}</td>
+              <td>${trn.date ? new Date(trn.date).toLocaleDateString() : '—'}</td>
+              <td><button class="action-btn action-btn-edit" onclick="openUpdatePaymentModal('admin', '${trn._id}')"><i class="fa fa-edit"></i></button></td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--danger);">Error loading transactions.</td></tr>';
+        }
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--danger);">Network error.</td></tr>';
+      }
+    }
+
+
+    // ==================== LOAD STATISTICS ====================
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API_BASE}/payments/stats${tenantQuery()}`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const stats = await res.json();
+          document.getElementById('statTotalSalaries').textContent = '₦' + (stats.totalSalaries || 0).toLocaleString();
+          document.getElementById('statPaidSalaries').textContent = '₦' + (stats.paidSalaries || 0).toLocaleString();
+          document.getElementById('statOutstandingSalaries').textContent = '₦' + (stats.outstandingSalaries || 0).toLocaleString();
+          document.getElementById('statAdminTransactions').textContent = '₦' + (stats.totalAdminTransactions || 0).toLocaleString();
+        }
+      } catch (e) {
+        console.error('Error loading stats:', e);
+      }
+    }
+
+
+    // ==================== UPDATE PAYMENT MODAL ====================
+    function openUpdatePaymentModal(type, paymentId) {
+      currentPaymentType = type;
+      currentPaymentId = paymentId;
+      document.getElementById('updatePaymentType').value = type;
+      document.getElementById('updatePaymentId').value = paymentId;
+      document.getElementById('updatePaymentStatus').value = '';
+      document.getElementById('updatePaymentMethod').value = '';
+      document.getElementById('updatePaymentRef').value = '';
+      document.getElementById('updateWaiveNote').value = '';
+      document.getElementById('updatePaymentNotes').value = '';
+      document.getElementById('updatePaymentMessage').classList.remove('error', 'success');
+      document.getElementById('updatePaymentMessage').style.display = 'none';
+      document.getElementById('updatePaymentModal').classList.add('active');
+    }
+
+    function closeUpdatePaymentModal() {
+      document.getElementById('updatePaymentModal').classList.remove('active');
+      currentPaymentId = null;
+      currentPaymentType = null;
+    }
+
+    document.getElementById('updatePaymentForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const paymentId = document.getElementById('updatePaymentId').value;
+      const type = document.getElementById('updatePaymentType').value;
+      const status = document.getElementById('updatePaymentStatus').value;
+      const method = document.getElementById('updatePaymentMethod').value;
+      const reference = document.getElementById('updatePaymentRef').value;
+      const waiveNote = document.getElementById('updateWaiveNote').value;
+      const notes = document.getElementById('updatePaymentNotes').value;
+
+      if (!status || !method) {
+        alert('Please select both status and method');
+        return;
+      }
+
+      const messageBox = document.getElementById('updatePaymentMessage');
+      messageBox.classList.remove('error', 'success');
+      messageBox.textContent = '⏳ Updating...';
+      messageBox.style.display = 'block';
+
+      try {
+        let url = '';
+        if (type === 'salary') {
+          url = `${API_BASE}/payments/salary/${paymentId}${tenantQuery()}`;
+        } else {
+          url = `${API_BASE}/payments/admin/${paymentId}${tenantQuery()}`;
+        }
+
+        const res = await fetch(url, {
+          method: "PUT",
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ status, method, reference, waiveNote, notes })
+        });
+
+        if (res.ok) {
+          messageBox.classList.add('success');
+          messageBox.innerHTML = '<i class="fa fa-check-circle"></i> Payment updated successfully!';
+          setTimeout(() => {
+            closeUpdatePaymentModal();
+            if (type === 'salary') {
+          
+            } else {
+          
+            }
+        
+          }, 1500);
+        } else {
+          const err = await res.json();
+          messageBox.classList.add('error');
+          messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> ' + (err.error || "Error updating payment.");
+        }
+      } catch (e) {
+        messageBox.classList.add('error');
+        messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      }
+    });
+
+    async function deletePaymentRecord() {
+      if (!confirm('⚠️ Are you sure you want to delete this record? This action cannot be undone.')) return;
+
+      const paymentId = document.getElementById('updatePaymentId').value;
+      const type = document.getElementById('updatePaymentType').value;
+      const messageBox = document.getElementById('updatePaymentMessage');
+      messageBox.classList.remove('error', 'success');
+      messageBox.textContent = '⏳ Deleting...';
+      messageBox.style.display = 'block';
+
+      try {
+        let url = '';
+        if (type === 'salary') {
+          url = `${API_BASE}/payments/salary/${paymentId}${tenantQuery()}`;
+        } else {
+          url = `${API_BASE}/payments/admin/${paymentId}${tenantQuery()}`;
+        }
+
+        const res = await fetch(url, {
+          method: "DELETE",
+          headers: getAuthHeaders()
+        });
+
+        if (res.ok) {
+          messageBox.classList.add('success');
+          messageBox.innerHTML = '<i class="fa fa-check-circle"></i> Record deleted successfully!';
+          setTimeout(() => {
+            closeUpdatePaymentModal();
+            if (type === 'salary') {
+          
+            } else {
+          
+            }
+        
+          }, 1500);
+        } else {
+          const err = await res.json();
+          messageBox.classList.add('error');
+          messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> ' + (err.error || "Error deleting record.");
+        }
+      } catch (e) {
+        messageBox.classList.add('error');
+        messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      }
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('updatePaymentModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeUpdatePaymentModal();
+      }
+    });
+
+    // ==================== EXPORT FUNCTIONS ====================
+    function exportSalaryData() {
+      const table = document.getElementById('salaryTable');
+      exportTableToCSV('salary_payments.csv', table);
+    }
+
+    function exportAdminData() {
+      const table = document.getElementById('adminTable');
+      exportTableToCSV('admin_transactions.csv', table);
+    }
+
+    function exportTableToCSV(filename, table) {
+      let csv = [];
+      
+      // Header
+      const headers = [];
+      table.querySelectorAll('thead th').forEach(th => {
+        headers.push(th.textContent.trim());
+      });
+      csv.push(headers.slice(0, -1).join(',')); // Exclude Actions column
+
+      // Body
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const row = [];
+        tr.querySelectorAll('td').forEach((td, idx) => {
+          if (idx < headers.length - 1) { // Exclude Actions column
+            row.push('"' + td.textContent.trim().replace(/"/g, '""') + '"');
+          }
+        });
+        if (row.length > 0) csv.push(row.join(','));
+      });
+
+      // Download
+      const csvContent = 'data:text/csv;charset=utf-8,' + csv.join('\n');
+      const link = document.createElement('a');
+      link.setAttribute('href', encodeURI(csvContent));
+      link.setAttribute('download', filename);
+      link.click();
+    }
+
+    async function initializePaymentsPage() {
+      try {
+        await loadSchoolConfig();
+        await loadAuthenticatedUser();
+        await Promise.all([loadStaff(), loadSalaryPayments(), loadAdminTransactions(), loadStats()]);
+      } catch (error) {
+        console.error('Payments initialization error:', error);
+        showPageError(error.message || 'Unable to load this page.');
+      }
+    }
+
+    initializePaymentsPage();
+
+  </script>
+
+</body>
+</html>
