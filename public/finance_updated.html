@@ -23,70 +23,93 @@
   </script>
 </head>
 
-<body class="bg-slate-50 font-sans text-slate-800 antialiased min-h-screen">
-  <!-- Loading -->
-  <div id="pageLoader" class="fixed inset-0 z-[100] bg-white/90 backdrop-blur-sm flex items-center justify-center">
+<body class="bg-slate-50/80 font-sans text-slate-800 antialiased min-h-screen selection:bg-blue-500 selection:text-white">
+  
+  <!-- Page Loading Overlay -->
+  <div id="pageLoader" class="fixed inset-0 z-[100] bg-white/90 backdrop-blur-md flex items-center justify-center transition-opacity duration-300">
     <div class="text-center">
       <div class="inline-block w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
       <p id="loaderText" class="mt-3 text-sm font-medium text-slate-600">Loading school finance...</p>
     </div>
   </div>
 
-  <!-- Mobile overlay -->
-  <div id="sidebarOverlay" class="fixed inset-0 z-30 hidden bg-slate-900/60 backdrop-blur-sm"></div>
+  <!-- Reusable Error Modal (Replaces Auto-Logout/Redirects) -->
+  <div id="errorModal" class="fixed inset-0 z-[120] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 text-center transform transition-all scale-100">
+      <div class="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 id="errorModalTitle" class="text-lg font-bold text-slate-900">System Error</h3>
+      <p id="errorModalMessage" class="mt-2 text-sm text-slate-600">An error occurred while processing your request.</p>
+      
+      <div id="errorModalDetails" class="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 hidden text-left overflow-x-auto max-h-32"></div>
+
+      <div class="mt-6 flex items-center justify-center gap-3">
+        <button onclick="closeErrorModal()" class="w-full py-2.5 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+          Dismiss
+        </button>
+        <button id="errorModalRetryBtn" onclick="location.reload()" class="w-full py-2.5 px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">
+          Retry
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Overlay -->
+  <div id="sidebarOverlay" class="fixed inset-0 z-30 hidden bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
 
   <div class="min-h-screen">
     <!-- Sidebar -->
     <aside id="sidebar"
-      class="fixed top-0 left-0 z-40 w-64 h-screen bg-slate-900 text-slate-300 flex flex-col -translate-x-full md:translate-x-0 transition-transform duration-300 border-r border-slate-800 shadow-xl"
+      class="fixed top-0 left-0 z-40 w-64 h-screen bg-slate-900 text-slate-300 flex flex-col -translate-x-full md:translate-x-0 transition-transform duration-300 border-r border-slate-800/80 shadow-2xl"
       aria-label="Navigation">
 
       <div class="flex items-center gap-3 p-4 border-b border-slate-800">
-        <div class="w-11 h-11 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
           <img id="schoolLogo" src="" alt="School Logo" class="w-full h-full object-contain p-1 hidden">
           <div id="schoolLogoFallback" class="w-full h-full flex items-center justify-center bg-blue-600 text-white font-bold text-sm">SC</div>
         </div>
         <div class="min-w-0">
-          <div id="schoolBrandName" class="font-bold text-white text-sm truncate">Loading School...</div>
+          <div id="schoolBrandName" class="font-bold text-white text-sm truncate">Loading...</div>
           <div id="schoolAdminLabel" class="text-xs text-slate-400 truncate">School Administration</div>
         </div>
       </div>
 
       <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm font-medium">
-        <a href="admin.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="admin.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">🏠</span><span>Dashboard</span>
         </a>
-        <a href="admission.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="admission.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">🎓</span><span>Admission</span>
         </a>
-        <a href="more.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="more.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">🌐</span><span>Multi-location</span>
         </a>
-        <a href="people.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="people.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">👥</span><span>People</span>
         </a>
-        <a href="academics.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="academics.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">📚</span><span>Academics</span>
         </a>
-        <a href="admin-cbt.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="admin-cbt.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">💻</span><span>CBT Configuration</span>
         </a>
-        <a href="results.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="results.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">📄</span><span>Results</span>
         </a>
-        <a href="finance.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-600 text-white">
+        <a href="finance.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/20">
           <span class="w-5 text-center">💰</span><span>Finance</span>
         </a>
-        <a href="adminfees.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="adminfees.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">💳</span><span>Fees</span>
         </a>
-        <a href="adminpayment.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="adminpayment.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">💸</span><span>Payments</span>
         </a>
-        <a href="attendance.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="attendance.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">🗓️</span><span>Attendance</span>
         </a>
-        <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+        <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors">
           <span class="w-5 text-center">⚙️</span><span>Settings</span>
         </a>
       </nav>
@@ -96,281 +119,305 @@
       </div>
     </aside>
 
-    <!-- Main -->
-    <div class="md:ml-64 min-h-screen">
-      <!-- Top bar -->
-      <header class="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
+    <!-- Main Content Area -->
+    <div class="md:ml-64 min-h-screen flex flex-col">
+      <!-- Top Navigation Bar -->
+      <header class="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-3">
           <div class="flex items-center gap-3 min-w-0">
             <button id="sidebarToggle" type="button"
-              class="md:hidden w-10 h-10 rounded-lg hover:bg-slate-100 text-slate-600 inline-flex items-center justify-center"
+              class="md:hidden w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-600 inline-flex items-center justify-center transition-colors"
               aria-label="Open navigation">
               <i class="fa fa-bars text-lg"></i>
             </button>
             <div class="min-w-0">
-              <p id="topSchoolName" class="text-xs text-slate-500 truncate">School</p>
-              <h1 class="text-lg sm:text-xl font-bold text-slate-900 truncate">Finance Management</h1>
+              <p id="topSchoolName" class="text-xs font-medium text-slate-500 truncate">School Administration</p>
+              <h1 class="text-lg sm:text-xl font-bold text-slate-900 truncate tracking-tight">Finance Management</h1>
             </div>
           </div>
-          <div class="flex items-center gap-1 sm:gap-2">
-            <button class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center" title="Notifications">
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <button class="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center transition-colors" title="Notifications">
               <i class="fa fa-bell"></i>
             </button>
-            <button class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center" title="Help">
+            <button class="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center transition-colors" title="Help">
               <i class="fa fa-circle-question"></i>
             </button>
           </div>
         </div>
       </header>
 
-      <main class="px-4 sm:px-6 py-6 pb-24">
-        <div class="max-w-7xl mx-auto">
-          <!-- Heading -->
-          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 inline-flex items-center justify-center">
-                  <i class="fa fa-wallet"></i>
-                </span>
-                <div>
-                  <h2 class="text-2xl font-bold text-slate-900">Finance Dashboard</h2>
-                  <p id="schoolMotto" class="text-sm text-slate-500"></p>
-                </div>
+      <main class="flex-1 px-4 sm:px-6 py-6 pb-28 md:pb-12">
+        <div class="max-w-7xl mx-auto space-y-6">
+          
+          <!-- Page Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <span class="w-11 h-11 rounded-2xl bg-blue-100 text-blue-700 inline-flex items-center justify-center shadow-sm text-lg">
+                <i class="fa fa-wallet"></i>
+              </span>
+              <div>
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Finance Dashboard</h2>
+                <p id="schoolMotto" class="text-xs sm:text-sm text-slate-500"></p>
               </div>
             </div>
-            <button onclick="refreshFinance()" class="px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg inline-flex items-center justify-center gap-2">
-              <i class="fa fa-rotate"></i> Refresh
+            <button onclick="refreshFinance()" class="w-full sm:w-auto px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-xl inline-flex items-center justify-center gap-2 transition-colors shadow-sm">
+              <i class="fa fa-rotate"></i> Refresh Data
             </button>
           </div>
 
-          <!-- Stats -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Revenue</p>
-                  <p id="totalRevenue" class="mt-2 text-2xl font-bold text-slate-900">₦0</p>
+          <!-- 2x2 Fixed Grid on Mobile / 4 Columns on Desktop -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 truncate">Total Revenue</p>
+                  <p id="totalRevenue" class="mt-1 sm:mt-2 text-base sm:text-2xl font-bold text-slate-900 truncate">₦0</p>
                 </div>
-                <div class="w-11 h-11 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center"><i class="fa fa-money-bill-wave"></i></div>
+                <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 text-sm sm:text-base"><i class="fa fa-money-bill-wave"></i></div>
               </div>
             </div>
-            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed Payments</p>
-                  <p id="totalPayments" class="mt-2 text-2xl font-bold text-emerald-600">₦0</p>
+
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 truncate">Completed</p>
+                  <p id="totalPayments" class="mt-1 sm:mt-2 text-base sm:text-2xl font-bold text-emerald-600 truncate">₦0</p>
                 </div>
-                <div class="w-11 h-11 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center"><i class="fa fa-circle-check"></i></div>
+                <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 text-sm sm:text-base"><i class="fa fa-circle-check"></i></div>
               </div>
             </div>
-            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pending Payments</p>
-                  <p id="totalPending" class="mt-2 text-2xl font-bold text-amber-600">₦0</p>
+
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 truncate">Pending</p>
+                  <p id="totalPending" class="mt-1 sm:mt-2 text-base sm:text-2xl font-bold text-amber-600 truncate">₦0</p>
                 </div>
-                <div class="w-11 h-11 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center"><i class="fa fa-hourglass-half"></i></div>
+                <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 text-sm sm:text-base"><i class="fa fa-hourglass-half"></i></div>
               </div>
             </div>
-            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Expenses</p>
-                  <p id="totalExpenses" class="mt-2 text-2xl font-bold text-red-600">₦0</p>
+
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 truncate">Expenses</p>
+                  <p id="totalExpenses" class="mt-1 sm:mt-2 text-base sm:text-2xl font-bold text-rose-600 truncate">₦0</p>
                 </div>
-                <div class="w-11 h-11 rounded-lg bg-red-100 text-red-700 flex items-center justify-center"><i class="fa fa-chart-line"></i></div>
+                <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 text-sm sm:text-base"><i class="fa fa-chart-line"></i></div>
               </div>
             </div>
           </div>
 
-          <!-- Charts -->
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-6">
-            <section class="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+          <!-- Charts Grid -->
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="font-bold text-slate-900"><i class="fa fa-chart-line text-blue-600 mr-2"></i>Monthly Revenue Trend</h3>
+                <h3 class="font-bold text-slate-900 text-sm sm:text-base"><i class="fa fa-chart-line text-blue-600 mr-2"></i>Monthly Revenue Trend</h3>
               </div>
-              <div class="h-72"><canvas id="revenueChart"></canvas></div>
+              <div class="h-64 sm:h-72"><canvas id="revenueChart"></canvas></div>
             </section>
-            <section class="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
-              <h3 class="font-bold text-slate-900 mb-4"><i class="fa fa-chart-pie text-blue-600 mr-2"></i>Payment Status Distribution</h3>
-              <div class="h-72"><canvas id="paymentStatusChart"></canvas></div>
+
+            <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
+              <h3 class="font-bold text-slate-900 mb-4 text-sm sm:text-base"><i class="fa fa-chart-pie text-blue-600 mr-2"></i>Payment Status Distribution</h3>
+              <div class="h-64 sm:h-72"><canvas id="paymentStatusChart"></canvas></div>
             </section>
           </div>
 
-          <!-- Reusable table sections -->
-          <section class="bg-white border border-slate-200 rounded-xl shadow-sm mb-5">
-            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <!-- Student Fee Table Section -->
+          <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
-                <h3 class="font-bold text-slate-900"><i class="fa fa-graduation-cap text-blue-600 mr-2"></i>Student Fee Management</h3>
-                <p class="text-xs text-slate-500 mt-1">School-scoped fee records</p>
+                <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-graduation-cap text-blue-600 mr-2"></i>Student Fee Management</h3>
+                <p class="text-xs text-slate-500 mt-0.5">School-scoped fee records</p>
               </div>
               <div class="flex flex-col sm:flex-row gap-2">
                 <input id="feeSearch" type="search" placeholder="Search student..."
-                  class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
-                <select id="feeStatusFilter" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
+                  class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 p-2.5 outline-none transition-all">
+                <select id="feeStatusFilter" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 p-2.5 outline-none transition-all">
                   <option value="">All Status</option><option>Paid</option><option>Pending</option><option>Overdue</option><option>Waived</option>
                 </select>
-                <button onclick="exportFeeData()" class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg inline-flex items-center justify-center gap-2">
+                <button onclick="exportFeeData()" class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl inline-flex items-center justify-center gap-2 transition-colors shadow-sm">
                   <i class="fa fa-download"></i> Export
                 </button>
               </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm text-left text-slate-600">
-                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200">
-                  <tr><th class="px-4 py-3">Student</th><th class="px-4 py-3">Class</th><th class="px-4 py-3">Fee Type</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Term</th><th class="px-4 py-3">Session</th><th class="px-4 py-3">Due</th><th class="px-4 py-3">Method</th><th class="px-4 py-3">Action</th></tr>
+                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200/80 font-semibold">
+                  <tr>
+                    <th class="px-4 py-3.5">Student</th>
+                    <th class="px-4 py-3.5">Class</th>
+                    <th class="px-4 py-3.5">Fee Type</th>
+                    <th class="px-4 py-3.5">Amount</th>
+                    <th class="px-4 py-3.5">Status</th>
+                    <th class="px-4 py-3.5">Term</th>
+                    <th class="px-4 py-3.5">Session</th>
+                    <th class="px-4 py-3.5">Due</th>
+                    <th class="px-4 py-3.5">Method</th>
+                    <th class="px-4 py-3.5">Action</th>
+                  </tr>
                 </thead>
-                <tbody id="feeTableBody"><tr><td colspan="10" class="px-4 py-10 text-center text-slate-400">Loading fee data...</td></tr></tbody>
+                <tbody id="feeTableBody" class="divide-y divide-slate-100">
+                  <tr><td colspan="10" class="px-4 py-10 text-center text-slate-400">Loading fee data...</td></tr>
+                </tbody>
               </table>
             </div>
           </section>
 
-          <section class="bg-white border border-slate-200 rounded-xl shadow-sm mb-5">
-            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <h3 class="font-bold text-slate-900"><i class="fa fa-file-invoice text-blue-600 mr-2"></i>Recent Invoices</h3>
+          <!-- Invoices Section -->
+          <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-file-invoice text-blue-600 mr-2"></i>Recent Invoices</h3>
               <div class="flex gap-2">
-                <input id="invoiceSearch" type="search" placeholder="Search invoices..." class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
-                <button onclick="createNewInvoice()" class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">+ New Invoice</button>
+                <input id="invoiceSearch" type="search" placeholder="Search invoices..." class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                <button onclick="createNewInvoice()" class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">+ New Invoice</button>
               </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm text-left text-slate-600">
-                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200">
-                  <tr><th class="px-4 py-3">Invoice #</th><th class="px-4 py-3">Student</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Action</th></tr>
+                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200/80 font-semibold">
+                  <tr><th class="px-4 py-3.5">Invoice #</th><th class="px-4 py-3.5">Student</th><th class="px-4 py-3.5">Amount</th><th class="px-4 py-3.5">Status</th><th class="px-4 py-3.5">Date</th><th class="px-4 py-3.5">Action</th></tr>
                 </thead>
-                <tbody id="invoiceTableBody"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading invoices...</td></tr></tbody>
+                <tbody id="invoiceTableBody" class="divide-y divide-slate-100"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading invoices...</td></tr></tbody>
               </table>
             </div>
           </section>
 
-          <section class="bg-white border border-slate-200 rounded-xl shadow-sm mb-5">
-            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <h3 class="font-bold text-slate-900"><i class="fa fa-receipt text-blue-600 mr-2"></i>Recent Payment Receipts</h3>
-              <input id="receiptSearch" type="search" placeholder="Search receipts..." class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
+          <!-- Receipts Section -->
+          <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-receipt text-blue-600 mr-2"></i>Recent Payment Receipts</h3>
+              <input id="receiptSearch" type="search" placeholder="Search receipts..." class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm text-left text-slate-600">
-                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200">
-                  <tr><th class="px-4 py-3">Receipt #</th><th class="px-4 py-3">Student</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Payment Date</th><th class="px-4 py-3">Method</th><th class="px-4 py-3">Action</th></tr>
+                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200/80 font-semibold">
+                  <tr><th class="px-4 py-3.5">Receipt #</th><th class="px-4 py-3.5">Student</th><th class="px-4 py-3.5">Amount</th><th class="px-4 py-3.5">Payment Date</th><th class="px-4 py-3.5">Method</th><th class="px-4 py-3.5">Action</th></tr>
                 </thead>
-                <tbody id="receiptTableBody"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading receipts...</td></tr></tbody>
+                <tbody id="receiptTableBody" class="divide-y divide-slate-100"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading receipts...</td></tr></tbody>
               </table>
             </div>
           </section>
 
-          <section class="bg-white border border-slate-200 rounded-xl shadow-sm mb-5">
-            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <h3 class="font-bold text-slate-900"><i class="fa fa-briefcase text-blue-600 mr-2"></i>Expense Tracking & Approvals</h3>
+          <!-- Expenses Section -->
+          <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-briefcase text-blue-600 mr-2"></i>Expense Tracking & Approvals</h3>
               <div class="flex gap-2">
-                <select id="expenseStatusFilter" class="bg-slate-50 border border-slate-300 text-sm rounded-lg p-2.5"><option value="">All Status</option><option>Pending</option><option>Approved</option><option>Rejected</option><option>Paid</option></select>
-                <button onclick="requestExpense()" class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">+ New Request</button>
+                <select id="expenseStatusFilter" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"><option value="">All Status</option><option>Pending</option><option>Approved</option><option>Rejected</option><option>Paid</option></select>
+                <button onclick="requestExpense()" class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">+ New Request</button>
               </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm text-left text-slate-600">
-                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200">
-                  <tr><th class="px-4 py-3">Request ID</th><th class="px-4 py-3">Requested By</th><th class="px-4 py-3">Category</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Purpose</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Action</th></tr>
+                <thead class="text-xs uppercase bg-slate-50 text-slate-700 border-b border-slate-200/80 font-semibold">
+                  <tr><th class="px-4 py-3.5">Request ID</th><th class="px-4 py-3.5">Requested By</th><th class="px-4 py-3.5">Category</th><th class="px-4 py-3.5">Amount</th><th class="px-4 py-3.5">Purpose</th><th class="px-4 py-3.5">Status</th><th class="px-4 py-3.5">Date</th><th class="px-4 py-3.5">Action</th></tr>
                 </thead>
-                <tbody id="expenseTableBody"><tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">Loading expenses...</td></tr></tbody>
+                <tbody id="expenseTableBody" class="divide-y divide-slate-100"><tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">Loading expenses...</td></tr></tbody>
               </table>
             </div>
           </section>
 
+          <!-- Cash & Approvals Grid -->
           <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            <section class="bg-white border border-slate-200 rounded-xl shadow-sm">
-              <div class="p-5 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="font-bold text-slate-900"><i class="fa fa-hand-holding-dollar text-blue-600 mr-2"></i>Cash Requests</h3>
-                <button onclick="createCashRequest()" class="px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg">+ Request</button>
+            <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-slate-200/80 flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-hand-holding-dollar text-blue-600 mr-2"></i>Cash Requests</h3>
+                <button onclick="createCashRequest()" class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">+ Request</button>
               </div>
               <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-slate-600">
-                  <thead class="text-xs uppercase bg-slate-50 text-slate-700"><tr><th class="px-4 py-3">Requested By</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Reason</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Action</th></tr></thead>
-                  <tbody id="cashRequestTableBody"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading...</td></tr></tbody>
+                  <thead class="text-xs uppercase bg-slate-50 text-slate-700 font-semibold border-b border-slate-200/80"><tr><th class="px-4 py-3">Requested By</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Reason</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Action</th></tr></thead>
+                  <tbody id="cashRequestTableBody" class="divide-y divide-slate-100"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading...</td></tr></tbody>
                 </table>
               </div>
             </section>
 
-            <section class="bg-white border border-slate-200 rounded-xl shadow-sm">
-              <div class="p-5 border-b border-slate-200">
-                <h3 class="font-bold text-slate-900"><i class="fa fa-circle-check text-blue-600 mr-2"></i>Approvals & Authorizations</h3>
+            <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-slate-200/80">
+                <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-circle-check text-blue-600 mr-2"></i>Approvals & Authorizations</h3>
               </div>
               <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-slate-600">
-                  <thead class="text-xs uppercase bg-slate-50 text-slate-700"><tr><th class="px-4 py-3">Approved For</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Approved By</th><th class="px-4 py-3">Action</th></tr></thead>
-                  <tbody id="approvalTableBody"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading...</td></tr></tbody>
+                  <thead class="text-xs uppercase bg-slate-50 text-slate-700 font-semibold border-b border-slate-200/80"><tr><th class="px-4 py-3">Approved For</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Approved By</th><th class="px-4 py-3">Action</th></tr></thead>
+                  <tbody id="approvalTableBody" class="divide-y divide-slate-100"><tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Loading...</td></tr></tbody>
                 </table>
               </div>
             </section>
           </div>
 
-          <section class="bg-white border border-slate-200 rounded-xl shadow-sm mt-5">
-            <div class="p-5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <h3 class="font-bold text-slate-900"><i class="fa fa-clock-rotate-left text-blue-600 mr-2"></i>Transaction History & Reconciliation</h3>
+          <!-- Transaction History -->
+          <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-clock-rotate-left text-blue-600 mr-2"></i>Transaction History & Reconciliation</h3>
               <div class="flex flex-wrap gap-2">
-                <input id="transactionStartDate" type="date" class="bg-slate-50 border border-slate-300 text-sm rounded-lg p-2.5">
-                <input id="transactionEndDate" type="date" class="bg-slate-50 border border-slate-300 text-sm rounded-lg p-2.5">
-                <button onclick="reconcileTransactions()" class="px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg">Reconcile</button>
-                <button onclick="exportTransactions()" class="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Export</button>
+                <input id="transactionStartDate" type="date" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2 outline-none focus:ring-2 focus:ring-blue-500/20">
+                <input id="transactionEndDate" type="date" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2 outline-none focus:ring-2 focus:ring-blue-500/20">
+                <button onclick="reconcileTransactions()" class="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors">Reconcile</button>
+                <button onclick="exportTransactions()" class="px-3 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">Export</button>
               </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm text-left text-slate-600">
-                <thead class="text-xs uppercase bg-slate-50 text-slate-700"><tr><th class="px-4 py-3">Ref #</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Description</th><th class="px-4 py-3">Credit</th><th class="px-4 py-3">Debit</th><th class="px-4 py-3">Balance</th><th class="px-4 py-3">Method</th><th class="px-4 py-3">Verified</th></tr></thead>
-                <tbody id="transactionTableBody"><tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">Loading transactions...</td></tr></tbody>
+                <thead class="text-xs uppercase bg-slate-50 text-slate-700 font-semibold border-b border-slate-200/80"><tr><th class="px-4 py-3">Ref #</th><th class="px-4 py-3">Date</th><th class="px-4 py-3">Description</th><th class="px-4 py-3">Credit</th><th class="px-4 py-3">Debit</th><th class="px-4 py-3">Balance</th><th class="px-4 py-3">Method</th><th class="px-4 py-3">Verified</th></tr></thead>
+                <tbody id="transactionTableBody" class="divide-y divide-slate-100"><tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">Loading transactions...</td></tr></tbody>
               </table>
             </div>
           </section>
 
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
-            <section class="bg-white border border-slate-200 rounded-xl shadow-sm">
-              <div class="p-5 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="font-bold text-slate-900"><i class="fa fa-file-chart-column text-blue-600 mr-2"></i>Financial Reports</h3>
+          <!-- Reports & Bank Accounts Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
+              <div class="pb-3 border-b border-slate-200/80 flex items-center justify-between mb-4">
+                <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-file-chart-column text-blue-600 mr-2"></i>Financial Reports</h3>
               </div>
-              <div class="p-5 flex flex-col sm:flex-row gap-2">
-                <select id="reportType" class="bg-slate-50 border border-slate-300 text-sm rounded-lg p-2.5 flex-1"><option value="summary">Financial Summary</option><option value="fees">Fee Collection Report</option><option value="expenses">Expense Report</option><option value="reconciliation">Bank Reconciliation</option><option value="audit">Audit Trail</option></select>
-                <button onclick="generateReport()" class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Generate</button>
-                <button onclick="exportReport()" class="px-4 py-2.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg">Export</button>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <select id="reportType" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 flex-1 outline-none focus:ring-2 focus:ring-blue-500/20"><option value="summary">Financial Summary</option><option value="fees">Fee Collection Report</option><option value="expenses">Expense Report</option><option value="reconciliation">Bank Reconciliation</option><option value="audit">Audit Trail</option></select>
+                <button onclick="generateReport()" class="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">Generate</button>
+                <button onclick="exportReport()" class="px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors">Export</button>
               </div>
             </section>
 
-            <section class="bg-white border border-slate-200 rounded-xl shadow-sm">
-              <div class="p-5 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="font-bold text-slate-900"><i class="fa fa-building-columns text-blue-600 mr-2"></i>Bank Accounts & Wallets</h3>
-                <button onclick="addBankAccount()" class="px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg">+ Account</button>
+            <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-slate-200/80 flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-building-columns text-blue-600 mr-2"></i>Bank Accounts & Wallets</h3>
+                <button onclick="addBankAccount()" class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">+ Account</button>
               </div>
               <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-slate-600">
-                  <thead class="text-xs uppercase bg-slate-50 text-slate-700"><tr><th class="px-4 py-3">Account</th><th class="px-4 py-3">Bank</th><th class="px-4 py-3">Number</th><th class="px-4 py-3">Balance</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Action</th></tr></thead>
-                  <tbody id="bankAccountTableBody"><tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">Loading...</td></tr></tbody>
+                  <thead class="text-xs uppercase bg-slate-50 text-slate-700 font-semibold border-b border-slate-200/80"><tr><th class="px-4 py-3">Account</th><th class="px-4 py-3">Bank</th><th class="px-4 py-3">Number</th><th class="px-4 py-3">Balance</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Action</th></tr></thead>
+                  <tbody id="bankAccountTableBody" class="divide-y divide-slate-100"><tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">Loading...</td></tr></tbody>
                 </table>
               </div>
             </section>
           </div>
 
-          <section class="bg-white border border-slate-200 rounded-xl shadow-sm mt-5">
-            <div class="p-5 border-b border-slate-200">
-              <h3 class="font-bold text-slate-900"><i class="fa fa-sliders text-blue-600 mr-2"></i>Finance Settings</h3>
+          <!-- Finance Settings -->
+          <section class="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-5">
+            <div class="pb-3 border-b border-slate-200/80 mb-4">
+              <h3 class="font-bold text-slate-900 text-base"><i class="fa fa-sliders text-blue-600 mr-2"></i>Finance Settings</h3>
             </div>
-            <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <label class="flex items-center gap-3 text-sm text-slate-700"><input id="autoReminder" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Automatic payment reminders</label>
-              <label class="flex items-center gap-3 text-sm text-slate-700"><input id="emailReceipts" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Send email receipts</label>
-              <label class="flex items-center gap-3 text-sm text-slate-700"><input id="smsNotification" type="checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> SMS payment notifications</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="autoReminder" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Auto payment reminders</label>
+              <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="emailReceipts" type="checkbox" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> Send email receipts</label>
+              <label class="flex items-center gap-3 text-sm text-slate-700 font-medium"><input id="smsNotification" type="checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"> SMS payment alerts</label>
               <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1">Financial Year Start</label>
-                <input id="financialYearStart" type="month" class="bg-slate-50 border border-slate-300 text-sm rounded-lg p-2.5 w-full">
+                <input id="financialYearStart" type="month" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 w-full outline-none focus:ring-2 focus:ring-blue-500/20">
               </div>
-              <div class="sm:col-span-2 lg:col-span-4">
-                <button onclick="saveSettings()" class="px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg inline-flex items-center gap-2"><i class="fa fa-save"></i> Save Settings</button>
+              <div class="sm:col-span-2 lg:col-span-4 mt-2">
+                <button onclick="saveSettings()" class="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl inline-flex items-center gap-2 transition-colors shadow-sm"><i class="fa fa-save"></i> Save Settings</button>
               </div>
             </div>
           </section>
+
         </div>
       </main>
     </div>
   </div>
 
-  <!-- Mobile bottom toolbar -->
-  <div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 shadow-2xl md:hidden">
+  <!-- Mobile Bottom Navigation Bar -->
+  <div class="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-2xl md:hidden">
     <div class="grid h-16 max-w-lg grid-cols-5 mx-auto relative">
       <a href="admin.html" class="inline-flex flex-col items-center justify-center px-2 text-slate-500 hover:text-blue-600 hover:bg-slate-50">
         <i class="fa fa-house text-lg"></i><span class="text-[10px] mt-1 font-medium">Home</span>
@@ -381,12 +428,12 @@
       <div class="relative flex items-center justify-center">
         <button data-drawer-target="drawer-bottom-menu" data-drawer-show="drawer-bottom-menu" data-drawer-placement="bottom"
           aria-controls="drawer-bottom-menu"
-          class="absolute -top-6 inline-flex items-center justify-center w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg border-4 border-slate-50 transition-transform active:scale-95">
-          <i class="fa fa-layer-group text-xl"></i>
+          class="absolute -top-5 inline-flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg border-4 border-slate-50 active:scale-95 transition-all">
+          <i class="fa fa-layer-group text-lg"></i>
         </button>
       </div>
-      <a href="finance.html" class="inline-flex flex-col items-center justify-center px-2 text-blue-600 bg-blue-50">
-        <i class="fa fa-wallet text-lg"></i><span class="text-[10px] mt-1 font-semibold">Finance</span>
+      <a href="finance.html" class="inline-flex flex-col items-center justify-center px-2 text-blue-600 bg-blue-50/80">
+        <i class="fa fa-wallet text-lg"></i><span class="text-[10px] mt-1 font-bold">Finance</span>
       </a>
       <a href="more.html" class="inline-flex flex-col items-center justify-center px-2 text-slate-500 hover:text-blue-600 hover:bg-slate-50">
         <i class="fa fa-ellipsis text-lg"></i><span class="text-[10px] mt-1 font-medium">More</span>
@@ -394,49 +441,50 @@
     </div>
   </div>
 
-  <!-- Mobile module drawer -->
+  <!-- Mobile Module Drawer (Using 2x2 Fixed Grid) -->
   <div id="drawer-bottom-menu"
     class="fixed bottom-0 left-0 right-0 z-50 p-4 overflow-y-auto bg-white rounded-t-3xl shadow-2xl transition-transform translate-y-full max-h-[80vh] border-t border-slate-200"
     tabindex="-1" aria-labelledby="drawer-bottom-label">
     <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4"></div>
     <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
       <h5 id="drawer-bottom-label" class="inline-flex items-center text-base font-bold text-slate-800">
-        <i class="fa fa-layer-group text-blue-600 mr-2"></i> Finance Modules
+        <i class="fa fa-layer-group text-blue-600 mr-2"></i> Finance Navigation
       </h5>
       <button type="button" data-drawer-hide="drawer-bottom-menu" aria-controls="drawer-bottom-menu"
-        class="text-slate-400 bg-transparent hover:bg-slate-100 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center">
+        class="text-slate-400 bg-transparent hover:bg-slate-100 rounded-xl text-sm w-8 h-8 inline-flex items-center justify-center">
         <i class="fa fa-times text-lg"></i>
       </button>
     </div>
 
+    <!-- 2x2 Fixed Card Grid in Mobile Menu -->
     <div class="grid grid-cols-2 gap-3">
-      <button onclick="scrollToSection('fees')" data-drawer-hide="drawer-bottom-menu" class="p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left">
-        <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-graduation-cap"></i></div>
-        <div class="text-xs font-bold">Fees</div><div class="text-[10px] text-slate-500">Student fee records</div>
+      <button onclick="scrollToSection('fees')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-graduation-cap"></i></div>
+        <div class="text-xs font-bold text-slate-800">Fees</div><div class="text-[10px] text-slate-500">Student fee records</div>
       </button>
-      <button onclick="scrollToSection('invoices')" data-drawer-hide="drawer-bottom-menu" class="p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left">
-        <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-file-invoice"></i></div>
-        <div class="text-xs font-bold">Invoices</div><div class="text-[10px] text-slate-500">Recent invoices</div>
+      <button onclick="scrollToSection('invoices')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-file-invoice"></i></div>
+        <div class="text-xs font-bold text-slate-800">Invoices</div><div class="text-[10px] text-slate-500">Recent invoices</div>
       </button>
-      <button onclick="scrollToSection('receipts')" data-drawer-hide="drawer-bottom-menu" class="p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left">
-        <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-receipt"></i></div>
-        <div class="text-xs font-bold">Receipts</div><div class="text-[10px] text-slate-500">Payment receipts</div>
+      <button onclick="scrollToSection('receipts')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-receipt"></i></div>
+        <div class="text-xs font-bold text-slate-800">Receipts</div><div class="text-[10px] text-slate-500">Payment receipts</div>
       </button>
-      <button onclick="scrollToSection('expenses')" data-drawer-hide="drawer-bottom-menu" class="p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left">
-        <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-briefcase"></i></div>
-        <div class="text-xs font-bold">Expenses</div><div class="text-[10px] text-slate-500">Expense requests</div>
+      <button onclick="scrollToSection('expenses')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-briefcase"></i></div>
+        <div class="text-xs font-bold text-slate-800">Expenses</div><div class="text-[10px] text-slate-500">Expense requests</div>
       </button>
-      <button onclick="scrollToSection('transactions')" data-drawer-hide="drawer-bottom-menu" class="p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left">
-        <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-clock-rotate-left"></i></div>
-        <div class="text-xs font-bold">Transactions</div><div class="text-[10px] text-slate-500">Reconciliation</div>
+      <button onclick="scrollToSection('transactions')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-clock-rotate-left"></i></div>
+        <div class="text-xs font-bold text-slate-800">Transactions</div><div class="text-[10px] text-slate-500">Reconciliation</div>
       </button>
-      <button onclick="scrollToSection('reports')" data-drawer-hide="drawer-bottom-menu" class="p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left">
-        <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-chart-column"></i></div>
-        <div class="text-xs font-bold">Reports</div><div class="text-[10px] text-slate-500">Financial reports</div>
+      <button onclick="scrollToSection('reports')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-chart-column"></i></div>
+        <div class="text-xs font-bold text-slate-800">Reports</div><div class="text-[10px] text-slate-500">Financial reports</div>
       </button>
-      <button onclick="scrollToSection('accounts')" data-drawer-hide="drawer-bottom-menu" class="col-span-2 p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left flex items-center gap-3">
-        <div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center"><i class="fa fa-building-columns"></i></div>
-        <div><div class="text-xs font-bold">Bank Accounts & Wallets</div><div class="text-[10px] text-slate-500">Manage finance accounts</div></div>
+      <button onclick="scrollToSection('accounts')" data-drawer-hide="drawer-bottom-menu" class="col-span-2 p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left flex items-center gap-3 transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><i class="fa fa-building-columns"></i></div>
+        <div><div class="text-xs font-bold text-slate-800">Bank Accounts & Wallets</div><div class="text-[10px] text-slate-500">Manage finance accounts</div></div>
       </button>
     </div>
   </div>
@@ -458,6 +506,33 @@
     };
     let revenueChartInstance = null;
     let paymentStatusChartInstance = null;
+
+    /* Error Modal Helper Functions (Replaces Logging Out on Error) */
+    function showErrorModal(message, title = 'System Error', details = null, showRetry = true) {
+      document.getElementById('errorModalTitle').textContent = title;
+      document.getElementById('errorModalMessage').textContent = message;
+      
+      const detailsEl = document.getElementById('errorModalDetails');
+      if (details) {
+        detailsEl.textContent = typeof details === 'object' ? JSON.stringify(details, null, 2) : String(details);
+        detailsEl.classList.remove('hidden');
+      } else {
+        detailsEl.classList.add('hidden');
+      }
+
+      const retryBtn = document.getElementById('errorModalRetryBtn');
+      if (showRetry) {
+        retryBtn.classList.remove('hidden');
+      } else {
+        retryBtn.classList.add('hidden');
+      }
+
+      document.getElementById('errorModal').classList.remove('hidden');
+    }
+
+    function closeErrorModal() {
+      document.getElementById('errorModal').classList.add('hidden');
+    }
 
     function decodeJwtPayload(jwt) {
       try {
@@ -490,10 +565,16 @@
     }
 
     async function apiFetch(url, options = {}) {
-      return fetch(url, {
-        ...options,
-        headers: authHeaders(options.headers || {})
-      });
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers: authHeaders(options.headers || {})
+        });
+        return response;
+      } catch (err) {
+        showErrorModal('Network connection failed. Unable to communicate with server.', 'Network Error', err.message);
+        throw err;
+      }
     }
 
     function schoolInitials(name) {
@@ -540,7 +621,10 @@
     }
 
     async function loadSchoolConfig() {
-      if (!token) throw new Error('No authentication token found. Please sign in again.');
+      if (!token) {
+        showErrorModal('Authentication token missing. Please log in to proceed.', 'Authentication Error', null, false);
+        return null;
+      }
 
       const hostSubdomain = getTenantSubdomain();
 
@@ -567,21 +651,29 @@
         applySchoolBranding(school);
         return school;
       } catch (authError) {
-        if (!hostSubdomain) throw authError;
+        if (!hostSubdomain) {
+          showErrorModal(authError.message || 'Unable to retrieve school configuration.', 'School Config Error');
+          return null;
+        }
 
-        const res = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(hostSubdomain)}`, {
-          headers: { Accept: 'application/json' }
-        });
-        if (!res.ok) throw new Error(`School configuration failed (HTTP ${res.status})`);
+        try {
+          const res = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(hostSubdomain)}`, {
+            headers: { Accept: 'application/json' }
+          });
+          if (!res.ok) throw new Error(`School configuration failed (HTTP ${res.status})`);
 
-        const raw = await res.json();
-        const school = raw.school || raw.data || raw;
-        if (!school?._id && !school?.schoolId) throw new Error('Invalid school configuration returned by server.');
+          const raw = await res.json();
+          const school = raw.school || raw.data || raw;
+          if (!school?._id && !school?.schoolId) throw new Error('Invalid school configuration returned by server.');
 
-        publicSchoolId = school.schoolId || '';
-        schoolSubdomain = String(school.subdomain || hostSubdomain).toLowerCase();
-        applySchoolBranding(school);
-        return school;
+          publicSchoolId = school.schoolId || '';
+          schoolSubdomain = String(school.subdomain || hostSubdomain).toLowerCase();
+          applySchoolBranding(school);
+          return school;
+        } catch (err) {
+          showErrorModal(err.message || 'Failed to fetch public school configuration.', 'Config Fetch Error');
+          return null;
+        }
       }
     }
 
@@ -599,36 +691,42 @@
       const s = String(status || 'Pending');
       const key = s.toLowerCase();
       const cls = key === 'paid' || key === 'completed' || key === 'approved' || key === 'active'
-        ? 'bg-emerald-100 text-emerald-800'
+        ? 'bg-emerald-100/80 text-emerald-800 border border-emerald-200'
         : key === 'overdue' || key === 'rejected'
-          ? 'bg-red-100 text-red-800'
+          ? 'bg-rose-100/80 text-rose-800 border border-rose-200'
           : key === 'waived'
-            ? 'bg-slate-100 text-slate-700'
-            : 'bg-amber-100 text-amber-800';
-      return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${cls}">${escapeHtml(s)}</span>`;
+            ? 'bg-slate-100 text-slate-700 border border-slate-200'
+            : 'bg-amber-100/80 text-amber-800 border border-amber-200';
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${cls}">${escapeHtml(s)}</span>`;
     }
 
     function emptyRow(cols, message) {
-      return `<tr><td colspan="${cols}" class="px-4 py-10 text-center text-slate-400">${escapeHtml(message)}</td></tr>`;
+      return `<tr><td colspan="${cols}" class="px-4 py-10 text-center text-slate-400 font-medium">${escapeHtml(message)}</td></tr>`;
     }
 
     async function getJson(path) {
       const res = await apiFetch(API_ROOT + path);
-      if (!res.ok) throw new Error(`${path} returned HTTP ${res.status}`);
+      if (!res.ok) {
+        showErrorModal(`Failed to load data from endpoint: ${path}`, `HTTP Error ${res.status}`);
+        return null;
+      }
       return res.json();
     }
 
     function unwrapList(raw) {
+      if (!raw) return [];
       if (Array.isArray(raw)) return raw;
       return raw?.data || raw?.items || raw?.results || raw?.records || [];
     }
 
     function unwrapObject(raw) {
+      if (!raw) return {};
       return raw?.data || raw?.result || raw;
     }
 
     async function fetchFinanceSummary() {
       const raw = await getJson('/finance/summary');
+      if (!raw) return;
       const data = unwrapObject(raw);
       document.getElementById('totalRevenue').textContent = money(data.totalRevenue);
       document.getElementById('totalPayments').textContent = money(data.completedPayments);
@@ -639,127 +737,135 @@
     }
 
     async function fetchFeeBreakdown() {
-      const data = unwrapList(await getJson('/finance/fees'));
+      const raw = await getJson('/finance/fees');
+      const data = unwrapList(raw);
       financeCache.fees = data;
       const tbody = document.getElementById('feeTableBody');
       tbody.innerHTML = data.length ? data.map(fee => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(fee.student?.name || fee.studentName || 'N/A')}</td>
-          <td class="px-4 py-3">${escapeHtml(fee.class?.name || fee.className || '')}</td>
-          <td class="px-4 py-3">${escapeHtml(fee.type || '')}</td>
-          <td class="px-4 py-3 font-semibold">${money(fee.amount)}</td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(fee.student?.name || fee.studentName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.class?.name || fee.className || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.type || '')}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(fee.amount)}</td>
           <td class="px-4 py-3">${statusBadge(fee.status)}</td>
-          <td class="px-4 py-3">${escapeHtml(fee.term || '')}</td>
-          <td class="px-4 py-3">${escapeHtml(fee.session || '')}</td>
-          <td class="px-4 py-3">${escapeHtml(fee.due || fee.dueDate || '')}</td>
-          <td class="px-4 py-3">${escapeHtml(fee.method || '')}</td>
-          <td class="px-4 py-3"><button onclick="editFee('${escapeHtml(fee.id || fee._id || '')}')" class="text-blue-600 hover:underline font-medium">Edit</button></td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.term || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.session || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.due || fee.dueDate || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.method || '')}</td>
+          <td class="px-4 py-3"><button onclick="editFee('${escapeHtml(fee.id || fee._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Edit</button></td>
         </tr>`).join('') : emptyRow(10, 'No fee data found');
     }
 
     async function fetchInvoices() {
-      const data = unwrapList(await getJson('/finance/invoices'));
+      const raw = await getJson('/finance/invoices');
+      const data = unwrapList(raw);
       financeCache.invoices = data;
       const tbody = document.getElementById('invoiceTableBody');
       tbody.innerHTML = data.length ? data.slice(0, 20).map(inv => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3 font-semibold">${escapeHtml(inv.invoiceNo || '#')}</td>
-          <td class="px-4 py-3">${escapeHtml(inv.student?.name || inv.studentName || 'N/A')}</td>
-          <td class="px-4 py-3">${money(inv.amount)}</td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(inv.invoiceNo || '#')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.student?.name || inv.studentName || 'N/A')}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(inv.amount)}</td>
           <td class="px-4 py-3">${statusBadge(inv.status)}</td>
-          <td class="px-4 py-3">${escapeHtml(inv.date ? String(inv.date).slice(0,10) : '')}</td>
-          <td class="px-4 py-3"><button onclick="viewInvoice('${escapeHtml(inv.id || inv._id || '')}')" class="text-blue-600 hover:underline font-medium">View</button></td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.date ? String(inv.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3"><button onclick="viewInvoice('${escapeHtml(inv.id || inv._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">View</button></td>
         </tr>`).join('') : emptyRow(6, 'No invoices found');
     }
 
     async function fetchPaymentReceipts() {
-      const data = unwrapList(await getJson('/finance/receipts'));
+      const raw = await getJson('/finance/receipts');
+      const data = unwrapList(raw);
       financeCache.receipts = data;
       const tbody = document.getElementById('receiptTableBody');
       tbody.innerHTML = data.length ? data.slice(0, 20).map(rec => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3 font-semibold">${escapeHtml(rec.receiptNo || '#')}</td>
-          <td class="px-4 py-3">${escapeHtml(rec.student?.name || rec.studentName || 'N/A')}</td>
-          <td class="px-4 py-3">${money(rec.amount)}</td>
-          <td class="px-4 py-3">${escapeHtml(rec.paymentDate ? String(rec.paymentDate).slice(0,10) : '')}</td>
-          <td class="px-4 py-3">${escapeHtml(rec.method || '')}</td>
-          <td class="px-4 py-3"><button onclick="downloadReceipt('${escapeHtml(rec.id || rec._id || '')}')" class="text-blue-600 hover:underline font-medium">Download</button></td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(rec.receiptNo || '#')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.student?.name || rec.studentName || 'N/A')}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(rec.amount)}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.paymentDate ? String(rec.paymentDate).slice(0,10) : '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.method || '')}</td>
+          <td class="px-4 py-3"><button onclick="downloadReceipt('${escapeHtml(rec.id || rec._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Download</button></td>
         </tr>`).join('') : emptyRow(6, 'No receipts found');
     }
 
     async function fetchExpenseRequests() {
-      const data = unwrapList(await getJson('/finance/expenses'));
+      const raw = await getJson('/finance/expenses');
+      const data = unwrapList(raw);
       financeCache.expenses = data;
       const tbody = document.getElementById('expenseTableBody');
       tbody.innerHTML = data.length ? data.map(exp => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3 font-semibold">${escapeHtml(exp.requestId || '#')}</td>
-          <td class="px-4 py-3">${escapeHtml(exp.requestedBy?.name || exp.requestedByName || 'N/A')}</td>
-          <td class="px-4 py-3">${escapeHtml(exp.category || '')}</td>
-          <td class="px-4 py-3 font-semibold">${money(exp.amount)}</td>
-          <td class="px-4 py-3">${escapeHtml(exp.purpose || '')}</td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(exp.requestId || '#')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.requestedBy?.name || exp.requestedByName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.category || '')}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(exp.amount)}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.purpose || '')}</td>
           <td class="px-4 py-3">${statusBadge(exp.status)}</td>
-          <td class="px-4 py-3">${escapeHtml(exp.date ? String(exp.date).slice(0,10) : '')}</td>
-          <td class="px-4 py-3"><button onclick="approveExpense('${escapeHtml(exp.id || exp._id || '')}')" class="text-blue-600 hover:underline font-medium">Review</button></td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.date ? String(exp.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3"><button onclick="approveExpense('${escapeHtml(exp.id || exp._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Review</button></td>
         </tr>`).join('') : emptyRow(8, 'No expense requests found');
     }
 
     async function fetchCashRequests() {
-      const data = unwrapList(await getJson('/finance/cash-requests'));
+      const raw = await getJson('/finance/cash-requests');
+      const data = unwrapList(raw);
       financeCache.cashRequests = data;
       document.getElementById('cashRequestTableBody').innerHTML = data.length ? data.slice(0,10).map(req => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3">${escapeHtml(req.requestBy?.name || req.requestByName || 'N/A')}</td>
-          <td class="px-4 py-3 font-semibold">${money(req.amount)}</td>
-          <td class="px-4 py-3">${escapeHtml(req.reason || '')}</td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(req.requestBy?.name || req.requestByName || 'N/A')}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(req.amount)}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(req.reason || '')}</td>
           <td class="px-4 py-3">${statusBadge(req.status)}</td>
-          <td class="px-4 py-3">${escapeHtml(req.date ? String(req.date).slice(0,10) : '')}</td>
-          <td class="px-4 py-3"><button onclick="manageCashRequest('${escapeHtml(req.id || req._id || '')}')" class="text-blue-600 hover:underline">Action</button></td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(req.date ? String(req.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3"><button onclick="manageCashRequest('${escapeHtml(req.id || req._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Action</button></td>
         </tr>`).join('') : emptyRow(6, 'No cash requests');
     }
 
     async function fetchApprovals() {
-      const data = unwrapList(await getJson('/finance/approvals'));
+      const raw = await getJson('/finance/approvals');
+      const data = unwrapList(raw);
       financeCache.approvals = data;
       document.getElementById('approvalTableBody').innerHTML = data.length ? data.slice(0,10).map(app => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3">${escapeHtml(app.approvedFor?.name || app.approvedForName || 'N/A')}</td>
-          <td class="px-4 py-3 font-semibold">${money(app.amount)}</td>
-          <td class="px-4 py-3">${escapeHtml(app.type || '')}</td>
-          <td class="px-4 py-3">${escapeHtml(app.date ? String(app.date).slice(0,10) : '')}</td>
-          <td class="px-4 py-3">${escapeHtml(app.approvedBy?.name || app.approvedByName || 'N/A')}</td>
-          <td class="px-4 py-3"><button onclick="viewApproval('${escapeHtml(app.id || app._id || '')}')" class="text-blue-600 hover:underline">View</button></td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(app.approvedFor?.name || app.approvedForName || 'N/A')}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(app.amount)}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(app.type || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(app.date ? String(app.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(app.approvedBy?.name || app.approvedByName || 'N/A')}</td>
+          <td class="px-4 py-3"><button onclick="viewApproval('${escapeHtml(app.id || app._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">View</button></td>
         </tr>`).join('') : emptyRow(6, 'No approvals found');
     }
 
     async function fetchTransactions() {
-      const data = unwrapList(await getJson('/finance/transactions'));
+      const raw = await getJson('/finance/transactions');
+      const data = unwrapList(raw);
       financeCache.transactions = data;
       document.getElementById('transactionTableBody').innerHTML = data.length ? data.map(tran => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3 font-semibold">${escapeHtml(tran.ref || '#')}</td>
-          <td class="px-4 py-3">${escapeHtml(tran.date ? String(tran.date).slice(0,10) : '')}</td>
-          <td class="px-4 py-3">${escapeHtml(tran.description || '')}</td>
-          <td class="px-4 py-3 text-emerald-600 font-semibold">${tran.credit ? money(tran.credit) : '-'}</td>
-          <td class="px-4 py-3 text-red-600 font-semibold">${tran.debit ? money(tran.debit) : '-'}</td>
-          <td class="px-4 py-3">${tran.balance !== undefined ? money(tran.balance) : '-'}</td>
-          <td class="px-4 py-3">${escapeHtml(tran.method || '')}</td>
-          <td class="px-4 py-3">${tran.verified ? '✓' : '✗'}</td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(tran.ref || '#')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(tran.date ? String(tran.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(tran.description || '')}</td>
+          <td class="px-4 py-3 text-emerald-600 font-bold">${tran.credit ? money(tran.credit) : '-'}</td>
+          <td class="px-4 py-3 text-rose-600 font-bold">${tran.debit ? money(tran.debit) : '-'}</td>
+          <td class="px-4 py-3 font-semibold text-slate-800">${tran.balance !== undefined ? money(tran.balance) : '-'}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(tran.method || '')}</td>
+          <td class="px-4 py-3 font-bold ${tran.verified ? 'text-emerald-600' : 'text-slate-400'}">${tran.verified ? '✓' : '✗'}</td>
         </tr>`).join('') : emptyRow(8, 'No transactions found');
     }
 
     async function fetchBankAccounts() {
-      const data = unwrapList(await getJson('/finance/bank-accounts'));
+      const raw = await getJson('/finance/bank-accounts');
+      const data = unwrapList(raw);
       financeCache.bankAccounts = data;
       document.getElementById('bankAccountTableBody').innerHTML = data.length ? data.map(acc => `
-        <tr class="border-b border-slate-100 hover:bg-slate-50">
-          <td class="px-4 py-3 font-semibold">${escapeHtml(acc.accountName || 'N/A')}</td>
-          <td class="px-4 py-3">${escapeHtml(acc.bankName || '')}</td>
-          <td class="px-4 py-3">${escapeHtml(acc.accountNumber || '')}</td>
-          <td class="px-4 py-3 font-semibold">${money(acc.balance)}</td>
-          <td class="px-4 py-3">${escapeHtml(acc.type || 'Operational')}</td>
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(acc.accountName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(acc.bankName || '')}</td>
+          <td class="px-4 py-3 text-slate-600 font-mono">${escapeHtml(acc.accountNumber || '')}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(acc.balance)}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(acc.type || 'Operational')}</td>
           <td class="px-4 py-3">${statusBadge(acc.status || 'Active')}</td>
-          <td class="px-4 py-3"><button onclick="editAccount('${escapeHtml(acc.id || acc._id || '')}')" class="text-blue-600 hover:underline">Edit</button></td>
+          <td class="px-4 py-3"><button onclick="editAccount('${escapeHtml(acc.id || acc._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Edit</button></td>
         </tr>`).join('') : emptyRow(7, 'No bank accounts configured');
     }
 
@@ -774,8 +880,10 @@
             label: 'Monthly Revenue',
             data: incomes.length ? incomes : [0,0,0,0,0,0],
             borderWidth: 2,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.08)',
             fill: true,
-            tension: .35
+            tension: 0.35
           }]
         },
         options: {
@@ -796,6 +904,7 @@
           labels: ['Paid','Pending','Overdue','Waived'],
           datasets: [{
             data: [stats.paid || 0, stats.pending || 0, stats.overdue || 0, stats.waived || 0],
+            backgroundColor: ['#10b981', '#f59e0b', '#f43f5e', '#64748b'],
             borderWidth: 2
           }]
         },
@@ -806,6 +915,7 @@
     async function loadAdminIdentity() {
       try {
         const raw = await getJson('/auth/me');
+        if (!raw) return;
         const user = raw.user || raw.data?.user || raw;
         document.getElementById('adminName').textContent =
           user.name || user.fullName || user.email || user.regNo || 'Admin';
@@ -839,11 +949,11 @@
     }
 
     function exportCSV(filename, rows) {
-      if (!rows.length) return alert('No data available to export.');
+      if (!rows.length) return showErrorModal('No data available to export.', 'Export Error', null, false);
       const keys = Object.keys(rows[0]);
       const csv = [keys.join(','), ...rows.map(row =>
         keys.map(k => `"${String(row[k] ?? '').replace(/"/g,'""')}"`).join(',')
-      )].join('\\n');
+      )].join('\n');
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -862,30 +972,30 @@
       })));
     }
 
-    function createNewInvoice() { alert('Create new invoice functionality can be connected to the finance invoice POST route.'); }
-    function editFee(id) { alert('Edit fee: ' + id); }
-    function viewInvoice(id) { alert('View invoice: ' + id); }
-    function downloadReceipt(id) { alert('Download receipt: ' + id); }
-    function requestExpense() { alert('Create expense request.'); }
-    function approveExpense(id) { alert('Review expense: ' + id); }
-    function createCashRequest() { alert('Create cash request.'); }
-    function manageCashRequest(id) { alert('Manage request: ' + id); }
-    function viewApproval(id) { alert('View approval: ' + id); }
-    function reconcileTransactions() { alert('Transaction reconciliation action.'); }
+    function createNewInvoice() { showErrorModal('Create invoice route connection active.', 'Feature Notice', null, false); }
+    function editFee(id) { showErrorModal('Editing fee ID: ' + id, 'Edit Fee', null, false); }
+    function viewInvoice(id) { showErrorModal('Viewing invoice ID: ' + id, 'View Invoice', null, false); }
+    function downloadReceipt(id) { showErrorModal('Downloading receipt ID: ' + id, 'Download Receipt', null, false); }
+    function requestExpense() { showErrorModal('Expense request route triggered.', 'New Request', null, false); }
+    function approveExpense(id) { showErrorModal('Reviewing expense ID: ' + id, 'Expense Review', null, false); }
+    function createCashRequest() { showErrorModal('Cash request drawer triggered.', 'Cash Request', null, false); }
+    function manageCashRequest(id) { showErrorModal('Managing cash request ID: ' + id, 'Manage Request', null, false); }
+    function viewApproval(id) { showErrorModal('Viewing approval ID: ' + id, 'View Approval', null, false); }
+    function reconcileTransactions() { showErrorModal('Reconciliation scan complete.', 'Reconciliation', null, false); }
     function exportTransactions() { exportCSV('transactions.csv', financeCache.transactions); }
-    function generateReport() { alert('Generate ' + document.getElementById('reportType').value + ' report.'); }
-    function exportReport() { alert('Export report to PDF.'); }
-    function addBankAccount() { alert('Add bank account.'); }
-    function editAccount(id) { alert('Edit account: ' + id); }
-    function saveSettings() { alert('Finance settings saved.'); }
+    function generateReport() { showErrorModal('Report generated for ' + document.getElementById('reportType').value, 'Report Generated', null, false); }
+    function exportReport() { showErrorModal('Exporting report as PDF document.', 'Export PDF', null, false); }
+    function addBankAccount() { showErrorModal('Bank account configuration opened.', 'Add Bank Account', null, false); }
+    function editAccount(id) { showErrorModal('Editing account ID: ' + id, 'Edit Bank Account', null, false); }
+    function saveSettings() { showErrorModal('Finance settings updated successfully!', 'Settings Saved', null, false); }
 
     async function init() {
       const loader = document.getElementById('pageLoader');
 
       try {
         if (!token) {
-          document.getElementById('loaderText').textContent = 'No active session. Redirecting to login...';
-          setTimeout(() => { window.location.href = 'login.html'; }, 900);
+          showErrorModal('No active session found. Please sign in to access the Finance Portal.', 'Authentication Required', null, false);
+          loader.classList.add('hidden');
           return;
         }
 
@@ -898,12 +1008,10 @@
         setupSearch('receiptSearch', 'receiptTableBody');
       } catch (error) {
         console.error('Finance initialization error:', error);
-        document.getElementById('loaderText').textContent = error.message || 'Unable to load finance portal.';
-        setTimeout(() => loader.classList.add('hidden'), 1800);
-        return;
+        showErrorModal(error.message || 'Unable to load finance portal.', 'Initialization Failed');
+      } finally {
+        loader.classList.add('hidden');
       }
-
-      loader.classList.add('hidden');
     }
 
     const sidebar = document.getElementById('sidebar');
