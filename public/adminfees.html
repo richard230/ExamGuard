@@ -1,1457 +1,969 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Admin Fees Management | Gold and Linc Schools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <title>Fees Management</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS & Libraries -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  
   <style>
-    :root {
-      --bg-0: #f6f8ff;
-      --bg-1: #eef2ff;
-      --accent: #0f172a;
-      --accent-2: #1e40af;
-      --muted: #6b7280;
-      --card-bg: #ffffff;
-      --sidebar-w: 300px;
-      --radius: 10px;
-      --success: #18ba89;
-      --warning: #ffd600;
-      --danger: #e74c3c;
-      --info: #2647a6;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
-      -webkit-font-smoothing: antialiased;
-      color: #07102a;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .app {
-      display: flex;
-      min-height: 100vh;
-      align-items: stretch;
-    }
-
-    .sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
-      color: #fff;
-      padding: 20px 16px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 100;
-      box-shadow: 4px 0 28px rgba(2, 11, 24, 0.12);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
-    }
-
-    .brand {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .brand img {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 3px solid rgba(255, 224, 102, 0.12);
-      background: #fff;
-    }
-
-    .brand .title {
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: #ffe066;
-    }
-
-    .brand .subtitle {
-      font-size: 0.85rem;
-      color: #b0c4ff;
-    }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 6px;
-      flex: 1;
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 0.98rem;
-      color: #e6eefc;
-      transition: background 0.2s, color 0.2s;
-    }
-
-    .nav a.active,
-    .nav a:hover {
-      background: rgba(255, 255, 255, 0.04);
-      color: #ffe066;
-    }
-
-    .topbar {
-      position: fixed;
-      left: var(--sidebar-w);
-      top: 0;
-      width: calc(100% - var(--sidebar-w));
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.95);
-      border-bottom: 1px solid #eef3ff;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-    }
-
-    /* Multi-School Selector Bar */
-    .school-selector-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #f0f5ff;
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px solid #d0e0ff;
-    }
-
-    .school-selector-wrapper label {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--accent-2);
-      white-space: nowrap;
-    }
-
-    .school-select {
-      background: #ffffff;
-      border: 1px solid #c0d4ff;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.88rem;
-      font-weight: 700;
-      color: var(--accent-2);
-      outline: none;
-      cursor: pointer;
-    }
-
-    .main {
-      margin-left: var(--sidebar-w);
-      padding: 20px;
-      flex: 1;
-      min-height: 100vh;
-      padding-top: 80px;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-
-    .page-title {
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: var(--accent-2);
-    }
-
-    .flex {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .muted-small {
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .icon-btn {
-      background: none;
-      border: none;
-      font-size: 18px;
-      cursor: pointer;
-      margin-left: 8px;
-      padding: 8px;
-      border-radius: 6px;
-      transition: background 0.2s;
-    }
-
-    .icon-btn:hover {
-      background: rgba(0, 0, 0, 0.05);
-    }
-
-    /* Container Styles */
-    .section-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-      padding: 24px;
-      border: 1px solid #eef3ff;
-      margin-bottom: 24px;
-    }
-
-    .section-title {
-      font-size: 1.2rem;
-      font-weight: 800;
-      color: var(--accent-2);
-      margin-bottom: 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.8em;
-    }
-
-    /* Form Styles */
-    .fees-form {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .form-group label {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--accent-2);
-    }
-
-    .form-group input,
-    .form-group select {
-      padding: 10px 12px;
-      border: 1px solid #ddeaff;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-family: 'Inter', Arial, sans-serif;
-      transition: all 0.2s;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: var(--accent-2);
-      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
-    }
-
-    .btn {
-      padding: 10px 24px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .btn-primary {
-      background: var(--accent-2);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #1438a0;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
-    }
-
-    .btn-success {
-      background: var(--success);
-      color: white;
-    }
-
-    .btn-success:hover {
-      background: #15803d;
-    }
-
-    .btn-warning {
-      background: var(--warning);
-      color: #333;
-      font-weight: 700;
-    }
-
-    .btn-warning:hover {
-      background: #eab308;
-    }
-
-    .btn-danger {
-      background: var(--danger);
-      color: white;
-    }
-
-    .btn-danger:hover {
-      background: #b91c1c;
-    }
-
-    .message {
-      padding: 12px 16px;
-      border-radius: 6px;
-      margin-top: 16px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      display: none;
-    }
-
-    .message.success {
-      background: #dcfce7;
-      color: #15803d;
-      border: 1px solid #bbf7d0;
-      display: block;
-    }
-
-    .message.error {
-      background: #fee2e2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-      display: block;
-    }
-
-    /* Table Styles */
-    .table-container {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      border-radius: 8px;
-      border: 1px solid #eef3ff;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.95rem;
-      min-width: 900px;
-    }
-
-    thead {
-      background: #f3f8ff;
-      border-bottom: 2px solid #ddeaff;
-    }
-
-    th {
-      padding: 12px 16px;
-      text-align: left;
-      font-weight: 700;
-      color: var(--accent-2);
-      white-space: nowrap;
-    }
-
-    td {
-      padding: 12px 16px;
-      border-bottom: 1px solid #eef3ff;
-      color: #555;
-    }
-
-    tbody tr {
-      transition: background 0.15s;
-    }
-
-    tbody tr:hover {
-      background: #f9fbff;
-    }
-
-    .badge {
-      display: inline-block;
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .badge-paid { background: #dcfce7; color: #15803d; }
-    .badge-unpaid { background: #fee2e2; color: #991b1b; }
-    .badge-waived { background: #fef3c7; color: #92400e; }
-    .badge-partial { background: #dbeafe; color: #0369a1; }
-
-    .action-btn {
-      padding: 6px 12px;
-      font-size: 0.85rem;
-      margin: 0 2px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .action-btn-update {
-      background: var(--success);
-      color: white;
-    }
-
-    .action-btn-update:hover {
-      background: #15803d;
-    }
-
-    /* Stats Cards */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .stat-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-      padding: 16px;
-      border: 1px solid #eef3ff;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .stat-label {
-      font-size: 0.9rem;
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    .stat-value {
-      font-size: 1.8rem;
-      font-weight: 800;
-      color: var(--accent-2);
-    }
-
-    /* Search Results */
-    .search-results {
-      max-height: 300px;
-      overflow-y: auto;
-      border: 1px solid #eef3ff;
-      border-radius: 6px;
-      background: white;
-      z-index: 10;
-    }
-
-    .search-result-item {
-      padding: 12px;
-      border-bottom: 1px solid #eef3ff;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .search-result-item:hover {
-      background: #f3f8ff;
-    }
-
-    .search-result-name {
-      font-weight: 600;
-      color: var(--accent-2);
-    }
-
-    .search-result-meta {
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-
-    /* Modal Styles */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 999;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .modal-overlay.active {
-      display: flex;
-    }
-
-    .modal-content {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-      padding: 24px;
-      width: 100%;
-      max-width: 600px;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 1px solid #eef3ff;
-      padding-bottom: 16px;
-    }
-
-    .modal-header h2 {
-      font-size: 1.3rem;
-      font-weight: 800;
-      color: var(--accent-2);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: var(--muted);
-      transition: color 0.2s;
-    }
-
-    .modal-close:hover {
-      color: var(--accent-2);
-    }
-
-    .modal-body {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .modal-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .modal-field label {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--accent-2);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .modal-field input,
-    .modal-field select {
-      padding: 10px 12px;
-      border: 1px solid #ddeaff;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-family: 'Inter', Arial, sans-serif;
-    }
-
-    .modal-field input:focus,
-    .modal-field select:focus {
-      outline: none;
-      border-color: var(--accent-2);
-      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
-    }
-
-    .sidebar-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.3);
-      z-index: 99;
-    }
-
-    .sidebar-overlay.active {
-      display: block;
-    }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .fees-form {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 768px) {
-      .sidebar {
-        width: 280px;
-        position: fixed;
-        left: -300px;
-        transition: left 0.3s ease;
-      }
-
-      .sidebar.active {
-        left: 0;
-      }
-
-      .topbar {
-        left: 0;
-        width: 100%;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-
-      .main {
-        margin-left: 0;
-        padding: 14px;
-        padding-top: 110px;
-      }
-
-      .fees-form {
-        grid-template-columns: 1fr;
-      }
-
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .modal-body {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .loading {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--muted);
-    }
-
-    .loader-spinner {
-      border: 4px solid #eef3ff;
-      border-top: 4px solid var(--accent-2);
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 16px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    /* Custom scrollbar for sleeker feel */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body>
-  <div class="app" id="app">
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
-      <div class="brand">
-        <img src="mainlogo.png" alt="Logo">
-        <div>
-          <div class="title">Gold and Linc Schools</div>
-          <div class="subtitle">Fees Management</div>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+<!-- LOADING OVERLAY -->
+<div id="loading" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md transition-opacity">
+  <div class="flex flex-col items-center rounded-3xl bg-white p-8 shadow-2xl border border-slate-100">
+    <div class="relative flex h-14 w-14 items-center justify-center">
+      <div class="absolute h-full w-full animate-ping rounded-full bg-brand-500/20"></div>
+      <i class="fa-solid fa-circle-notch fa-spin text-3xl text-brand-600"></i>
+    </div>
+    <p class="mt-4 font-semibold text-slate-700">Loading school account...</p>
+    <p class="text-xs text-slate-400 mt-1">Fetching records & configuration</p>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside id="sidebar" class="fixed left-0 top-0 z-50 h-screen w-72 -translate-x-full border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-300 ease-in-out md:translate-x-0">
+  <div class="flex h-full flex-col justify-between">
+    <div>
+      <!-- School Header in Sidebar -->
+      <div class="flex items-center gap-3.5 border-b border-slate-800 p-5">
+        <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-800 ring-2 ring-slate-700">
+          <img id="schoolLogo" class="h-full w-full object-contain">
+          <span id="schoolFallback" class="hidden font-bold text-brand-400 text-base">SC</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <b id="schoolName" class="block truncate text-sm font-bold text-white">School</b>
+          <span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Fees Portal
+          </span>
         </div>
       </div>
 
-      <nav class="nav" aria-label="Primary">
-        <a href="admin.html" class="nav-link">
-          <span>🏠</span> Dashboard
+      <!-- Navigation Links -->
+      <nav class="space-y-1.5 p-3.5 text-sm font-medium">
+        <a href="admin.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-house w-5 text-center text-slate-500"></i> Dashboard
         </a>
-        <a href="admission.html" class="nav-link">
-          <span>🎓</span> Admission
+        <a href="admission.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-graduation-cap w-5 text-center text-slate-500"></i> Admission
         </a>
-        <a href="more.html" class="nav-link">
-          <span>🌐</span> Multi-location
+        <a href="people.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-users w-5 text-center text-slate-500"></i> People
         </a>
-        <a href="people.html" class="nav-link">
-          <span>👥</span> People
+        <a href="academics.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-book-open w-5 text-center text-slate-500"></i> Academics
         </a>
-        <a href="academics.html" class="nav-link">
-          <span>📚</span> Academics
+        <a href="admin-cbt.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-laptop-code w-5 text-center text-slate-500"></i> CBT Configuration
         </a>
-        <a href="admin-cbt.html" class="nav-link">
-          <span>💻</span> CBT Configuration
+        <a href="results.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-file-invoice w-5 text-center text-slate-500"></i> Results
         </a>
-        <a href="results.html" class="nav-link">
-          <span>📄</span> Results
+        <a href="finance.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-wallet w-5 text-center text-slate-500"></i> Finance
         </a>
-        <a href="finance.html" class="nav-link">
-          <span>💰</span> Finance
+        <a href="adminfees.html" class="flex items-center gap-3 rounded-xl bg-brand-600 px-3.5 py-2.5 font-semibold text-white shadow-lg shadow-brand-600/30">
+          <i class="fa-solid fa-credit-card w-5 text-center"></i> Fees
         </a>
-        <a href="adminfees.html" class="nav-link active">
-          <span>💳</span> Fees
-        </a>
-        <a href="attendance.html" class="nav-link">
-          <span>🗓️</span> Attendance
-        </a>
-        <a href="#" class="nav-link">
-          <span>⚙️</span> Settings
+        <a href="attendance.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-calendar-days w-5 text-center text-slate-500"></i> Attendance
         </a>
       </nav>
+    </div>
 
-      <div class="muted-small" style="margin-top: auto;">
-        Signed in as <span id="adminName">Admin</span>
+    <!-- User Profile Footer -->
+    <div class="border-t border-slate-800 p-4">
+      <div class="flex items-center gap-3 rounded-xl bg-slate-800/60 p-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/20 font-bold text-brand-400 text-xs">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-slate-400">Signed in as</p>
+          <b id="adminName" class="block truncate text-xs font-semibold text-white">Admin</b>
+        </div>
       </div>
-    </aside>
+    </div>
+  </div>
+</aside>
 
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+<!-- MOBILE OVERLAY -->
+<div id="overlay" class="fixed inset-0 z-40 hidden bg-slate-900/60 backdrop-blur-sm md:hidden"></div>
 
-    <!-- TOPBAR WITH MULTI-SCHOOL SELECTOR -->
-    <div class="topbar" role="banner">
-      <div class="flex">
-        <button id="sidebarToggle" class="icon-btn" aria-label="Toggle Sidebar" style="display: none; font-size: 24px;">☰</button>
-        <div class="page-title">Fees Management</div>
+<!-- HEADER -->
+<header class="fixed left-0 right-0 top-0 z-30 border-b border-slate-200/80 bg-white/80 backdrop-blur-md md:left-72">
+  <div class="flex h-16 items-center justify-between px-4 md:px-8">
+    <div class="flex items-center gap-3">
+      <button id="hamburger" class="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 active:scale-95 md:hidden">
+        <i class="fa-solid fa-bars text-lg"></i>
+      </button>
+      <div>
+        <h1 class="text-base font-bold text-slate-900">Fees Management</h1>
+        <span id="headerName" class="hidden text-xs font-medium text-slate-500 sm:block">Manage school fees & payment records</span>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <button class="relative rounded-xl border border-slate-200/80 p-2 text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800">
+        <i class="fa-regular fa-bell text-base"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-600"></span>
+      </button>
+      <button class="rounded-xl border border-slate-200/80 p-2 text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800">
+        <i class="fa-regular fa-circle-question text-base"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN CONTENT -->
+<main class="min-h-screen px-4 pb-28 pt-20 md:ml-72 md:px-8 md:pb-10 md:pt-22">
+  <div class="mx-auto max-w-7xl space-y-6">
+    
+    <!-- STATS OVERVIEW -->
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <!-- Total Fees -->
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Fees</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <i class="fa-solid fa-wallet text-sm"></i>
+          </div>
+        </div>
+        <b id="total" class="mt-3 block text-2xl font-extrabold text-slate-900">₦0</b>
+      </div>
+      
+      <!-- Paid -->
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Paid</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <i class="fa-solid fa-circle-check text-sm"></i>
+          </div>
+        </div>
+        <b id="paid" class="mt-3 block text-2xl font-extrabold text-emerald-600">₦0</b>
+      </div>
+      
+      <!-- Outstanding -->
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Outstanding</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+            <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+          </div>
+        </div>
+        <b id="outstanding" class="mt-3 block text-2xl font-extrabold text-rose-600">₦0</b>
+      </div>
+      
+      <!-- Waived -->
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Waived</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <i class="fa-solid fa-shield-halved text-sm"></i>
+          </div>
+        </div>
+        <b id="waived" class="mt-3 block text-2xl font-extrabold text-amber-600">₦0</b>
+      </div>
+    </div>
+
+    <!-- SET UP CLASS/TERM FEES -->
+    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <div class="mb-5 flex items-center gap-2.5 border-b border-slate-100 pb-4">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+          <i class="fa-solid fa-sliders text-xs"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Set Up Class/Term Fees</h2>
+          <p class="text-xs text-slate-500">Configure fee structures for specific classes and academic sessions</p>
+        </div>
       </div>
 
-      <!-- School Selector matching Finance Page -->
-      <div class="school-selector-wrapper">
-        <label for="schoolSelect"><i class="fa fa-school"></i> Campus:</label>
-        <select id="schoolSelect" class="school-select" onchange="onSchoolChange(this.value)">
-          <option value="">All Schools / Branches</option>
+      <form id="setupForm" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Class</label>
+          <select id="classId" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+            <option value="">Select Class</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Term</label>
+          <select id="term" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+            <option value="">Select Term</option>
+            <option>First Term</option>
+            <option>Second Term</option>
+            <option>Third Term</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Session</label>
+          <input id="session" required placeholder="2026/2027" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Fee Type</label>
+          <select id="type" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+            <option value="">Select Type</option>
+            <option>Tuition</option>
+            <option>Hostel</option>
+            <option>Transport</option>
+            <option>Library</option>
+            <option>Sports</option>
+            <option>Examination</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Amount (₦)</label>
+          <input id="amount" type="number" min="0" required placeholder="0.00" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Due Date</label>
+          <input id="due" type="date" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+        </div>
+
+        <button class="sm:col-span-2 lg:col-span-3 mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 font-semibold text-white shadow-lg shadow-emerald-600/20 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-600/30 active:scale-[0.99]">
+          <i class="fa-solid fa-plus-circle text-sm"></i> Set Up Fee Structure
+        </button>
+      </form>
+      <div id="setupMsg" class="hidden"></div>
+    </section>
+
+    <!-- SEARCH STUDENT FEES -->
+    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <div class="mb-4 flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+          <i class="fa-solid fa-magnifying-glass text-xs"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Search Student Fees</h2>
+          <p class="text-xs text-slate-500">Quickly look up payment breakdown for an individual student</p>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+          <i class="fa-solid fa-search text-sm"></i>
+        </div>
+        <input id="studentInput" placeholder="Type student name or email..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-10 pr-4 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+        <div id="studentResults" class="absolute left-0 right-0 top-full z-20 mt-2 hidden max-h-80 overflow-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl"></div>
+      </div>
+    </section>
+
+    <!-- DYNAMIC STUDENT CARD DETAILS -->
+    <section id="studentCard" class="hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all">
+      <div id="studentDetails"></div>
+    </section>
+
+    <!-- ALL FEES TABLE SECTION -->
+    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">All Fee Records</h2>
+          <p class="text-xs text-slate-500">Comprehensive log of all fees, statuses, and options to filter or export.</p>
+        </div>
+
+        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          <!-- Table Live Search -->
+          <div class="relative flex-1 sm:w-60">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <i class="fa-solid fa-magnifying-glass text-xs"></i>
+            </div>
+            <input id="feeSearch" placeholder="Search records..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-3 text-sm font-medium text-slate-800 focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+          </div>
+
+          <!-- Status Filter -->
+          <select id="feeStatus" class="rounded-xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-sm font-medium text-slate-800 focus:bg-white focus:border-brand-600 focus:outline-none">
+            <option value="">All Statuses</option>
+            <option>Paid</option>
+            <option>Unpaid</option>
+            <option>Waived</option>
+            <option>Partial</option>
+          </select>
+
+          <!-- Export CSV -->
+          <button onclick="exportFees()" class="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800 active:scale-95">
+            <i class="fa-solid fa-download text-xs"></i> Export CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+        <table class="w-full min-w-[950px] text-left text-sm text-slate-600">
+          <thead class="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/80">
+            <tr>
+              <th class="py-3.5 px-4">Student</th>
+              <th class="py-3.5 px-4">Class</th>
+              <th class="py-3.5 px-4">Term</th>
+              <th class="py-3.5 px-4">Session</th>
+              <th class="py-3.5 px-4">Fee Type</th>
+              <th class="py-3.5 px-4">Amount</th>
+              <th class="py-3.5 px-4">Status</th>
+              <th class="py-3.5 px-4">Method</th>
+              <th class="py-3.5 px-4">Due Date</th>
+              <th class="py-3.5 px-4 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="feesBody" class="divide-y divide-slate-100 bg-white">
+            <!-- Dynamic Content -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- MOBILE BOTTOM NAVIGATION -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/90 backdrop-blur-lg md:hidden">
+  <div class="grid h-16 grid-cols-5 text-[10px] font-medium text-slate-500">
+    <a href="admin.html" class="flex flex-col items-center justify-center gap-1 transition-colors hover:text-brand-600">
+      <i class="fa-solid fa-house text-base"></i> Home
+    </a>
+    <a href="admission.html" class="flex flex-col items-center justify-center gap-1 transition-colors hover:text-brand-600">
+      <i class="fa-solid fa-graduation-cap text-base"></i> Admission
+    </a>
+    <button data-drawer-target="drawer" data-drawer-show="drawer" data-drawer-placement="bottom" class="flex flex-col items-center justify-center gap-1">
+      <span class="-mt-6 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg shadow-brand-600/30 ring-4 ring-white">
+        <i class="fa-solid fa-grid-2 text-base"></i>
+      </span>
+      <span>Modules</span>
+    </button>
+    <a href="finance.html" class="flex flex-col items-center justify-center gap-1 transition-colors hover:text-brand-600">
+      <i class="fa-solid fa-wallet text-base"></i> Finance
+    </a>
+    <button data-drawer-target="drawer" data-drawer-show="drawer" data-drawer-placement="bottom" class="flex flex-col items-center justify-center gap-1 transition-colors hover:text-brand-600">
+      <i class="fa-solid fa-ellipsis text-base"></i> More
+    </button>
+  </div>
+</nav>
+
+<!-- MOBILE DRAWER -->
+<div id="drawer" class="fixed bottom-0 left-0 right-0 z-50 w-full translate-y-full rounded-t-3xl bg-white p-6 transition-transform duration-300">
+  <div class="mx-auto mb-5 h-1.5 w-12 rounded-full bg-slate-200"></div>
+  <div class="mb-5 flex items-center justify-between">
+    <h3 class="text-base font-bold text-slate-900">School Modules</h3>
+    <button data-drawer-hide="drawer" class="rounded-full p-2 text-slate-400 hover:bg-slate-100">
+      <i class="fa-solid fa-xmark text-lg"></i>
+    </button>
+  </div>
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <a href="admin.html" class="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100">
+      <i class="fa-solid fa-house text-brand-600 text-lg"></i> Dashboard
+    </a>
+    <a href="people.html" class="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100">
+      <i class="fa-solid fa-users text-brand-600 text-lg"></i> People
+    </a>
+    <a href="academics.html" class="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100">
+      <i class="fa-solid fa-book-open text-brand-600 text-lg"></i> Academics
+    </a>
+    <a href="results.html" class="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100">
+      <i class="fa-solid fa-file-invoice text-brand-600 text-lg"></i> Results
+    </a>
+    <a href="finance.html" class="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100">
+      <i class="fa-solid fa-wallet text-brand-600 text-lg"></i> Finance
+    </a>
+    <a href="adminfees.html" class="flex flex-col items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50 p-4 text-center text-xs font-semibold text-brand-700">
+      <i class="fa-solid fa-credit-card text-brand-600 text-lg"></i> Fees
+    </a>
+    <a href="admin-cbt.html" class="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100">
+      <i class="fa-solid fa-laptop-code text-brand-600 text-lg"></i> CBT
+    </a>
+    <a href="attendance.html" class="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100">
+      <i class="fa-solid fa-calendar-days text-brand-600 text-lg"></i> Attendance
+    </a>
+  </div>
+</div>
+
+<!-- UPDATE FEE MODAL -->
+<div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+  <div class="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-100 transition-all">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <i class="fa-solid fa-pen-to-square text-xs"></i>
+        </div>
+        <h3 class="text-base font-bold text-slate-900">Update Fee Record</h3>
+      </div>
+      <button onclick="closeModal()" class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+        <i class="fa-solid fa-xmark text-base"></i>
+      </button>
+    </div>
+
+    <!-- Modal Form -->
+    <form id="feeForm" class="space-y-4 p-6">
+      <input id="studentId" type="hidden">
+      <input id="feeId" type="hidden">
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Status</label>
+        <select id="status" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+          <option value="">Select Status</option>
+          <option>Paid</option>
+          <option>Partial</option>
+          <option>Waived</option>
+          <option>Unpaid</option>
         </select>
       </div>
 
-      <div class="flex">
-        <button class="icon-btn" title="Notifications">🔔</button>
-        <button class="icon-btn" title="Help">❓</button>
-        <button class="icon-btn" title="Settings">⚙️</button>
-        <button class="icon-btn" title="Search">🔍</button>
-      </div>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <main class="main" id="main" role="main" tabindex="-1">
-      <!-- Statistics Cards -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-label">Total Fees</span>
-          <span class="stat-value" id="statTotalFees">₦0</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Paid</span>
-          <span class="stat-value" id="statPaidFees" style="color: #15803d;">₦0</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Outstanding</span>
-          <span class="stat-value" id="statOutstandingFees" style="color: #991b1b;">₦0</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Waived</span>
-          <span class="stat-value" id="statWaivedFees" style="color: #ca8a04;">₦0</span>
-        </div>
+      <div id="paidWrap" class="hidden">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Paid Amount (₦)</label>
+        <input id="paidInputModal" type="number" min="0" placeholder="0.00" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
       </div>
 
-      <!-- Fee Setup Section -->
-      <div class="section-card">
-        <div class="section-title"><i class="fa fa-cogs"></i> Set Up Class/Term Fees</div>
-        <form id="setupClassFeeForm" class="fees-form">
-          <div class="form-group">
-            <label for="classId">Class</label>
-            <select name="classId" id="classId" required>
-              <option value="">Select Class</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="termInput">Term</label>
-            <select name="term" id="termInput" required>
-              <option value="">Select Term</option>
-              <option>First Term</option>
-              <option>Second Term</option>
-              <option>Third Term</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="sessionInput">Session</label>
-            <input type="text" name="session" id="sessionInput" placeholder="2025/2026" required>
-          </div>
-
-          <div class="form-group">
-            <label for="typeInput">Fee Type</label>
-            <select name="type" id="typeInput" required>
-              <option value="">Select Type</option>
-              <option>Tuition</option>
-              <option>Hostel</option>
-              <option>Transport</option>
-              <option>Library</option>
-              <option>Sports</option>
-              <option>Examination</option>
-              <option>Other</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="amountInput">Amount (₦)</label>
-            <input type="number" name="amount" id="amountInput" min="0" required>
-          </div>
-
-          <div class="form-group">
-            <label for="dueDateInput">Due Date</label>
-            <input type="date" name="dueDate" id="dueDateInput" required>
-          </div>
-
-          <button type="submit" class="btn btn-success" style="grid-column: 1/-1;">
-            <i class="fa fa-cogs"></i> Set Up Fee
-          </button>
-        </form>
-        <div id="setupFeeMessage" class="message"></div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Method</label>
+        <select id="method" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+          <option value="">Select Method</option>
+          <option>Cash</option>
+          <option>Bank Transfer</option>
+          <option>Mobile Money</option>
+          <option>Check</option>
+          <option>Scholarship</option>
+          <option>Waived</option>
+        </select>
       </div>
 
-      <!-- Student Search Section -->
-      <div class="section-card">
-        <div class="section-title"><i class="fa fa-search"></i> Search Student Fees</div>
-        <div style="position: relative;">
-          <input type="text" id="studentSearchInput" placeholder="Type student name or email..." class="form-group" style="width: 100%; padding: 10px 12px; border: 1px solid #ddeaff; border-radius: 6px; font-size: 0.95rem;">
-          <div id="studentSearchResults" class="search-results" style="display: none; margin-top: 4px;"></div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Reference</label>
+        <input id="ref" placeholder="Transaction ID or Receipt #" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+      </div>
+
+      <div id="reasonWrap" class="hidden">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Waive Reason</label>
+        <input id="reason" placeholder="State reason for waiver" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Notes</label>
+        <input id="notes" placeholder="Additional details..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-500/10">
+      </div>
+
+      <div id="modalMsg" class="hidden"></div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button class="flex-1 rounded-xl bg-brand-600 py-3 font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 active:scale-95">
+          Update Status
+        </button>
+        <button type="button" id="deleteBtn" class="flex-1 rounded-xl border border-rose-200 bg-rose-50 py-3 font-semibold text-rose-600 transition-all hover:bg-rose-100 active:scale-95">
+          Delete Fee
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+<script>
+const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+const API_ROOT = BACKEND_URL + '/api';
+const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || API_ROOT + '/schools/config';
+
+let token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken');
+let currentSchool = null;
+let publicSchoolId = '';
+let allFees = [];
+let currentFeeId = null;
+
+const $ = id => document.getElementById(id);
+const money = v => '₦' + Number(v || 0).toLocaleString();
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function headers(extra = {}) {
+  return {
+    ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...(publicSchoolId ? { 'X-School-Code': publicSchoolId } : {}),
+    ...extra
+  };
+}
+
+async function api(url, opt = {}) {
+  return fetch(url, { ...opt, headers: headers(opt.headers || {}) });
+}
+
+function initials(n) {
+  return (n || 'School').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') || 'SC';
+}
+
+function brand(s) {
+  currentSchool = s || {};
+  let b = currentSchool.branding || {};
+  let n = currentSchool.schoolName || currentSchool.name || 'School';
+  let logo = currentSchool.logoUrl || b.logo || b.logoUrl || b.lightLogo || b.darkLogo || '';
+  
+  $('schoolName').textContent = n;
+  $('headerName').textContent = n + ' • Fees Management';
+  document.title = n + ' | Fees Management';
+  $('schoolLogo').src = logo;
+  $('schoolFallback').textContent = initials(n);
+  
+  if (!logo) {
+    $('schoolLogo').classList.add('hidden');
+    $('schoolFallback').classList.remove('hidden');
+  } else {
+    $('schoolLogo').classList.remove('hidden');
+    $('schoolFallback').classList.add('hidden');
+  }
+}
+
+function subdomain() {
+  let s = localStorage.getItem('schoolSubdomain');
+  if (s) return s.toLowerCase();
+  let h = location.hostname.toLowerCase();
+  for (let b of [(window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng'), 'examguard.com.ng']) {
+    let x = '.' + b;
+    if (h.endsWith(x)) {
+      let q = h.slice(0, -x.length);
+      if (q && q !== 'www') return q;
+    }
+  }
+  return '';
+}
+
+async function school() {
+  if (!token) throw Error('No authentication token found. Please sign in again.');
+  let host = subdomain();
+  try {
+    let r = await fetch(API_ROOT + '/auth/me', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+    if (!r.ok) throw Error('Account request failed (HTTP ' + r.status + ')');
+    let x = await r.json();
+    let u = x.user || x.data?.user || x;
+    let s = x.school || x.data?.school || u.school;
+    
+    if (!u.schoolId || !s?._id || String(u.schoolId) !== String(s._id)) throw Error('Authenticated school configuration is invalid.');
+    
+    currentSchool = s;
+    publicSchoolId = s.schoolId || '';
+    localStorage.setItem('currentSchool', JSON.stringify(s));
+    if (publicSchoolId) localStorage.setItem('schoolId', publicSchoolId);
+    
+    brand(s);
+    $('adminName').textContent = u.name || u.fullName || u.email || 'Admin';
+  } catch (e) {
+    if (!host) throw e;
+    let r = await fetch(SCHOOL_CONFIG_ENDPOINT + '?subdomain=' + encodeURIComponent(host));
+    if (!r.ok) throw e;
+    let x = await r.json();
+    let s = x.school || x.data || x;
+    if (!s?._id) throw e;
+    currentSchool = s;
+    publicSchoolId = s.schoolId || '';
+    localStorage.setItem('schoolSubdomain', host);
+    brand(s);
+  }
+}
+
+function msg(id, t, ok = true) {
+  let e = $(id);
+  e.className = 'mt-4 rounded-xl p-3.5 text-sm font-medium border ' + (ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200');
+  e.innerHTML = (ok ? '<i class="fa-solid fa-circle-check mr-2"></i>' : '<i class="fa-solid fa-triangle-exclamation mr-2"></i>') + t;
+  e.classList.remove('hidden');
+}
+
+async function classes() {
+  try {
+    let r = await api(API_ROOT + '/fees/meta/classes');
+    let d = await r.json();
+    if (d.success) {
+      $('classId').innerHTML = '<option value="">Select Class</option>' + d.classes.map(x => '<option>' + esc(x) + '</option>').join('');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function setup(e) {
+  e.preventDefault();
+  msg('setupMsg', 'Setting up fee structure...', true);
+  try {
+    let body = {
+      classId: $('classId').value,
+      term: $('term').value,
+      session: $('session').value,
+      type: $('type').value,
+      amount: $('amount').value,
+      dueDate: $('due').value
+    };
+    let r = await api(API_ROOT + '/fees/class-setup', { method: 'POST', body: JSON.stringify(body) });
+    let d = await r.json();
+    
+    if (!d.success) throw Error(d.error || 'Unable to set up fee');
+    
+    msg('setupMsg', d.message || 'Fee setup successful', true);
+    e.target.reset();
+    await Promise.all([fees(), stats()]);
+  } catch (x) {
+    msg('setupMsg', x.message, false);
+  }
+}
+
+let timer;
+function search(e) {
+  clearTimeout(timer);
+  let q = e.target.value.trim();
+  let box = $('studentResults');
+  
+  if (q.length < 2) {
+    box.classList.add('hidden');
+    return;
+  }
+  
+  timer = setTimeout(async () => {
+    try {
+      let r = await api(API_ROOT + '/fees/search/student?query=' + encodeURIComponent(q));
+      let d = await r.json();
+      
+      box.innerHTML = d.success && d.results?.length
+        ? d.results.slice(0, 10).map(s => `
+            <button class="flex w-full items-center justify-between rounded-xl p-3 text-left transition-all hover:bg-slate-50 border-b border-slate-100 last:border-0" onclick='student(${JSON.stringify(s.id)},${JSON.stringify(s.name)},${JSON.stringify(s.class || "N/A")})'>
+              <div>
+                <b class="block text-sm font-semibold text-slate-800">${esc(s.name)}</b>
+                <div class="text-xs text-slate-400 mt-0.5">${esc(s.id)} • ${esc(s.class || 'N/A')}</div>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-slate-400 block">Outstanding</span>
+                <b class="text-xs font-bold text-rose-600">${money(s.outstandingFees)}</b>
+              </div>
+            </button>
+          `).join('')
+        : '<div class="p-4 text-center text-sm text-slate-500">No matching students found</div>';
+      
+      box.classList.remove('hidden');
+    } catch (x) {
+      box.innerHTML = '<div class="p-4 text-center text-sm text-rose-600">Search failed.</div>';
+      box.classList.remove('hidden');
+    }
+  }, 300);
+}
+
+function badge(s) {
+  s = s || 'Unpaid';
+  let c = s === 'Paid'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : s === 'Waived'
+    ? 'bg-amber-50 text-amber-700 border-amber-200'
+    : s === 'Partial'
+    ? 'bg-sky-50 text-sky-700 border-sky-200'
+    : 'bg-rose-50 text-rose-700 border-rose-200';
+    
+  return `<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${c}">
+            <span class="h-1.5 w-1.5 rounded-full ${s === 'Paid' ? 'bg-emerald-500' : s === 'Waived' ? 'bg-amber-500' : s === 'Partial' ? 'bg-sky-500' : 'bg-rose-500'}"></span>
+            ${esc(s)}
+          </span>`;
+}
+
+async function student(id, name, cls) {
+  try {
+    let r = await api(API_ROOT + '/fees/student/' + encodeURIComponent(id));
+    let d = await r.json();
+    if (!d.success) throw Error(d.error || 'Unable to load fees');
+    
+    let s = d.summary || {};
+    let h = `
+      <div class="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-user-graduate text-brand-600"></i> ${esc(name)}
+          </h2>
+          <p class="text-xs text-slate-500">Class: ${esc(cls)} • ID: ${esc(id)}</p>
         </div>
       </div>
-
-      <!-- Student Fee Details -->
-      <div id="studentFeeDetails" class="section-card" style="display: none;">
-        <div id="studentFeeDetailsContent"></div>
-      </div>
-
-      <!-- All Fees Table -->
-      <div class="section-card">
-        <div class="section-title"><i class="fa fa-list"></i> All Fees</div>
-        <div style="margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-          <input type="text" id="feeSearch" placeholder="Search..." style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ddeaff; border-radius: 6px;">
-          <select id="feeStatusFilter" style="padding: 8px 12px; border: 1px solid #ddeaff; border-radius: 6px;">
-            <option value="">All Status</option>
-            <option value="Paid">Paid</option>
-            <option value="Unpaid">Unpaid</option>
-            <option value="Waived">Waived</option>
-            <option value="Partial">Partial</option>
-          </select>
-          <button class="btn btn-primary" onclick="exportFeesData()">
-            <i class="fa fa-download"></i> Export
-          </button>
+      
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 mb-6">
+        <div class="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5">
+          <span class="text-xs text-slate-400 font-medium">Total Fees</span>
+          <b class="block text-lg font-extrabold text-slate-800 mt-0.5">${money(s.total)}</b>
         </div>
-        <div class="table-container">
-          <table id="feesTable">
-            <thead>
+        <div class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3.5">
+          <span class="text-xs text-emerald-600 font-medium">Paid</span>
+          <b class="block text-lg font-extrabold text-emerald-700 mt-0.5">${money(s.paid)}</b>
+        </div>
+        <div class="rounded-xl border border-rose-100 bg-rose-50/40 p-3.5">
+          <span class="text-xs text-rose-600 font-medium">Outstanding</span>
+          <b class="block text-lg font-extrabold text-rose-700 mt-0.5">${money(s.due)}</b>
+        </div>
+        <div class="rounded-xl border border-amber-100 bg-amber-50/40 p-3.5">
+          <span class="text-xs text-amber-600 font-medium">Waived</span>
+          <b class="block text-lg font-extrabold text-amber-700 mt-0.5">${money(s.waived)}</b>
+        </div>
+      </div>
+    `;
+
+    if (!d.fees?.length) {
+      h += '<p class="py-8 text-center text-sm font-medium text-slate-400">No fee records found for this student.</p>';
+    } else {
+      h += `
+        <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+          <table class="w-full min-w-[650px] text-sm text-slate-600">
+            <thead class="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200">
               <tr>
-                <th>Student</th>
-                <th>Class</th>
-                <th>Term</th>
-                <th>Session</th>
-                <th>Fee Type</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Method</th>
-                <th>Due Date</th>
-                <th>Actions</th>
+                <th class="p-3.5 text-left">Type</th>
+                <th class="p-3.5 text-left">Amount</th>
+                <th class="p-3.5 text-left">Status</th>
+                <th class="p-3.5 text-left">Due</th>
+                <th class="p-3.5 text-left">Method</th>
+                <th class="p-3.5 text-center">Action</th>
               </tr>
             </thead>
-            <tbody id="feesTableBody">
-              <tr>
-                <td colspan="10" class="loading">
-                  <div class="loader-spinner"></div>
-                  <p>Loading fees...</p>
-                </td>
-              </tr>
+            <tbody class="divide-y divide-slate-100 bg-white">
+              ${d.fees.map(f => `
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                  <td class="p-3.5 font-semibold text-slate-800">${esc(f.type)}</td>
+                  <td class="p-3.5 font-semibold">${money(f.amount)}</td>
+                  <td class="p-3.5">${badge(f.status)}</td>
+                  <td class="p-3.5 text-slate-500">${esc(f.dueDate || '—')}</td>
+                  <td class="p-3.5 text-slate-500">${esc(f.paymentMethod || '—')}</td>
+                  <td class="p-3.5 text-center">
+                    <button onclick="openModal('${id}','${f._id}')" class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-brand-700">
+                      Update
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
             </tbody>
           </table>
         </div>
-      </div>
-    </main>
-  </div>
-
-  <!-- Fee Status Modal -->
-  <div class="modal-overlay" id="feeStatusModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2><i class="fa fa-check-circle"></i> Update Fee Status</h2>
-        <button type="button" class="modal-close" onclick="closeFeeStatusModal()">
-          <i class="fa fa-times"></i>
-        </button>
-      </div>
-      <form id="feeStatusForm" class="modal-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-        <input type="hidden" id="feeStatusStudentId">
-        <input type="hidden" id="feeStatusFeeId">
-
-        <div class="modal-field">
-          <label>Status</label>
-          <select id="feeStatusStatus" required>
-            <option value="">Select Status</option>
-            <option value="Paid">Paid</option>
-            <option value="Unpaid">Unpaid</option>
-            <option value="Partial">Partial</option>
-            <option value="Waived">Waived</option>
-          </select>
-        </div>
-
-        <div class="modal-field">
-          <label>Payment Method</label>
-          <select id="feeStatusMethod">
-            <option value="">Select Method</option>
-            <option>Cash</option>
-            <option>Bank Transfer</option>
-            <option>Mobile Money</option>
-            <option>Check</option>
-            <option>Scholarship</option>
-            <option>Waived</option>
-          </select>
-        </div>
-
-        <div class="modal-field">
-          <label>Payment Reference</label>
-          <input type="text" id="feeStatusPaymentRef" placeholder="Transaction ID">
-        </div>
-
-        <div class="modal-field" id="paidAmountDiv" style="display: none;">
-          <label>Amount Paid (₦)</label>
-          <input type="number" id="feePaidAmount" placeholder="e.g. 15000">
-        </div>
-
-        <div class="modal-field" id="waiveNoteDiv" style="grid-column: 1/-1; display: none;">
-          <label>Waive Reason</label>
-          <input type="text" id="feeStatusWaiveReason" placeholder="Reason for waiving">
-        </div>
-
-        <div class="modal-field" style="grid-column: 1/-1;">
-          <label>Notes</label>
-          <input type="text" id="feeStatusNotes" placeholder="Optional notes">
-        </div>
-
-        <div style="grid-column: 1/-1; display: flex; gap: 12px; margin-top: 8px;">
-          <button type="submit" class="btn btn-success" style="flex: 1;">
-            <i class="fa fa-save"></i> Update Status
-          </button>
-          <button type="button" class="btn btn-danger" onclick="deleteFeeRecord()" style="flex: 1;">
-            <i class="fa fa-trash"></i> Delete Fee
-          </button>
-        </div>
-      </form>
-      <div id="feeStatusMessage" class="message" style="margin-top: 16px;"></div>
-    </div>
-  </div>
-
-<script>
-    const API_BASE = "https://examguard-8rxe.onrender.com/api";
-    const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
-
-    let currentSchoolId = localStorage.getItem('selectedSchoolId') || '';
-    let currentFeeId = null;
-    let allFees = [];
-
-    // Helper to append schoolId param to URLs
-    function getApiUrl(endpoint) {
-      const url = new URL(API_BASE + endpoint);
-      if (currentSchoolId) {
-        url.searchParams.append('schoolId', currentSchoolId);
-      }
-      return url.toString();
+      `;
     }
 
-    // ==================== MULTI-SCHOOL LOADER ====================
-    async function loadSchools() {
-      const select = document.getElementById('schoolSelect');
-      try {
-        const res = await fetch(`${API_BASE}/schools`, {
-          headers: { Authorization: "Bearer " + token }
-        });
-        const data = await res.json();
-        if (data.success && Array.isArray(data.schools)) {
-          select.innerHTML = '<option value="">All Schools / Branches</option>' +
-            data.schools.map(s => `<option value="${s._id || s.id}">${s.name}</option>`).join('');
-          
-          if (currentSchoolId) {
-            select.value = currentSchoolId;
-          }
-        }
-      } catch (e) {
-        console.warn('Unable to load school list, retaining default state:', e);
-      }
-    }
+    $('studentDetails').innerHTML = h;
+    $('studentCard').classList.remove('hidden');$('studentResults').classList.add('hidden');
+  } catch (e) {
+    alert(e.message);
+  }
+}
 
-    function onSchoolChange(schoolId) {
-      currentSchoolId = schoolId;
-      localStorage.setItem('selectedSchoolId', schoolId);
-      refreshData();
-    }
+async function fees() {
+  let tb = $('feesBody');
+  tb.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading fee records...</td></tr>';
+  try {
+    let r = await api(API_ROOT + '/fees');
+    let d = await r.json();
+    if (!d.success) throw Error(d.error || 'Unable to load fees');
+    allFees = d.fees || [];
+    render();
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-rose-600 font-medium">' + esc(e.message) + '</td></tr>';
+  }
+}
 
-    function refreshData() {
-      loadClasses();
-      loadStats();
-      loadFees();
-    }
+function render() {
+  let q = $('feeSearch').value.toLowerCase();
+  let st = $('feeStatus').value.toLowerCase();
+  
+  let rows = allFees.filter(f => 
+    (!q || [f.student?.name, f.student?.class, f.term, f.session, f.type, f.status, f.paymentMethod].join(' ').toLowerCase().includes(q)) &&
+    (!st || String(f.status || 'Unpaid').toLowerCase() === st)
+  );
 
-    // ==================== SIDEBAR MOBILE TOGGLE ====================
-    const sidebar = document.getElementById('sidebar');
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-    function handleResize() {
-      if (window.innerWidth <= 768) {
-        sidebarToggle.style.display = 'flex';
-      } else {
-        sidebarToggle.style.display = 'none';
-        sidebar.classList.remove('active');
-        sidebarOverlay.classList.remove('active');
-      }
-    }
-
-    function openSidebar() {
-      sidebar.classList.add('active');
-      sidebarOverlay.classList.add('active');
-    }
-
-    function closeSidebar() {
-      sidebar.classList.remove('active');
-      sidebarOverlay.classList.remove('active');
-    }
-
-    sidebarToggle.addEventListener('click', openSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', () => {
-        if (window.innerWidth <= 768) closeSidebar();
-      });
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeSidebar();
-    });
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    // Active nav link initialization
-    document.querySelectorAll('.nav-link').forEach(link => {
-      if (link.href === window.location.href || link.href.includes(window.location.pathname)) {
-        link.classList.add('active');
-      }
-    });
-
-    // ==================== LOAD CLASSES ====================
-    async function loadClasses() {
-      try {
-        const res = await fetch(getApiUrl("/fees/meta/classes"), { 
-          headers: { Authorization: "Bearer " + token } 
-        });
-        const data = await res.json();
-        if (data.success) {
-          const select = document.getElementById('classId');
-          select.innerHTML = '<option value="">Select Class</option>' +
-            data.classes.map(c => `<option value="${c}">${c}</option>`).join('');
-        }
-      } catch (e) {
-        console.error('Error loading classes:', e);
-      }
-    }
-
-    // ==================== CLASS FEE SETUP ====================
-    document.getElementById('setupClassFeeForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const formData = {
-        schoolId: currentSchoolId,
-        classId: document.getElementById('classId').value,
-        term: document.getElementById('termInput').value,
-        session: document.getElementById('sessionInput').value,
-        type: document.getElementById('typeInput').value,
-        amount: document.getElementById('amountInput').value,
-        dueDate: document.getElementById('dueDateInput').value
-      };
-
-      const messageBox = document.getElementById('setupFeeMessage');
-      messageBox.classList.remove('error', 'success');
-      messageBox.textContent = '⏳ Setting up...';
-      messageBox.style.display = 'block';
-
-      try {
-        const res = await fetch(getApiUrl("/fees/class-setup"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify(formData)
-        });
-
-        const result = await res.json();
-        if (result.success) {
-          messageBox.classList.add('success');
-          messageBox.innerHTML = `<i class="fa fa-check-circle"></i> ${result.message}`;
-          this.reset();
-          loadFees();
-          loadStats();
-        } else {
-          messageBox.classList.add('error');
-          messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> ' + (result.error || "Error setting fee.");
-        }
-      } catch (e) {
-        messageBox.classList.add('error');
-        messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error: ' + e.message;
-      }
-    });
-
-    // ==================== STUDENT SEARCH ====================
-    let searchTimeout;
-    document.getElementById('studentSearchInput').addEventListener('input', async function(e) {
-      clearTimeout(searchTimeout);
-      const q = e.target.value.trim();
-      const resultsDiv = document.getElementById('studentSearchResults');
-
-      if (q.length < 2) {
-        resultsDiv.style.display = 'none';
-        return;
-      }
-
-      searchTimeout = setTimeout(async () => {
-        try {
-          const searchUrl = new URL(API_BASE + "/fees/search/student");
-          searchUrl.searchParams.append('query', q);
-          if (currentSchoolId) searchUrl.searchParams.append('schoolId', currentSchoolId);
-
-          const res = await fetch(searchUrl.toString(), {
-            headers: { Authorization: "Bearer " + token }
-          });
-          const data = await res.json();
-
-          if (data.success && data.results.length > 0) {
-            resultsDiv.innerHTML = data.results.slice(0, 10).map(s => `
-              <div class="search-result-item" onclick="showStudentFees('${s.id}', '${s.name}', '${s.class || 'N/A'}')">
-                <div class="search-result-name">${s.name}</div>
-                <div class="search-result-meta">${s.id} • ${s.class || 'N/A'} • Outstanding: ₦${(s.outstandingFees || 0).toLocaleString()}</div>
-              </div>
-            `).join('');
-          } else {
-            resultsDiv.innerHTML = '<div class="search-result-item">No students found</div>';
-          }
-          resultsDiv.style.display = 'block';
-        } catch (e) {
-          console.error('Search error:', e);
-        }
-      }, 300);
-    });
-
-    document.addEventListener('click', function(e) {
-      const resultsDiv = document.getElementById('studentSearchResults');
-      if (!e.target.closest('#studentSearchInput') && !e.target.closest('#studentSearchResults')) {
-        resultsDiv.style.display = 'none';
-      }
-    });
-
-    async function showStudentFees(studentId, name, className) {
-      try {
-        const res = await fetch(getApiUrl(`/fees/student/${studentId}`), {
-          headers: { Authorization: "Bearer " + token }
-        });
-        const data = await res.json();
-
-        if (!data.success) {
-          alert('Error loading student fees: ' + data.error);
-          return;
-        }
-
-        const detailsDiv = document.getElementById('studentFeeDetails');
-        let html = `<div class="section-title"><i class="fa fa-user"></i> ${name} (${className})</div>`;
-
-        if (!data.fees || data.fees.length === 0) {
-          html += '<p style="text-align: center; color: var(--muted);">No fees found for this student.</p>';
-        } else {
-          const summary = data.summary;
-          html += `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px;">
-              <div style="padding: 12px; background: #f3f8ff; border-radius: 6px;">
-                <div style="font-size: 0.85rem; color: var(--muted);">Total Fees</div>
-                <div style="font-size: 1.3rem; font-weight: 800; color: var(--accent-2);">₦${(summary.total || 0).toLocaleString()}</div>
-              </div>
-              <div style="padding: 12px; background: #dcfce7; border-radius: 6px;">
-                <div style="font-size: 0.85rem; color: #15803d;">Paid</div>
-                <div style="font-size: 1.3rem; font-weight: 800; color: #15803d;">₦${(summary.paid || 0).toLocaleString()}</div>
-              </div>
-              <div style="padding: 12px; background: #fee2e2; border-radius: 6px;">
-                <div style="font-size: 0.85rem; color: #991b1b;">Outstanding</div>
-                <div style="font-size: 1.3rem; font-weight: 800; color: #991b1b;">₦${(summary.due || 0).toLocaleString()}</div>
-              </div>
-              <div style="padding: 12px; background: #fef3c7; border-radius: 6px;">
-                <div style="font-size: 0.85rem; color: #92400e;">Waived</div>
-                <div style="font-size: 1.3rem; font-weight: 800; color: #92400e;">₦${(summary.waived || 0).toLocaleString()}</div>
-              </div>
-            </div>
-          `;
-
-          html += `
-            <div class="table-container">
-              <table style="min-width: 700px;">
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Due Date</th>
-                    <th>Method</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${data.fees.map(fee => `
-                    <tr>
-                      <td>${fee.type}</td>
-                      <td>₦${(fee.amount || 0).toLocaleString()}</td>
-                      <td><span class="badge badge-${fee.status?.toLowerCase() \vert{}\vert{} 'unpaid'}">${fee.status || 'Unpaid'}</span></td>
-                      <td>${fee.dueDate || '—'}</td>
-                      <td>${fee.paymentMethod || '—'}</td>
-                      <td><button class="action-btn action-btn-update" onclick="openFeeStatusModal('${studentId}', '${fee._id || fee.feeId}')"><i class="fa fa-edit"></i></button></td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          `;
-        }
-
-        document.getElementById('studentFeeDetailsContent').innerHTML = html;
-        detailsDiv.style.display = 'block';
-        document.getElementById('studentSearchResults').style.display = 'none';
-      } catch (e) {
-        console.error('Error loading student fees:', e);
-        alert('Error loading student fees: ' + e.message);
-      }
-    }
-
-    // ==================== LOAD ALL FEES ====================
-    async function loadFees() {
-      const tbody = document.getElementById('feesTableBody');
-      tbody.innerHTML = '<tr><td colspan="10" class="loading"><div class="loader-spinner"></div><p>Loading...</p></td></tr>';
-
-      try {
-        const res = await fetch(getApiUrl("/fees"), { headers: { Authorization: "Bearer " + token } });
-        const data = await res.json();
-
-        if (data.success) {
-          allFees = data.fees || [];
-          renderFeesTable(allFees);
-        } else {
-          tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--danger);">Error: ' + data.error + '</td></tr>';
-        }
-      } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--danger);">Network error: ' + e.message + '</td></tr>';
-      }
-    }
-
-    function renderFeesTable(feesList) {
-      const tbody = document.getElementById('feesTableBody');
-      if (!feesList.length) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 24px;">No fees found.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = feesList.map(fee => `
-        <tr>
-          <td><strong>${fee.student?.name || 'N/A'}</strong></td>
-          <td>${fee.student?.class || '—'}</td>
-          <td>${fee.term || '—'}</td>
-          <td>${fee.session || '—'}</td>
-          <td><strong>${fee.type}</strong></td>
-          <td>₦${(fee.amount || 0).toLocaleString()}</td>
-          <td><span class="badge badge-${(fee.status || 'unpaid').toLowerCase()}">${fee.status || 'Unpaid'}</span></td>
-          <td>${fee.paymentMethod || '—'}</td>
-          <td>${fee.dueDate || '—'}</td>
-          <td><button class="action-btn action-btn-update" onclick="openFeeStatusModal('${fee.student?.id || ''}', '${fee._id || fee.feeId}')"><i class="fa fa-edit"></i></button></td>
+  $('feesBody').innerHTML = rows.length
+    ? rows.map(f => `
+        <tr class="hover:bg-slate-50/60 transition-colors">
+          <td class="py-3.5 px-4 font-bold text-slate-900">${esc(f.student?.name || 'N/A')}</td>
+          <td class="py-3.5 px-4 text-slate-600">${esc(f.student?.class || '—')}</td>
+          <td class="py-3.5 px-4 text-slate-600">${esc(f.term || '—')}</td>
+          <td class="py-3.5 px-4 text-slate-600">${esc(f.session || '—')}</td>
+          <td class="py-3.5 px-4 font-semibold text-slate-800">${esc(f.type || '—')}</td>
+          <td class="py-3.5 px-4 font-extrabold text-slate-900">${money(f.amount)}</td>
+          <td class="py-3.5 px-4">${badge(f.status)}</td>
+          <td class="py-3.5 px-4 text-slate-500">${esc(f.paymentMethod || '—')}</td>
+          <td class="py-3.5 px-4 text-slate-500">${esc(f.dueDate || '—')}</td>
+          <td class="py-3.5 px-4 text-center">
+            <button onclick="openModal('${f.student?.id || ''}','${f.feeId || ''}')" class="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-all hover:border-brand-600 hover:text-brand-600 hover:shadow">
+              <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+          </td>
         </tr>
-      `).join('');
+      `).join('')
+    : '<tr><td colspan="10" class="p-8 text-center text-slate-400 font-medium">No fee records found.</td></tr>';
+}
+
+async function stats() {
+  try {
+    let r = await api(API_ROOT + '/fees/stats/all');
+    let d = await r.json();
+    let s = d.statistics || {};
+    if (d.success) {
+      $('total').textContent = money(s.totalFees);$('paid').textContent = money(s.paidFees);
+      $('outstanding').textContent = money(s.outstandingFees);$('waived').textContent = money(s.waivedFees);
     }
+  } catch (e) {
+    console.error(e);
+  }
+}
 
-    // Live Filtering on All Fees Table
-    document.getElementById('feeSearch').addEventListener('input', applyTableFilters);
-    document.getElementById('feeStatusFilter').addEventListener('change', applyTableFilters);
+function openModal(s, f) {
+  currentFeeId = f;
+  $('studentId').value = s;
+  $('feeId').value = f;
+  $('status').value = '';
+  $('method').value = '';$('ref').value = '';
+  if ($('paidInputModal')) $('paidInputModal').value = '';$('reason').value = '';
+  $('notes').value = '';$('paidWrap').classList.add('hidden');
+  $('reasonWrap').classList.add('hidden');$('modalMsg').classList.add('hidden');
+  
+  $('modal').classList.remove('hidden');$('modal').classList.add('flex');
+}
 
-    function applyTableFilters() {
-      const q = document.getElementById('feeSearch').value.toLowerCase();
-      const statusFilter = document.getElementById('feeStatusFilter').value.toLowerCase();
+function closeModal() {
+  $('modal').classList.add('hidden');$('modal').classList.remove('flex');
+  currentFeeId = null;
+}
 
-      const filtered = allFees.filter(fee => {
-        const studentName = (fee.student?.name || '').toLowerCase();
-        const feeType = (fee.type || '').toLowerCase();
-        const status = (fee.status || '').toLowerCase();
-
-        const matchesQuery = !q || studentName.includes(q) || feeType.includes(q);
-        const matchesStatus = !statusFilter || status === statusFilter;
-
-        return matchesQuery && matchesStatus;
-      });
-
-      renderFeesTable(filtered);
-    }
-
-    // ==================== LOAD STATISTICS ====================
-    async function loadStats() {
-      try {
-        const res = await fetch(getApiUrl("/fees/stats/all"), { headers: { Authorization: "Bearer " + token } });
-        const data = await res.json();
-        if (data.success) {
-          const stats = data.statistics || {};
-          document.getElementById('statTotalFees').textContent = '₦' + (stats.totalFees || 0).toLocaleString();
-          document.getElementById('statPaidFees').textContent = '₦' + (stats.paidFees || 0).toLocaleString();
-          document.getElementById('statOutstandingFees').textContent = '₦' + (stats.outstandingFees || 0).toLocaleString();
-          document.getElementById('statWaivedFees').textContent = '₦' + (stats.waivedFees || 0).toLocaleString();
-        }
-      } catch (e) {
-        console.error('Error loading stats:', e);
-      }
-    }
-
-    // ==================== FEE STATUS MODAL ====================
-    function openFeeStatusModal(studentId, feeId) {
-      currentFeeId = feeId;
-      document.getElementById('feeStatusStudentId').value = studentId || '';
-      document.getElementById('feeStatusFeeId').value = feeId;
-      document.getElementById('feeStatusStatus').value = '';
-      document.getElementById('feeStatusMethod').value = '';
-      document.getElementById('feeStatusPaymentRef').value = '';
-      if (document.getElementById('feePaidAmount')) document.getElementById('feePaidAmount').value = '';
-      if (document.getElementById('feeStatusWaiveReason')) document.getElementById('feeStatusWaiveReason').value = '';
-      
-      document.getElementById('waiveNoteDiv').style.display = 'none';
-      document.getElementById('paidAmountDiv').style.display = 'none';
-      
-      const msg = document.getElementById('feeStatusMessage');
-      msg.classList.remove('error', 'success');
-      msg.style.display = 'none';
-      
-      document.getElementById('feeStatusModal').classList.add('active');
-    }
-
-    function closeFeeStatusModal() {
-      document.getElementById('feeStatusModal').classList.remove('active');
-      currentFeeId = null;
-    }
-
-    document.getElementById('feeStatusStatus').addEventListener('change', function() {
-      document.getElementById('waiveNoteDiv').style.display = this.value === 'Waived' ? 'flex' : 'none';
-      document.getElementById('paidAmountDiv').style.display = this.value === 'Partial' ? 'flex' : 'none';
+async function updateFee(e) {
+  e.preventDefault();
+  let s = $('studentId').value;
+  let f = $('feeId').value;
+  let body = {
+    status: $('status').value,
+    paymentMethod: $('method').value,
+    paymentRef: $('ref').value,
+    paidAmount: $('paidInputModal') ?$('paidInputModal').value : '',
+    waiveReason: $('reason').value,
+    notes: $('notes').value
+  };
+  
+  try {
+    let r = await api(`${API_ROOT}/fees/student/${encodeURIComponent(s)}/fee/${encodeURIComponent(f)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
     });
+    let d = await r.json();
+    
+    if (!d.success) throw Error(d.error || 'Update failed');
+    
+    msg('modalMsg', 'Fee status updated successfully', true);
+    await Promise.all([fees(), stats()]);
+    setTimeout(closeModal, 600);
+  } catch (x) {
+    msg('modalMsg', x.message, false);
+  }
+}
 
-    document.getElementById('feeStatusForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const studentId = document.getElementById('feeStatusStudentId').value;
-      const feeId = document.getElementById('feeStatusFeeId').value;
-      const status = document.getElementById('feeStatusStatus').value;
-      const method = document.getElementById('feeStatusMethod').value;
-      const reference = document.getElementById('feeStatusPaymentRef').value;
-      const paidAmount = document.getElementById('feePaidAmount')?.value;
-      const waiveReason = document.getElementById('feeStatusWaiveReason')?.value;
+async function delFee() {
+  let s = $('studentId').value;
+  let f = $('feeId').value;
+  
+  if (!s || !f || !confirm('Are you sure you want to delete this fee record?')) return;
+  
+  try {
+    let r = await api(`${API_ROOT}/fees/student/${encodeURIComponent(s)}/fee/${encodeURIComponent(f)}`, { method: 'DELETE' });
+    let d = await r.json();
+    
+    if (!d.success) throw Error(d.error || 'Delete failed');
+    
+    closeModal();
+    await Promise.all([fees(), stats()]);
+  } catch (e) {
+    alert(e.message);
+  }
+}
 
-      if (!status) {
-        alert('Please select a status');
-        return;
-      }
+function exportFees() {
+  let h = ['Student', 'Class', 'Term', 'Session', 'Fee Type', 'Amount', 'Status', 'Method', 'Due Date'];
+  let rows = allFees.map(f => [
+    f.student?.name || 'N/A',
+    f.student?.class || '',
+    f.term || '',
+    f.session || '',
+    f.type || '',
+    f.amount || 0,
+    f.status || 'Unpaid',
+    f.paymentMethod || '',
+    f.dueDate || ''
+  ]);
+  
+  let csv = [h, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'fees_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+}
 
-      const messageBox = document.getElementById('feeStatusMessage');
-      messageBox.classList.remove('error', 'success');
-      messageBox.textContent = '⏳ Updating...';
-      messageBox.style.display = 'block';
+// Event Listeners
+$('setupForm').addEventListener('submit', setup);$('studentInput').addEventListener('input', search);
+$('feeSearch').addEventListener('input', render);$('feeStatus').addEventListener('change', render);
 
-      try {
-        const updateUrl = getApiUrl(`/fees/student/${studentId}/fee/${feeId}`);
-        const res = await fetch(updateUrl, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify({ 
-            status, 
-            paymentMethod: method, 
-            paymentRef: reference, 
-            paidAmount, 
-            waiveReason,
-            schoolId: currentSchoolId 
-          })
-        });
+$('status').addEventListener('change', e => {
+  $('paidWrap').classList.toggle('hidden', e.target.value !== 'Partial');$('reasonWrap').classList.toggle('hidden', e.target.value !== 'Waived');
+});
 
-        const result = await res.json();
-        if (result.success) {
-          messageBox.classList.add('success');
-          messageBox.innerHTML = '<i class="fa fa-check-circle"></i> Fee status updated successfully!';
-          setTimeout(() => {
-            closeFeeStatusModal();
-            loadFees();
-            loadStats();
-          }, 1200);
-        } else {
-          messageBox.classList.add('error');
-          messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> ' + (result.error || "Error updating fee.");
-        }
-      } catch (e) {
-        messageBox.classList.add('error');
-        messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error: ' + e.message;
-      }
-    });
+$('feeForm').addEventListener('submit', updateFee);$('deleteBtn').addEventListener('click', delFee);
 
-    async function deleteFeeRecord() {
-      if (!currentFeeId || !confirm("Are you sure you want to delete this fee record?")) return;
-      const studentId = document.getElementById('feeStatusStudentId').value;
+$('hamburger').onclick = () => {
+  $('sidebar').classList.remove('-translate-x-full');$('overlay').classList.remove('hidden');
+};
 
-      try {
-        const deleteUrl = getApiUrl(`/fees/student/${studentId}/fee/${currentFeeId}`);
-        const res = await fetch(deleteUrl, {
-          method: "DELETE",
-          headers: { "Authorization": "Bearer " + token }
-        });
-        const result = await res.json();
+$('overlay').onclick = () => {
+  $('sidebar').classList.add('-translate-x-full');$('overlay').classList.add('hidden');
+};
 
-        if (result.success) {
-          closeFeeStatusModal();
-          loadFees();
-          loadStats();
-        } else {
-          alert("Error deleting fee: " + (result.error || "Server error"));
-        }
-      } catch (e) {
-        alert("Network error deleting fee: " + e.message);
-      }
-    }
+async function init() {
+  try {
+    await school();
+    await Promise.allSettled([classes(), fees(), stats()]);
+    $('loading').classList.add('opacity-0');
+    setTimeout(() => $('loading').remove(), 300);   } catch (e) {$('loading').innerHTML = `
+      <div class="p-8 text-center bg-white rounded-3xl shadow-2xl max-w-sm border border-slate-100">
+        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 mx-auto mb-3">
+          <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+        </div>
+        <b class="text-base text-slate-900 block">Unable to load school account</b>
+        <p class="mt-1 text-xs text-slate-500">${esc(e.message)}</p>
+        <button onclick="location.reload()" class="mt-5 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand-600/20 hover:bg-brand-700">
+          Retry
+        </button>
+      </div>`;
+  }
+}
 
-    document.getElementById('feeStatusModal').addEventListener('click', function(e) {
-      if (e.target === this) closeFeeStatusModal();
-    });
-
-    // ==================== EXPORT FUNCTION ====================
-    function exportFeesData() {
-      const table = document.getElementById('feesTable');
-      let csv = [];
-      
-      const headers = [];
-      table.querySelectorAll('thead th').forEach(th => {
-        headers.push(th.textContent.trim());
-      });
-      csv.push(headers.join(','));
-
-      table.querySelectorAll('tbody tr').forEach(tr => {
-        const row = [];
-        tr.querySelectorAll('td').forEach((td, idx) => {
-          if (idx < headers.length - 1) {
-            row.push('"' + td.textContent.trim().replace(/"/g, '""') + '"');
-          }
-        });
-        if (row.length > 0) csv.push(row.join(','));
-      });
-
-      const csvContent = 'data:text/csv;charset=utf-8,' + csv.join('\n');
-      const link = document.createElement('a');
-      link.setAttribute('href', encodeURI(csvContent));
-      link.setAttribute('download', 'fees_' + new Date().toISOString().split('T')[0] + '.csv');
-      link.click();
-    }
-
-    // INITIALIZATION
-    loadSchools();
-    refreshData();
-  </script>
+init();
+</script>
 </body>
 </html>
