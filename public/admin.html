@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -211,7 +212,7 @@
             </header>
 
             <!-- MAIN CONTENT AREA -->
-            <main id="main" class="flex-1 p-4 lg:p-8 space-y-6" role="main" tabindex="-1">
+            <main id="main" class="flex-1 p-4 pb-24 lg:pb-8 lg:p-8 space-y-6" role="main" tabindex="-1">
                 
                 <!-- SYSTEM OVERVIEW SECTION -->
                 <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 lg:p-6 shadow-sm border border-slate-200/80 dark:border-slate-700">
@@ -305,7 +306,12 @@
 
     <!-- JAVASCRIPT LOGIC (PRESERVED & INTEGRATED) -->
     <script>
-    const API_BASE = 'https://examguard-8rxe.onrender.com';
+    const API_ROOT = window.API_BASE_URL || 'https://examguard-8rxe.onrender.com';
+    const API_BASE = API_ROOT;
+    const API_API = `${API_ROOT}/api`;
+    const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng';
+    const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_API}/schools/config`;
+    let publicSchoolId = '';
     let currentUser = null;
     let currentSchool = null;
     let financeChartInstance = null;
@@ -368,7 +374,7 @@
     }
 
     async function loadAuthenticatedUser() {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('authToken');
         if (!token) {
             showErrorModal(
                 'Authentication Required',
@@ -384,11 +390,12 @@
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/auth/me`, {
+            const res = await fetch(`${API_API}/auth/me`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(publicSchoolId ? { 'X-School-Code': publicSchoolId } : {})
                 }
             });
 
@@ -418,6 +425,9 @@
             const response = await res.json();
             currentUser = response.user || response;
             currentSchool = response.school || response.data?.school || null;
+            if (!currentSchool && currentUser?.school) currentSchool = currentUser.school;
+            publicSchoolId = currentSchool?.schoolId || currentUser?.schoolCode || '';
+            if (publicSchoolId) localStorage.setItem('schoolId', publicSchoolId);
 
             if (!currentSchool && currentUser?.school) {
                 currentSchool = currentUser.school;
@@ -513,18 +523,19 @@
             loadingDiv.innerHTML = '<div class="inline-block animate-spin w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full mr-2 align-middle"></div> Loading dashboard data...';
         }
 
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('authToken');
         if (!token) {
             showErrorModal('Token Missing', 'Cannot fetch dashboard metrics without an auth token.');
             return;
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/dashboard/summary`, {
+            const res = await fetch(`${API_API}/dashboard/summary${currentUser?.schoolId ? `?schoolId=${encodeURIComponent(currentUser.schoolId)}` : ''}`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(publicSchoolId ? { 'X-School-Code': publicSchoolId } : {})
                 }
             });
 
@@ -807,6 +818,20 @@
         });
     }
 
+    function initializeBottomToolbar() {
+        const btn = document.getElementById('adminBottomMenuBtn');
+        const drawer = document.getElementById('adminBottomDrawer');
+        const backdrop = document.getElementById('adminBottomDrawerBackdrop');
+        const closeBtn = document.getElementById('closeAdminBottomDrawer');
+        const close = () => drawer?.classList.add('hidden');
+        const open = () => drawer?.classList.remove('hidden');
+        btn?.addEventListener('click', open);
+        backdrop?.addEventListener('click', close);
+        closeBtn?.addEventListener('click', close);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        drawer?.querySelectorAll('a').forEach(a => a.addEventListener('click', close));
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         const spinner = document.getElementById('pageSpinnerOverlay');
         if (spinner) {
@@ -814,6 +839,7 @@
         }
 
         initializeNavigation();
+        initializeBottomToolbar();
 
         const user = await loadAuthenticatedUser();
         if (!user) return;
@@ -842,5 +868,33 @@
         });
     });
     </script>
+<div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 shadow-2xl md:hidden">
+<div class="grid h-16 max-w-lg grid-cols-5 mx-auto relative">
+<a href="admin.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-indigo-600"><i class="fa fa-house text-lg"></i><span class="text-[10px] mt-1 font-medium">Home</span></a>
+<a href="admission.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-slate-500 hover:text-indigo-600"><i class="fa fa-graduation-cap text-lg"></i><span class="text-[10px] mt-1 font-medium">Admission</span></a>
+<div class="relative flex items-center justify-center">
+<button id="adminBottomMenuBtn" type="button" class="absolute -top-6 inline-flex items-center justify-center w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg border-4 border-slate-50 transition-all active:scale-95 focus:outline-none" aria-label="Open admin menu"><i class="fa fa-grid-2 text-xl"></i></button>
+</div>
+<a href="finance.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-slate-500 hover:text-indigo-600"><i class="fa fa-wallet text-lg"></i><span class="text-[10px] mt-1 font-medium">Finance</span></a>
+<a href="people.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-slate-500 hover:text-indigo-600"><i class="fa fa-users text-lg"></i><span class="text-[10px] mt-1 font-medium">People</span></a>
+</div>
+</div>
+<div id="adminBottomDrawer" class="fixed inset-0 z-[60] hidden md:hidden">
+<div id="adminBottomDrawerBackdrop" class="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"></div>
+<div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-5 pb-7">
+<div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-300"></div>
+<div class="flex items-center justify-between mb-4"><div><h3 class="font-extrabold text-slate-900">Admin Menu</h3><p class="text-xs text-slate-500">Quick access to school management</p></div><button id="closeAdminBottomDrawer" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500"><i class="fa fa-xmark"></i></button></div>
+<div class="grid grid-cols-4 gap-3">
+<a href="more.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-globe text-lg text-indigo-600"></i><span class="text-[10px] font-semibold">Locations</span></a>
+<a href="academics.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-book-open text-lg text-indigo-600"></i><span class="text-[10px] font-semibold">Academics</span></a>
+<a href="admin-cbt.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-laptop text-lg text-indigo-600"></i><span class="text-[10px] font-semibold">CBT</span></a>
+<a href="results.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-file-invoice text-lg text-indigo-600"></i><span class="text-[10px] font-semibold">Results</span></a>
+<a href="adminfees.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-credit-card text-lg text-indigo-600"></i><span class="text-[10px] font-semibold">Fees</span></a>
+<a href="adminpayment.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-indigo-50 text-indigo-700"><i class="fa fa-money-bill-transfer text-lg text-indigo-600"></i><span class="text-[10px] font-bold">Payments</span></a>
+<a href="attendance.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-calendar-check text-lg text-indigo-600"></i><span class="text-[10px] font-semibold">Attendance</span></a>
+<a href="settings.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-gear text-lg text-indigo-600"></i><span class="text-[10px] font-semibold">Settings</span></a>
+</div>
+</div>
+</div>
 </body>
 </html>
