@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance | School Administration</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.5.2/flowbite.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --school-primary:#1E3A8A;
+      --school-primary-dark:#172554;
+      --school-primary-light:#DBEAFE;
+      --school-primary-soft:#EFF6FF;
+      --school-secondary:#F59E0B;
+      --school-accent:#10B981;
+    }
+
+    * { box-sizing:border-box; }
+    html,body { margin:0; min-height:100%; font-family:Inter,system-ui,sans-serif; }
+    body { background:#f8fafc; color:#0f172a; }
+    .school-primary-bg { background:var(--school-primary); }
+    .school-primary-text { color:var(--school-primary); }
+    .school-primary-border { border-color:var(--school-primary); }
+    .school-soft-bg { background:var(--school-primary-soft); }
+    .drawer-transition { transition:transform .25s ease; }
+
+    .school-logo-fallback {
+      width:44px;height:44px;border-radius:12px;display:flex;align-items:center;
+      justify-content:center;background:var(--school-primary);color:#fff;font-weight:800;
+      flex:none;
+    }
+
+    .stat-card { transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease; }
+    .stat-card:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(15,23,42,.07); }
+    .nav-link.active { background:rgba(255,255,255,.10); color:#fff; }
+    .nav-link.active .nav-icon { background:var(--school-primary); color:#fff; }
+    .nav-link:hover { background:rgba(255,255,255,.07); color:#fff; }
+    .mobile-bottom-nav { padding-bottom:env(safe-area-inset-bottom); }
+    .chart-wrap { position:relative;height:320px; }
+    @media (max-width:767px) {
+      .chart-wrap { height:280px; }
+      body { padding-bottom:86px; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Loading overlay -->
+  <div id="pageLoader" class="fixed inset-0 z-[100] flex items-center justify-center bg-white transition-opacity duration-300">
+    <div class="text-center">
+      <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--school-primary)]"></div>
+      <p id="loaderText" class="text-sm font-semibold text-slate-600">Loading school configuration...</p>
+    </div>
+  </div>
+
+  <!-- Desktop sidebar -->
+  <aside id="sidebar"
+    class="fixed inset-y-0 left-0 z-40 hidden w-64 -translate-x-full flex-col bg-slate-950 text-white shadow-xl transition-transform duration-300 md:flex md:translate-x-0">
+
+    <div class="border-b border-white/10 px-4 py-5">
+      <div class="flex items-center gap-3">
+        <div id="schoolLogoWrap">
+          <img id="schoolLogo" src="" alt="School logo"
+               class="h-11 w-11 rounded-xl border border-white/10 bg-white object-cover"
+               onerror="handleLogoError(this)">
+        </div>
+        <div class="min-w-0">
+          <div id="schoolBrandName" class="truncate text-sm font-extrabold">School</div>
+          <div class="text-xs text-slate-400">School Administration</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-3 py-4">
+      <div class="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Main</div>
+
+      <a href="admin.html" class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-house"></i></span>
+        Dashboard
+      </a>
+      <a href="admission.html" class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-user-plus"></i></span>
+        Admission
+      </a>
+      <a href="people.html" class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-users"></i></span>
+        People
+      </a>
+      <a href="academics.html" class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-book-open"></i></span>
+        Academics
+      </a>
+      <a href="results.html" class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-file-lines"></i></span>
+        Results
+      </a>
+      <a href="attendance.html" class="nav-link active mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-calendar-check"></i></span>
+        Attendance
+      </a>
+      <a href="finance.html" class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-wallet"></i></span>
+        Finance
+      </a>
+
+      <div class="my-5 border-t border-white/10"></div>
+      <div class="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Administration</div>
+      <a href="#" class="nav-link flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">
+        <span class="nav-icon flex h-8 w-8 items-center justify-center rounded-lg bg-white/5"><i class="fa-solid fa-gear"></i></span>
+        Settings
+      </a>
+    </nav>
+
+    <div class="border-t border-white/10 px-4 py-4">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-bold">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-[10px] uppercase tracking-wide text-slate-500">Signed in as</div>
+          <div id="adminName" class="truncate text-xs font-bold text-slate-200">Administrator</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile sidebar -->
+  <div id="sidebarOverlay" class="fixed inset-0 z-40 hidden bg-slate-950/50 md:hidden"></div>
+  <aside id="mobileSidebar"
+    class="fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col bg-slate-950 text-white shadow-2xl transition-transform duration-300 md:hidden">
+    <div class="flex items-center justify-between border-b border-white/10 px-4 py-5">
+      <div class="flex min-w-0 items-center gap-3">
+        <div id="mobileSchoolLogoWrap"></div>
+        <div class="min-w-0">
+          <div id="mobileSchoolBrandName" class="truncate text-sm font-extrabold">School</div>
+          <div class="text-xs text-slate-400">School Administration</div>
+        </div>
+      </div>
+      <button id="closeMobileSidebar" class="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <nav id="mobileNav" class="flex-1 overflow-y-auto px-3 py-4"></nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="min-h-screen md:pl-64">
+    <!-- Header -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div class="flex h-16 items-center justify-between px-4 sm:px-6">
+        <div class="flex items-center gap-3">
+          <button id="mobileMenuBtn" class="rounded-xl border border-slate-200 p-2.5 text-slate-700 hover:bg-slate-50 md:hidden" aria-label="Open menu">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-extrabold text-slate-900 sm:text-lg">Attendance</h1>
+              <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">ADMIN</span>
+            </div>
+            <p id="headerSchoolName" class="hidden text-xs text-slate-500 sm:block">Loading school...</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1">
+          <button class="rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" title="Notifications">
+            <i class="fa-regular fa-bell"></i>
+          </button>
+          <button class="rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" title="Help">
+            <i class="fa-regular fa-circle-question"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="space-y-5 p-4 pb-24 sm:p-6 md:pb-6">
+      <!-- Page heading -->
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <div class="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider school-primary-text">
+              <i class="fa-solid fa-calendar-check"></i>
+              Attendance Management
+            </div>
+            <h2 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">Attendance Records</h2>
+            <p class="mt-1 max-w-2xl text-sm text-slate-500">
+              Monitor student and staff attendance for the currently authenticated school.
+            </p>
+          </div>
+          <button id="refreshBtn" class="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
+                  style="background:var(--school-primary)">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+        </div>
+      </section>
+
+      <!-- Summary -->
+      <section>
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-sm font-extrabold text-slate-900">Today's Attendance Summary</h3>
+          <span id="summaryDate" class="text-xs font-medium text-slate-500"></span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <div class="stat-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl school-soft-bg school-primary-text">
+              <i class="fa-solid fa-users"></i>
+            </div>
+            <div id="studentsPresent" class="text-2xl font-extrabold text-slate-900">0</div>
+            <div class="mt-1 text-xs font-semibold text-slate-500">Students Present</div>
+          </div>
+
+          <div class="stat-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <i class="fa-solid fa-chalkboard-user"></i>
+            </div>
+            <div id="teachingPresent" class="text-2xl font-extrabold text-slate-900">0</div>
+            <div class="mt-1 text-xs font-semibold text-slate-500">Teaching Staff Present</div>
+          </div>
+
+          <div class="stat-card col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-1">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <i class="fa-solid fa-user-tie"></i>
+            </div>
+            <div id="nonTeachingPresent" class="text-2xl font-extrabold text-slate-900">0</div>
+            <div class="mt-1 text-xs font-semibold text-slate-500">Non-Teaching Staff Present</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trend -->
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="mb-4">
+          <h3 class="text-sm font-extrabold text-slate-900">Attendance Trends</h3>
+          <p class="mt-1 text-xs text-slate-500">Attendance percentages returned by the current school's attendance service.</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="attendanceTrendChart"></canvas>
+        </div>
+      </section>
+
+      <!-- Filters -->
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="mb-4">
+          <h3 class="text-sm font-extrabold text-slate-900">Filter Records</h3>
+          <p class="mt-1 text-xs text-slate-500">Search only within the authenticated school's attendance records.</p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <label class="block">
+            <span class="mb-1.5 block text-xs font-bold text-slate-600">Date</span>
+            <input id="filterDate" type="date" class="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[var(--school-primary)] focus:ring-2 focus:ring-blue-100">
+          </label>
+
+          <label class="block">
+            <span class="mb-1.5 block text-xs font-bold text-slate-600">Role</span>
+            <select id="filterRole" class="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--school-primary)] focus:ring-2 focus:ring-blue-100">
+              <option value="">All Roles</option>
+              <option value="student">Student</option>
+              <option value="teaching">Teaching Staff</option>
+              <option value="non-teaching">Non-Teaching Staff</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="mb-1.5 block text-xs font-bold text-slate-600">Status</span>
+            <select id="filterStatus" class="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--school-primary)] focus:ring-2 focus:ring-blue-100">
+              <option value="">All Statuses</option>
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+              <option value="Late">Late</option>
+              <option value="Excused">Excused</option>
+              <option value="Leave">Leave</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="mb-1.5 block text-xs font-bold text-slate-600">Name or ID</span>
+            <input id="searchName" type="search" placeholder="Search name or ID..." class="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--school-primary)] focus:ring-2 focus:ring-blue-100">
+          </label>
+
+          <div class="flex items-end gap-2">
+            <button id="filterBtn" class="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-white"
+                    style="background:var(--school-primary)">
+              <i class="fa-solid fa-filter"></i> Filter
+            </button>
+            <button id="exportBtn" class="inline-flex min-h-[42px] items-center justify-center rounded-xl border border-slate-200 px-3 text-slate-600 hover:bg-slate-50" title="Export CSV">
+              <i class="fa-solid fa-download"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Records -->
+      <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900">Attendance Records</h3>
+            <p id="recordCount" class="mt-1 text-xs text-slate-500">Loading records...</p>
+          </div>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-500">CURRENT SCHOOL</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-[850px] w-full text-left text-sm">
+            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="px-5 py-3 font-bold">Date</th>
+                <th class="px-5 py-3 font-bold">Name</th>
+                <th class="px-5 py-3 font-bold">ID</th>
+                <th class="px-5 py-3 font-bold">Role</th>
+                <th class="px-5 py-3 font-bold">Class/Dept</th>
+                <th class="px-5 py-3 font-bold">Status</th>
+                <th class="px-5 py-3 font-bold">Remark</th>
+                <th class="px-5 py-3 font-bold">Recorded By</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody" class="divide-y divide-slate-100">
+              <tr>
+                <td colspan="8" class="px-5 py-12 text-center text-sm text-slate-500">
+                  <i class="fa-solid fa-spinner fa-spin mb-2 text-lg"></i>
+                  <div>Loading attendance records...</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Mobile bottom navigation -->
+  <nav class="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 shadow-[0_-8px_25px_rgba(15,23,42,.08)] backdrop-blur md:hidden">
+    <div class="relative mx-auto grid h-[68px] max-w-lg grid-cols-5 items-center px-2">
+      <a href="admin.html" class="flex flex-col items-center gap-1 rounded-xl py-1.5 text-slate-500">
+        <i class="fa-solid fa-house text-sm"></i><span class="text-[10px] font-semibold">Home</span>
+      </a>
+      <a href="admission.html" class="flex flex-col items-center gap-1 rounded-xl py-1.5 text-slate-500">
+        <i class="fa-solid fa-user-plus text-sm"></i><span class="text-[10px] font-semibold">Admission</span>
+      </a>
+
+      <div class="relative flex h-full items-center justify-center">
+        <button id="parabolaDrawerBtn" type="button"
+          data-drawer-target="drawer-bottom-menu" data-drawer-show="drawer-bottom-menu"
+          data-drawer-placement="bottom" aria-controls="drawer-bottom-menu"
+          class="absolute -top-6 flex h-14 w-14 items-center justify-center rounded-full border-4 border-white text-white shadow-lg transition hover:scale-105 active:scale-95"
+          style="background:var(--school-primary)">
+          <i class="fa-solid fa-book-open text-lg"></i>
+        </button>
+        <span class="mt-9 text-[10px] font-semibold text-slate-500">Modules</span>
+      </div>
+
+      <a href="finance.html" class="flex flex-col items-center gap-1 rounded-xl py-1.5 text-slate-500">
+        <i class="fa-solid fa-wallet text-sm"></i><span class="text-[10px] font-semibold">Finance</span>
+      </a>
+      <button id="mobileMoreBtn" type="button" class="flex flex-col items-center gap-1 rounded-xl py-1.5 text-slate-500">
+        <i class="fa-solid fa-ellipsis text-sm"></i><span class="text-[10px] font-semibold">More</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Bottom drawer -->
+  <div id="drawer-bottom-menu"
+       class="fixed bottom-0 left-0 right-0 z-50 max-h-[80vh] translate-y-full overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl drawer-transition"
+       tabindex="-1" aria-labelledby="drawer-bottom-menu-label">
+    <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-300"></div>
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h3 id="drawer-bottom-menu-label" class="text-base font-extrabold text-slate-900">School Modules</h3>
+        <p class="text-xs text-slate-500">Navigate to another administration module</p>
+      </div>
+      <button type="button" data-drawer-hide="drawer-bottom-menu" class="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <a href="people.html" class="rounded-2xl border border-slate-200 bg-slate-50 p-3 hover:border-[var(--school-primary)] hover:bg-[var(--school-primary-soft)]">
+        <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white school-primary-text shadow-sm"><i class="fa-solid fa-users"></i></div>
+        <div class="text-sm font-bold text-slate-800">People</div>
+        <div class="mt-0.5 text-[11px] text-slate-500">Students & staff</div>
+      </a>
+      <a href="academics.html" class="rounded-2xl border border-slate-200 bg-slate-50 p-3 hover:border-[var(--school-primary)] hover:bg-[var(--school-primary-soft)]">
+        <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white school-primary-text shadow-sm"><i class="fa-solid fa-book-open"></i></div>
+        <div class="text-sm font-bold text-slate-800">Academics</div>
+        <div class="mt-0.5 text-[11px] text-slate-500">Academic modules</div>
+      </a>
+      <a href="results.html" class="rounded-2xl border border-slate-200 bg-slate-50 p-3 hover:border-[var(--school-primary)] hover:bg-[var(--school-primary-soft)]">
+        <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white school-primary-text shadow-sm"><i class="fa-solid fa-file-lines"></i></div>
+        <div class="text-sm font-bold text-slate-800">Results</div>
+        <div class="mt-0.5 text-[11px] text-slate-500">Results management</div>
+      </a>
+      <a href="attendance.html" class="rounded-2xl border border-[var(--school-primary)] bg-[var(--school-primary-soft)] p-3">
+        <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white school-primary-text shadow-sm"><i class="fa-solid fa-calendar-check"></i></div>
+        <div class="text-sm font-bold text-slate-800">Attendance</div>
+        <div class="mt-0.5 text-[11px] text-slate-500">Attendance records</div>
+      </a>
+      <a href="finance.html" class="rounded-2xl border border-slate-200 bg-slate-50 p-3 hover:border-[var(--school-primary)] hover:bg-[var(--school-primary-soft)]">
+        <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white school-primary-text shadow-sm"><i class="fa-solid fa-wallet"></i></div>
+        <div class="text-sm font-bold text-slate-800">Finance</div>
+        <div class="mt-0.5 text-[11px] text-slate-500">Fees & finance</div>
+      </a>
+      <a href="admission.html" class="rounded-2xl border border-slate-200 bg-slate-50 p-3 hover:border-[var(--school-primary)] hover:bg-[var(--school-primary-soft)]">
+        <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white school-primary-text shadow-sm"><i class="fa-solid fa-user-plus"></i></div>
+        <div class="text-sm font-bold text-slate-800">Admission</div>
+        <div class="mt-0.5 text-[11px] text-slate-500">Admissions</div>
+      </a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =========================================================
+     MULTI-SCHOOL CONFIGURATION / TENANT CONTEXT
+     Mirrors the Academics reference architecture.
+     ========================================================= */
+  const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+  const API_ROOT = `${BACKEND_URL}/api`;
+  const SCHOOL_CONFIG_ENDPOINT =
+    window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+  const BASE_DOMAINS = [
+    window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng',
+    'examguard.com.ng'
+  ];
+
+  let token = '';
+  let currentSchool = null;
+  let currentUser = null;
+  let schoolSubdomain = '';
+  let publicSchoolId = '';
+
+  let attendanceTrendChartInstance = null;
+  let lastAttendanceRecords = [];
+
+  function getTenantSubdomain() {
+    const stored = localStorage.getItem('schoolSubdomain');
+    if (stored) return String(stored).trim().toLowerCase();
+
+    const host = String(window.location.hostname || '').toLowerCase();
+    for (const base of BASE_DOMAINS) {
+      if (host === base) return '';
+      if (host.endsWith(`.${base}`)) {
+        return host.slice(0, -(base.length + 1)).split('.')[0] || '';
+      }
+    }
+    return '';
+  }
+
+  function getAdminToken() {
+    return localStorage.getItem('adminToken') ||
+           localStorage.getItem('token') ||
+           localStorage.getItem('authToken') ||
+           localStorage.getItem('superadmin_token') || '';
+  }
+
+  function authHeaders(extra = {}) {
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...extra
+    };
+
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+
+    return headers;
+  }
+
+  async function apiFetch(url, options = {}) {
+    const opts = { ...options, headers: authHeaders(options.headers || {}) };
+    const response = await fetch(url, opts);
+
+    if (response.status === 401) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+    if (response.status === 403) {
+      throw new Error('You are not authorized for this school.');
+    }
+    return response;
+  }
+
+  function schoolInitials(name = 'School') {
+    const words = String(name).trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return 'S';
+    return words.slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  }
+
+  function handleLogoError(img) {
+    if (!img || img.dataset.fallbackApplied === '1') return;
+    img.dataset.fallbackApplied = '1';
+
+    const fallback = document.createElement('div');
+    fallback.className = 'school-logo-fallback';
+    fallback.textContent = schoolInitials(currentSchool?.schoolName || currentSchool?.name || 'School');
+
+    const wrap = img.parentElement;
+    if (wrap) {
+      wrap.innerHTML = '';
+      wrap.appendChild(fallback);
+    }
+  }
+
+  function applySchoolBranding(school) {
+    currentSchool = school || {};
+    const branding = currentSchool.branding || {};
+
+    const name =
+      currentSchool.schoolName ||
+      currentSchool.name ||
+      'School';
+
+    const logo =
+      currentSchool.logoUrl ||
+      branding.logo ||
+      branding.logoUrl ||
+      branding.lightLogo ||
+      branding.darkLogo ||
+      '';
+
+    const primary =
+      branding.primaryColor ||
+      branding.primary ||
+      '#1E3A8A';
+
+    const secondary =
+      branding.secondaryColor ||
+      branding.secondary ||
+      '#F59E0B';
+
+    const accent =
+      branding.accentColor ||
+      branding.accent ||
+      '#10B981';
+
+    const light =
+      branding.lightColor ||
+      '#DBEAFE';
+
+    const root = document.documentElement;
+    root.style.setProperty('--school-primary', primary);
+    root.style.setProperty('--school-secondary', secondary);
+    root.style.setProperty('--school-accent', accent);
+    root.style.setProperty('--school-primary-dark', darkenColor(primary));
+    root.style.setProperty('--school-primary-light', light);
+    root.style.setProperty('--school-primary-soft', hexToRgba(light, .38));
+
+    document.title = `${name} | Attendance`;
+    setText('schoolBrandName', name);
+    setText('mobileSchoolBrandName', name);
+    setText('headerSchoolName', name);
+
+    const logoWrap = document.getElementById('schoolLogoWrap');
+    const mobileLogoWrap = document.getElementById('mobileSchoolLogoWrap');
+
+    if (logo) {
+      if (logoWrap) {
+        logoWrap.innerHTML = `<img id="schoolLogo" src="${escapeAttr(logo)}" alt="${escapeAttr(name)} logo"
+          class="h-11 w-11 rounded-xl border border-white/10 bg-white object-cover">`;
+        const img = logoWrap.querySelector('img');
+        if (img) img.onerror = () => handleLogoError(img);
+      }
+
+      if (mobileLogoWrap) {
+        mobileLogoWrap.innerHTML = `<img src="${escapeAttr(logo)}" alt="${escapeAttr(name)} logo"
+          class="h-11 w-11 rounded-xl border border-white/10 bg-white object-cover">`;
+        const img = mobileLogoWrap.querySelector('img');
+        if (img) img.onerror = () => {
+          mobileLogoWrap.innerHTML = `<div class="school-logo-fallback">${schoolInitials(name)}</div>`;
+        };
+      }
+    } else {
+      if (logoWrap) logoWrap.innerHTML = `<div class="school-logo-fallback">${schoolInitials(name)}</div>`;
+      if (mobileLogoWrap) mobileLogoWrap.innerHTML = `<div class="school-logo-fallback">${schoolInitials(name)}</div>`;
+    }
+  }
+
+  async function loadSchoolConfig() {
+    token = getAdminToken();
+    if (!token) throw new Error('No active administrator session found.');
+
+    schoolSubdomain = getTenantSubdomain();
+
+    /*
+      Primary source: authenticated user.
+      This prevents the frontend from trusting a hardcoded school.
+    */
+    const meResponse = await fetch(`${API_ROOT}/auth/me`, {
+      headers: authHeaders()
+    });
+
+    if (!meResponse.ok) {
+      throw new Error(`Unable to identify the authenticated school (${meResponse.status}).`);
+    }
+
+    const meRaw = await meResponse.json();
+    currentUser = meRaw.user || meRaw.data?.user || meRaw;
+    const schoolFromMe =
+      meRaw.school ||
+      meRaw.data?.school ||
+      currentUser?.school ||
+      null;
+
+    if (!currentUser?.schoolId) {
+      throw new Error('The authenticated account is not associated with a school.');
+    }
+
+    if (!schoolFromMe?._id) {
+      throw new Error('The authenticated school configuration was not returned.');
+    }
+
+    if (String(currentUser.schoolId) !== String(schoolFromMe._id)) {
+      throw new Error('School verification failed. The user and school do not match.');
+    }
+
+    currentSchool = schoolFromMe;
+    publicSchoolId = String(
+      schoolFromMe.schoolId ||
+      schoolFromMe.code ||
+      schoolFromMe._id ||
+      ''
+    );
+
+    schoolSubdomain = String(
+      schoolFromMe.subdomain ||
+      schoolSubdomain ||
+      ''
+    ).toLowerCase();
+
+    /*
+      Optional public config verification/fallback.
+      It is only accepted when it resolves to the same authenticated school.
+    */
+    try {
+      const params = new URLSearchParams();
+      if (schoolSubdomain) params.set('subdomain', schoolSubdomain);
+      if (publicSchoolId) params.set('schoolId', publicSchoolId);
+
+      const configResponse = await fetch(
+        `${SCHOOL_CONFIG_ENDPOINT}${params.toString() ? '?' + params.toString() : ''}`,
+        { headers: authHeaders() }
+      );
+
+      if (configResponse.ok) {
+        const configRaw = await configResponse.json();
+        const configSchool =
+          configRaw.school ||
+          configRaw.data?.school ||
+          configRaw.data ||
+          configRaw;
+
+        if (configSchool?._id &&
+            String(configSchool._id) === String(currentUser.schoolId)) {
+          currentSchool = { ...currentSchool, ...configSchool };
+        }
+      }
+    } catch (configErr) {
+      console.warn('Public school config verification skipped:', configErr);
+    }
+
+    applySchoolBranding(currentSchool);
+    verifySchoolContext();
+  }
+
+  function verifySchoolContext() {
+    if (!currentUser?.schoolId || !currentSchool?._id) {
+      throw new Error('Incomplete school context.');
+    }
+    if (String(currentUser.schoolId) !== String(currentSchool._id)) {
+      throw new Error('Invalid school context.');
+    }
+  }
+
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function hexToRgba(hex, alpha) {
+    const clean = String(hex).replace('#', '').trim();
+    if (!/^[0-9a-f]{6}$/i.test(clean)) return `rgba(219,234,254,${alpha})`;
+    const n = parseInt(clean, 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  }
+
+  function darkenColor(hex) {
+    const clean = String(hex).replace('#', '').trim();
+    if (!/^[0-9a-f]{6}$/i.test(clean)) return '#172554';
+    const n = parseInt(clean, 16);
+    const r = Math.max(0, ((n >> 16) & 255) - 35);
+    const g = Math.max(0, ((n >> 8) & 255) - 35);
+    const b = Math.max(0, (n & 255) - 35);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value);
+  }
+
+  /* =========================================================
+     ATTENDANCE
+     ========================================================= */
+  async function fetchAttendanceSummary() {
+    const res = await apiFetch(`${API_ROOT}/attendance/summary`);
+    if (!res.ok) throw new Error('Unable to fetch attendance summary.');
+
+    const data = await res.json();
+
+    setText('studentsPresent', data.studentsPresent || 0);
+    setText('teachingPresent', data.teachingPresent || 0);
+    setText('nonTeachingPresent', data.nonTeachingPresent || 0);
+
+    renderAttendanceTrendChart(data.trends || {});
+  }
+
+  function renderAttendanceTrendChart(trends) {
+    const canvas = document.getElementById('attendanceTrendChart');
+    if (!canvas) return;
+
+    const labels = trends.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const students = trends.students || [0, 0, 0, 0, 0];
+    const teaching = trends.teaching || [0, 0, 0, 0, 0];
+    const nonTeaching = trends.nonTeaching || [0, 0, 0, 0, 0];
+
+    if (attendanceTrendChartInstance) attendanceTrendChartInstance.destroy();
+
+    attendanceTrendChartInstance = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Students',
+            data: students,
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--school-primary').trim() || '#1E3A8A',
+            backgroundColor: 'rgba(30,58,138,.07)',
+            fill: false,
+            tension: .3,
+            pointRadius: 4,
+            pointBackgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--school-primary').trim() || '#1E3A8A'
+          },
+          {
+            label: 'Teaching Staff',
+            data: teaching,
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16,185,129,.07)',
+            fill: false,
+            tension: .3,
+            pointRadius: 4,
+            pointBackgroundColor: '#10B981'
+          },
+          {
+            label: 'Non-Teaching Staff',
+            data: nonTeaching,
+            borderColor: '#F59E0B',
+            backgroundColor: 'rgba(245,158,11,.07)',
+            fill: false,
+            tension: .3,
+            pointRadius: 4,
+            pointBackgroundColor: '#F59E0B'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: { boxWidth: 10, usePointStyle: true, padding: 18, font: { size: 11 } }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: '#eef2f7' },
+            ticks: { font: { size: 10 } }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  function buildAttendanceUrl() {
+    const params = new URLSearchParams();
+
+    const date = document.getElementById('filterDate')?.value;
+    const role = document.getElementById('filterRole')?.value;
+    const status = document.getElementById('filterStatus')?.value;
+    const search = document.getElementById('searchName')?.value?.trim();
+
+    if (date) params.set('date', date);
+    if (role) params.set('role', role);
+    if (status) params.set('status', status);
+    if (search) params.set('search', search);
+
+    const qs = params.toString();
+    return `${API_ROOT}/attendance/records${qs ? '?' + qs : ''}`;
+  }
+
+  async function fetchAttendanceRecords() {
+    const tbody = document.getElementById('attendanceTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+      <tr><td colspan="8" class="px-5 py-12 text-center text-slate-500">
+        <i class="fa-solid fa-spinner fa-spin mb-2 text-lg"></i>
+        <div class="text-sm">Loading attendance records...</div>
+      </td></tr>`;
+
+    try {
+      const res = await apiFetch(buildAttendanceUrl());
+      if (!res.ok) throw new Error('Unable to fetch attendance records.');
+
+      const raw = await res.json();
+      const records = Array.isArray(raw)
+        ? raw
+        : (raw.records || raw.data || []);
+
+      lastAttendanceRecords = records;
+      setText('recordCount', `${records.length} record${records.length === 1 ? '' : 's'} found`);
+
+      if (!records.length) {
+        tbody.innerHTML = `
+          <tr><td colspan="8" class="px-5 py-14 text-center">
+            <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+              <i class="fa-regular fa-folder-open"></i>
+            </div>
+            <div class="text-sm font-bold text-slate-700">No records found</div>
+            <div class="mt-1 text-xs text-slate-500">Try adjusting your filters.</div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = records.map(renderAttendanceRow).join('');
+    } catch (err) {
+      console.error(err);
+      setText('recordCount', 'Unable to load records');
+      tbody.innerHTML = `
+        <tr><td colspan="8" class="px-5 py-14 text-center">
+          <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div class="text-sm font-bold text-slate-700">Unable to load records</div>
+          <div class="mt-1 text-xs text-slate-500">${escapeHtml(err.message || 'Please try again.')}</div>
+        </td></tr>`;
+    }
+  }
+
+  function renderAttendanceRow(r) {
+    const status = String(r.status || 'Unknown');
+    const statusClass = {
+      Present: 'bg-emerald-50 text-emerald-700',
+      Absent: 'bg-red-50 text-red-700',
+      Late: 'bg-amber-50 text-amber-700',
+      Excused: 'bg-cyan-50 text-cyan-700',
+      Leave: 'bg-blue-50 text-blue-700'
+    }[status] || 'bg-slate-100 text-slate-600';
+
+    const role = r.role
+      ? String(r.role).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      : '';
+
+    return `
+      <tr class="transition hover:bg-slate-50">
+        <td class="whitespace-nowrap px-5 py-3.5 text-xs text-slate-500">${escapeHtml(r.date ? String(r.date).slice(0,10) : '')}</td>
+        <td class="px-5 py-3.5"><span class="font-bold text-slate-800">${escapeHtml(r.name || '')}</span></td>
+        <td class="px-5 py-3.5 text-xs text-slate-500">${escapeHtml(r.id || r.regNo || r.staffId || '')}</td>
+        <td class="px-5 py-3.5 text-xs font-semibold text-slate-600">${escapeHtml(role)}</td>
+        <td class="px-5 py-3.5 text-xs text-slate-500">${escapeHtml(r.class || r.department || '')}</td>
+        <td class="px-5 py-3.5"><span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${statusClass}">${escapeHtml(status)}</span></td>
+        <td class="px-5 py-3.5 text-xs text-slate-500">${escapeHtml(r.remark || '')}</td>
+        <td class="px-5 py-3.5 text-xs text-slate-500">${escapeHtml(r.recordedBy?.name || r.recordedBy || '')}</td>
+      </tr>`;
+  }
+
+  function exportTableToCSV(filename = 'attendance-records.csv') {
+    if (!lastAttendanceRecords.length) return;
+
+    const headers = ['Date','Name','ID','Role','Class/Dept','Status','Remark','Recorded By'];
+    const rows = lastAttendanceRecords.map(r => [
+      r.date ? String(r.date).slice(0,10) : '',
+      r.name || '',
+      r.id || r.regNo || r.staffId || '',
+      r.role || '',
+      r.class || r.department || '',
+      r.status || '',
+      r.remark || '',
+      r.recordedBy?.name || r.recordedBy || ''
+    ]);
+
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /* =========================================================
+     UI
+     ========================================================= */
+  function setupMobileNavigation() {
+    const mobileSidebar = document.getElementById('mobileSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    const open = () => {
+      mobileSidebar.classList.remove('-translate-x-full');
+      overlay.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    };
+
+    const close = () => {
+      mobileSidebar.classList.add('-translate-x-full');
+      overlay.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    };
+
+    document.getElementById('mobileMenuBtn')?.addEventListener('click', open);
+    document.getElementById('closeMobileSidebar')?.addEventListener('click', close);
+    overlay?.addEventListener('click', close);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+    const desktopLinks = [...document.querySelectorAll('#sidebar .nav-link')];
+    const mobileNav = document.getElementById('mobileNav');
+
+    if (mobileNav) {
+      mobileNav.innerHTML = desktopLinks.map(a => `
+        <a href="${escapeAttr(a.getAttribute('href') || '#')}"
+           class="${a.className.replace('mb-1','mb-1')}"
+           style="display:flex;margin-bottom:4px;">
+          ${a.innerHTML}
+        </a>`).join('');
+
+      mobileNav.querySelectorAll('a').forEach(a => a.addEventListener('click', close));
+    }
+
+    document.getElementById('mobileMoreBtn')?.addEventListener('click', () => {
+      const drawer = document.getElementById('drawer-bottom-menu');
+      drawer.classList.remove('translate-y-full');
+      drawer.classList.add('translate-y-0');
+    });
+
+    document.querySelectorAll('[data-drawer-hide="drawer-bottom-menu"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const drawer = document.getElementById('drawer-bottom-menu');
+        drawer.classList.add('translate-y-full');
+        drawer.classList.remove('translate-y-0');
+      });
+    });
+
+    document.getElementById('drawer-bottom-menu')?.addEventListener('click', e => {
+      if (e.target.id === 'drawer-bottom-menu') {
+        e.currentTarget.classList.add('translate-y-full');
+        e.currentTarget.classList.remove('translate-y-0');
+      }
+    });
+  }
+
+  function setDefaultDate() {
+    const input = document.getElementById('filterDate');
+    if (input && !input.value) {
+      const d = new Date();
+      input.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    setText('summaryDate', new Intl.DateTimeFormat(undefined, {
+      day:'numeric', month:'short', year:'numeric'
+    }).format(new Date()));
+  }
+
+  async function initializePage() {
+    const loader = document.getElementById('pageLoader');
+    const loaderText = document.getElementById('loaderText');
+
+    try {
+      loaderText.textContent = 'Loading school configuration...';
+
+      await loadSchoolConfig();
+
+      fillProfile(currentUser);
+
+      loaderText.textContent = 'Loading attendance...';
+
+      // Independent attendance calls are allowed to complete independently.
+      const results = await Promise.allSettled([
+        fetchAttendanceSummary(),
+        fetchAttendanceRecords()
+      ]);
+
+      results.forEach(r => {
+        if (r.status === 'rejected') console.error('Attendance loader:', r.reason);
+      });
+
+      setDefaultDate();
+      hideLoader();
+    } catch (err) {
+      console.error('Attendance initialization failed:', err);
+      loaderText.textContent = err.message || 'Unable to initialize page.';
+      loader.querySelector('div')?.insertAdjacentHTML('beforeend', `
+        <button onclick="location.reload()" class="mt-4 rounded-xl px-4 py-2 text-sm font-bold text-white"
+                style="background:var(--school-primary)">Retry</button>`);
+    }
+  }
+
+  function fillProfile(user) {
+    const name =
+      user?.name ||
+      user?.fullName ||
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      user?.email ||
+      'Administrator';
+
+    setText('adminName', name);
+  }
+
+  function hideLoader() {
+    const loader = document.getElementById('pageLoader');
+    if (!loader) return;
+    loader.classList.add('opacity-0', 'pointer-events-none');
+    setTimeout(() => loader.remove(), 350);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setupMobileNavigation();
+    setDefaultDate();
+
+    document.getElementById('filterBtn')?.addEventListener('click', fetchAttendanceRecords);
+    document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('refreshBtn');
+      btn.disabled = true;
+      btn.classList.add('opacity-60');
+      try {
+        await Promise.allSettled([fetchAttendanceSummary(), fetchAttendanceRecords()]);
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60');
+      }
+    });
+    document.getElementById('exportBtn')?.addEventListener('click', () => exportTableToCSV());
+    document.getElementById('searchName')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') fetchAttendanceRecords();
+    });
+
+    initializePage();
+  });
+
+  // Expose functions used by any existing integrations.
+  window.fetchAttendanceRecords = fetchAttendanceRecords;
+  window.fetchAttendanceSummary = fetchAttendanceSummary;
+  window.exportTableToCSV = exportTableToCSV;
+  window.handleLogoError = handleLogoError;
+})();
+</script>
+</body>
+</html>
