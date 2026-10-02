@@ -45,7 +45,7 @@
     .chart-wrap { position:relative;height:320px; }
     @media (max-width:767px) {
       .chart-wrap { height:280px; }
-      body { padding-bottom:86px; }
+      body { padding-bottom:72px; }
     }
   </style>
 </head>
@@ -54,7 +54,7 @@
   <div id="pageLoader" class="fixed inset-0 z-[100] flex items-center justify-center bg-white transition-opacity duration-300">
     <div class="text-center">
       <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--school-primary)]"></div>
-      <p id="loaderText" class="text-sm font-semibold text-slate-600">Loading school configuration...</p>
+      <p id="loaderText" class="text-sm font-semibold text-slate-600">Loading attendance portal...</p>
     </div>
   </div>
 
@@ -173,7 +173,8 @@
       </div>
     </header>
 
-    <div class="space-y-5 p-4 pb-24 sm:p-6 md:pb-6">
+    <!-- Reduced margin/padding bottom here (pb-12 instead of pb-24) -->
+    <div class="space-y-5 p-4 pb-12 sm:p-6 md:pb-6">
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
@@ -414,6 +415,10 @@
     'examguard.com.ng'
   ];
 
+  // Configuration Caching Settings
+  const CONFIG_CACHE_KEY = 'school_config_cache_v1';
+  const CONFIG_CACHE_TTL = 30 * 60 * 1000; // 30 minutes cache duration
+
   let token = '';
   let currentSchool = null;
   let currentUser = null;
@@ -468,6 +473,38 @@
       throw new Error('You are not authorized for this school.');
     }
     return response;
+  }
+
+  // --- Cache Helpers ---
+  function getCachedSchoolConfig() {
+    try {
+      const cachedStr = localStorage.getItem(CONFIG_CACHE_KEY);
+      if (!cachedStr) return null;
+      
+      const cached = JSON.parse(cachedStr);
+      if (Date.now() - cached.timestamp > CONFIG_CACHE_TTL) {
+        localStorage.removeItem(CONFIG_CACHE_KEY);
+        return null;
+      }
+      return cached;
+    } catch (e) {
+      localStorage.removeItem(CONFIG_CACHE_KEY);
+      return null;
+    }
+  }
+
+  function setCachedSchoolConfig(user, school, pubId, subDomain) {
+    try {
+      localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify({
+        user,
+        school,
+        publicSchoolId: pubId,
+        schoolSubdomain: subDomain,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Failed to store school config in cache:', e);
+    }
   }
 
   function schoolInitials(name = 'School') {
@@ -565,11 +602,26 @@
     }
   }
 
-  async function loadSchoolConfig() {
+  async function loadSchoolConfig(forceRefresh = false) {
     token = getAdminToken();
     if (!token) throw new Error('No active administrator session found.');
 
     schoolSubdomain = getTenantSubdomain();
+
+    // Check Cache first unless forceRefresh is triggered
+    if (!forceRefresh) {
+      const cachedData = getCachedSchoolConfig();
+      if (cachedData && cachedData.user && cachedData.school) {
+        currentUser = cachedData.user;
+        currentSchool = cachedData.school;
+        publicSchoolId = cachedData.publicSchoolId || '';
+        schoolSubdomain = cachedData.schoolSubdomain || schoolSubdomain;
+
+        applySchoolBranding(currentSchool);
+        verifySchoolContext();
+        return;
+      }
+    }
 
     const meResponse = await fetch(`${API_ROOT}/auth/me`, {
       headers: authHeaders()
@@ -639,6 +691,9 @@
     } catch (configErr) {
       console.warn('Public school config verification skipped:', configErr);
     }
+
+    // Cache the updated configuration data
+    setCachedSchoolConfig(currentUser, currentSchool, publicSchoolId, schoolSubdomain);
 
     applySchoolBranding(currentSchool);
     verifySchoolContext();
@@ -987,23 +1042,18 @@
   async function initializePage() {
     renderTableSkeleton();
     
-    const timerPromise = new Promise(resolve => setTimeout(resolve, 5000));
-
-    const dataPromise = (async () => {
-      try {
-        await loadSchoolConfig();
-        fillProfile(currentUser);
-        await Promise.allSettled([
-          fetchAttendanceSummary(),
-          fetchAttendanceRecords()
-        ]);
-      } catch (err) {
-        console.error('Attendance initialization failed:', err);
-      }
-    })();
-
-    await timerPromise;
-    hideLoader();
+    try {
+      await loadSchoolConfig();
+      fillProfile(currentUser);
+      await Promise.allSettled([
+        fetchAttendanceSummary(),
+        fetchAttendanceRecords()
+      ]);
+    } catch (err) {
+      console.error('Attendance initialization failed:', err);
+    } finally {
+      hideLoader();
+    }
   }
 
   function fillProfile(user) {
@@ -1034,6 +1084,8 @@
       btn.disabled = true;
       btn.classList.add('opacity-60');
       try {
+        // Pass true to bypass config cache when manually clicking Refresh
+        await loadSchoolConfig(true);
         await Promise.allSettled([fetchAttendanceSummary(), fetchAttendanceRecords()]);
       } finally {
         btn.disabled = false;
