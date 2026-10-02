@@ -2,909 +2,658 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Alumni Students | Gold and Linc Schools</title>
+  <title>Alumni | School Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
-    :root {
-      --bg-0: #f6f8ff;
-      --bg-1: #eef2ff;
-      --accent: #0f172a;
-      --accent-2: #1e40af;
-      --muted: #6b7280;
-      --card-bg: #ffffff;
-      --sidebar-w: 300px;
-      --radius: 10px;
-      --success: #16a34a;
+    :root{
+      --school-primary:#1e40af;--school-secondary:#0f172a;--school-accent:#3b82f6;
+      --school-primary-dark:#16358f;--school-primary-light:#eff6ff;--school-primary-soft:#dbeafe;
+      --bg:#f6f8fc;--surface:#fff;--text:#172033;--muted:#64748b;--line:#e7ebf2;
+      --success:#15803d;--sidebar:#0b1220;--sidebar-w:256px;--radius:16px;
     }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+    body{padding-bottom:0}
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    a{text-decoration:none;color:inherit}
+    .app{min-height:100vh}
+    
+    /* Sidebar Z-Index updated so it overlays everything when active on mobile */
+    .sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar-w);background:linear-gradient(180deg,#0b1220,#101d32);color:#dbe5f5;z-index:2000;display:flex;flex-direction:column;padding:18px 12px;box-shadow:8px 0 30px rgba(15,23,42,.10);overflow:auto}
+    .brand{display:flex;align-items:center;gap:11px;padding:6px 9px 18px}
+    .brand-logo{width:42px;height:42px;border-radius:12px;object-fit:cover;background:#fff;border:1px solid rgba(255,255,255,.15);flex:none}
+    .brand-title{font-weight:800;font-size:14px;color:#fff;line-height:1.25;max-width:170px}
+    .brand-sub{font-size:11px;color:#94a8c5;margin-top:3px}
+    .nav{display:flex;flex-direction:column;gap:4px}
+    .nav a{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:11px;font-size:13px;font-weight:600;color:#b9c7da;transition:.18s}
+    .nav a i{width:18px;text-align:center;font-size:14px}
+    .nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+    .nav a.active{background:rgba(255,255,255,.09);color:#fff;box-shadow:inset 3px 0 0 var(--school-accent)}
+    .sidebar-footer{margin-top:auto;padding:16px 10px 4px;color:#8192aa;font-size:11px}
+    .sidebar-footer strong{display:block;color:#dbe5f5;font-size:12px;margin-top:3px}
+    
+    .main-wrap{margin-left:var(--sidebar-w);min-height:100vh}
+    .topbar{height:64px;position:sticky;top:0;z-index:80;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+    .top-left{display:flex;align-items:center;gap:12px;min-width:0}
+    .mobile-menu{display:none;border:0;background:#f1f5f9;width:38px;height:38px;border-radius:10px;color:#334155}
+    .top-title{font-size:14px;font-weight:700;color:#334155;white-space:nowrap}
+    .top-actions{display:flex;align-items:center;gap:5px}
+    .top-icon{width:36px;height:36px;border:0;background:transparent;border-radius:10px;color:#64748b}
+    .top-icon:hover{background:#f1f5f9;color:#1e293b}
+    .content{padding:28px 28px 110px;max-width:1500px;margin:auto}
+    .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px}
+    .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--school-primary);margin-bottom:7px}
+    h1{margin:0;font-size:25px;letter-spacing:-.025em;line-height:1.15}
+    .subtitle{margin:7px 0 0;color:var(--muted);font-size:13px}
+    .count-pill{display:inline-flex;align-items:center;gap:7px;background:var(--school-primary-light);color:var(--school-primary);border:1px solid var(--school-primary-soft);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+    .filters{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:grid;grid-template-columns:minmax(240px,2fr) minmax(160px,1fr) auto;gap:10px;margin-bottom:20px;box-shadow:0 3px 12px rgba(15,23,42,.035)}
+    .field{position:relative}
+    .field i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none}
+    .field input,.field select{width:100%;height:42px;border:1px solid #dfe5ed;background:#fff;border-radius:10px;padding:0 12px;color:#1e293b;outline:none;font-size:13px;transition:.18s}
+    .field input{padding-left:36px}
+    .field input:focus,.field select:focus{border-color:var(--school-accent);box-shadow:0 0 0 3px var(--school-primary-soft)}
+    .btn{height:42px;border:0;border-radius:10px;padding:0 16px;background:var(--school-primary);color:#fff;font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.18s;white-space:nowrap}
+    .btn:hover{background:var(--school-primary-dark);transform:translateY(-1px);box-shadow:0 5px 14px rgba(30,64,175,.18)}
+    .btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;min-height:235px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;transition:.2s;box-shadow:0 2px 9px rgba(15,23,42,.025)}
+    .card:hover{transform:translateY(-3px);border-color:var(--school-primary-soft);box-shadow:0 10px 24px rgba(15,23,42,.08)}
+    .avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#eef2f7;border:3px solid var(--school-primary-soft);margin-bottom:12px}
+    .name{font-size:15px;font-weight:800;margin:0;color:#172033;line-height:1.3}
+    .meta{font-size:11px;color:var(--muted);line-height:1.6;margin:7px 0 0}
+    .meta strong{color:#475569}
+    .achievement{margin:12px 0 0;color:var(--success);font-size:11px;font-weight:700;line-height:1.4;display:flex;align-items:center;justify-content:center;gap:5px}
+    .remark{font-size:11px;color:#64748b;line-height:1.45;margin:8px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .view-hint{margin-top:auto;padding-top:12px;font-size:10px;color:#94a3b8}
+    .state{grid-column:1/-1;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed #dbe2eb;border-radius:var(--radius)}
+    .state i{font-size:24px;margin-bottom:12px;color:#94a3b8}
+    .state.error i{color:#dc2626}
+    .state p{margin:0;font-size:13px}
+    .spinner{width:28px;height:28px;border:3px solid var(--school-primary-soft);border-top-color:var(--school-primary);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    
+    /* Modal z-index above overlays */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.52);backdrop-filter:blur(3px);z-index:3000;display:none;align-items:center;justify-content:center;padding:18px}
+    .modal-backdrop.open{display:flex}
+    .modal{width:min(500px,100%);max-height:min(720px,92vh);overflow:auto;background:#fff;border-radius:20px;box-shadow:0 25px 70px rgba(15,23,42,.25);position:relative}
+    .modal-head{padding:24px 24px 16px;text-align:center;border-bottom:1px solid var(--line)}
+    .modal-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:4px solid var(--school-primary-soft);margin-bottom:10px}
+    .modal-name{margin:0;font-size:19px;font-weight:800}
+    .modal-close{position:absolute;right:14px;top:14px;width:34px;height:34px;border:0;border-radius:99px;background:#f1f5f9;color:#64748b}
+    .modal-close:hover{background:#e2e8f0;color:#1e293b}
+    .details{padding:18px 24px 24px}
+    .detail-row{display:flex;justify-content:space-between;gap:18px;padding:11px 0;border-bottom:1px solid #eef2f6;font-size:12px}
+    .detail-row:last-child{border-bottom:0}
+    .detail-label{color:#94a3b8;font-weight:600}
+    .detail-value{color:#334155;font-weight:700;text-align:right}
+    .highlight{margin-top:15px;padding:13px;border-radius:12px;background:#f8fafc;border-left:3px solid var(--school-primary);font-size:12px;line-height:1.6;color:#475569}
+    .highlight.achievement{border-left-color:var(--success);background:#f0fdf4;color:#166534;display:block;text-align:left}
+    
+    /* Drawer Stack */
+    .drawer{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -16px 45px rgba(15,23,42,.18);z-index:1850;transform:translateY(105%);transition:transform .25s ease;max-height:78vh;overflow:auto;padding:10px 18px 28px}
+    .drawer.open{transform:translateY(0)}
+    .drawer-handle{width:38px;height:4px;border-radius:99px;background:#cbd5e1;margin:2px auto 15px}
+    .drawer-title{font-size:14px;font-weight:800;margin:0 0 12px;color:#1e293b}
+    .drawer-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+    .drawer-item{min-height:72px;border:1px solid #e8edf3;background:#fff;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#475569;font-size:10px;font-weight:600}
+    .drawer-item i{font-size:16px;color:#64748b}
+    .drawer-item.active{background:var(--school-primary-light);border-color:var(--school-primary-soft);color:var(--school-primary)}
+    .drawer-item.active i{color:var(--school-primary)}
 
-    * {
-      box-sizing: border-box;
+    /* Bottom Navigation Bar - Matches Provided Design Exactly */
+    .bottom-nav{display:none}
+    
+    /* Global Overlay Layer */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.5);z-index:1800}
+    .overlay.open{display:block}
+
+    #pageLoader{position:fixed;inset:0;background:rgba(255,255,255,.94);z-index:4000;display:flex;align-items:center;justify-content:center;transition:.25s}
+    #pageLoader.hide{opacity:0;pointer-events:none}
+    .loader-box{text-align:center;color:#64748b;font-size:12px}
+    .loader-ring{width:38px;height:38px;border:4px solid var(--school-primary-soft);border-top-color:var(--school-primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+    
+    @media(max-width:900px){
+      :root{--sidebar-w:240px}
+      .filters{grid-template-columns:1fr 150px auto}
+      .content{padding-left:20px;padding-right:20px}
     }
+    @media(max-width:720px){
+      body{padding-bottom:72px}
+      .sidebar{transform:translateX(-100%);transition:transform .22s ease;width:280px;z-index:2000}
+      .sidebar.open{transform:translateX(0)}
+      .main-wrap{margin-left:0}
+      .topbar{height:58px;padding:0 13px}
+      .mobile-menu{display:block}
+      .top-title{font-size:13px}
+      .top-actions .top-icon:nth-child(n+2){display:none}
+      .content{padding:20px 13px 90px}
+      .page-head{align-items:flex-start;margin-bottom:17px}
+      h1{font-size:21px}
+      .subtitle{font-size:12px}
+      .count-pill{font-size:10px;padding:7px 9px}
+      .filters{grid-template-columns:1fr;padding:11px;margin-bottom:15px}
+      .btn{width:100%}
+      .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+      .card{min-height:215px;padding:14px 10px}
+      .avatar{width:62px;height:62px}
+      .name{font-size:13px}
+      .meta{font-size:10px}
+      .remark{font-size:10px}
 
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
-      -webkit-font-smoothing: antialiased;
-      color: #07102a;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .app {
-      display: flex;
-      min-height: 100vh;
-      align-items: stretch;
-    }
-
-    .sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
-      color: #fff;
-      padding: 20px 16px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 100;
-      box-shadow: 4px 0 28px rgba(2, 11, 24, 0.12);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
-    }
-
-    .brand {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .brand img {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 3px solid rgba(255, 224, 102, 0.12);
-      background: #fff;
-    }
-
-    .brand .title {
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: #ffe066;
-    }
-
-    .brand .subtitle {
-      font-size: 0.85rem;
-      color: #b0c4ff;
-    }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 6px;
-      flex: 1;
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 0.98rem;
-      color: #e6eefc;
-      transition: background 0.2s, color 0.2s;
-    }
-
-    .nav a.active,
-    .nav a:hover {
-      background: rgba(255, 255, 255, 0.04);
-      color: #ffe066;
-    }
-
-    .topbar {
-      position: fixed;
-      left: var(--sidebar-w);
-      top: 0;
-      width: calc(100% - var(--sidebar-w));
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.95);
-      border-bottom: 1px solid #eef3ff;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-    }
-
-    .main {
-      margin-left: var(--sidebar-w);
-      padding: 20px;
-      flex: 1;
-      min-height: 100vh;
-      padding-top: 80px;
-      overflow-y: auto;
-    }
-
-    .page-title {
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: var(--accent-2);
-    }
-
-    .flex {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .muted-small {
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .icon-btn {
-      background: none;
-      border: none;
-      font-size: 18px;
-      cursor: pointer;
-      margin-left: 8px;
-      padding: 8px;
-      border-radius: 6px;
-      transition: background 0.2s;
-    }
-
-    .icon-btn:hover {
-      background: rgba(0, 0, 0, 0.05);
-    }
-
-    .sidebar-overlay {
-      display: none;
-    }
-
-    .sidebar-overlay.active {
-      display: block;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.3);
-      z-index: 99;
-    }
-
-    /* Page Content */
-    .page-header {
-      margin-bottom: 24px;
-    }
-
-    .page-header-title {
-      font-size: 1.8rem;
-      font-weight: 800;
-      color: var(--accent-2);
-      margin: 0 0 8px 0;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .page-header-subtitle {
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    /* Filter Section */
-    .filter-section {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      border: 1px solid #eef3ff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-      padding: 20px;
-      margin-bottom: 24px;
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .filter-group {
-      display: flex;
-      gap: 8px;
-      flex: 1;
-      min-width: 200px;
-    }
-
-    .filter-group input,
-    .filter-group select {
-      flex: 1;
-      padding: 10px 12px;
-      border: 1px solid #e3e8ee;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-family: inherit;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .filter-group input:focus,
-    .filter-group select:focus {
-      outline: none;
-      border-color: var(--accent-2);
-      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
-    }
-
-    .btn {
-      padding: 10px 20px;
-      border-radius: 6px;
-      border: none;
-      background: linear-gradient(90deg, var(--accent-2), #3b82f6);
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.95rem;
-    }
-
-    .btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
-    }
-
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* Alumni Grid */
-    .alumni-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 20px;
-      margin-bottom: 32px;
-    }
-
-    .alumni-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      border: 1px solid #eef3ff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      gap: 12px;
-    }
-
-    .alumni-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(30, 64, 175, 0.15);
-      border-color: var(--accent-2);
-    }
-
-    .alumni-avatar {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid var(--accent-2);
-      background: #e3e8ee;
-    }
-
-    .alumni-name {
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: var(--accent-2);
-      margin: 0;
-    }
-
-    .alumni-info {
-      font-size: 0.9rem;
-      color: var(--muted);
-      margin: 0;
-      line-height: 1.4;
-    }
-
-    .alumni-achievement {
-      font-size: 0.95rem;
-      color: var(--success);
-      font-weight: 600;
-      margin: 8px 0 0 0;
-    }
-
-    .alumni-remark {
-      font-size: 0.9rem;
-      color: #555;
-      margin: 8px 0 0 0;
-      min-height: 32px;
-      line-height: 1.4;
-    }
-
-    /* Modal */
-    .alumni-modal-bg {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.4);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .alumni-modal-bg.active {
-      display: flex;
-    }
-
-    .alumni-modal {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-      max-width: 500px;
-      width: 100%;
-      padding: 32px 28px;
-      position: relative;
-      animation: modalSlide 0.3s ease;
-    }
-
-    @keyframes modalSlide {
-      0% { transform: translateY(-30px); opacity: 0; }
-      100% { transform: translateY(0); opacity: 1; }
-    }
-
-    .alumni-modal-close {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: var(--muted);
-      cursor: pointer;
-      transition: color 0.2s;
-      padding: 8px;
-      border-radius: 6px;
-    }
-
-    .alumni-modal-close:hover {
-      color: var(--accent);
-      background: #f8fafc;
-    }
-
-    .alumni-modal-avatar {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 4px solid var(--accent-2);
-      margin: 0 auto 16px;
-      display: block;
-      background: #e3e8ee;
-    }
-
-    .alumni-modal-name {
-      font-weight: 800;
-      font-size: 1.3rem;
-      color: var(--accent-2);
-      text-align: center;
-      margin: 0 0 16px 0;
-    }
-
-    .alumni-modal-field {
-      font-size: 0.95rem;
-      color: #222;
-      margin-bottom: 12px;
-      text-align: center;
-    }
-
-    .alumni-modal-label {
-      color: var(--muted);
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-right: 6px;
-    }
-
-    .alumni-modal-achievement {
-      color: var(--success);
-      font-weight: 600;
-      margin: 16px 0 12px 0;
-      font-size: 1rem;
-    }
-
-    .alumni-modal-report {
-      margin: 16px 0;
-      color: #333;
-      background: #f8fafc;
-      border-left: 4px solid var(--accent-2);
-      border-radius: 6px;
-      padding: 16px;
-      font-size: 0.95rem;
-      line-height: 1.6;
-    }
-
-    .alumni-modal-remark {
-      margin-top: 16px;
-      color: #555;
-      font-size: 0.95rem;
-      text-align: center;
-      line-height: 1.6;
-      padding: 16px;
-      background: #f0f4ff;
-      border-radius: 6px;
-    }
-
-    /* Loading State */
-    .loading-state {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 40px;
-      color: var(--muted);
-    }
-
-    .loading-spinner {
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      border: 3px solid #ddeaff;
-      border-top-color: var(--accent-2);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 12px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    #pageSpinnerOverlay {
-      position: fixed;
-      z-index: 99999;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255, 255, 255, 0.93);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.4s;
-    }
-
-    .page-spinner {
-      border: 6px solid #ddeaff;
-      border-top: 6px solid #2647a6;
-      border-radius: 50%;
-      width: 60px;
-      height: 60px;
-      animation: spinner-spin 1s linear infinite;
-    }
-
-    @keyframes spinner-spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @media (max-width: 768px) {
-      .sidebar {
-        width: 280px;
-        position: fixed;
-        left: -280px;
-        transition: left 0.3s ease;
+      /* Fixed bottom bar layout matching design image */
+      .bottom-nav{
+        position:fixed;
+        display:grid;
+        grid-template-columns:repeat(5, 1fr);
+        left:0;
+        right:0;
+        bottom:0;
+        height:64px;
+        background:#ffffff;
+        border-top:1px solid #e2e8f0;
+        z-index:1000;
+        padding:4px 0 calc(4px + env(safe-area-inset-bottom));
+        align-items:center;
       }
-
-      .sidebar.active {
-        left: 0;
+      .bottom-item{
+        border:0;
+        background:transparent;
+        color:#64748b;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:4px;
+        font-size:11px;
+        font-weight:500;
+        text-decoration:none;
+        padding:0;
       }
-
-      .topbar {
-        left: 0;
-        width: 100%;
+      .bottom-item i{font-size:18px}
+      .bottom-item.active{color:var(--school-primary)}
+      
+      .module-wrap{
+        position:relative;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        height:100%;
       }
-
-      .main {
-        margin-left: 0;
-        padding: 14px;
-        padding-top: 84px;
+      .module-btn{
+        position:absolute;
+        top:-20px;
+        width:54px;
+        height:54px;
+        border-radius:50%;
+        border:4px solid #ffffff;
+        background:var(--school-primary);
+        color:#ffffff;
+        box-shadow:0 4px 14px rgba(15,23,42,.2);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        transition:transform 0.18s ease;
       }
-
-      .page-header-title {
-        font-size: 1.4rem;
-      }
-
-      .filter-section {
-        flex-direction: column;
-      }
-
-      .filter-group {
-        width: 100%;
-      }
-
-      .btn {
-        width: 100%;
-        justify-content: center;
-      }
-
-      .alumni-grid {
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 16px;
-      }
-
-      .alumni-modal {
-        max-width: 90%;
-      }
+      .module-btn i{font-size:20px}
+      .module-btn:active{transform:scale(0.94)}
+      .drawer-grid{grid-template-columns:repeat(4,1fr)}
     }
-
-    @media (max-width: 600px) {
-      .main {
-        padding: 12px;
-        padding-top: 80px;
-      }
-
-      .page-header-title {
-        font-size: 1.2rem;
-      }
-
-      .alumni-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .alumni-modal {
-        padding: 24px 20px;
-      }
-
-      .topbar {
-        padding: 10px 12px;
-      }
-
-      .page-title {
-        font-size: 1rem;
-      }
-    }
-
-    ::-webkit-scrollbar {
-      width: 7px;
-      background: #f4f8fc;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #e2e7ee;
-      border-radius: 4px;
+    @media(max-width:390px){
+      .grid{grid-template-columns:1fr}
+      .card{min-height:205px}
+      .drawer-grid{grid-template-columns:repeat(3,1fr)}
     }
   </style>
 </head>
 <body>
-  <div id="pageSpinnerOverlay">
-    <div class="page-spinner"></div>
-  </div>
+  <div id="pageLoader"><div class="loader-box"><div class="loader-ring"></div><div>Loading school data…</div></div></div>
 
-  <div class="app" id="app">
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
+  <div class="overlay" id="sidebarOverlay"></div>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Admin navigation">
       <div class="brand">
-        <img src="mainlogo.png" alt="Logo">
+        <img id="schoolLogo" class="brand-logo" src="" alt="School logo" onerror="handleLogoError(this)">
         <div>
-          <div class="title">Gold and Linc Schools</div>
-          <div class="subtitle">Admin Portal</div>
+          <div class="brand-title" id="schoolBrandName">School Portal</div>
+          <div class="brand-sub">Admin Portal</div>
         </div>
       </div>
-
-      <nav class="nav" aria-label="Primary">
-        <a href="admin.html" class="nav-link">
-          <span>🏠</span> Dashboard
-        </a>
-        <a href="admission.html" class="nav-link">
-          <span>🎓</span> Admission
-        </a>
-        <a href="more.html" class="nav-link">
-          <span>🌐</span> Multi-location
-        </a>
-        <a href="people.html" class="nav-link">
-          <span>👥</span> People
-        </a>
-        <a href="academics.html" class="nav-link">
-          <span>📚</span> Academics
-        </a>
-        <a href="admin-cbt.html" class="nav-link">
-          <span>💻</span> CBT Configuration
-        </a>
-        <a href="results.html" class="nav-link">
-          <span>📄</span> Results
-        </a>
-        <a href="finance.html" class="nav-link">
-          <span>💰</span> Finance
-        </a>
-        <a href="attendance.html" class="nav-link">
-          <span>🗓️</span> Attendance
-        </a>
-        <a href="#" class="nav-link">
-          <span>⚙️</span> Settings
-        </a>
+      <nav class="nav">
+        <a href="admin.html"><i class="fa-solid fa-house"></i>Dashboard</a>
+        <a href="admission.html"><i class="fa-solid fa-user-plus"></i>Admission</a>
+        <a href="more.html"><i class="fa-solid fa-globe"></i>Multi-location</a>
+        <a href="people.html"><i class="fa-solid fa-users"></i>People</a>
+        <a href="academics.html"><i class="fa-solid fa-book-open"></i>Academics</a>
+        <a href="admin-cbt.html"><i class="fa-solid fa-display"></i>CBT</a>
+        <a href="results.html"><i class="fa-solid fa-file-lines"></i>Results</a>
+        <a href="finance.html"><i class="fa-solid fa-wallet"></i>Finance</a>
+        <a href="attendance.html"><i class="fa-solid fa-calendar-check"></i>Attendance</a>
+        <a href="students-promotion.html"><i class="fa-solid fa-arrow-right-arrow-left"></i>Promotion</a>
+        <a href="students-alumni.html" class="active"><i class="fa-solid fa-user-graduate"></i>Alumni</a>
+        <a href="#"><i class="fa-solid fa-gear"></i>Settings</a>
       </nav>
-
-      <div class="muted-small" style="margin-top: auto;">
-        Signed in as <span id="adminName">Admin</span>
-      </div>
+      <div class="sidebar-footer">Signed in as<strong id="adminName">Admin</strong></div>
     </aside>
 
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="main-wrap">
+      <header class="topbar">
+        <div class="top-left">
+          <button class="mobile-menu" id="sidebarToggle" aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
+          <div class="top-title">Alumni</div>
+        </div>
+        <div class="top-actions">
+          <button class="top-icon" title="Notifications" aria-label="Notifications"><i class="fa-regular fa-bell"></i></button>
+          <button class="top-icon" title="Help" aria-label="Help"><i class="fa-regular fa-circle-question"></i></button>
+          <button class="top-icon" title="Settings" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+        </div>
+      </header>
 
-    <div class="topbar" role="banner">
-      <div class="flex">
-        <button id="sidebarToggle" class="icon-btn" aria-label="Toggle Sidebar" style="display: none; font-size: 24px;">☰</button>
-        <div class="page-title">Alumni Students</div>
-      </div>
-      <div class="flex">
-        <button class="icon-btn" title="Notifications">🔔</button>
-        <button class="icon-btn" title="Help">❓</button>
-        <button class="icon-btn" title="Settings">⚙️</button>
-        <button class="icon-btn" title="Search">🔍</button>
-      </div>
+      <main class="content">
+        <section class="page-head">
+          <div>
+            <div class="eyebrow">Students</div>
+            <h1>Alumni</h1>
+            <p class="subtitle">View graduated students and their records.</p>
+          </div>
+          <div class="count-pill"><i class="fa-solid fa-user-graduate"></i><span id="alumniCount">0 alumni</span></div>
+        </section>
+
+        <section class="filters" aria-label="Alumni filters">
+          <div class="field">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="searchName" type="search" placeholder="Search name or reg. no." autocomplete="off">
+          </div>
+          <div class="field">
+            <select id="filterYear" aria-label="Graduation year"><option value="">All years</option></select>
+          </div>
+          <button class="btn" id="searchBtn"><i class="fa-solid fa-magnifying-glass"></i>Search</button>
+        </section>
+
+        <section class="grid" id="alumniGrid" aria-live="polite">
+          <div class="state"><div class="spinner"></div><p>Loading alumni…</p></div>
+        </section>
+      </main>
     </div>
-
-    <main class="main" id="main" role="main" tabindex="-1">
-      <div class="page-header">
-        <h1 class="page-header-title">
-          <span>🎓</span> Alumni Students
-        </h1>
-        <p class="page-header-subtitle">View and manage graduated students</p>
-      </div>
-
-      <!-- Filter Section -->
-      <div class="filter-section">
-        <div class="filter-group" style="flex: 2;">
-          <input 
-            id="searchName" 
-            type="text" 
-            placeholder="Search by name or registration number..."
-          >
-        </div>
-        <div class="filter-group" style="flex: 1;">
-          <select id="filterYear">
-            <option value="">All Years</option>
-          </select>
-        </div>
-        <button class="btn" onclick="fetchAlumni()">
-          <i class="fas fa-search"></i> Search
-        </button>
-      </div>
-
-      <!-- Alumni Grid -->
-      <div class="alumni-grid" id="alumniGrid">
-        <div class="loading-state">
-          <div class="loading-spinner"></div>
-          <p>Loading alumni...</p>
-        </div>
-      </div>
-    </main>
   </div>
 
-  <!-- Alumni Details Modal -->
-  <div class="alumni-modal-bg" id="alumniModal">
-    <div class="alumni-modal" id="alumniModalContent">
-      <button class="alumni-modal-close" onclick="closeAlumniModal()" aria-label="Close Modal">
-        <i class="fas fa-times"></i>
+  <!-- Bottom toolbar matching the screenshot -->
+  <nav class="bottom-nav" aria-label="Mobile navigation">
+    <a class="bottom-item" href="admin.html">
+      <i class="fa-solid fa-house"></i>
+      <span>Home</span>
+    </a>
+    <a class="bottom-item" href="admission.html">
+      <i class="fa-solid fa-graduation-cap"></i>
+      <span>Admission</span>
+    </a>
+    <div class="module-wrap">
+      <button class="module-btn" id="moduleButton" aria-label="Open modules">
+        <i class="fa-solid fa-book-open"></i>
       </button>
-      <img id="modalAvatar" class="alumni-modal-avatar" src="" alt="Alumni Avatar">
-      <h2 class="alumni-modal-name" id="modalName"></h2>
-      
-      <div class="alumni-modal-field">
-        <span class="alumni-modal-label">Registration Number:</span>
-        <span id="modalRegNo">—</span>
-      </div>
-      <div class="alumni-modal-field">
-        <span class="alumni-modal-label">Graduation Year:</span>
-        <span id="modalYear">—</span>
-      </div>
-      <div class="alumni-modal-field">
-        <span class="alumni-modal-label">Class:</span>
-        <span id="modalClass">—</span>
-      </div>
-      
-      <div class="alumni-modal-achievement">
-        <i class="fas fa-trophy"></i> <span id="modalAchievement">—</span>
-      </div>
-      
-      <div class="alumni-modal-report" id="modalReport"></div>
-      <div class="alumni-modal-remark" id="modalRemark"></div>
+    </div>
+    <a class="bottom-item" href="finance.html">
+      <i class="fa-solid fa-wallet"></i>
+      <span>Finance</span>
+    </a>
+    <button class="bottom-item" id="moreButton">
+      <i class="fa-solid fa-ellipsis"></i>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <div class="drawer" id="moduleDrawer" aria-hidden="true">
+    <div class="drawer-handle"></div>
+    <h2 class="drawer-title">Quick access</h2>
+    <div class="drawer-grid">
+      <a class="drawer-item" href="admission.html"><i class="fa-solid fa-user-plus"></i><span>Admission</span></a>
+      <a class="drawer-item" href="academics.html"><i class="fa-solid fa-book-open"></i><span>Academics</span></a>
+      <a class="drawer-item" href="admin-cbt.html"><i class="fa-solid fa-display"></i><span>CBT</span></a>
+      <a class="drawer-item" href="results.html"><i class="fa-solid fa-file-lines"></i><span>Results</span></a>
+      <a class="drawer-item" href="attendance.html"><i class="fa-solid fa-calendar-check"></i><span>Attendance</span></a>
+      <a class="drawer-item" href="students-promotion.html"><i class="fa-solid fa-arrow-right-arrow-left"></i><span>Promotion</span></a>
+      <a class="drawer-item active" href="students-alumni.html"><i class="fa-solid fa-user-graduate"></i><span>Alumni</span></a>
+      <a class="drawer-item" href="more.html"><i class="fa-solid fa-globe"></i><span>Locations</span></a>
+      <a class="drawer-item" href="finance.html"><i class="fa-solid fa-wallet"></i><span>Finance</span></a>
+      <a class="drawer-item" href="people.html"><i class="fa-solid fa-users"></i><span>People</span></a>
+      <a class="drawer-item" href="admin.html"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+      <a class="drawer-item" href="#"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
     </div>
   </div>
 
-  <script>
-    // Page spinner
-    document.addEventListener('DOMContentLoaded', () => {
-      const spinner = document.getElementById('pageSpinnerOverlay');
-      if (spinner) spinner.style.display = 'flex';
-      setTimeout(() => {
-        if (spinner) {
-          spinner.style.opacity = '0';
-          setTimeout(() => { spinner.style.display = 'none'; }, 400);
+  <div class="modal-backdrop" id="alumniModal" role="dialog" aria-modal="true" aria-labelledby="modalName">
+    <div class="modal" id="alumniModalContent">
+      <button class="modal-close" id="modalClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-head">
+        <img id="modalAvatar" class="modal-avatar" src="" alt="Alumni photo" onerror="handleLogoError(this)">
+        <h2 class="modal-name" id="modalName">Alumni</h2>
+      </div>
+      <div class="details">
+        <div class="detail-row"><span class="detail-label">Registration no.</span><span class="detail-value" id="modalRegNo">—</span></div>
+        <div class="detail-row"><span class="detail-label">Graduation year</span><span class="detail-value" id="modalYear">—</span></div>
+        <div class="detail-row"><span class="detail-label">Class</span><span class="detail-value" id="modalClass">—</span></div>
+        <div class="highlight achievement" id="modalAchievement">No achievement recorded.</div>
+        <div class="highlight" id="modalReport">No report available.</div>
+        <div class="highlight" id="modalRemark">No remark available.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+  const API_ROOT = `${BACKEND_URL}/api`;
+  const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+  const BASE_DOMAINS = [window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng', 'examguard.com.ng'];
+
+  let currentUser = null;
+  let currentSchool = null;
+  let publicSchoolId = null;
+  let schoolSubdomain = null;
+  let alumniList = [];
+  let lastLoaded = false;
+
+  const $ = id => document.getElementById(id);
+
+  function getToken(){
+    return localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+  }
+
+  function getTenantSubdomain(){
+    const stored = localStorage.getItem('schoolSubdomain');
+    if(stored) return stored;
+    const host = window.location.hostname.toLowerCase();
+    for(const base of BASE_DOMAINS){
+      const suffix = `.${base}`;
+      if(host.endsWith(suffix)) return host.slice(0, -suffix.length);
+    }
+    return null;
+  }
+
+  function authHeaders(extra={}){
+    const headers = {'Content-Type':'application/json', ...extra};
+    const token = getToken();
+    if(token) headers.Authorization = `Bearer ${token}`;
+    if(publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+    return headers;
+  }
+
+  async function apiFetch(url, options={}){
+    const headers = authHeaders(options.headers || {});
+    const res = await fetch(url, {...options, headers});
+    if(res.status === 401){ localStorage.removeItem('adminToken'); }
+    return res;
+  }
+
+  async function loadSchoolConfig(){
+    const token = getToken();
+    if(!token) throw new Error('Your session has expired. Please sign in again.');
+
+    const meRes = await fetch(`${API_ROOT}/auth/me`, {headers: authHeaders()});
+    if(!meRes.ok) throw new Error('Unable to load your school account.');
+    const raw = await meRes.json();
+
+    currentUser = raw.user || raw.data?.user || raw;
+    const schoolFromMe = raw.school || raw.data?.school || currentUser?.school || null;
+
+    if(!currentUser?.schoolId) throw new Error('No school is attached to this account.');
+    if(!schoolFromMe?._id) throw new Error('School configuration is unavailable.');
+
+    if(String(currentUser.schoolId) !== String(schoolFromMe._id)){
+      throw new Error('School context could not be verified.');
+    }
+
+    currentSchool = schoolFromMe;
+    publicSchoolId = schoolFromMe.schoolId || schoolFromMe.code || schoolFromMe._id;
+    schoolSubdomain = schoolFromMe.subdomain || schoolFromMe.slug || getTenantSubdomain();
+
+    try{
+      const configRes = await fetch(SCHOOL_CONFIG_ENDPOINT, {headers: authHeaders()});
+      if(configRes.ok){
+        const configRaw = await configRes.json();
+        const configured = configRaw.school || configRaw.data?.school || configRaw.data || configRaw;
+        if(configured?._id && String(configured._id) === String(currentUser.schoolId)){
+          currentSchool = {...currentSchool, ...configured};
+          publicSchoolId = configured.schoolId || configured.code || publicSchoolId;
         }
-      }, 1200);
+      }
+    }catch(e){ /* /schools/config is supplemental */ }
+
+    applySchoolBranding(currentSchool);
+  }
+
+  function schoolInitials(name){
+    return (name || 'School').trim().split(/\s+/).slice(0,2).map(x => x[0]).join('').toUpperCase();
+  }
+
+  function handleLogoError(img){
+    if(!img || img.dataset.fallback === '1') return;
+    img.dataset.fallback = '1';
+    const name = currentSchool?.name || currentSchool?.schoolName || 'School';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="100%" height="100%" rx="28" fill="#eef2f7"/><text x="50%" y="55%" text-anchor="middle" font-family="Arial" font-size="54" font-weight="700" fill="#475569">${schoolInitials(name)}</text></svg>`;
+    img.src = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }
+  window.handleLogoError = handleLogoError;
+
+  function applySchoolBranding(school){
+    const name = school?.name || school?.schoolName || school?.institutionName || 'School Portal';
+    const logo = school?.logoUrl || school?.logo || school?.logo_url || school?.branding?.logo || '';
+    const primary = school?.primaryColor || school?.colors?.primary || '#1e40af';
+    const secondary = school?.secondaryColor || school?.colors?.secondary || '#0f172a';
+    const accent = school?.accentColor || school?.colors?.accent || primary;
+    document.documentElement.style.setProperty('--school-primary', primary);
+    document.documentElement.style.setProperty('--school-secondary', secondary);
+    document.documentElement.style.setProperty('--school-accent', accent);
+    document.documentElement.style.setProperty('--school-primary-dark', school?.primaryDarkColor || primary);
+    document.documentElement.style.setProperty('--school-primary-light', school?.primaryLightColor || '#eff6ff');
+    document.documentElement.style.setProperty('--school-primary-soft', school?.primarySoftColor || '#dbeafe');
+    $('schoolBrandName').textContent = name;
+    $('schoolLogo').src = logo || '';
+    if(!logo) handleLogoError($('schoolLogo'));
+    document.title = `Alumni | ${name}`;
+    $('adminName').textContent = currentUser?.name || currentUser?.fullName || currentUser?.username || 'Admin';
+  }
+
+  function avatarFor(alumni){
+    return alumni.photoBase64 || alumni.photo_url || alumni.photoUrl ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(`${alumni.firstname \vert{}\vert{} ''}${alumni.surname || ''}`.trim() || 'Alumni')}&background=1e40af&color=fff`;
+  }
+
+  function safeText(value, fallback=''){
+    return value == null || value === '' ? fallback : String(value);
+  }
+
+  function renderState(type, message){
+    const icon = type === 'error' ? 'fa-circle-exclamation' : type === 'empty' ? 'fa-user-graduate' : 'fa-inbox';
+    $('alumniGrid').innerHTML = `<div class="state ${type === 'error' ? 'error':''}"><i class="fa-solid ${icon}"></i><p>${message}</p></div>`;
+  }
+
+  function renderAlumni(list){
+    alumniList = list;
+    $('alumniCount').textContent = `${list.length} ${list.length === 1 ? 'alumnus' : 'alumni'}`;
+    if(!list.length){ renderState('empty','No alumni found.'); return; }
+
+    $('alumniGrid').innerHTML = list.map((a, index) => {
+      const name = `${a.firstname || ''} ${a.surname || ''}`.trim() || 'Unnamed student';
+      const year = a.graduationYear || a.academicSession || '';
+      return `
+        <article class="card" tabindex="0" role="button" data-index="${index}" aria-label="View ${escapeHtml(name)}">
+          <img class="avatar" src="${escapeAttr(avatarFor(a))}" alt="" onerror="handleLogoError(this)">
+          <h3 class="name">${escapeHtml(name)}</h3>
+          <p class="meta">
+            ${a.regNo ? `<strong>${escapeHtml(a.regNo)}</strong><br>` : ''}
+            ${a.class ? `${escapeHtml(a.class)}${year ? ' · ' : ''}` : ''}${year ? escapeHtml(year) : ''}
+          </p>
+          ${a.achievement ? `<div class="achievement"><i class="fa-solid fa-trophy"></i>${escapeHtml(a.achievement)}</div>` : ''}
+          ${a.remark ? `<p class="remark">${escapeHtml(a.remark)}</p>` : ''}
+          <div class="view-hint">View record <i class="fa-solid fa-arrow-right"></i></div>
+        </article>`;
+    }).join('');
+
+    document.querySelectorAll('.card[data-index]').forEach(card => {
+      const open = () => openAlumniModal(alumniList[Number(card.dataset.index)]);
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){e.preventDefault();open();} });
     });
+  }
 
-    // Sidebar mobile toggle
-    const sidebar = document.getElementById('sidebar');
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
+  function escapeHtml(value){
+    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+  function escapeAttr(value){ return escapeHtml(value); }
 
-    function handleResize() {
-      if (window.innerWidth <= 768) {
-        sidebarToggle.style.display = 'flex';
-      } else {
-        sidebarToggle.style.display = 'none';
-        sidebar.classList.remove('active');
-        sidebarOverlay.classList.remove('active');
+  function fillYears(list){
+    const years = [...new Set(list.map(a => a.graduationYear || a.academicSession).filter(Boolean))]
+      .sort((a,b) => String(b).localeCompare(String(a), undefined, {numeric:true}));
+    $('filterYear').innerHTML = `<option value="">All years</option>` +
+      years.map(y => `<option value="${escapeAttr(y)}">${escapeHtml(y)}</option>`).join('');
+  }
+
+  async function fetchAlumni(){
+    const search = $('searchName').value.trim();
+    const year = $('filterYear').value;
+    const params = new URLSearchParams({class:'Graduated'});
+    if(search) params.set('search', search);
+    if(year) params.set('graduationYear', year);
+
+    renderState('loading','Loading alumni…');
+    try{
+      const res = await apiFetch(`${API_ROOT}/student?${params.toString()}`);
+      if(!res.ok){
+        let message = 'Unable to load alumni.';
+        try{ const err = await res.json(); message = err.error || err.message || message; }catch(_){}
+        throw new Error(message);
+      }
+      const data = await res.json();
+      const list = Array.isArray(data.students) ? data.students : [];
+      fillYears(list);
+      renderAlumni(list);
+      lastLoaded = true;
+    }catch(error){
+      console.error('Alumni fetch error:', error);
+      renderState('error', error.message || 'Unable to load alumni.');
+    }
+  }
+
+  function openAlumniModal(alumni){
+    const name = `${alumni.firstname || ''} ${alumni.surname || ''}`.trim() || 'Unnamed student';
+    const avatar = $('modalAvatar');
+    avatar.dataset.fallback = '';
+    avatar.src = avatarFor(alumni);
+    avatar.alt = name;
+    $('modalName').textContent = name;
+    $('modalRegNo').textContent = safeText(alumni.regNo,'—');$('modalYear').textContent = safeText(alumni.graduationYear || alumni.academicSession,'—');
+    $('modalClass').textContent = safeText(alumni.class,'—');$('modalAchievement').innerHTML = `<i class="fa-solid fa-trophy"></i> ${escapeHtml(safeText(alumni.achievement,'No achievement recorded.'))}`;
+    $('modalReport').textContent = safeText(alumni.report,'No report available.');
+    $('modalRemark').textContent = safeText(alumni.remark,'No remark available.');$('alumniModal').classList.add('open');
+    $('alumniModal').setAttribute('aria-hidden','false');$('modalClose').focus();
+  }
+
+  function closeAlumniModal(){
+    $('alumniModal').classList.remove('open');$('alumniModal').setAttribute('aria-hidden','true');
+  }
+
+  /* Overlay and Drawer Sync */
+  function updateOverlayState(){
+    const isSidebarOpen = $('sidebar').classList.contains('open');
+    const isDrawerOpen = $('moduleDrawer').classList.contains('open');$('sidebarOverlay').classList.toggle('open', isSidebarOpen || isDrawerOpen);
+  }
+
+  function toggleSidebar(open){
+    const shouldOpen = open !== undefined ? open : !$('sidebar').classList.contains('open');$('sidebar').classList.toggle('open', shouldOpen);
+    if(shouldOpen){
+      $('moduleDrawer').classList.remove('open');$('moduleDrawer').setAttribute('aria-hidden', 'true');
+    }
+    updateOverlayState();
+  }
+
+  function toggleDrawer(open){
+    const shouldOpen = open !== undefined ? open : !$('moduleDrawer').classList.contains('open');
+    $('moduleDrawer').classList.toggle('open', shouldOpen);$('moduleDrawer').setAttribute('aria-hidden', String(!shouldOpen));
+    if(shouldOpen){
+      $('sidebar').classList.remove('open');
+    }
+    updateOverlayState();
+  }
+
+  function closeAllPanels(){
+    toggleSidebar(false);
+    toggleDrawer(false);
+  }
+
+  async function init(){
+    try{
+      await loadSchoolConfig();
+      await fetchAlumni();
+    }catch(error){
+      console.error(error);
+      renderState('error', error.message || 'Unable to load the school portal.');
+    }finally{
+      setTimeout(() => $('pageLoader').classList.add('hide'), 180);
+    }
+  }
+
+  /* Trigger Listeners */
+  $('sidebarToggle').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSidebar(true);
+  });
+  
+  $('moduleButton').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleDrawer();
+  });
+  
+  $('moreButton').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleDrawer();
+  });
+
+  /* Dismissal Handling: Anywhere outside sidebar or drawer closes both */
+  $('sidebarOverlay').addEventListener('click', closeAllPanels);
+
+  document.addEventListener('click', (e) => {
+    const sidebar = $('sidebar');
+    const sidebarToggle = $('sidebarToggle');
+    const drawer = $('moduleDrawer');
+    const moduleBtn = $('moduleButton');
+    const moreBtn = $('moreButton');
+
+    // If click is outside open sidebar
+    if (sidebar.classList.contains('open')) {
+      if (!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+        toggleSidebar(false);
       }
     }
 
-    function openSidebar() {
-      sidebar.classList.add('active');
-      sidebarOverlay.classList.add('active');
-    }
-
-    function closeSidebar() {
-      sidebar.classList.remove('active');
-      sidebarOverlay.classList.remove('active');
-    }
-
-    sidebarToggle.addEventListener('click', openSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', () => {
-        if (window.innerWidth <= 768) closeSidebar();
-      });
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeAlumniModal();
-    });
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    // Modal logic
-    function openAlumniModal(alumni) {
-      document.getElementById('modalAvatar').src = alumni.photo_url || 
-        "https://ui-avatars.com/api/?name=" + encodeURIComponent(alumni.name) + "&background=1e40af&color=fff";
-      document.getElementById('modalName').textContent = alumni.name;
-      document.getElementById('modalRegNo').textContent = alumni.regNo || "—";
-      document.getElementById('modalYear').textContent = alumni.year || "—";
-      document.getElementById('modalClass').textContent = alumni.class || "—";
-      document.getElementById('modalAchievement').textContent = alumni.achievement || "—";
-      document.getElementById('modalReport').textContent = alumni.report || "No report available.";
-      document.getElementById('modalRemark').textContent = alumni.remark || "";
-      document.getElementById('alumniModal').classList.add('active');
-    }
-
-    function closeAlumniModal() {
-      document.getElementById('alumniModal').classList.remove('active');
-    }
-
-    document.getElementById('alumniModal').addEventListener('click', function(e) {
-      if (e.target === this) closeAlumniModal();
-    });
-
-    // Fetch alumni from backend
-    async function fetchAlumni() {
-      const token = localStorage.getItem('token');
-      const search = document.getElementById('searchName').value.trim();
-      const year = document.getElementById('filterYear').value;
-
-      let url = 'https://goldlincschools.onrender.com/api/student?class=Graduated';
-      let params = [];
-      if (search) params.push('search=' + encodeURIComponent(search));
-      if (year) params.push('graduationYear=' + encodeURIComponent(year));
-      if (params.length) url += '&' + params.join('&');
-
-      const grid = document.getElementById('alumniGrid');
-      grid.innerHTML = `
-        <div class="loading-state">
-          <div class="loading-spinner"></div>
-          <p>Loading alumni...</p>
-        </div>
-      `;
-
-      try {
-        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
-        if (!res.ok) throw new Error('Unable to fetch alumni');
-        const data = await res.json();
-        
-        const alumniList = Array.isArray(data.students) ? data.students : [];
-        if (!alumniList.length) {
-          grid.innerHTML = `
-            <div class="loading-state">
-              <i class="fas fa-inbox" style="font-size: 2rem; color: var(--muted); margin-bottom: 12px;"></i>
-              <p>No alumni found.</p>
-            </div>
-          `;
-          return;
-        }
-
-        fillYears(alumniList);
-
-        grid.innerHTML = alumniList.map(alumni => `
-          <div class="alumni-card" tabindex="0" role="button">
-            <img 
-              class="alumni-avatar" 
-              src="${alumni.photoBase64 || alumni.photo_url || 'https://ui-avatars.com/api/?name='+encodeURIComponent((alumni.firstname||'') + ' ' + (alumni.surname||''))+'&background=1e40af&color=fff'}"
-              alt="${alumni.firstname} ${alumni.surname}"
-            >
-            <h3 class="alumni-name">${alumni.firstname || ''} ${alumni.surname || ''}</h3>
-            <p class="alumni-info">
-              ${alumni.regNo ? `<strong>${alumni.regNo}</strong><br>` : ''}
-              ${alumni.class ? `${alumni.class}<br>` : ''}
-              ${alumni.graduationYear || alumni.academicSession ? `<i class="fas fa-calendar"></i> ${alumni.graduationYear || alumni.academicSession}` : ''}
-            </p>
-            ${alumni.achievement ? `<p class="alumni-achievement"><i class="fas fa-trophy"></i> ${alumni.achievement}</p>` : ''}
-            ${alumni.remark ? `<p class="alumni-remark">${alumni.remark}</p>` : ''}
-          </div>
-        `).join('');
-
-        // Modal click logic for all alumni cards
-        Array.from(document.querySelectorAll('.alumni-card')).forEach((card, idx) => {
-          const openModal = () => openAlumniModal({
-            name: (alumniList[idx].firstname || '') + ' ' + (alumniList[idx].surname || ''),
-            regNo: alumniList[idx].regNo,
-            year: alumniList[idx].graduationYear || alumniList[idx].academicSession || "",
-            class: alumniList[idx].class,
-            achievement: alumniList[idx].achievement,
-            report: alumniList[idx].report,
-            remark: alumniList[idx].remark,
-            photo_url: alumniList[idx].photoBase64 || alumniList[idx].photo_url
-          });
-          card.onclick = openModal;
-          card.onkeydown = (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              openModal();
-            }
-          };
-        });
-      } catch (e) {
-        grid.innerHTML = `
-          <div class="loading-state">
-            <i class="fas fa-exclamation-circle" style="font-size: 2rem; color: #dc2626; margin-bottom: 12px;"></i>
-            <p style="color: #dc2626;">Failed to load alumni.</p>
-          </div>
-        `;
-        console.error('Alumni fetch error:', e);
+    // If click is outside open bottom drawer
+    if (drawer.classList.contains('open')) {
+      if (!drawer.contains(e.target) && !moduleBtn.contains(e.target) && (!moreBtn || !moreBtn.contains(e.target))) {
+        toggleDrawer(false);
       }
     }
+  });
 
-    // Fill graduation years for filter
-    function fillYears(alumniList) {
-      const yearSel = document.getElementById('filterYear');
-      const years = Array.from(new Set(
-        alumniList.map(a => a.graduationYear || a.academicSession || "").filter(Boolean)
-      )).sort((a, b) => b - a);
-      
-      yearSel.innerHTML = `<option value="">All Years</option>` + 
-        years.map(y => `<option value="${y}">${y}</option>`).join('');
-    }
+  $('modalClose').addEventListener('click', closeAlumniModal);
+  $('alumniModal').addEventListener('click', e => { if(e.target ===$('alumniModal')) closeAlumniModal(); });
+  
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ closeAlumniModal(); closeAllPanels(); }
+  });
 
-    // Initial load
-    fetchAlumni();
+  $('searchBtn').addEventListener('click', fetchAlumni);
+  $('searchName').addEventListener('keydown', e => { if(e.key === 'Enter') fetchAlumni(); });$('filterYear').addEventListener('change', fetchAlumni);
 
-    // Search and filter on Enter/button click
-    document.getElementById('searchName').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') fetchAlumni();
-    });
+  window.addEventListener('resize', () => {
+    if(window.innerWidth > 720) closeAllPanels();
+  });
 
-    document.getElementById('filterYear').addEventListener('change', fetchAlumni);
-  </script>
+  init();
+</script>
 </body>
 </html>
