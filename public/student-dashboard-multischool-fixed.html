@@ -382,7 +382,7 @@
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
         <span class="text-[10px] font-bold">Work</span>
       </a>
-      <button id="mobileMoreBtn" data-drawer-target="studentDrawer" data-drawer-show="studentDrawer" data-drawer-placement="bottom" class="relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-4 ring-slate-50" type="button" aria-label="More tools">
+      <button id="mobileMoreBtn" class="relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-4 ring-slate-50" type="button" aria-label="More tools">
         <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
       </button>
       <button data-section="messages" class="mobile-nav-item flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500" type="button">
@@ -397,6 +397,7 @@
   </nav>
 
   <!-- Flowbite bottom drawer -->
+  <div id="studentDrawerBackdrop" class="fixed inset-0 z-[55] hidden bg-slate-950/50 backdrop-blur-sm"></div>
   <div id="studentDrawer" tabindex="-1" aria-hidden="true" class="fixed bottom-0 left-0 right-0 z-[60] hidden w-full translate-y-full rounded-t-2xl border border-slate-200 bg-white shadow-2xl transition-transform duration-300">
     <div class="mx-auto w-full max-w-2xl p-5">
       <div class="mb-4 flex items-center justify-between">
@@ -404,7 +405,7 @@
           <h2 class="text-sm font-extrabold text-slate-900">Quick access</h2>
           <p class="text-xs text-slate-500">Student tools</p>
         </div>
-        <button data-drawer-hide="studentDrawer" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Close">
+        <button id="closeStudentDrawer" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Close">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -662,6 +663,28 @@
       }
 
       return currentSchool || studentSchool || null;
+    }
+
+    function openStudentDrawer() {
+      const drawer = $('studentDrawer');
+      const backdrop = $('studentDrawerBackdrop');
+      if (!drawer || !backdrop) return;
+      drawer.classList.remove('hidden');
+      backdrop.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      requestAnimationFrame(() => drawer.classList.remove('translate-y-full'));
+      drawer.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeStudentDrawer() {
+      const drawer = $('studentDrawer');
+      const backdrop = $('studentDrawerBackdrop');
+      if (!drawer || !backdrop) return;
+      drawer.classList.add('translate-y-full');
+      backdrop.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      drawer.setAttribute('aria-hidden', 'true');
+      setTimeout(() => drawer.classList.add('hidden'), 300);
     }
 
     function closeSidebar() {
@@ -956,6 +979,12 @@
       $('sidebarBackdrop').addEventListener('click', closeSidebar);
 
       $('mobileMenuBtn').addEventListener('click', openSidebar);
+      $('mobileMoreBtn').addEventListener('click', openStudentDrawer);
+      $('closeStudentDrawer').addEventListener('click', closeStudentDrawer);
+      $('studentDrawerBackdrop').addEventListener('click', closeStudentDrawer);
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeStudentDrawer();
+      });
 
       $('logoutBtn').addEventListener('click', logout);
       $('headerLogout').addEventListener('click', logout);
@@ -981,6 +1010,7 @@
           $('sidebar').classList.remove('-translate-x-full');
           document.body.classList.remove('overflow-hidden');
           $('mobileNav').classList.remove('hidden');
+          closeStudentDrawer();
         }
       });
 
