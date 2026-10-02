@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   
   <!-- Fonts & Icons -->
-  <link href="https://fonts.googleapis.com/css?family=Inter:400,500,600,700,800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   
   <!-- Tailwind CSS & Flowbite -->
@@ -36,7 +36,6 @@
   </script>
 
   <style>
-    /* Minimal Custom CSS for Specific Adjustments */
     :root {
       --school-primary: #1e3a8a;
       --school-secondary: #f59e0b;
@@ -45,10 +44,11 @@
     
     body {
       background-color: #f8fafc;
+      font-family: 'Inter', sans-serif;
     }
 
     #pageSpinnerOverlay {
-      transition: opacity 0.4s;
+      transition: opacity 0.3s ease-out;
     }
     #pageSpinnerOverlay.hidden {
       opacity: 0;
@@ -56,12 +56,12 @@
     }
     
     .spinner {
-      border: 4px solid #e2e8f0;
-      border-top: 4px solid var(--school-primary);
+      border: 3.5px solid #e2e8f0;
+      border-top: 3.5px solid var(--school-primary);
       border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spinner-spin 1s linear infinite;
+      width: 44px;
+      height: 44px;
+      animation: spinner-spin 0.8s linear infinite;
     }
 
     @keyframes spinner-spin {
@@ -69,200 +69,272 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Hide standard scrollbar for cleaner look in sidebar */
-    ::-webkit-scrollbar { width: 6px; }
+    /* Scrollbar Polish */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-    
-    @media (min-width: 768px) {
-      .mobile-bottom-bar { display: none; }
-    }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="antialiased text-gray-900 bg-gray-50">
+<body class="antialiased text-slate-800 bg-slate-50 min-h-screen flex flex-col">
 
   <!-- Spinner Overlay -->
-  <div id="pageSpinnerOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 backdrop-blur-sm">
-    <div class="spinner"></div>
+  <div id="pageSpinnerOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-white/90 backdrop-blur-sm">
+    <div class="flex flex-col items-center gap-3">
+      <div class="spinner"></div>
+      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Loading Dashboard...</span>
+    </div>
   </div>
 
+  <!-- MOBILE SIDEBAR BACKDROP OVERLAY -->
+  <div id="sidebarBackdrop" onclick="toggleMobileSidebar(false)" class="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300 hidden md:hidden"></div>
+
   <!-- TOP NAVBAR -->
-  <nav class="fixed top-0 z-50 w-full bg-white border-b border-gray-200">
-    <div class="px-3 py-3 lg:px-5 lg:pl-3">
+  <header class="fixed top-0 z-30 w-full bg-white border-b border-slate-200 shadow-xs">
+    <div class="px-4 py-2.5 lg:px-6">
       <div class="flex items-center justify-between">
-        <div class="flex items-center justify-start rtl:justify-end">
-          <button data-drawer-target="logo-sidebar" data-drawer-toggle="logo-sidebar" aria-controls="logo-sidebar" type="button" class="inline-flex items-center p-2 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200">
-            <span class="sr-only">Open sidebar</span>
-            <i class="fa-solid fa-bars text-xl"></i>
+        
+        <!-- Left: Hamburger & Brand -->
+        <div class="flex items-center gap-3">
+          <button onclick="toggleMobileSidebar(true)" type="button" class="inline-flex items-center p-2 text-slate-600 rounded-lg md:hidden hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200">
+            <span class="sr-only">Toggle Sidebar</span>
+            <i class="fa-solid fa-bars text-lg"></i>
           </button>
-          <a href="#" class="flex ms-2 md:me-24 items-center">
-            <img src="mainlogo.png" data-school-logo class="h-8 w-8 me-3 rounded border border-gray-200 object-cover" alt="School Logo" onerror="this.src='https://via.placeholder.com/150'" />
-            <span class="self-center text-xl font-bold whitespace-nowrap text-school-primary" data-school-name>School</span>
+          
+          <a href="#" class="flex items-center gap-3">
+            <img src="mainlogo.png" data-school-logo class="h-9 w-9 rounded-lg border border-slate-200 object-cover shadow-xs" alt="Logo" onerror="this.src='https://via.placeholder.com/150'" />
+            <div class="flex flex-col">
+              <span class="text-base font-bold text-slate-900 leading-tight" data-school-name>School Portal</span>
+              <span class="text-[11px] font-medium text-slate-500 hidden sm:inline-block" data-page-school>Admin Management</span>
+            </div>
           </a>
         </div>
-        <div class="flex items-center gap-3">
-          <span class="hidden md:inline-block bg-school-primary text-white text-xs font-bold px-3 py-1 rounded-full" data-page-school>School Admin</span>
-          <button class="p-2 text-gray-500 rounded-lg hover:bg-gray-100 focus:ring-4 focus:ring-gray-200"><i class="fa-solid fa-bell"></i></button>
-          <button class="p-2 text-gray-500 rounded-lg hover:bg-gray-100 focus:ring-4 focus:ring-gray-200"><i class="fa-solid fa-gear"></i></button>
+
+        <!-- Right: Actions & User -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <span class="hidden lg:inline-flex bg-blue-50 text-school-primary border border-blue-100 text-xs font-semibold px-3 py-1 rounded-full">
+            Academic Session 2026/2027
+          </span>
           
-          <!-- Profile Dropdown Trigger -->
-          <div class="flex items-center ms-3">
-            <button type="button" class="flex text-sm bg-gray-200 rounded-full focus:ring-4 focus:ring-gray-300" aria-expanded="false" data-dropdown-toggle="dropdown-user">
-              <span class="sr-only">Open user menu</span>
-              <div class="w-8 h-8 rounded-full bg-school-primary text-white flex items-center justify-center font-bold">A</div>
-            </button>
+          <button class="p-2 text-slate-500 rounded-lg hover:bg-slate-100 hover:text-slate-700 transition-colors relative">
+            <i class="fa-solid fa-bell text-base"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+          </button>
+
+          <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+          <!-- User Profile -->
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-school-primary text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-white">
+              A
+            </div>
+            <div class="hidden sm:flex flex-col text-left">
+              <span class="text-xs font-bold text-slate-800 leading-tight" id="adminName">Administrator</span>
+              <span class="text-[10px] font-medium text-slate-500">Super Admin</span>
+            </div>
           </div>
         </div>
+
       </div>
     </div>
-  </nav>
+  </header>
 
-  <!-- SIDEBAR -->
-  <aside id="logo-sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen pt-20 transition-transform -translate-x-full bg-gray-900 border-r border-gray-800 sm:translate-x-0" aria-label="Sidebar">
-    <div class="h-full px-3 pb-4 overflow-y-auto bg-gray-900 flex flex-col justify-between">
+  <!-- SIDEBAR (Fixed Drawer on Mobile, Docked on Desktop) -->
+  <aside id="logo-sidebar" class="fixed top-0 left-0 z-50 md:z-20 w-64 h-screen pt-16 transition-transform -translate-x-full bg-slate-900 border-r border-slate-800 md:translate-x-0 shadow-xl md:shadow-none" aria-label="Sidebar">
+    <div class="h-full px-3 py-4 overflow-y-auto bg-slate-900 flex flex-col justify-between">
       
-      <div>
-        <div class="mb-5 px-2">
+      <div class="space-y-4">
+        <!-- Close button for mobile -->
+        <div class="flex items-center justify-between px-2 md:hidden">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation</span>
+          <button onclick="toggleMobileSidebar(false)" class="text-slate-400 hover:text-white p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Quick Search -->
+        <div class="px-1">
           <div class="relative">
             <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-              <i class="fa-solid fa-search text-gray-400"></i>
+              <i class="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
             </div>
-            <input type="text" class="block w-full p-2.5 ps-10 text-sm text-gray-100 bg-gray-800 border border-gray-700 rounded-lg focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400" placeholder="Quick search...">
+            <input type="text" class="block w-full p-2 ps-9 text-xs text-slate-200 bg-slate-800/80 border border-slate-700/80 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400" placeholder="Quick search...">
           </div>
         </div>
 
-        <ul class="space-y-1 font-medium text-sm">
-          <li>
-            <a href="admin.html" class="flex items-center p-2 text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white group">
-              <i class="fa-solid fa-house w-5 h-5 text-gray-400 group-hover:text-white transition duration-75"></i>
-              <span class="ms-3">Dashboard</span>
-            </a>
-          </li>
-          <li>
-            <a href="admission.html" class="flex items-center p-2 text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white group">
-              <i class="fa-solid fa-user-plus w-5 h-5 text-gray-400 group-hover:text-white transition duration-75"></i>
-              <span class="ms-3">Admission</span>
-            </a>
-          </li>
-          <li>
-            <a href="people.html" class="flex items-center p-2 text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white group">
-              <i class="fa-solid fa-users w-5 h-5 text-gray-400 group-hover:text-white transition duration-75"></i>
-              <span class="ms-3">People</span>
-            </a>
-          </li>
-          <li>
-            <a href="academics.html" class="flex items-center p-2 text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white group">
-              <i class="fa-solid fa-book-open w-5 h-5 text-gray-400 group-hover:text-white transition duration-75"></i>
-              <span class="ms-3">Academics</span>
-            </a>
-          </li>
-          <li>
-            <a href="results.html" class="flex items-center p-2 text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white group">
-              <i class="fa-solid fa-file-lines w-5 h-5 text-gray-400 group-hover:text-white transition duration-75"></i>
-              <span class="ms-3">Results</span>
-            </a>
-          </li>
-          <li>
-            <a href="attendance.html" class="flex items-center p-2 text-white bg-gray-800 rounded-lg group">
-              <i class="fa-solid fa-calendar-check w-5 h-5 text-white transition duration-75"></i>
-              <span class="ms-3">Attendance</span>
-            </a>
-          </li>
-          <li>
-            <a href="finance.html" class="flex items-center p-2 text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white group">
-              <i class="fa-solid fa-wallet w-5 h-5 text-gray-400 group-hover:text-white transition duration-75"></i>
-              <span class="ms-3">Finance</span>
-            </a>
-          </li>
-        </ul>
+        <!-- Menu Links -->
+        <nav class="space-y-1 font-medium text-xs">
+          <a href="admin.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-house w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Dashboard</span>
+          </a>
+          <a href="admission.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-user-plus w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Admission</span>
+          </a>
+          <a href="people.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-users w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">People</span>
+          </a>
+          <a href="academics.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-book-open w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Academics</span>
+          </a>
+          <a href="results.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-file-lines w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Results</span>
+          </a>
+          <a href="attendance.html" class="flex items-center px-3 py-2.5 text-white bg-blue-600 rounded-lg font-semibold shadow-xs">
+            <i class="fa-solid fa-calendar-check w-5 text-white text-sm"></i>
+            <span class="ms-2.5">Attendance</span>
+          </a>
+          <a href="finance.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-wallet w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Finance</span>
+          </a>
+        </nav>
       </div>
 
-      <div class="px-3 py-4 text-xs text-gray-400 border-t border-gray-800">
-        Signed in as <br><strong class="text-white text-sm" id="adminName">Admin</strong>
+      <!-- User Footnote -->
+      <div class="px-3 py-3 rounded-lg bg-slate-800/50 border border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+        <div class="truncate">
+          <p class="text-[10px] uppercase font-bold text-slate-500">System Mode</p>
+          <p class="text-slate-200 font-medium">Online Admin</p>
+        </div>
+        <i class="fa-solid fa-circle text-[8px] text-emerald-400"></i>
       </div>
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
-  <main class="p-4 sm:ml-64 pt-20 mb-20 sm:mb-4">
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 md:ml-64 pt-20 pb-20 md:pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl">
     
-    <!-- Page Header -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900"><i class="fa-solid fa-chart-bar mr-2 text-school-primary"></i>Attendance Records</h1>
+    <!-- Header Title & Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+          <span>Attendance Records</span>
+        </h1>
+        <p class="text-xs text-slate-500 mt-1">Monitor daily presence, staff check-ins, and aggregate trends across departments.</p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="fetchAttendanceRecords()" class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:ring-2 focus:ring-slate-200 transition-colors shadow-2xs">
+          <i class="fa-solid fa-rotate-right text-slate-500"></i>
+          <span>Refresh Data</span>
+        </button>
+        <button onclick="exportTableToCSV('attendance-records.csv')" class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-school-primary rounded-lg hover:opacity-95 focus:ring-2 focus:ring-blue-300 transition-colors shadow-2xs">
+          <i class="fa-solid fa-download"></i>
+          <span>Export CSV</span>
+        </button>
+      </div>
     </div>
 
-    <!-- SUMMARY CARDS -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <!-- SUMMARY METRIC CARDS -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      
       <!-- Students -->
-      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
-        <div class="flex items-center">
-          <div class="inline-flex flex-shrink-0 items-center justify-center h-12 w-12 text-white bg-blue-600 rounded-lg">
-            <i class="fa-solid fa-users text-xl"></i>
-          </div>
-          <div class="ml-4">
-            <h2 class="text-sm font-medium text-gray-500">Students Present</h2>
-            <p class="text-2xl font-bold text-gray-900" id="studentsPresent">0</p>
+      <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:shadow-xs transition-shadow">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Students</span>
+          <span class="inline-flex items-center justify-center w-10 h-10 text-blue-600 bg-blue-50 rounded-xl">
+            <i class="fa-solid fa-graduation-cap text-lg"></i>
+          </span>
+        </div>
+        <div class="mt-2">
+          <p class="text-3xl font-extrabold text-slate-900 tracking-tight" id="studentsPresent">0</p>
+          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-600 font-semibold">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Present Today</span>
           </div>
         </div>
       </div>
+
       <!-- Teaching Staff -->
-      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
-        <div class="flex items-center">
-          <div class="inline-flex flex-shrink-0 items-center justify-center h-12 w-12 text-white bg-emerald-500 rounded-lg">
-            <i class="fa-solid fa-chalkboard-user text-xl"></i>
-          </div>
-          <div class="ml-4">
-            <h2 class="text-sm font-medium text-gray-500">Teaching Staff Present</h2>
-            <p class="text-2xl font-bold text-gray-900" id="teachingPresent">0</p>
+      <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:shadow-xs transition-shadow">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Teaching Staff</span>
+          <span class="inline-flex items-center justify-center w-10 h-10 text-emerald-600 bg-emerald-50 rounded-xl">
+            <i class="fa-solid fa-chalkboard-user text-lg"></i>
+          </span>
+        </div>
+        <div class="mt-2">
+          <p class="text-3xl font-extrabold text-slate-900 tracking-tight" id="teachingPresent">0</p>
+          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-600 font-semibold">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Present Today</span>
           </div>
         </div>
       </div>
+
       <!-- Non-Teaching Staff -->
-      <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
-        <div class="flex items-center">
-          <div class="inline-flex flex-shrink-0 items-center justify-center h-12 w-12 text-white bg-amber-500 rounded-lg">
-            <i class="fa-solid fa-user-tie text-xl"></i>
-          </div>
-          <div class="ml-4">
-            <h2 class="text-sm font-medium text-gray-500">Non-Teaching Present</h2>
-            <p class="text-2xl font-bold text-gray-900" id="nonTeachingPresent">0</p>
+      <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:shadow-xs transition-shadow">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Non-Teaching</span>
+          <span class="inline-flex items-center justify-center w-10 h-10 text-amber-600 bg-amber-50 rounded-xl">
+            <i class="fa-solid fa-user-tie text-lg"></i>
+          </span>
+        </div>
+        <div class="mt-2">
+          <p class="text-3xl font-extrabold text-slate-900 tracking-tight" id="nonTeachingPresent">0</p>
+          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-amber-600 font-semibold">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Present Today</span>
           </div>
         </div>
       </div>
+
     </div>
 
-    <!-- ATTENDANCE TRENDS CHART -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 mb-6">
-      <h2 class="text-lg font-bold text-gray-900 mb-4"><i class="fa-solid fa-chart-line mr-2 text-school-primary"></i>Attendance Trends</h2>
-      <div class="relative h-[300px] w-full">
+    <!-- ATTENDANCE TRENDS CHART CARD -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-2xs p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-school-primary"></i>
+            <span>Weekly Attendance Trends (%)</span>
+          </h2>
+        </div>
+        <span class="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">Mon - Fri</span>
+      </div>
+      <div class="relative h-64 w-full">
         <canvas id="attendanceTrendChart"></canvas>
       </div>
     </div>
 
-    <!-- FILTERS & TABLE SECTION -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-6">
+    <!-- FILTERS & TABLE CONTAINER -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
       
-      <!-- Filters Header -->
-      <div class="p-5 border-b border-gray-200 bg-gray-50">
-        <h2 class="text-lg font-bold text-gray-900 mb-4"><i class="fa-solid fa-filter mr-2 text-school-primary"></i>Filter Records</h2>
+      <!-- Filters Panel -->
+      <div class="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/70">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+            <i class="fa-solid fa-filter text-school-primary"></i> Filter Records
+          </h2>
+          <button onclick="resetFilters()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+            Reset Filters
+          </button>
+        </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label for="filterDate" class="block mb-2 text-sm font-semibold text-gray-900">Date</label>
-            <input type="date" id="filterDate" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5">
+            <label for="filterDate" class="block mb-1 text-xs font-bold text-slate-700">Date</label>
+            <input type="date" id="filterDate" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5 shadow-2xs">
           </div>
+
           <div>
-            <label for="filterRole" class="block mb-2 text-sm font-semibold text-gray-900">Role</label>
-            <select id="filterRole" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5">
+            <label for="filterRole" class="block mb-1 text-xs font-bold text-slate-700">Role</label>
+            <select id="filterRole" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5 shadow-2xs">
               <option value="">All Roles</option>
               <option value="student">Student</option>
               <option value="teaching">Teaching Staff</option>
               <option value="non-teaching">Non-Teaching Staff</option>
             </select>
           </div>
+
           <div>
-            <label for="filterStatus" class="block mb-2 text-sm font-semibold text-gray-900">Status</label>
-            <select id="filterStatus" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5">
+            <label for="filterStatus" class="block mb-1 text-xs font-bold text-slate-700">Status</label>
+            <select id="filterStatus" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5 shadow-2xs">
               <option value="">All Statuses</option>
               <option value="Present">Present</option>
               <option value="Absent">Absent</option>
@@ -271,122 +343,101 @@
               <option value="Leave">Leave</option>
             </select>
           </div>
+
           <div>
-            <label for="searchName" class="block mb-2 text-sm font-semibold text-gray-900">Search</label>
+            <label for="searchName" class="block mb-1 text-xs font-bold text-slate-700">Search Keyword</label>
             <div class="relative">
               <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-                <i class="fa-solid fa-search text-gray-400"></i>
+                <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
               </div>
-              <input type="text" id="searchName" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-school-primary focus:border-school-primary block w-full ps-10 p-2.5" placeholder="Name or ID...">
+              <input type="text" id="searchName" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full ps-9 p-2.5 shadow-2xs" placeholder="Name or ID number...">
             </div>
-          </div>
-          
-          <div class="flex gap-2 w-full">
-            <button onclick="fetchAttendanceRecords()" class="w-full md:w-auto text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors">
-              Filter
-            </button>
-            <button onclick="exportTableToCSV('attendance-records.csv')" class="w-full md:w-auto py-2.5 px-4 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-300 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 transition-colors">
-               <i class="fa-solid fa-download"></i>
-            </button>
           </div>
         </div>
       </div>
 
-      <!-- Table -->
+      <!-- Data Table -->
       <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left text-gray-500 whitespace-nowrap">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+        <table class="w-full text-xs text-left text-slate-600">
+          <thead class="text-[11px] font-bold text-slate-700 uppercase bg-slate-100/80 border-b border-slate-200 tracking-wider">
             <tr>
-              <th scope="col" class="px-6 py-4 rounded-tl-lg">Date</th>
-              <th scope="col" class="px-6 py-4">Name</th>
-              <th scope="col" class="px-6 py-4">ID</th>
-              <th scope="col" class="px-6 py-4">Role</th>
-              <th scope="col" class="px-6 py-4">Class/Dept</th>
-              <th scope="col" class="px-6 py-4">Status</th>
-              <th scope="col" class="px-6 py-4">Remark</th>
-              <th scope="col" class="px-6 py-4 rounded-tr-lg">Recorded By</th>
+              <th scope="col" class="px-5 py-3.5">Date</th>
+              <th scope="col" class="px-5 py-3.5">Name</th>
+              <th scope="col" class="px-5 py-3.5">ID / Reg No</th>
+              <th scope="col" class="px-5 py-3.5">Role</th>
+              <th scope="col" class="px-5 py-3.5">Class / Dept</th>
+              <th scope="col" class="px-5 py-3.5">Status</th>
+              <th scope="col" class="px-5 py-3.5">Remark</th>
+              <th scope="col" class="px-5 py-3.5">Recorded By</th>
             </tr>
           </thead>
-          <tbody id="attendanceTableBody" class="divide-y divide-gray-200">
-            <!-- Populated via JS -->
+          <tbody id="attendanceTableBody" class="divide-y divide-slate-200 bg-white">
             <tr>
-              <td colspan="8" class="px-6 py-12 text-center text-gray-500">
-                <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-3 text-gray-400"></i>
-                <p>Loading attendance records...</p>
+              <td colspan="8" class="px-6 py-12 text-center text-slate-500">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-school-primary"></i>
+                <p class="font-medium">Loading attendance records...</p>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
     </div>
 
   </main>
 
-  <!-- MOBILE BOTTOM NAVBAR (Tailwind Native) -->
-  <div class="mobile-bottom-bar fixed bottom-0 left-0 z-50 w-full h-16 bg-white border-t border-gray-200 flex justify-around items-center text-xs text-gray-500 pb-safe">
-    <a href="admin.html" class="flex flex-col items-center justify-center w-full hover:text-school-primary transition-colors">
-      <i class="fa-solid fa-house text-lg mb-1"></i><span>Home</span>
+  <!-- MOBILE BOTTOM NAVIGATION BAR -->
+  <div class="fixed bottom-0 left-0 z-30 w-full h-14 bg-white border-t border-slate-200 flex justify-around items-center md:hidden shadow-lg">
+    <a href="admin.html" class="flex flex-col items-center justify-center w-full text-slate-500 hover:text-school-primary">
+      <i class="fa-solid fa-house text-base"></i>
+      <span class="text-[10px] font-medium mt-0.5">Home</span>
     </a>
-    <a href="admission.html" class="flex flex-col items-center justify-center w-full hover:text-school-primary transition-colors">
-      <i class="fa-solid fa-user-plus text-lg mb-1"></i><span>Admission</span>
+    <a href="admission.html" class="flex flex-col items-center justify-center w-full text-slate-500 hover:text-school-primary">
+      <i class="fa-solid fa-user-plus text-base"></i>
+      <span class="text-[10px] font-medium mt-0.5">Admission</span>
     </a>
-    <div class="relative -top-5">
-      <button class="flex flex-col items-center justify-center w-14 h-14 bg-school-primary text-white rounded-full shadow-lg border-4 border-gray-50 focus:outline-none" type="button" data-drawer-target="mobile-menu-drawer" data-drawer-toggle="mobile-menu-drawer" data-drawer-placement="bottom" aria-controls="mobile-menu-drawer">
-        <i class="fa-solid fa-grip text-xl"></i>
-      </button>
-    </div>
-    <a href="finance.html" class="flex flex-col items-center justify-center w-full hover:text-school-primary transition-colors">
-      <i class="fa-solid fa-wallet text-lg mb-1"></i><span>Finance</span>
+    <a href="attendance.html" class="flex flex-col items-center justify-center w-full text-school-primary font-bold">
+      <i class="fa-solid fa-calendar-check text-base"></i>
+      <span class="text-[10px] mt-0.5">Attendance</span>
     </a>
-    <a href="people.html" class="flex flex-col items-center justify-center w-full hover:text-school-primary transition-colors">
-      <i class="fa-solid fa-users text-lg mb-1"></i><span>People</span>
+    <a href="finance.html" class="flex flex-col items-center justify-center w-full text-slate-500 hover:text-school-primary">
+      <i class="fa-solid fa-wallet text-base"></i>
+      <span class="text-[10px] font-medium mt-0.5">Finance</span>
     </a>
-  </div>
-
-  <!-- MOBILE MENU DRAWER (Flowbite Drawer Component) -->
-  <div id="mobile-menu-drawer" class="fixed bottom-0 left-0 right-0 z-50 w-full p-5 overflow-y-auto transition-transform bg-white border-t border-gray-200 rounded-t-3xl transform translate-y-full" tabindex="-1" aria-labelledby="drawer-bottom-label">
-    <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4"></div>
-    <div class="flex justify-between items-center mb-5">
-      <div>
-        <h5 id="drawer-bottom-label" class="inline-flex items-center text-base font-bold text-gray-900">Admin Menu</h5>
-        <p class="text-xs text-gray-500" data-school-name>School</p>
-      </div>
-      <button type="button" data-drawer-hide="mobile-menu-drawer" aria-controls="mobile-menu-drawer" class="text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center">
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
-    </div>
-    
-    <div class="grid grid-cols-4 gap-3 text-center">
-      <a href="academics.html" class="flex flex-col items-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700">
-        <i class="fa-solid fa-book-open text-school-primary text-xl mb-2"></i><span class="text-[10px] font-bold">Academics</span>
-      </a>
-      <a href="results.html" class="flex flex-col items-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700">
-        <i class="fa-solid fa-file-lines text-school-primary text-xl mb-2"></i><span class="text-[10px] font-bold">Results</span>
-      </a>
-      <a href="admin-cbt.html" class="flex flex-col items-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700">
-        <i class="fa-solid fa-laptop text-school-primary text-xl mb-2"></i><span class="text-[10px] font-bold">CBT</span>
-      </a>
-      <a href="attendance.html" class="flex flex-col items-center p-3 border border-school-primary bg-blue-50 rounded-xl text-school-primary">
-        <i class="fa-solid fa-calendar-check text-school-primary text-xl mb-2"></i><span class="text-[10px] font-bold">Attendance</span>
-      </a>
-      <a href="settings.html" class="flex flex-col items-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700">
-        <i class="fa-solid fa-gear text-school-primary text-xl mb-2"></i><span class="text-[10px] font-bold">Settings</span>
-      </a>
-    </div>
+    <button onclick="toggleMobileSidebar(true)" class="flex flex-col items-center justify-center w-full text-slate-500 hover:text-school-primary">
+      <i class="fa-solid fa-ellipsis-vertical text-base"></i>
+      <span class="text-[10px] font-medium mt-0.5">More</span>
+    </button>
   </div>
 
   <!-- Flowbite JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
 
   <script>
-    // BACKEND URL & CONFIG
+    // CONFIG & BACKEND ROUTING
     const API_BASE_URL = window.API_BASE_URL || "https://examguard-8rxe.onrender.com";
     const API_BASE = `${API_BASE_URL}/api`;
     const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || "goldlincschools.com.ng";
     const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE}/schools/config`;
+    
     let currentSchool = null;
     let currentUser = null;
     let publicSchoolId = "";
+
+    // Mobile Sidebar Drawer Control
+    function toggleMobileSidebar(show) {
+      const sidebar = document.getElementById("logo-sidebar");
+      const backdrop = document.getElementById("sidebarBackdrop");
+      if (!sidebar || !backdrop) return;
+
+      if (show) {
+        sidebar.classList.remove("-translate-x-full");
+        backdrop.classList.remove("hidden");
+      } else {
+        sidebar.classList.add("-translate-x-full");
+        backdrop.classList.add("hidden");
+      }
+    }
 
     function getAdminToken() {
       return localStorage.getItem("token") ||
@@ -485,13 +536,15 @@
       if (el && data) el.textContent = data.name || 'Administrator';
     }
 
-    let attendanceTrendChartInstance;
+    let attendanceTrendChartInstance = null;
     function renderAttendanceTrendChart(trends) {
-      const ctx = document.getElementById('attendanceTrendChart').getContext('2d');
+      const ctx = document.getElementById('attendanceTrendChart')?.getContext('2d');
+      if (!ctx) return;
+
       const labels = trends.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-      const students = trends.students || [85, 88, 90, 87, 92];
-      const teaching = trends.teaching || [95, 94, 96, 95, 98];
-      const nonTeaching = trends.nonTeaching || [92, 91, 93, 92, 95];
+      const students = trends.students || [88, 92, 89, 94, 96];
+      const teaching = trends.teaching || [96, 98, 97, 98, 100];
+      const nonTeaching = trends.nonTeaching || [92, 94, 93, 95, 96];
 
       if (attendanceTrendChartInstance) attendanceTrendChartInstance.destroy();
 
@@ -504,10 +557,11 @@
               label: 'Students',
               data: students,
               borderColor: '#2563eb', 
-              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              backgroundColor: 'rgba(37, 99, 235, 0.08)',
               fill: true,
-              tension: 0.4,
-              borderWidth: 2
+              tension: 0.35,
+              borderWidth: 2,
+              pointRadius: 3
             },
             {
               label: 'Teaching Staff',
@@ -515,8 +569,9 @@
               borderColor: '#10b981', 
               backgroundColor: 'transparent',
               fill: false,
-              tension: 0.4,
-              borderWidth: 2
+              tension: 0.35,
+              borderWidth: 2,
+              pointRadius: 3
             },
             {
               label: 'Non-Teaching',
@@ -524,8 +579,9 @@
               borderColor: '#f59e0b', 
               backgroundColor: 'transparent',
               fill: false,
-              tension: 0.4,
-              borderWidth: 2
+              tension: 0.35,
+              borderWidth: 2,
+              pointRadius: 3
             }
           ]
         },
@@ -533,11 +589,11 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 10, font: { size: 11, family: 'Inter' } } }
           },
           scales: {
-            y: { beginAtZero: true, max: 100, grid: { borderDash: [4, 4] } },
-            x: { grid: { display: false } }
+            y: { beginAtZero: false, min: 60, max: 100, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } }
           }
         }
       });
@@ -556,29 +612,27 @@
 
         renderAttendanceTrendChart(data.trends || {});
       } catch (err) {
-        console.warn('Mocking summary due to error:', err);
-        renderAttendanceTrendChart({}); // Render empty/default chart on fail
+        renderAttendanceTrendChart({});
       }
     }
 
     async function fetchAttendanceRecords() {
       const tbody = document.getElementById('attendanceTableBody');
-      tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-3xl mb-3 text-school-primary"></i><p>Refreshing data...</p></td></tr>`;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="px-6 py-12 text-center text-slate-500">
+            <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-school-primary"></i>
+            <p class="font-medium">Refreshing records...</p>
+          </td>
+        </tr>`;
       
       try {
-        const url = new URL(`${API_BASE}/attendance/records`);
-        
-        // Clean URL Search Params building
-        const params = {
-            schoolId: currentUser?.schoolId || '',
-            date: document.getElementById('filterDate').value,
-            role: document.getElementById('filterRole').value,
-            status: document.getElementById('filterStatus').value,
-            search: document.getElementById('searchName').value
-        };
-
-        Object.keys(params).forEach(key => {
-            if (params[key]) url.searchParams.append(key, params[key]);
+        const url = tenantUrl("/attendance/records", {
+          schoolId: currentUser?.schoolId || '',
+          date: document.getElementById('filterDate')?.value || '',
+          role: document.getElementById('filterRole')?.value || '',
+          status: document.getElementById('filterStatus')?.value || '',
+          search: document.getElementById('searchName')?.value || ''
         });
 
         const res = await fetch(url, { headers: authHeaders() });
@@ -586,45 +640,75 @@
         const records = await res.json();
 
         if (!records || !records.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-gray-500"><i class="fa-solid fa-inbox text-4xl mb-3 text-gray-300"></i><p class="text-gray-500">No records found matching your filters.</p></td></tr>`;
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="8" class="px-6 py-12 text-center text-slate-400">
+                <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
+                <p class="font-medium text-slate-500">No attendance records found matching filters.</p>
+              </td>
+            </tr>`;
           return;
         } 
 
         tbody.innerHTML = records.map(r => {
-          let badgeClass = 'bg-green-100 text-green-800'; 
-          if (r.status === 'Absent') badgeClass = 'bg-red-100 text-red-800';
-          else if (r.status === 'Late') badgeClass = 'bg-yellow-100 text-yellow-800';
-          else if (r.status === 'Excused') badgeClass = 'bg-cyan-100 text-cyan-800';
-          else if (r.status === 'Leave') badgeClass = 'bg-blue-100 text-blue-800';
+          let badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'; 
+          if (r.status === 'Absent') badgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
+          else if (r.status === 'Late') badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+          else if (r.status === 'Excused') badgeClass = 'bg-cyan-50 text-cyan-700 border-cyan-200';
+          else if (r.status === 'Leave') badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
 
           return `
-            <tr class="hover:bg-gray-50 transition-colors">
-              <td class="px-6 py-4 font-medium text-gray-900">${r.date ? r.date.slice(0, 10) : '-'}</td>
-              <td class="px-6 py-4 font-bold text-gray-900">${r.name || '-'}</td>
-              <td class="px-6 py-4">${r.id || r.regNo || r.staffId || '-'}</td>
-              <td class="px-6 py-4 capitalize">${r.role ? r.role.replace('-', ' ') : '-'}</td>
-              <td class="px-6 py-4">${r.class || r.department || '-'}</td>
-              <td class="px-6 py-4"><span class="text-xs font-semibold px-2.5 py-1 rounded-full ${badgeClass}">${r.status || 'Unknown'}</span></td>
-              <td class="px-6 py-4 text-gray-500">${r.remark || '-'}</td>
-              <td class="px-6 py-4">${r.recordedBy?.name || r.recordedBy || '-'}</td>
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              <td class="px-5 py-3.5 font-medium text-slate-900">${r.date ? r.date.slice(0, 10) : '-'}</td>
+              <td class="px-5 py-3.5 font-bold text-slate-900">${r.name || '-'}</td>
+              <td class="px-5 py-3.5 font-mono text-[11px] text-slate-500">${r.id || r.regNo || r.staffId || '-'}</td>
+              <td class="px-5 py-3.5 capitalize">${r.role ? r.role.replace('-', ' ') : '-'}</td>
+              <td class="px-5 py-3.5">${r.class || r.department || '-'}</td>
+              <td class="px-5 py-3.5">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${badgeClass}">
+                  ${r.status || 'Unknown'}
+                </span>
+              </td>
+              <td class="px-5 py-3.5 text-slate-500">${r.remark || '-'}</td>
+              <td class="px-5 py-3.5">${r.recordedBy?.name || r.recordedBy || '-'}</td>
             </tr>
           `;
         }).join('');
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center"><i class="fa-solid fa-triangle-exclamation text-4xl mb-3 text-amber-500"></i><p class="text-gray-600 font-medium">Failed to load records.</p></td></tr>`;
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="px-6 py-10 text-center">
+              <i class="fa-solid fa-triangle-exclamation text-3xl mb-2 text-amber-500"></i>
+              <p class="text-slate-700 font-semibold text-xs">Failed to load live data.</p>
+            </td>
+          </tr>`;
       }
     }
 
-    // Bind Enter key to search input
-    document.getElementById('searchName').addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') {
-        fetchAttendanceRecords();
-      }
+    function resetFilters() {
+      if (document.getElementById('filterDate')) document.getElementById('filterDate').value = '';
+      if (document.getElementById('filterRole')) document.getElementById('filterRole').value = '';
+      if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = '';
+      if (document.getElementById('searchName')) document.getElementById('searchName').value = '';
+      fetchAttendanceRecords();
+    }
+
+    // Auto trigger on Filter select change
+    ['filterDate', 'filterRole', 'filterStatus'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', fetchAttendanceRecords);
     });
 
-    // Safer CSV Export logic
+    // Debounce Search input
+    let searchTimeout;
+    document.getElementById('searchName')?.addEventListener('input', function () {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(fetchAttendanceRecords, 300);
+    });
+
+    // CSV Export
     function exportTableToCSV(filename) {
       const table = document.querySelector("table");
+      if (!table) return;
       let csv = [];
       const rows = table.querySelectorAll("tr");
       
@@ -632,7 +716,6 @@
         let cols = row.querySelectorAll("th, td");
         let rowData = [];
         for (let col of cols) {
-          // Escape double quotes inside data to prevent broken CSV structure
           let data = col.innerText.replace(/"/g, '""').trim();
           rowData.push('"' + data + '"');
         }
@@ -661,7 +744,7 @@
       } finally {
         if (spinner) {
           spinner.classList.add("hidden");
-          setTimeout(() => spinner.remove(), 400);
+          setTimeout(() => spinner.remove(), 300);
         }
       }
     }
