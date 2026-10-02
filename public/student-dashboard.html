@@ -2,1419 +2,1020 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Student Dashboard | Gold and Linc Schools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Inter Font + FontAwesome -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <style>
-    :root {
-      --bg-0: #f6f8ff;
-      --bg-1: #eef2ff;
-      --accent: #3b82f6;
-      --accent-2: #6366f1;
-      --muted: #6b7280;
-      --card-bg: #ffffff;
-      --radius: 12px;
-      --sidebar-w: 300px;
-      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
-      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
-      --text-main: #0b2a44;
-      --text-muted: #7a90b3;
-      --primary: #2647a6;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: 'Inter', system-ui, Arial;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
-      color: var(--text-main);
-      width: 100vw;
-      overflow-x: hidden;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    /* App layout */
-    .app {
-      display: flex;
-      min-height: 100vh;
-      align-items: stretch;
-      width: 100vw;
-      max-width: 100vw;
-      overflow-x: hidden;
-    }
-
-    /* Overlay */
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(2, 6, 23, 0.45);
-      z-index: 50;
-      display: none;
-    }
-
-    .overlay.visible {
-      display: block;
-    }
-
-    /* SPINNER LOADER */
-    .loader-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(255, 255, 255, 0.95);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9998;
-      backdrop-filter: blur(2px);
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
-
-    .loader-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-
-    .loader-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .spinner {
-      width: 60px;
-      height: 60px;
-      border: 4px solid #eef2ff;
-      border-top: 4px solid var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
+  <title>Student Portal</title>
+  <meta name="description" content="Student academic dashboard">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+          }
+        }
       }
     }
-
-    .loader-text {
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--accent-2);
-      letter-spacing: 0.5px;
-    }
-
-    .loader-subtext {
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
-    /* SIDEBAR */
-    .sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
-      color: #fff;
-      padding: 20px 16px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 100;
-      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      will-change: transform;
-    }
-
-    .sidebar.hidden {
-      transform: translateX(-110%);
-      transition: transform 0.28s ease;
-    }
-
-    .sidebar.open {
-      transform: translateX(0);
-      transition: transform 0.28s ease;
-    }
-
-    .brand {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .brand img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 3px solid rgba(255, 224, 102, 0.12);
-      background: #fff;
-    }
-
-    .brand .title {
-      font-weight: 700;
-      font-size: 1.18rem;
-      color: #ffe066;
-    }
-
-    .brand .subtitle {
-      font-size: 0.96rem;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    /* Nav */
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 6px;
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 12px;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 1.05rem;
-      color: #e6eefc;
-      background: transparent;
-      transition: background 0.12s, transform 0.08s;
-      touch-action: manipulation;
-      cursor: pointer;
-    }
-
-    .nav a.active,
-    .nav a:hover {
-      background: rgba(255, 255, 255, 0.04);
-      color: #ffe066;
-      transform: translateX(3px);
-    }
-
-    .spacer {
-      flex: 1;
-    }
-
-    .profile {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .profile img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 2px solid #ffe066;
-    }
-
-    .profile .name {
-      font-weight: 700;
-      font-size: 1.02rem;
-      color: #ffe066;
-    }
-
-    .profile .muted {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 0.92rem;
-    }
-
-    /* MAIN CONTENT */
-    .main {
-      margin-left: var(--sidebar-w);
-      padding: 20px;
-      flex: 1;
-      transition: margin-left 0.28s;
-      min-height: 100vh;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      width: 100%;
-      max-width: calc(100vw - var(--sidebar-w));
-      box-sizing: border-box;
-      overflow-x: hidden;
-      padding-top: 90px;
-    }
-
-    .main.full {
-      margin-left: 0;
-      max-width: 100vw;
-    }
-
-    /* TOPBAR */
-    .topbar {
-      position: fixed;
-      left: var(--sidebar-w);
-      top: 0;
-      width: calc(100vw - var(--sidebar-w));
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 14px;
-      backdrop-filter: blur(6px);
-      background: rgba(255, 255, 255, 0.86);
-      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
-      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
-      min-height: 64px;
-      max-width: 100%;
-      box-sizing: border-box;
-    }
-
-    .topbar .hamburger {
-      display: none;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 9px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: 800;
-      font-size: 1.05rem;
-    }
-
-    .topbar .page-title {
-      font-weight: 800;
-      font-size: 1.18rem;
-      color: var(--accent-2);
-    }
-
-    .topbar .small {
-      font-size: 0.92rem;
-      color: var(--muted);
-    }
-
-    /* CARDS & GRID */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 14px;
-      align-items: start;
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-
-    .card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 14px;
-      box-shadow: var(--shadow);
-      border: 1px solid rgba(11, 42, 60, 0.03);
-      width: 100%;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-
-    .col-4 {
-      grid-column: span 4;
-    }
-
-    .col-8 {
-      grid-column: span 8;
-    }
-
-    .col-6 {
-      grid-column: span 6;
-    }
-
-    .col-12 {
-      grid-column: 1 / -1;
-    }
-
-    /* Progress & KPIs */
-    .progress {
-      display: flex;
-      gap: 14px;
-      align-items: center;
-    }
-
-    .circle {
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      background: conic-gradient(var(--accent) 70%, #eef2ff 0%);
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .kpis {
-      display: flex;
-      gap: 10px;
-    }
-
-    /* Assignments list */
-    .assignments .item {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 10px;
-      border-radius: 8px;
-      background: #fff;
-      border: 1px solid #eef3ff;
-      margin-bottom: 8px;
-      align-items: center;
-    }
-
-    /* Badge */
-    .badge {
-      display: inline-block;
-      border-radius: 9999px;
-      padding: 6px 12px;
-      font-size: 0.85rem;
-      font-weight: 700;
-    }
-
-    .badge-pending { background: #e9f0fe; color: #2647a6; }
-    .badge-completed { background: #18ba89; color: #fff; }
-    .badge-overdue { background: #e74c3c; color: #fff; }
-    .badge-reviewed { background: #ffd600; color: #22305a; }
-
-    /* Messages */
-    .messages {
-      display: flex;
-      gap: 12px;
-    }
-
-    .conversations {
-      width: 260px;
-      max-width: 36%;
-      min-width: 200px;
-    }
-
-    .chat {
-      flex: 1;
-      min-height: 200px;
-      border-radius: 10px;
-      overflow: auto;
-      border: 1px solid #eef3ff;
-      background: #fff;
-      padding: 10px;
-    }
-
-    /* LINK GRID (Quick Actions) */
-    .link-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin: 12px 0;
-      align-items: stretch;
-      grid-auto-rows: 1fr;
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-
-    .link-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      padding: 14px;
-      border-radius: 12px;
-      background: #fff;
-      border: 1px solid #eef3ff;
-      text-align: center;
-      transition: transform 0.12s ease, box-shadow 0.12s ease;
-      cursor: pointer;
-      min-height: 110px;
-      justify-content: center;
-      height: 100%;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .link-card:focus,
-    .link-card:hover {
-      transform: translateY(-6px);
-      box-shadow: var(--shadow-hover);
-      outline: none;
-    }
-
-    .link-card .icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      color: #fff;
-      font-size: 22px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.08);
-    }
-
-    .link-card .title {
-      font-weight: 800;
-      color: var(--text-main);
-      font-size: 0.98rem;
-    }
-
-    .link-card .subtitle {
-      font-size: 0.88rem;
-      color: var(--muted);
-    }
-
-    /* Timetable */
-    .timetable-wrapper {
-      margin-top: 16px;
-      overflow-x: auto;
-    }
-
-    .timetable {
-      display: grid;
-      grid-template-columns: 100px repeat(5, 1fr);
-      min-width: 800px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid #eef3ff;
-    }
-
-    .timetable div {
-      padding: 12px;
-      border-bottom: 1px solid #eef3ff;
-      border-right: 1px solid #eef3ff;
-      font-size: 0.9rem;
-    }
-
-    .timetable div:nth-child(-n+6) {
-      font-weight: 700;
-      background: #f8faff;
-      text-align: center;
-    }
-
-    .time-slot {
-      font-weight: 700;
-      background: #f1f5ff;
-    }
-
-    .subject {
-      border-left: 4px solid var(--accent);
-      background: #ffffff;
-      font-weight: 600;
-      transition: all 0.15s ease;
-    }
-
-    .subject:hover {
-      background: #f9fbff;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.08);
-    }
-
-    /* Resources Grid */
-    .resources-grid {
-      margin-top: 16px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 14px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .resource-card {
-      background: #ffffff;
-      border: 1px solid #eef3ff;
-      border-radius: 12px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      transition: all 0.15s ease;
-    }
-
-    .resource-card:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .resource-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .resource-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      color: #fff;
-      font-size: 0.8rem;
-    }
-
-    .icon-pdf {
-      background: #ef4444;
-    }
-
-    .icon-doc {
-      background: #2563eb;
-    }
-
-    .icon-video {
-      background: #10b981;
-    }
-
-    .icon-link {
-      background: #6366f1;
-    }
-
-    .resource-title {
-      font-weight: 700;
-    }
-
-    .resource-sub {
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-
-    .resource-actions {
-      margin-top: auto;
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    /* Modal */
-    .resource-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(6px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      padding: 20px;
-    }
-
-    .resource-modal.active {
-      display: flex;
-      animation: fadeIn 0.2s ease;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
-    }
-
-    .resource-modal-content {
-      background: #ffffff;
-      width: 900px;
-      max-width: 95vw;
-      height: 80vh;
-      border-radius: 16px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
-    }
-
-    .resource-modal-header {
-      padding: 14px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #eef3ff;
-      background: #f8faff;
-    }
-
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 1.2rem;
-      cursor: pointer;
-      font-weight: 700;
-      color: #64748b;
-    }
-
-    .modal-close:hover {
-      color: #ef4444;
-    }
-
-    .resource-modal-body {
-      flex: 1;
-      overflow: auto;
-      padding: 0;
-    }
-
-    .resource-modal-body iframe,
-    .resource-modal-body video {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    /* Buttons */
-    .muted {
-      color: var(--muted);
-    }
-
-    .btn {
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      color: #fff;
-      font-weight: 700;
-      transition: all 0.12s ease;
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
-    }
-
-    .btn.ghost {
-      background: transparent;
-      color: var(--accent-2);
-      border: 1px solid rgba(59, 130, 246, 0.08);
-    }
-
-    .btn.ghost:hover {
-      background: rgba(59, 130, 246, 0.04);
-    }
-
-    /* Accessibility */
-    .nav a:focus {
-      outline: 3px solid rgba(99, 102, 241, 0.18);
-      outline-offset: 3px;
-      border-radius: 8px;
-    }
-
-    .link-card:focus {
-      outline: 3px solid rgba(99, 102, 241, 0.12);
-      outline-offset: 3px;
-    }
-
-    /* Helper */
-    .small {
-      font-size: 0.92rem;
-      color: var(--muted);
-    }
-
-    /* Responsive */
-    @media (max-width: 1100px) {
-      .main {
-        padding: 20px 13px;
-      }
-    }
-
-    @media (max-width: 980px) {
-      .link-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .grid {
-        grid-template-columns: repeat(6, 1fr);
-      }
-
-      .col-4 {
-        grid-column: span 3;
-      }
-
-      .col-8 {
-        grid-column: span 6;
-      }
-
-      .col-6 {
-        grid-column: span 3;
-      }
-
-      .topbar .hamburger {
-        display: inline-flex;
-      }
-    }
-
-    @media (max-width: 720px) {
-      :root {
-        --sidebar-w: 86vw;
-      }
-
-      .sidebar {
-        transform: translateX(-110%);
-        position: fixed;
-        width: var(--sidebar-w);
-        min-width: var(--sidebar-w);
-      }
-
-      .sidebar.open {
-        transform: translateX(0);
-        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
-      }
-
-      .sidebar.hidden {
-        transform: translateX(-110%);
-      }
-
-      .overlay {
-        display: none;
-      }
-
-      .overlay.visible {
-        display: block;
-      }
-
-      body.no-scroll {
-        overflow: hidden;
-        height: 100vh;
-        touch-action: none;
-      }
-
-      .main {
-        margin-left: 0;
-        padding: 20px 14px;
-        padding-top: 20px;
-        max-width: 100vw;
-      }
-
-      .main.full {
-        margin-left: 0;
-      }
-
-      .topbar {
-        left: 0;
-        width: 100vw;
-        padding: 10px 12px;
-        min-height: 56px;
-      }
-
-      .nav a {
-        padding: 14px 14px;
-        font-size: 1.08rem;
-      }
-
-      .conversations {
-        display: none;
-      }
-
-      .grid {
-        grid-template-columns: 1fr;
-      }
-
-      .col-4,
-      .col-8,
-      .col-6,
-      .col-12 {
-        grid-column: auto;
-      }
-
-      .link-grid {
-        grid-template-columns: repeat(2, 1fr);
-        grid-auto-rows: minmax(100px, 1fr);
-      }
-
-      .link-card {
-        height: 100%;
-        min-height: 100px;
-      }
-
-      .timetable {
-        grid-template-columns: 80px repeat(5, 140px);
-      }
-    }
-
-    @media (max-width: 480px) {
-      .main {
-        padding: 20px 2vw;
-        padding-top: 80px;
-      }
-
-      .topbar {
-        padding: 10px 2vw;
-      }
-
-      .link-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-      }
-
-      .card {
-        padding: 12px;
-      }
-    }
-  </style>
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.5.2/flowbite.min.css" rel="stylesheet">
 </head>
-<body>
-  <!-- Loader Overlay -->
-  <div class="loader-overlay" id="loaderOverlay">
-    <div class="loader-container">
-      <div class="spinner"></div>
-      <div class="loader-text">Loading Dashboard</div>
-      <div class="loader-subtext">Please wait...</div>
+
+<body class="bg-slate-50 text-slate-900 antialiased font-sans">
+  <!-- Page loader -->
+  <div id="loaderOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-white">
+    <div class="text-center">
+      <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"></div>
+      <p class="text-sm font-semibold text-slate-800">Loading portal</p>
     </div>
   </div>
 
-  <div class="app" id="app">
-    <div class="overlay" id="overlay" aria-hidden="true"></div>
+  <!-- Mobile sidebar backdrop -->
+  <div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 backdrop-blur-sm lg:hidden"></div>
 
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
-      <div class="brand" aria-hidden="false">
-        <img src="mainlogo.png" alt="Logo">
-        <div>
-          <div class="title">Gold and Linc Schools</div>
-          <div class="subtitle" id="schoolSubtitle">Student Portal</div>
-        </div>
+  <!-- Sidebar -->
+  <aside id="sidebar"
+    class="fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:translate-x-0"
+    aria-label="Student navigation">
+
+    <div class="flex h-20 items-center gap-3 border-b border-slate-100 px-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+        <img id="schoolLogo" src="mainlogo.png" alt="School logo" class="h-full w-full object-cover"
+             onerror="this.style.display='none';document.getElementById('schoolLogoFallback').classList.remove('hidden')">
+        <span id="schoolLogoFallback" data-school-logo-fallback class="hidden text-sm font-extrabold text-indigo-600">SP</span>
       </div>
-
-      <nav class="nav" id="nav" aria-label="Primary">
-        <a href="#" data-section="home" class="active" onclick="navClick(event)">🏠 Home</a>
-        <a href="assignments.html">📝 Assignments</a>
-        <a href="check-result.html">📊 Grades</a>
-        <a href="#" data-section="timetable" onclick="navClick(event)">⏰ Timetable</a>
-        <a href="#" data-section="messages" onclick="navClick(event)">✉️ Messages</a>
-        <a href="#" data-section="resources" onclick="navClick(event)">📂 Resources</a>
-        <a href="profile.html">⚙️ Settings</a>
-        <a href="others.html">📋 Others</a>
-      </nav>
-
-      <div class="spacer" aria-hidden="true"></div>
-
-      <div class="profile" role="region" aria-label="Student profile">
-        <img src="avatar.jpg" alt="Student avatar" id="studentAvatar">
-        <div>
-          <div class="name" id="studentName"></div>
-          <div class="muted" id="studentClass"></div>
-        </div>
+      <div class="min-w-0">
+        <p id="schoolName" class="truncate text-sm font800 font-extrabold text-slate-900">Student Portal</p>
+        <p class="text-xs font-medium text-slate-500">Student workspace</p>
       </div>
-    </aside>
-
-    <!-- Fixed Topbar -->
-    <div class="topbar" id="fixedTopbar">
-      <div style="display:flex; gap:12px; align-items:center;">
-        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
-        <div>
-          <div class="page-title" id="pageTitle">Welcome back</div>
-        </div>
-      </div>
-
-      <div style="display:flex; gap:12px; align-items:center;">
-        <img src="avatar.jpg" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
-      </div>
+      <button id="closeSidebar" type="button" class="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Close menu">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
+      </button>
     </div>
 
-    <!-- Main Content -->
-    <main class="main" id="main" role="main" tabindex="-1">
+    <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+      <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
 
-      <!-- Home Section -->
-      <section id="home" class="section">
-        <div class="grid" style="margin-bottom:12px;">
-          <!-- Overall Progress -->
-          <div class="card col-4">
-            <div class="small muted">Overall Progress</div>
-            <div style="margin-top:10px" class="progress">
-              <div class="circle" id="progCircle">--%</div>
+      <button data-section="home" class="nav-item flex w-full items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-7h6v7"/></svg>
+        Overview
+      </button>
+
+      <a href="assignments.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        Assignments
+      </a>
+
+      <a href="check-result.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+        Results
+      </a>
+
+      <button data-section="timetable" class="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Timetable
+      </button>
+
+      <button data-section="messages" class="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.9-4.3A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+        Messages
+      </button>
+
+      <button data-section="resources" class="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/></svg>
+        Resources
+      </button>
+
+      <p class="px-3 pb-2 pt-6 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Account</p>
+
+      <a href="profile.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        Profile
+      </a>
+
+      <a href="others.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+        More
+      </a>
+    </nav>
+
+    <div class="border-t border-slate-100 p-3">
+      <div class="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+        <img id="sidebarAvatar" src="avatar.jpg" alt="Student" class="h-9 w-9 rounded-full object-cover ring-2 ring-white"
+             onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+        <div class="min-w-0 flex-1">
+          <p id="sidebarStudentName" class="truncate text-xs font-bold text-slate-800">Student</p>
+          <p id="sidebarStudentClass" class="truncate text-[11px] text-slate-500">Student</p>
+        </div>
+      </div>
+      <button id="logoutBtn" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100 focus:outline-none focus:ring-4 focus:ring-red-100">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg>
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main shell -->
+  <div class="min-h-screen lg:pl-72">
+    <!-- Header -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div class="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <div class="flex min-w-0 items-center gap-3">
+          <button id="openSidebar" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-indigo-100 lg:hidden" aria-label="Open menu">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div class="min-w-0">
+            <p id="headerTitle" class="truncate text-sm font-bold text-slate-900 sm:text-base">Overview</p>
+            <p id="headerMeta" class="hidden truncate text-xs text-slate-500 sm:block">Student workspace</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <a href="cbt-warning.html" class="hidden items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+            CBT
+          </a>
+          <button id="headerLogout" type="button" class="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 sm:inline-flex">
+            Sign out
+          </button>
+          <img id="headerAvatar" src="avatar.jpg" alt="Student" class="h-9 w-9 rounded-full object-cover ring-2 ring-slate-100"
+               onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-[1600px] px-4 py-5 pb-28 sm:px-6 lg:px-8 lg:pb-8">
+
+      <!-- Overview -->
+      <section id="homeSection" class="page-section space-y-5">
+        <!-- Hero -->
+        <div class="relative overflow-hidden rounded-2xl bg-slate-950 shadow-sm" style="background-image:url('https://res.cloudinary.com/da7o22rnq/image/upload/v1790931523/editor-uploads/pbszfmniyxrk3zs94nh1.png?auto=format&fit=crop&w=1800&q=85');background-size:cover;background-position:center;">
+          <div class="absolute inset-0 bg-slate-950/70"></div>
+          <div class="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/65 to-slate-950/45"></div>
+          <div class="relative px-5 py-7 sm:px-7 sm:py-9">
+            <div class="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <div class="max-w-2xl">
+                <span class="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white backdrop-blur-sm">Student portal</span>
+                <h1 id="heroGreeting" class="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-4xl">Welcome back</h1>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
               <div>
-                <div class="small muted">Cumulative Average</div>
-                <div style="font-weight:900; font-size:1.18rem;" id="cumAvg">--%</div>
-                <div class="small muted">-- of cohort</div>
+                <p class="text-xs font-semibold text-slate-500">Progress</p>
+                <p id="progCircle" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--%</p>
               </div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 1.5"/></svg>
+              </span>
             </div>
+            <p class="mt-3 text-xs text-slate-400">Academic progress</p>
           </div>
 
-          <!-- This Term Stats -->
-          <div class="card col-4">
-            <div class="small muted">This Term</div>
-            <div style="margin-top:10px" class="kpis">
-              <div style="flex:1">
-                <div class="small muted">Assignments Due</div>
-                <div class="small" id="dueCount" style="font-weight:900;font-size:1.18rem">--</div>
-                <div class="small muted">Due this week</div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">Average</p>
+                <p id="cumAvg" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--%</p>
               </div>
-              <div style="flex:1">
-                <div class="small muted">Attendance</div>
-                <div class="small" id="attPct" style="font-weight:900;font-size:1.18rem">--%</div>
-                <div class="small muted">This term</div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-xs text-slate-400">Cumulative performance</p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">Due</p>
+                <p id="dueCount" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--</p>
               </div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              </span>
             </div>
+            <p class="mt-3 text-xs text-slate-400">Assignments this week</p>
           </div>
 
-          <!-- Upcoming -->
-          <div class="card col-4">
-            <div class="small muted">Upcoming</div>
-            <div style="margin-top:10px">
-              <div id="upcomingTitle" style="font-weight:800">--</div>
-              <div class="small muted" id="upcomingMeta">--</div>
-              <div style="margin-top:10px; padding:10px; border-left:4px solid var(--accent); background:linear-gradient(90deg,#fff,#fbfdff); border-radius:8px;" id="upcomingNote">--</div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">Attendance</p>
+                <p id="attPct" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--%</p>
+              </div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
             </div>
+            <p class="mt-3 text-xs text-slate-400">Current term</p>
           </div>
         </div>
 
-        <!-- Quick Links Grid -->
-        <div class="link-grid" aria-label="Quick links">
-          <a class="link-card" href="cbt-warning.html" aria-label="CBT exam">
-            <div class="icon" aria-hidden="true">
-              <i class="fa fa-laptop"></i>
+        <!-- Actions -->
+        <div>
+          <div class="mb-3 flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Quick access</h2>
+              <p class="text-xs text-slate-500">Core student tools</p>
             </div>
-            <div class="title">CBT Mock/Exam</div>
-            <div class="subtitle">Start tests</div>
-          </a>
-
-          <a class="link-card" href="check-result.html" aria-label="Results">
-            <div class="icon" aria-hidden="true">
-              <i class="fa fa-chart-bar"></i>
-            </div>
-            <div class="title">Results</div>
-            <div class="subtitle">View report cards</div>
-          </a>
-
-          <a class="link-card" href="fees.html" aria-label="School fees">
-            <div class="icon" aria-hidden="true">
-              <i class="fa fa-wallet"></i>
-            </div>
-            <div class="title">School Fees</div>
-            <div class="subtitle">Payments</div>
-          </a>
-
-          <a class="link-card" href="assignments.html" aria-label="Assignments">
-            <div class="icon" aria-hidden="true">
-              <i class="fa fa-file-alt"></i>
-            </div>
-            <div class="title">Assignments</div>
-            <div class="subtitle">Submit work</div>
-          </a>
         </div>
-
-        <!-- Assignments Section -->
-        <div class="grid">
-          <div class="card col-8">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="font-weight:800">Recent Assignments</div>
-              <div class="small muted">Track & submit</div>
-            </div>
-            <div class="assignments" id="assignmentsList" style="margin-top:10px"></div>
-            <div style="margin-top:10px;display:flex;justify-content:flex-end">
-              <a href="assignments.html" class="btn">View all assignments →</a>
-            </div>
-          </div>
-
-          <!-- Quick Actions -->
-          <div class="card col-4">
-            <div style="font-weight:800">Quick Actions</div>
-            <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
-              <button class="btn ghost" onclick="navTo('timetable')">View Timetable</button>
-              <button class="btn ghost" onclick="navTo('resources')">Resources</button>
-              <a href="assignments.html" class="btn" style="text-align:center; display:block;">Assignments</a>
-            </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <a href="assignments.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">Assignments</p>
+            </a>
+            <a href="check-result.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">Results</p>
+            </a>
+            <a href="cbt-warning.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">CBT</p>
+            </a>
+            <a href="fees.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M7 6V4h10v2M7 14h.01M11 14h6"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">Fees</p>
+            </a>
           </div>
         </div>
 
-        <!-- Grades & Messages -->
-        <div class="grid" style="margin-top:12px;">
-          <div class="card col-6">
-            <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800">Grades Snapshot</div><div class="small muted">Latest</div></div>
-            <div style="margin-top:10px">
-              <table style="width:100%;border-collapse:collapse">
-                <thead><tr><th style="text-align:left;padding:8px">Subject</th><th style="text-align:left;padding:8px">Latest</th><th style="text-align:left;padding:8px">Term Avg</th></tr></thead>
-                <tbody id="gradesTable"></tbody>
-              </table>
-            </div>
+        <!-- Content cards -->
+        <div class="grid gap-5 xl:grid-cols-12">
+          <div class="space-y-5 xl:col-span-8">
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Recent assignments</h2>
+                  <p class="text-xs text-slate-500">Latest work</p>
+                </div>
+                <a href="assignments.html" class="text-xs font-bold text-indigo-600 hover:text-indigo-700">View all</a>
+              </div>
+              <div id="assignmentsList" class="divide-y divide-slate-100"></div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Grades snapshot</h2>
+                  <p class="text-xs text-slate-500">Latest available scores</p>
+                </div>
+                <a href="check-result.html" class="text-xs font-bold text-indigo-600 hover:text-indigo-700">Results</a>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-600">
+                  <thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                    <tr><th class="px-5 py-3 font-bold">Subject</th><th class="px-5 py-3 font-bold">Latest</th><th class="px-5 py-3 font-bold">Average</th></tr>
+                  </thead>
+                  <tbody id="gradesTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </section>
           </div>
 
-          <div class="card col-6">
-            <div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800">Today's Timetable</div><div class="small muted">Schedule</div></div>
-            <div id="todayTimetable" style="margin-top:10px"></div>
+          <div class="space-y-5 xl:col-span-4">
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Next up</h2>
+                  <p class="text-xs text-slate-500">Upcoming</p>
+                </div>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+              </div>
+              <div class="mt-5">
+                <p id="upcomingTitle" class="text-lg font-extrabold text-slate-900">--</p>
+                <p id="upcomingMeta" class="mt-1 text-xs text-slate-500">--</p>
+                <div id="upcomingNote" class="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-medium text-slate-600">--</div>
+              </div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="border-b border-slate-100 px-5 py-4">
+                <h2 class="text-sm font-bold text-slate-900">Today</h2>
+                <p class="text-xs text-slate-500">Class schedule</p>
+              </div>
+              <div id="todayTimetable" class="p-4"></div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Updates</h2>
+                  <p class="text-xs text-slate-500">School news</p>
+                </div>
+                <a href="news.html" class="text-xs font-bold text-indigo-600">All</a>
+              </div>
+              <div id="newsContent" class="divide-y divide-slate-100"></div>
+            </section>
           </div>
-        </div>
-
-        <!-- News & Updates -->
-        <div class="card col-12" style="margin-top:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:800;font-size:1.1rem;">News & Updates</div>
-            <div class="small muted">Latest</div>
-          </div>
-          <div id="newsContent" style="margin-top:10px"></div>
-          <div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="btn" onclick="window.location.href='news.html'">News & Events →</button></div>
-        </div>
-      </section>
-
-      <!-- Timetable Section -->
-      <section id="timetable" class="section" style="display:none">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:800;font-size:1.1rem;">Weekly Timetable</div>
-            <div class="small muted" id="timetableMeta">Your Schedule</div>
-          </div>
-
-          <div class="timetable-wrapper">
-            <div class="timetable" id="timetableGrid"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Messages Section -->
-      <section id="messages" class="section" style="display:none">
-        <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Messages</div>
-        <div id="messagesFull"></div>
-      </section>
-
-      <!-- Resources Section -->
-      <section id="resources" class="section" style="display:none">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:800;font-size:1.1rem;">Learning Resources</div>
-            <div class="small muted">All Subjects</div>
-          </div>
-
-          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-            <input type="text" id="resourceSearch" placeholder="Search resources..." style="flex:1;padding:10px;border-radius:10px;border:1px solid #e5e7eb;">
-            <button class="btn">Upload</button>
-          </div>
-
-          <div class="resources-grid" id="resourcesGrid"></div>
         </div>
       </section>
 
-      <!-- Settings Section -->
-      <section id="settings" class="section" style="display:none">
-        <div class="card">
-          <div style="font-weight:800;font-size:1.1rem;margin-bottom:12px;">Settings</div>
-          <div id="settingsContent">Settings page placeholder</div>
+      <!-- Timetable -->
+      <section id="timetableSection" class="page-section hidden">
+        <div class="mb-5">
+          <h1 class="text-xl font-extrabold text-slate-900">Timetable</h1>
+          <p class="text-xs text-slate-500">Weekly class schedule</p>
+        </div>
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="overflow-x-auto">
+            <div id="timetableGrid" class="min-w-[760px]"></div>
+          </div>
         </div>
       </section>
 
+      <!-- Messages -->
+      <section id="messagesSection" class="page-section hidden">
+        <div class="mb-5">
+          <h1 class="text-xl font-extrabold text-slate-900">Messages</h1>
+          <p class="text-xs text-slate-500">Your conversations</p>
+        </div>
+        <div id="messagesFull" class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.9-4.3A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+          </div>
+          <p class="mt-3 text-sm font-bold text-slate-800">No messages</p>
+          <p class="mt-1 text-xs text-slate-500">New conversations will appear here.</p>
+        </div>
+      </section>
+
+      <!-- Resources -->
+      <section id="resourcesSection" class="page-section hidden">
+        <div class="mb-5 flex items-end justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-extrabold text-slate-900">Resources</h1>
+            <p class="text-xs text-slate-500">Learning materials</p>
+          </div>
+          <input id="resourceSearch" type="search" placeholder="Search" class="w-40 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
+        </div>
+        <div id="resourcesGrid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+      </section>
     </main>
   </div>
 
-  <!-- Resource Modal -->
-  <div class="resource-modal" id="resourceModal">
-    <div class="resource-modal-content">
-      <div class="resource-modal-header">
-        <div id="modalTitle" style="font-weight:800;">Resource</div>
-        <button class="modal-close" onclick="document.getElementById('resourceModal').classList.remove('active')">✕</button>
+  <!-- Mobile bottom navigation: hidden while sidebar is open -->
+  <nav id="mobileNav" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+    <div class="mx-auto flex max-w-md items-end justify-around">
+      <button data-section="home" class="mobile-nav-item flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-indigo-600" type="button">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-7h6v7"/></svg>
+        <span class="text-[10px] font-bold">Home</span>
+      </button>
+      <a href="assignments.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        <span class="text-[10px] font-bold">Work</span>
+      </a>
+      <button id="mobileMoreBtn" class="relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-4 ring-slate-50" type="button" aria-label="More tools">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+      </button>
+      <button data-section="messages" class="mobile-nav-item flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500" type="button">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.9-4.3A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+        <span class="text-[10px] font-bold">Inbox</span>
+      </button>
+      <button id="mobileMenuBtn" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500" type="button">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <span class="text-[10px] font-bold">Menu</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Flowbite bottom drawer -->
+  <div id="studentDrawerBackdrop" class="fixed inset-0 z-[55] hidden bg-slate-950/50 backdrop-blur-sm"></div>
+  <div id="studentDrawer" tabindex="-1" aria-hidden="true" class="fixed bottom-0 left-0 right-0 z-[60] hidden w-full translate-y-full rounded-t-2xl border border-slate-200 bg-white shadow-2xl transition-transform duration-300">
+    <div class="mx-auto w-full max-w-2xl p-5">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-extrabold text-slate-900">Quick access</h2>
+          <p class="text-xs text-slate-500">Student tools</p>
+        </div>
+        <button id="closeStudentDrawer" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Close">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
       </div>
-      <div class="resource-modal-body" id="modalBody"></div>
+      <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        <a href="check-result.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 text-sky-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Results</span></a>
+        <a href="cbt-warning.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">CBT</span></a>
+        <a href="fees.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="14" rx="2"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Fees</span></a>
+        <a href="profile.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Profile</span></a>
+        <button id="drawerLogout" type="button" class="rounded-xl border border-red-100 bg-red-50 p-3 text-center hover:bg-red-100"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-white text-red-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg></span><span class="mt-2 block text-[11px] font-bold text-red-600">Sign out</span></button>
+      </div>
     </div>
   </div>
 
+  <!-- Resource viewer -->
+  <div id="resourceModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+    <div class="flex h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <h3 id="modalTitle" class="text-sm font-bold text-slate-900">Resource</h3>
+        <button id="modalClose" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="modalBody" class="min-h-0 flex-1"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.5.2/flowbite.min.js"></script>
   <script>
-    // ============================================
-    // Global Config & State
-    // ============================================
-    const API_BASE_URL = "https://goldlincschools.onrender.com";
-    let currentStudent = {};
+    const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+    const API_ROOT = `${BACKEND_URL}/api`;
+    const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+    const BASE_DOMAINS = [window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng', 'examguard.com.ng'];
+
+    let currentStudent = null;
+    let currentSchool = null;
+    let publicSchoolId = '';
     let currentSection = 'home';
 
-    // ============================================
-    // Loader Functions
-    // ============================================
-    function showLoader() {
-      const loader = document.getElementById('loaderOverlay');
-      loader.classList.remove('hidden');
+    const $ = id => document.getElementById(id);
+
+    function getToken() {
+      return localStorage.getItem('student_token') ||
+             localStorage.getItem('studentToken') ||
+             localStorage.getItem('token') ||
+             localStorage.getItem('authToken') || '';
     }
 
-    function hideLoader() {
-      const loader = document.getElementById('loaderOverlay');
-      setTimeout(() => {
-        loader.classList.add('hidden');
-      }, 300);
-    }
-
-    // ============================================
-    // DOM References
-    // ============================================
-    const app = document.getElementById('app');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
-    const hamburger = document.getElementById('hamburger');
-    const main = document.getElementById('main');
-    const nav = document.getElementById('nav');
-    const pageTitle = document.getElementById('pageTitle');
-    const studentName = document.getElementById('studentName');
-    const studentClass = document.getElementById('studentClass');
-    const studentAvatar = document.getElementById('studentAvatar');
-    const topbarAvatar = document.getElementById('topbarAvatar');
-
-    // ============================================
-    // Mobile Menu Toggle
-    // ============================================
-    hamburger.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      if (window.innerWidth <= 720) {
-        overlay.classList.add('visible');
-        sidebar.classList.add('open');
-        sidebar.classList.remove('hidden');
-        document.body.classList.add('no-scroll');
-      } else {
-        sidebar.classList.toggle('open');
-        sidebar.classList.toggle('hidden');
+    function getTenantSubdomain() {
+      const stored = localStorage.getItem('schoolSubdomain');
+      if (stored) return stored;
+      const host = window.location.hostname.toLowerCase();
+      for (const base of BASE_DOMAINS) {
+        const suffix = `.${base.toLowerCase()}`;
+        if (host.endsWith(suffix)) return host.slice(0, -suffix.length);
       }
-    });
+      return '';
+    }
 
-    overlay.addEventListener('click', () => {
-      sidebar.classList.add('hidden');
-      sidebar.classList.remove('open');
-      overlay.classList.remove('visible');
-      document.body.classList.remove('no-scroll');
-    });
+    function authHeaders(extra = {}) {
+      const headers = { Accept: 'application/json', ...extra };
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+      return headers;
+    }
 
-    document.querySelectorAll('.nav a').forEach(link => {
-      link.addEventListener('click', () => {
-        if (window.innerWidth <= 720) {
-          sidebar.classList.add('hidden');
-          sidebar.classList.remove('open');
-          overlay.classList.remove('visible');
-          document.body.classList.remove('no-scroll');
+    async function apiFetch(path, options = {}) {
+      const headers = authHeaders(options.headers || {});
+      return fetch(`${API_ROOT}${path}`, { ...options, headers });
+    }
+
+    function initials(name = 'Student') {
+      return name.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'ST';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+      }[ch]));
+    }
+
+    function schoolIdOf(value) {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      return value._id || value.id || value.schoolId || '';
+    }
+
+    function normalizeSchool(raw) {
+      if (!raw) return null;
+      const candidate = raw.school || raw.data?.school || raw.data || raw;
+      return candidate && typeof candidate === 'object' ? candidate : null;
+    }
+
+    function getSchoolMongoId(school) {
+      return String(school?._id || school?.id || '');
+    }
+
+    function getSchoolPublicId(school) {
+      return String(school?.schoolId || school?.code || '');
+    }
+
+    function getSchoolLogo(school) {
+      const branding = school?.branding || {};
+      return school?.logoUrl || school?.logo || branding.logo ||
+        branding.lightLogo || branding.darkLogo || branding.logoUrl ||
+        school?.logo_url || school?.image || '';
+    }
+
+    function schoolInitials(name = 'Student Portal') {
+      return initials(name);
+    }
+
+    function handleSchoolLogoError(img) {
+      if (!img || img.dataset.fallbackApplied === '1') return;
+      img.dataset.fallbackApplied = '1';
+      img.style.display = 'none';
+      const fallback = document.getElementById('schoolLogoFallback');
+      if (fallback) {
+        fallback.textContent = schoolInitials(currentSchool?.schoolName || currentSchool?.name || 'School');
+        fallback.classList.remove('hidden');
+      }
+    }
+
+    function applySchoolBranding(school) {
+      if (!school) return;
+      currentSchool = school;
+
+      const name = school.schoolName || school.name || 'Student Portal';
+      const logo = getSchoolLogo(school);
+      const branding = school.branding || {};
+
+      publicSchoolId = getSchoolPublicId(school) || publicSchoolId;
+
+      const nameEl = $('schoolName');
+      const heroEl = $('heroSchool');
+      const logoEl = $('schoolLogo');
+      const fallbackEl = $('schoolLogoFallback');
+
+      if (nameEl) {
+        nameEl.textContent = name;
+        nameEl.title = name;
+      }
+      if (heroEl) heroEl.textContent = name;
+
+      if (logoEl) {
+        logoEl.dataset.fallbackApplied = '0';
+        logoEl.alt = `${name} Logo`;
+        logoEl.onerror = () => handleSchoolLogoError(logoEl);
+
+        if (logo) {
+          logoEl.src = logo;
+          logoEl.style.display = '';
+          if (fallbackEl) fallbackEl.classList.add('hidden');
+        } else {
+          handleSchoolLogoError(logoEl);
         }
-      });
-    });
+      }
 
-    // ============================================
-    // Navigation
-    // ============================================
-    function navClick(e) {
-      e.preventDefault();
-      const section = e.target.closest('a').dataset.section;
-      navTo(section);
+      if (fallbackEl && !logo) {
+        fallbackEl.textContent = schoolInitials(name);
+        fallbackEl.classList.remove('hidden');
+      }
+
+      document.documentElement.style.setProperty('--school-primary', branding.primaryColor || '#4f46e5');
+      document.documentElement.style.setProperty('--school-secondary', branding.secondaryColor || '#f59e0b');
+      document.documentElement.style.setProperty('--school-accent', branding.accentColor || '#10b981');
+      document.title = `${name} | Student Portal`;
+
+      if (publicSchoolId) {
+        localStorage.setItem('publicSchoolId', publicSchoolId);
+        localStorage.setItem('schoolId', publicSchoolId);
+      }
+      if (school.subdomain) {
+        localStorage.setItem('schoolSubdomain', String(school.subdomain).toLowerCase());
+      }
+
+      const subdomain = String(school.subdomain || getTenantSubdomain() || '').toLowerCase();
+      if (subdomain) {
+        localStorage.setItem(`examguard_school_config_${subdomain}`, JSON.stringify(school));
+      }
+    }
+
+    async function loadSchoolConfig(studentData) {
+      const studentSchool = normalizeSchool(studentData?.school);
+      const studentMongoSchoolId =
+        getSchoolMongoId(studentSchool) ||
+        (typeof studentData?.schoolId === 'object' ? getSchoolMongoId(studentData.schoolId) : '') ||
+        (typeof studentData?.schoolId === 'string' ? studentData.schoolId : '');
+
+      const hostSubdomain = getTenantSubdomain();
+      const storedPublicSchoolId = localStorage.getItem('publicSchoolId') || localStorage.getItem('schoolId') || '';
+
+      if (studentSchool) applySchoolBranding(studentSchool);
+
+      try {
+        const meRes = await fetch(`${API_ROOT}/auth/me`, {
+          headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json' }
+        });
+
+        if (meRes.ok) {
+          const meRaw = await meRes.json();
+          const meUser = meRaw?.user || meRaw?.data?.user || meRaw;
+          const meSchool = normalizeSchool(meRaw?.school || meRaw?.data?.school || meUser?.school);
+          const authSchoolId = String(meUser?.schoolId || '');
+          const meSchoolId = getSchoolMongoId(meSchool);
+
+          if (meSchool && (!authSchoolId || !meSchoolId || authSchoolId === meSchoolId)) {
+            applySchoolBranding(meSchool);
+            return meSchool;
+          }
+        }
+      } catch (err) {
+        console.warn('Authenticated school context unavailable:', err);
+      }
+
+      const candidates = [];
+      if (hostSubdomain) {
+        candidates.push(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(hostSubdomain)}`);
+      }
+      if (storedPublicSchoolId) {
+        candidates.push(`${SCHOOL_CONFIG_ENDPOINT}?schoolId=${encodeURIComponent(storedPublicSchoolId)}`);
+      }
+
+      for (const url of candidates) {
+        try {
+          const res = await fetch(url, { headers: { Accept: 'application/json' } });
+          if (!res.ok) continue;
+          const remoteSchool = normalizeSchool(await res.json());
+          if (!remoteSchool) continue;
+
+          const remoteMongoId = getSchoolMongoId(remoteSchool);
+          if (studentMongoSchoolId && remoteMongoId && String(studentMongoSchoolId) !== String(remoteMongoId)) {
+            continue;
+          }
+
+          applySchoolBranding(remoteSchool);
+          return remoteSchool;
+        } catch (err) {
+          console.warn('School config candidate failed:', err);
+        }
+      }
+
+      if (hostSubdomain) {
+        try {
+          const cached = localStorage.getItem(`examguard_school_config_${hostSubdomain}`);
+          const cachedSchool = cached ? normalizeSchool(JSON.parse(cached)) : null;
+          const cachedMongoId = getSchoolMongoId(cachedSchool);
+          if (cachedSchool && (!studentMongoSchoolId || !cachedMongoId || String(studentMongoSchoolId) === String(cachedMongoId))) {
+            applySchoolBranding(cachedSchool);
+            return cachedSchool;
+          }
+        } catch (err) {
+          console.warn('Cached school config unavailable:', err);
+        }
+      }
+
+      return currentSchool || studentSchool || null;
+    }
+
+    function openStudentDrawer() {
+      const drawer = $('studentDrawer');
+      const backdrop = $('studentDrawerBackdrop');
+      if (!drawer || !backdrop) return;
+      drawer.classList.remove('hidden');
+      backdrop.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      requestAnimationFrame(() => drawer.classList.remove('translate-y-full'));
+      drawer.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeStudentDrawer() {
+      const drawer = $('studentDrawer');
+      const backdrop = $('studentDrawerBackdrop');
+      if (!drawer || !backdrop) return;
+      drawer.classList.add('translate-y-full');
+      backdrop.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      drawer.setAttribute('aria-hidden', 'true');
+      setTimeout(() => drawer.classList.add('hidden'), 300);
+    }
+
+    function closeSidebar() {
+      $('sidebar').classList.add('-translate-x-full');
+      $('sidebarBackdrop').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      $('mobileNav').classList.remove('hidden');
+    }
+
+    function openSidebar() {
+      $('sidebar').classList.remove('-translate-x-full');
+      $('sidebarBackdrop').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      // Explicitly remove the bottom toolbar while the sidebar is active.
+      $('mobileNav').classList.add('hidden');
     }
 
     function navTo(section) {
       currentSection = section;
-
-      document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-      const targetSection = document.getElementById(section);
-      if (targetSection) {
-        targetSection.style.display = 'block';
-      }
-
-      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-      const activeLink = document.querySelector(`[data-section="${section}"]`);
-      if (activeLink) {
-        activeLink.classList.add('active');
-      }
-
-      const sectionTitles = {
-        home: 'Welcome back',
-        timetable: 'Weekly Timetable',
-        messages: 'Messages',
-        resources: 'Learning Resources',
-        settings: 'Settings'
+      const map = {
+        home: ['homeSection', 'Overview', 'Student workspace'],
+        timetable: ['timetableSection', 'Timetable', 'Weekly class schedule'],
+        messages: ['messagesSection', 'Messages', 'Your conversations'],
+        resources: ['resourcesSection', 'Resources', 'Learning materials']
       };
-      pageTitle.textContent = sectionTitles[section] || 'Welcome back';
+
+      document.querySelectorAll('.page-section').forEach(s => s.classList.add('hidden'));
+      const target = map[section]?.[0];
+      if (target) $(target).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(btn => {
+        const active = btn.dataset.section === section;
+        btn.classList.toggle('bg-indigo-50', active);
+        btn.classList.toggle('text-indigo-700', active);
+        btn.classList.toggle('text-slate-600', !active);
+      });
+
+      document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+        const active = btn.dataset.section === section;
+        btn.classList.toggle('text-indigo-600', active);
+        btn.classList.toggle('text-slate-500', !active);
+      });
+
+      if (map[section]) {
+        $('headerTitle').textContent = map[section][1];
+        $('headerMeta').textContent = map[section][2];
+      }
+
+      closeSidebar();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      if (section === 'timetable' && currentStudent?.class?._id) {
+        fetchAndRenderTimetable(currentStudent.class._id);
+      }
     }
 
-    // ============================================
-    // Fetch Assignments for Dashboard
-    // ============================================
-    async function fetchDashboardAssignments() {
-      const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
-      const container = document.getElementById('assignmentsList');
+    function logout() {
+      [
+        'student_token','studentToken','token','authToken',
+        'schoolSubdomain','publicSchoolId'
+      ].forEach(key => localStorage.removeItem(key));
 
+      sessionStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    function showLoader() {
+      $('loaderOverlay').classList.remove('hidden');
+    }
+
+    function hideLoader() {
+      $('loaderOverlay').classList.add('hidden');
+      setTimeout(() => $('loaderOverlay').remove(), 250);
+    }
+
+    function avatarUrl(name) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'Student')}&background=4f46e5&color=fff&bold=true`;
+    }
+
+    async function fetchDashboardAssignments() {
+      const container = $('assignmentsList');
       try {
-        const res = await fetch(API_BASE_URL + "/api/assignments/me", {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        
+        const res = await apiFetch('/assignments/me');
         if (!res.ok) throw new Error('Failed to fetch assignments');
         const assignments = await res.json();
 
-        if (!assignments || assignments.length === 0) {
-          container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">No assignments yet</div>';
+        if (!Array.isArray(assignments) || !assignments.length) {
+          container.innerHTML = `
+            <div class="p-8 text-center">
+              <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/></svg>
+              </div>
+              <p class="mt-3 text-xs font-semibold text-slate-700">No assignments</p>
+            </div>`;
           return;
         }
 
-        // Display limited assignments (first 3)
-        const limitedAssignments = assignments.slice(0, 3);
-        const html = limitedAssignments.map(a => {
-          let badgeClass = 'badge-pending';
-          let statusText = 'pending';
-          
-          if (a.status === 'completed' || a.status === 'submitted') {
-            badgeClass = 'badge-completed';
-            statusText = 'completed';
-          } else if (a.status === 'overdue') {
-            badgeClass = 'badge-overdue';
-            statusText = 'overdue';
-          } else if (a.status === 'reviewed') {
-            badgeClass = 'badge-reviewed';
-            statusText = 'reviewed';
-          }
-
-          const dueDate = a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'N/A';
-
+        const limited = assignments.slice(0, 4);
+        container.innerHTML = limited.map(a => {
+          const status = String(a.status || 'pending').toLowerCase();
+          const statusMap = {
+            completed: ['bg-emerald-50 text-emerald-700', 'Completed'],
+            submitted: ['bg-emerald-50 text-emerald-700', 'Submitted'],
+            overdue: ['bg-red-50 text-red-700', 'Overdue'],
+            reviewed: ['bg-amber-50 text-amber-700', 'Reviewed'],
+            pending: ['bg-indigo-50 text-indigo-700', 'Pending']
+          };
+          const [badge, label] = statusMap[status] || statusMap.pending;
+          const due = a.dueDate ? new Date(a.dueDate).toLocaleDateString(undefined, {day:'numeric', month:'short'}) : 'No due date';
           return `
-            <div class="assignments item">
-              <div style="flex: 1;">
-                <div style="font-weight: 600; color: var(--text-main);">${a.title || 'Untitled Assignment'}</div>
-                <div class="small muted">${a.subject || 'Subject'} • Due: ${dueDate}</div>
+            <div class="flex items-center gap-3 px-5 py-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 11h6M9 15h6"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-bold text-slate-800">${escapeHtml(a.title || 'Untitled assignment')}</p>
+                <p class="mt-0.5 truncate text-[11px] text-slate-500">${escapeHtml(a.subject || 'Subject')} · Due ${escapeHtml(due)}</p>
               </div>
-              <span class="badge ${badgeClass}">${statusText}</span>
-            </div>
-          `;
+              <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${badge}">${label}</span>
+            </div>`;
         }).join('');
 
-        container.innerHTML = html;
+        const dueCount = assignments.filter(a => !['completed','submitted','reviewed'].includes(String(a.status || '').toLowerCase())).length;
+        $('dueCount').textContent = dueCount;
       } catch (err) {
-        console.error('Error fetching assignments:', err);
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:#d32f2f;">Failed to load assignments</div>';
-      }
-    }
-
-    // ============================================
-    // Fetch Student Dashboard
-    // ============================================
-    async function fetchStudentDashboard() {
-      showLoader();
-      const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
-
-      try {
-        const res = await fetch(API_BASE_URL + '/api/students/me', {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (!res.ok) throw new Error('Failed to fetch');
-        const data = await res.json();
-        populateDashboard(data);
-      } catch (err) {
-        console.error('Error fetching dashboard:', err);
-        populateDashboard(null);
-      } finally {
-        hideLoader();
-        fetchDashboardAssignments();
+        console.error(err);
+        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-500">Assignments unavailable.</div>`;
       }
     }
 
     function populateDashboard(data) {
-      if (!data) {
-        studentName.textContent = '';
-        studentClass.textContent = '';
-        studentAvatar.src = '';
-        topbarAvatar.src = '';
-        document.getElementById('newsContent').innerHTML = '';
-        document.getElementById('gradesTable').innerHTML = '';
-        document.getElementById('todayTimetable').innerHTML = '';
-        return;
-      }
+      currentStudent = data || null;
+      if (!data) return;
 
-      currentStudent = data;
+      const name = data.name || data.fullName || 'Student';
+      const className = data.class?.name || data.className || 'Student';
 
-      const fullName = data.name || '';
-      studentName.textContent = fullName;
-      pageTitle.textContent = `Welcome back, ${fullName}`;
-      studentClass.textContent = data.class?.name || '';
+      $('sidebarStudentName').textContent = name;
+      $('sidebarStudentClass').textContent = className;
+      $('heroGreeting').textContent = `Welcome back, ${name}`;
+      $('headerMeta').textContent = `${className} · Student workspace`;
 
-      if (data.photo_url) {
-        studentAvatar.src = data.photo_url;
-        topbarAvatar.src = data.photo_url;
-      } else if (fullName) {
-        const avatarUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(fullName) + '&background=2647a6&color=fff';
-        studentAvatar.src = avatarUrl;
-        topbarAvatar.src = avatarUrl;
-      }
+      const avatar = data.photo_url || data.photo || data.avatar || avatarUrl(name);
+      $('sidebarAvatar').src = avatar;
+      $('headerAvatar').src = avatar;
 
-      const newsContent = document.getElementById('newsContent');
-      if (data.news && data.news.length > 0) {
-        newsContent.innerHTML = data.news.map(news =>
-          `<div style="padding:8px 0;border-bottom:1px solid #eef3ff;"><strong>${news.title}</strong><br><span style="color:#888;font-size:0.9em;">${news.date || ''}</span><br>${news.summary || ''}</div>`
-        ).join('');
+      if (Array.isArray(data.news) && data.news.length) {
+        $('newsContent').innerHTML = data.news.slice(0, 4).map(n => `
+          <div class="px-5 py-3.5">
+            <p class="text-xs font-bold text-slate-800">${escapeHtml(n.title || 'School update')}</p>
+            <p class="mt-1 text-[11px] text-slate-500">${escapeHtml(n.summary || '')}</p>
+            ${n.date ? `<p class="mt-1 text-[10px] text-slate-400">${escapeHtml(n.date)}</p>` : ''}
+          </div>`).join('');
       } else {
-        newsContent.innerHTML = '';
+        $('newsContent').innerHTML = `<div class="p-6 text-center text-xs text-slate-500">No updates.</div>`;
       }
 
-      const gradesTable = document.getElementById('gradesTable');
-      if (data.grades && data.grades.length > 0) {
-        gradesTable.innerHTML = data.grades.map(g =>
-          `<tr><td style="padding:8px;border-bottom:1px solid #eef3ff;">${g.subject}</td><td style="padding:8px;border-bottom:1px solid #eef3ff;">${g.latest}</td><td style="padding:8px;border-bottom:1px solid #eef3ff;">${g.termAvg}</td></tr>`
-        ).join('');
+      if (Array.isArray(data.grades) && data.grades.length) {
+        $('gradesTable').innerHTML = data.grades.slice(0, 6).map(g => `
+          <tr>
+            <td class="px-5 py-3 font-semibold text-slate-800">${escapeHtml(g.subject || 'Subject')}</td>
+            <td class="px-5 py-3">${escapeHtml(g.latest ?? '--')}</td>
+            <td class="px-5 py-3 font-semibold text-slate-800">${escapeHtml(g.termAvg ?? '--')}</td>
+          </tr>`).join('');
       } else {
-        gradesTable.innerHTML = '';
+        $('gradesTable').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-xs text-slate-500">No grades available.</td></tr>`;
       }
 
-      const todayTimetable = document.getElementById('todayTimetable');
-      if (data.timetable && data.timetable.length > 0) {
+      if (Array.isArray(data.timetable) && data.timetable.length) {
         const today = data.timetable[0];
-        todayTimetable.innerHTML = (today.subjects || []).map(s =>
-          `<div style="padding:8px;background:#f3f6fb;border-radius:8px;margin-bottom:8px;"><strong>${s.time}</strong> - ${s.name}</div>`
-        ).join('');
+        $('todayTimetable').innerHTML = (today.subjects || []).slice(0, 5).map(s => `
+          <div class="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50">
+            <span class="w-14 shrink-0 text-[10px] font-bold text-slate-400">${escapeHtml(s.time || '--')}</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-indigo-500"></span>
+            <span class="truncate text-xs font-semibold text-slate-700">${escapeHtml(s.name || 'Class')}</span>
+          </div>`).join('');
       } else {
-        todayTimetable.innerHTML = '';
+        $('todayTimetable').innerHTML = `<div class="py-6 text-center text-xs text-slate-500">No classes scheduled.</div>`;
+      }
+
+      const upcoming = data.upcoming || data.nextClass;
+      if (upcoming) {
+        $('upcomingTitle').textContent = upcoming.title || upcoming.name || 'Upcoming';
+        $('upcomingMeta').textContent = upcoming.date || upcoming.time || '';
+        $('upcomingNote').textContent = upcoming.note || upcoming.description || 'Stay prepared.';
       }
     }
 
-    // ============================================
-    // Fetch & Render Timetable
-    // ============================================
-    async function fetchAndRenderTimetable(classId) {
-      const timetableGrid = document.getElementById('timetableGrid');
-      const token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
-
+    async function fetchStudentDashboard() {
+      showLoader();
       try {
-        const res = await fetch(`${API_BASE_URL}/api/academics/cbt/mocks/today/${classId}`, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (!res.ok) throw new Error('Failed to fetch');
-        const cbts = await res.json();
+        const res = await apiFetch('/students/me');
+        if (!res.ok) throw new Error(`Student request failed: ${res.status}`);
+        const data = await res.json();
 
-        if (cbts && cbts.length > 0) {
-          let html = '<div style="font-weight:700;background:#f8faff;text-align:center;">Time</div>';
-          const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-          days.forEach(day => {
-            html += `<div style="font-weight:700;background:#f8faff;text-align:center;">${day}</div>`;
-          });
+        await loadSchoolConfig(data);
+        populateDashboard(data);
+        await fetchDashboardAssignments();
 
-          cbts.forEach((cbt) => {
-            html += `<div class="time-slot">${new Date(cbt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>`;
-            html += `<div class="subject" style="grid-column: span 5;">${cbt.title}</div>`;
-          });
+        const attendance = data.attendance ?? data.attendancePercentage;
+        if (attendance !== undefined && attendance !== null) $('attPct').textContent = `${attendance}%`;
 
-          timetableGrid.innerHTML = html;
-        } else {
-          timetableGrid.innerHTML = '<div style="grid-column: 1/-1;padding:20px;text-align:center;color:#888;">No schedule available</div>';
+        const avg = data.cumulativeAverage ?? data.cumAvg ?? data.average;
+        if (avg !== undefined && avg !== null) $('cumAvg').textContent = `${avg}%`;
+
+        const progress = data.progress ?? data.progressPercentage;
+        if (progress !== undefined && progress !== null) $('progCircle').textContent = `${progress}%`;
+
+        if (data.upcoming) {
+          $('upcomingTitle').textContent = data.upcoming.title || data.upcoming.name || '--';
+          $('upcomingMeta').textContent = data.upcoming.meta || data.upcoming.date || data.upcoming.time || '--';
+          $('upcomingNote').textContent = data.upcoming.note || data.upcoming.description || '--';
         }
       } catch (err) {
-        console.error('Error fetching timetable:', err);
-        timetableGrid.innerHTML = '';
+        console.error('Dashboard error:', err);
+        $('heroGreeting').textContent = 'Welcome back';
+        $('assignmentsList').innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Unable to load dashboard data.</div>`;
+      } finally {
+        hideLoader();
       }
     }
 
-    // ============================================
-    // Init
-    // ============================================
-    window.addEventListener('load', () => {
-      fetchStudentDashboard();
-    });
+    async function fetchAndRenderTimetable(classId) {
+      const grid = $('timetableGrid');
+      grid.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Loading timetable…</div>`;
+      try {
+        const res = await apiFetch(`/academics/cbt/mocks/today/${encodeURIComponent(classId)}`);
+        if (!res.ok) throw new Error('Timetable request failed');
+        const cbts = await res.json();
 
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 720) {
-        sidebar.classList.remove('hidden', 'open');
-        overlay.classList.remove('visible');
+        if (!Array.isArray(cbts) || !cbts.length) {
+          grid.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">No schedule available.</div>`;
+          return;
+        }
+
+        grid.innerHTML = `
+          <div class="grid grid-cols-6 border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <div class="p-3">Time</div><div class="p-3">Mon</div><div class="p-3">Tue</div><div class="p-3">Wed</div><div class="p-3">Thu</div><div class="p-3">Fri</div>
+          </div>
+          ${cbts.map(c => `
+            <div class="grid grid-cols-6 border-b border-slate-100 last:border-0">
+              <div class="p-3 text-xs font-bold text-slate-500">${escapeHtml(new Date(c.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}))}</div>
+              <div class="col-span-5 p-3"><div class="rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs font-semibold text-indigo-800">${escapeHtml(c.title || 'Class')}</div></div>
+            </div>`).join('')}`;
+      } catch (err) {
+        console.error(err);
+        grid.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Timetable unavailable.</div>`;
       }
+    }
+
+    function initResources() {
+      const resources = Array.isArray(currentStudent?.resources) ? currentStudent.resources : [];
+      const grid = $('resourcesGrid');
+      if (!resources.length) {
+        grid.innerHTML = `<div class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500 sm:col-span-2 lg:col-span-3">No resources available.</div>`;
+        return;
+      }
+      const render = list => {
+        grid.innerHTML = list.map(r => `
+          <button type="button" class="resource-open rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-indigo-200 hover:shadow-md" data-url="${escapeHtml(r.url || '')}" data-title="${escapeHtml(r.title || 'Resource')}">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/></svg>
+            </span>
+            <p class="mt-3 text-xs font-bold text-slate-800">${escapeHtml(r.title || 'Resource')}</p>
+            <p class="mt-1 line-clamp-2 text-[11px] text-slate-500">${escapeHtml(r.description || '')}</p>
+          </button>`).join('');
+      };
+      render(resources);
+      $('resourceSearch').addEventListener('input', e => {
+        const q = e.target.value.toLowerCase().trim();
+        render(resources.filter(r => `${r.title || ''} ${r.description || ''}`.toLowerCase().includes(q)));
+      });
+    }
+
+    function openResource(url, title) {
+      if (!url) return;
+      $('modalTitle').textContent = title || 'Resource';
+      $('modalBody').innerHTML = `<iframe src="${escapeHtml(url)}" class="h-full w-full border-0" title="${escapeHtml(title || 'Resource')}"></iframe>`;
+      $('resourceModal').classList.remove('hidden');
+      $('resourceModal').classList.add('flex');
+    }
+
+    function closeResource() {
+      $('resourceModal').classList.add('hidden');
+      $('resourceModal').classList.remove('flex');
+      $('modalBody').innerHTML = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      $('openSidebar').addEventListener('click', openSidebar);
+      $('closeSidebar').addEventListener('click', closeSidebar);
+      $('sidebarBackdrop').addEventListener('click', closeSidebar);
+
+      $('mobileMenuBtn').addEventListener('click', openSidebar);
+      $('mobileMoreBtn').addEventListener('click', openStudentDrawer);
+      $('closeStudentDrawer').addEventListener('click', closeStudentDrawer);
+      $('studentDrawerBackdrop').addEventListener('click', closeStudentDrawer);
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeStudentDrawer();
+      });
+
+      $('logoutBtn').addEventListener('click', logout);
+      $('headerLogout').addEventListener('click', logout);
+      $('drawerLogout').addEventListener('click', logout);
+
+      document.querySelectorAll('[data-section]').forEach(el => {
+        el.addEventListener('click', () => navTo(el.dataset.section));
+      });
+
+      $('modalClose').addEventListener('click', closeResource);
+      $('resourceModal').addEventListener('click', e => {
+        if (e.target === $('resourceModal')) closeResource();
+      });
+
+      $('resourcesGrid').addEventListener('click', e => {
+        const btn = e.target.closest('.resource-open');
+        if (btn) openResource(btn.dataset.url, btn.dataset.title);
+      });
+
+      window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) {
+          $('sidebarBackdrop').classList.add('hidden');
+          $('sidebar').classList.remove('-translate-x-full');
+          document.body.classList.remove('overflow-hidden');
+          $('mobileNav').classList.remove('hidden');
+          closeStudentDrawer();
+        }
+      });
+
+      fetchStudentDashboard().then(initResources);
     });
   </script>
-
 </body>
 </html>
