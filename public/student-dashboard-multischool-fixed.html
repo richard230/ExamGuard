@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Portal</title>
+  <meta name="description" content="Student academic dashboard">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.5.2/flowbite.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-slate-50 text-slate-900 antialiased font-sans">
+  <!-- Page loader -->
+  <div id="loaderOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-white">
+    <div class="text-center">
+      <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"></div>
+      <p class="text-sm font-semibold text-slate-800">Loading portal</p>
+    </div>
+  </div>
+
+  <!-- Mobile sidebar backdrop -->
+  <div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 backdrop-blur-sm lg:hidden"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar"
+    class="fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:translate-x-0"
+    aria-label="Student navigation">
+
+    <div class="flex h-20 items-center gap-3 border-b border-slate-100 px-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+        <img id="schoolLogo" src="mainlogo.png" alt="School logo" class="h-full w-full object-cover"
+             onerror="this.style.display='none';document.getElementById('schoolLogoFallback').classList.remove('hidden')">
+        <span id="schoolLogoFallback" data-school-logo-fallback class="hidden text-sm font-extrabold text-indigo-600">SP</span>
+      </div>
+      <div class="min-w-0">
+        <p id="schoolName" class="truncate text-sm font800 font-extrabold text-slate-900">Student Portal</p>
+        <p class="text-xs font-medium text-slate-500">Student workspace</p>
+      </div>
+      <button id="closeSidebar" type="button" class="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Close menu">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+      <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
+
+      <button data-section="home" class="nav-item flex w-full items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-7h6v7"/></svg>
+        Overview
+      </button>
+
+      <a href="assignments.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        Assignments
+      </a>
+
+      <a href="check-result.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+        Results
+      </a>
+
+      <button data-section="timetable" class="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Timetable
+      </button>
+
+      <button data-section="messages" class="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.9-4.3A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+        Messages
+      </button>
+
+      <button data-section="resources" class="nav-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900" type="button">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/></svg>
+        Resources
+      </button>
+
+      <p class="px-3 pb-2 pt-6 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Account</p>
+
+      <a href="profile.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        Profile
+      </a>
+
+      <a href="others.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+        More
+      </a>
+    </nav>
+
+    <div class="border-t border-slate-100 p-3">
+      <div class="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+        <img id="sidebarAvatar" src="avatar.jpg" alt="Student" class="h-9 w-9 rounded-full object-cover ring-2 ring-white"
+             onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+        <div class="min-w-0 flex-1">
+          <p id="sidebarStudentName" class="truncate text-xs font-bold text-slate-800">Student</p>
+          <p id="sidebarStudentClass" class="truncate text-[11px] text-slate-500">Student</p>
+        </div>
+      </div>
+      <button id="logoutBtn" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100 focus:outline-none focus:ring-4 focus:ring-red-100">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg>
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main shell -->
+  <div class="min-h-screen lg:pl-72">
+    <!-- Header -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div class="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <div class="flex min-w-0 items-center gap-3">
+          <button id="openSidebar" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-indigo-100 lg:hidden" aria-label="Open menu">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div class="min-w-0">
+            <p id="headerTitle" class="truncate text-sm font-bold text-slate-900 sm:text-base">Overview</p>
+            <p id="headerMeta" class="hidden truncate text-xs text-slate-500 sm:block">Student workspace</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <a href="cbt-warning.html" class="hidden items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+            CBT
+          </a>
+          <button id="headerLogout" type="button" class="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 sm:inline-flex">
+            Sign out
+          </button>
+          <img id="headerAvatar" src="avatar.jpg" alt="Student" class="h-9 w-9 rounded-full object-cover ring-2 ring-slate-100"
+               onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-[1600px] px-4 py-5 pb-28 sm:px-6 lg:px-8 lg:pb-8">
+
+      <!-- Overview -->
+      <section id="homeSection" class="page-section space-y-5">
+        <!-- Hero -->
+        <div class="relative overflow-hidden rounded-2xl bg-slate-950 shadow-sm" style="background-image:url('https://res.cloudinary.com/da7o22rnq/image/upload/v1790931523/editor-uploads/pbszfmniyxrk3zs94nh1.png?auto=format&fit=crop&w=1800&q=85');background-size:cover;background-position:center;">
+          <div class="absolute inset-0 bg-slate-950/70"></div>
+          <div class="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/65 to-slate-950/45"></div>
+          <div class="relative px-5 py-7 sm:px-7 sm:py-9">
+            <div class="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <div class="max-w-2xl">
+                <span class="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white backdrop-blur-sm">Student portal</span>
+                <h1 id="heroGreeting" class="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-4xl">Welcome back</h1>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">Progress</p>
+                <p id="progCircle" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--%</p>
+              </div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 1.5"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-xs text-slate-400">Academic progress</p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">Average</p>
+                <p id="cumAvg" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--%</p>
+              </div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-xs text-slate-400">Cumulative performance</p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">Due</p>
+                <p id="dueCount" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--</p>
+              </div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-xs text-slate-400">Assignments this week</p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500">Attendance</p>
+                <p id="attPct" class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">--%</p>
+              </div>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+            </div>
+            <p class="mt-3 text-xs text-slate-400">Current term</p>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div>
+          <div class="mb-3 flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Quick access</h2>
+              <p class="text-xs text-slate-500">Core student tools</p>
+            </div>
+        </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <a href="assignments.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">Assignments</p>
+            </a>
+            <a href="check-result.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">Results</p>
+            </a>
+            <a href="cbt-warning.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">CBT</p>
+            </a>
+            <a href="fees.html" class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M7 6V4h10v2M7 14h.01M11 14h6"/></svg>
+              </span>
+              <p class="mt-3 text-xs font-bold text-slate-800">Fees</p>
+            </a>
+          </div>
+        </div>
+
+        <!-- Content cards -->
+        <div class="grid gap-5 xl:grid-cols-12">
+          <div class="space-y-5 xl:col-span-8">
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Recent assignments</h2>
+                  <p class="text-xs text-slate-500">Latest work</p>
+                </div>
+                <a href="assignments.html" class="text-xs font-bold text-indigo-600 hover:text-indigo-700">View all</a>
+              </div>
+              <div id="assignmentsList" class="divide-y divide-slate-100"></div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Grades snapshot</h2>
+                  <p class="text-xs text-slate-500">Latest available scores</p>
+                </div>
+                <a href="check-result.html" class="text-xs font-bold text-indigo-600 hover:text-indigo-700">Results</a>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-600">
+                  <thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                    <tr><th class="px-5 py-3 font-bold">Subject</th><th class="px-5 py-3 font-bold">Latest</th><th class="px-5 py-3 font-bold">Average</th></tr>
+                  </thead>
+                  <tbody id="gradesTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <div class="space-y-5 xl:col-span-4">
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Next up</h2>
+                  <p class="text-xs text-slate-500">Upcoming</p>
+                </div>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+              </div>
+              <div class="mt-5">
+                <p id="upcomingTitle" class="text-lg font-extrabold text-slate-900">--</p>
+                <p id="upcomingMeta" class="mt-1 text-xs text-slate-500">--</p>
+                <div id="upcomingNote" class="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-medium text-slate-600">--</div>
+              </div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="border-b border-slate-100 px-5 py-4">
+                <h2 class="text-sm font-bold text-slate-900">Today</h2>
+                <p class="text-xs text-slate-500">Class schedule</p>
+              </div>
+              <div id="todayTimetable" class="p-4"></div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 class="text-sm font-bold text-slate-900">Updates</h2>
+                  <p class="text-xs text-slate-500">School news</p>
+                </div>
+                <a href="news.html" class="text-xs font-bold text-indigo-600">All</a>
+              </div>
+              <div id="newsContent" class="divide-y divide-slate-100"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <!-- Timetable -->
+      <section id="timetableSection" class="page-section hidden">
+        <div class="mb-5">
+          <h1 class="text-xl font-extrabold text-slate-900">Timetable</h1>
+          <p class="text-xs text-slate-500">Weekly class schedule</p>
+        </div>
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="overflow-x-auto">
+            <div id="timetableGrid" class="min-w-[760px]"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Messages -->
+      <section id="messagesSection" class="page-section hidden">
+        <div class="mb-5">
+          <h1 class="text-xl font-extrabold text-slate-900">Messages</h1>
+          <p class="text-xs text-slate-500">Your conversations</p>
+        </div>
+        <div id="messagesFull" class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.9-4.3A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+          </div>
+          <p class="mt-3 text-sm font-bold text-slate-800">No messages</p>
+          <p class="mt-1 text-xs text-slate-500">New conversations will appear here.</p>
+        </div>
+      </section>
+
+      <!-- Resources -->
+      <section id="resourcesSection" class="page-section hidden">
+        <div class="mb-5 flex items-end justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-extrabold text-slate-900">Resources</h1>
+            <p class="text-xs text-slate-500">Learning materials</p>
+          </div>
+          <input id="resourceSearch" type="search" placeholder="Search" class="w-40 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
+        </div>
+        <div id="resourcesGrid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Mobile bottom navigation: hidden while sidebar is open -->
+  <nav id="mobileNav" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+    <div class="mx-auto flex max-w-md items-end justify-around">
+      <button data-section="home" class="mobile-nav-item flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-indigo-600" type="button">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-7h6v7"/></svg>
+        <span class="text-[10px] font-bold">Home</span>
+      </button>
+      <a href="assignments.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        <span class="text-[10px] font-bold">Work</span>
+      </a>
+      <button id="mobileMoreBtn" data-drawer-target="studentDrawer" data-drawer-show="studentDrawer" data-drawer-placement="bottom" class="relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-4 ring-slate-50" type="button" aria-label="More tools">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+      </button>
+      <button data-section="messages" class="mobile-nav-item flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500" type="button">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.9-4.3A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+        <span class="text-[10px] font-bold">Inbox</span>
+      </button>
+      <button id="mobileMenuBtn" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500" type="button">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <span class="text-[10px] font-bold">Menu</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Flowbite bottom drawer -->
+  <div id="studentDrawer" tabindex="-1" aria-hidden="true" class="fixed bottom-0 left-0 right-0 z-[60] hidden w-full translate-y-full rounded-t-2xl border border-slate-200 bg-white shadow-2xl transition-transform duration-300">
+    <div class="mx-auto w-full max-w-2xl p-5">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-extrabold text-slate-900">Quick access</h2>
+          <p class="text-xs text-slate-500">Student tools</p>
+        </div>
+        <button data-drawer-hide="studentDrawer" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Close">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        <a href="check-result.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 text-sky-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Results</span></a>
+        <a href="cbt-warning.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">CBT</span></a>
+        <a href="fees.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="14" rx="2"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Fees</span></a>
+        <a href="profile.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Profile</span></a>
+        <button id="drawerLogout" type="button" class="rounded-xl border border-red-100 bg-red-50 p-3 text-center hover:bg-red-100"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-white text-red-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg></span><span class="mt-2 block text-[11px] font-bold text-red-600">Sign out</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resource viewer -->
+  <div id="resourceModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+    <div class="flex h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <h3 id="modalTitle" class="text-sm font-bold text-slate-900">Resource</h3>
+        <button id="modalClose" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="modalBody" class="min-h-0 flex-1"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.5.2/flowbite.min.js"></script>
+  <script>
+    const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+    const API_ROOT = `${BACKEND_URL}/api`;
+    const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+    const BASE_DOMAINS = [window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng', 'examguard.com.ng'];
+
+    let currentStudent = null;
+    let currentSchool = null;
+    let publicSchoolId = '';
+    let currentSection = 'home';
+
+    const $ = id => document.getElementById(id);
+
+    function getToken() {
+      return localStorage.getItem('student_token') ||
+             localStorage.getItem('studentToken') ||
+             localStorage.getItem('token') ||
+             localStorage.getItem('authToken') || '';
+    }
+
+    function getTenantSubdomain() {
+      const stored = localStorage.getItem('schoolSubdomain');
+      if (stored) return stored;
+      const host = window.location.hostname.toLowerCase();
+      for (const base of BASE_DOMAINS) {
+        const suffix = `.${base.toLowerCase()}`;
+        if (host.endsWith(suffix)) return host.slice(0, -suffix.length);
+      }
+      return '';
+    }
+
+    function authHeaders(extra = {}) {
+      const headers = { Accept: 'application/json', ...extra };
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+      return headers;
+    }
+
+    async function apiFetch(path, options = {}) {
+      const headers = authHeaders(options.headers || {});
+      return fetch(`${API_ROOT}${path}`, { ...options, headers });
+    }
+
+    function initials(name = 'Student') {
+      return name.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'ST';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+      }[ch]));
+    }
+
+    function schoolIdOf(value) {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      return value._id || value.id || value.schoolId || '';
+    }
+
+    function normalizeSchool(raw) {
+      if (!raw) return null;
+      const candidate = raw.school || raw.data?.school || raw.data || raw;
+      return candidate && typeof candidate === 'object' ? candidate : null;
+    }
+
+    function getSchoolMongoId(school) {
+      return String(school?._id || school?.id || '');
+    }
+
+    function getSchoolPublicId(school) {
+      return String(school?.schoolId || school?.code || '');
+    }
+
+    function getSchoolLogo(school) {
+      const branding = school?.branding || {};
+      return school?.logoUrl || school?.logo || branding.logo ||
+        branding.lightLogo || branding.darkLogo || branding.logoUrl ||
+        school?.logo_url || school?.image || '';
+    }
+
+    function schoolInitials(name = 'Student Portal') {
+      return initials(name);
+    }
+
+    function handleSchoolLogoError(img) {
+      if (!img || img.dataset.fallbackApplied === '1') return;
+      img.dataset.fallbackApplied = '1';
+      img.style.display = 'none';
+      const fallback = document.getElementById('schoolLogoFallback');
+      if (fallback) {
+        fallback.textContent = schoolInitials(currentSchool?.schoolName || currentSchool?.name || 'School');
+        fallback.classList.remove('hidden');
+      }
+    }
+
+    function applySchoolBranding(school) {
+      if (!school) return;
+      currentSchool = school;
+
+      const name = school.schoolName || school.name || 'Student Portal';
+      const logo = getSchoolLogo(school);
+      const branding = school.branding || {};
+
+      publicSchoolId = getSchoolPublicId(school) || publicSchoolId;
+
+      const nameEl = $('schoolName');
+      const heroEl = $('heroSchool');
+      const logoEl = $('schoolLogo');
+      const fallbackEl = $('schoolLogoFallback');
+
+      if (nameEl) {
+        nameEl.textContent = name;
+        nameEl.title = name;
+      }
+      if (heroEl) heroEl.textContent = name;
+
+      if (logoEl) {
+        logoEl.dataset.fallbackApplied = '0';
+        logoEl.alt = `${name} Logo`;
+        logoEl.onerror = () => handleSchoolLogoError(logoEl);
+
+        if (logo) {
+          logoEl.src = logo;
+          logoEl.style.display = '';
+          if (fallbackEl) fallbackEl.classList.add('hidden');
+        } else {
+          handleSchoolLogoError(logoEl);
+        }
+      }
+
+      if (fallbackEl && !logo) {
+        fallbackEl.textContent = schoolInitials(name);
+        fallbackEl.classList.remove('hidden');
+      }
+
+      document.documentElement.style.setProperty('--school-primary', branding.primaryColor || '#4f46e5');
+      document.documentElement.style.setProperty('--school-secondary', branding.secondaryColor || '#f59e0b');
+      document.documentElement.style.setProperty('--school-accent', branding.accentColor || '#10b981');
+      document.title = `${name} | Student Portal`;
+
+      if (publicSchoolId) {
+        localStorage.setItem('publicSchoolId', publicSchoolId);
+        localStorage.setItem('schoolId', publicSchoolId);
+      }
+      if (school.subdomain) {
+        localStorage.setItem('schoolSubdomain', String(school.subdomain).toLowerCase());
+      }
+
+      const subdomain = String(school.subdomain || getTenantSubdomain() || '').toLowerCase();
+      if (subdomain) {
+        localStorage.setItem(`examguard_school_config_${subdomain}`, JSON.stringify(school));
+      }
+    }
+
+    async function loadSchoolConfig(studentData) {
+      const studentSchool = normalizeSchool(studentData?.school);
+      const studentMongoSchoolId =
+        getSchoolMongoId(studentSchool) ||
+        (typeof studentData?.schoolId === 'object' ? getSchoolMongoId(studentData.schoolId) : '') ||
+        (typeof studentData?.schoolId === 'string' ? studentData.schoolId : '');
+
+      const hostSubdomain = getTenantSubdomain();
+      const storedPublicSchoolId = localStorage.getItem('publicSchoolId') || localStorage.getItem('schoolId') || '';
+
+      if (studentSchool) applySchoolBranding(studentSchool);
+
+      try {
+        const meRes = await fetch(`${API_ROOT}/auth/me`, {
+          headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json' }
+        });
+
+        if (meRes.ok) {
+          const meRaw = await meRes.json();
+          const meUser = meRaw?.user || meRaw?.data?.user || meRaw;
+          const meSchool = normalizeSchool(meRaw?.school || meRaw?.data?.school || meUser?.school);
+          const authSchoolId = String(meUser?.schoolId || '');
+          const meSchoolId = getSchoolMongoId(meSchool);
+
+          if (meSchool && (!authSchoolId || !meSchoolId || authSchoolId === meSchoolId)) {
+            applySchoolBranding(meSchool);
+            return meSchool;
+          }
+        }
+      } catch (err) {
+        console.warn('Authenticated school context unavailable:', err);
+      }
+
+      const candidates = [];
+      if (hostSubdomain) {
+        candidates.push(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(hostSubdomain)}`);
+      }
+      if (storedPublicSchoolId) {
+        candidates.push(`${SCHOOL_CONFIG_ENDPOINT}?schoolId=${encodeURIComponent(storedPublicSchoolId)}`);
+      }
+
+      for (const url of candidates) {
+        try {
+          const res = await fetch(url, { headers: { Accept: 'application/json' } });
+          if (!res.ok) continue;
+          const remoteSchool = normalizeSchool(await res.json());
+          if (!remoteSchool) continue;
+
+          const remoteMongoId = getSchoolMongoId(remoteSchool);
+          if (studentMongoSchoolId && remoteMongoId && String(studentMongoSchoolId) !== String(remoteMongoId)) {
+            continue;
+          }
+
+          applySchoolBranding(remoteSchool);
+          return remoteSchool;
+        } catch (err) {
+          console.warn('School config candidate failed:', err);
+        }
+      }
+
+      if (hostSubdomain) {
+        try {
+          const cached = localStorage.getItem(`examguard_school_config_${hostSubdomain}`);
+          const cachedSchool = cached ? normalizeSchool(JSON.parse(cached)) : null;
+          const cachedMongoId = getSchoolMongoId(cachedSchool);
+          if (cachedSchool && (!studentMongoSchoolId || !cachedMongoId || String(studentMongoSchoolId) === String(cachedMongoId))) {
+            applySchoolBranding(cachedSchool);
+            return cachedSchool;
+          }
+        } catch (err) {
+          console.warn('Cached school config unavailable:', err);
+        }
+      }
+
+      return currentSchool || studentSchool || null;
+    }
+
+    function closeSidebar() {
+      $('sidebar').classList.add('-translate-x-full');
+      $('sidebarBackdrop').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      $('mobileNav').classList.remove('hidden');
+    }
+
+    function openSidebar() {
+      $('sidebar').classList.remove('-translate-x-full');
+      $('sidebarBackdrop').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      // Explicitly remove the bottom toolbar while the sidebar is active.
+      $('mobileNav').classList.add('hidden');
+    }
+
+    function navTo(section) {
+      currentSection = section;
+      const map = {
+        home: ['homeSection', 'Overview', 'Student workspace'],
+        timetable: ['timetableSection', 'Timetable', 'Weekly class schedule'],
+        messages: ['messagesSection', 'Messages', 'Your conversations'],
+        resources: ['resourcesSection', 'Resources', 'Learning materials']
+      };
+
+      document.querySelectorAll('.page-section').forEach(s => s.classList.add('hidden'));
+      const target = map[section]?.[0];
+      if (target) $(target).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(btn => {
+        const active = btn.dataset.section === section;
+        btn.classList.toggle('bg-indigo-50', active);
+        btn.classList.toggle('text-indigo-700', active);
+        btn.classList.toggle('text-slate-600', !active);
+      });
+
+      document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+        const active = btn.dataset.section === section;
+        btn.classList.toggle('text-indigo-600', active);
+        btn.classList.toggle('text-slate-500', !active);
+      });
+
+      if (map[section]) {
+        $('headerTitle').textContent = map[section][1];
+        $('headerMeta').textContent = map[section][2];
+      }
+
+      closeSidebar();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      if (section === 'timetable' && currentStudent?.class?._id) {
+        fetchAndRenderTimetable(currentStudent.class._id);
+      }
+    }
+
+    function logout() {
+      [
+        'student_token','studentToken','token','authToken',
+        'schoolSubdomain','publicSchoolId'
+      ].forEach(key => localStorage.removeItem(key));
+
+      sessionStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    function showLoader() {
+      $('loaderOverlay').classList.remove('hidden');
+    }
+
+    function hideLoader() {
+      $('loaderOverlay').classList.add('hidden');
+      setTimeout(() => $('loaderOverlay').remove(), 250);
+    }
+
+    function avatarUrl(name) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'Student')}&background=4f46e5&color=fff&bold=true`;
+    }
+
+    async function fetchDashboardAssignments() {
+      const container = $('assignmentsList');
+      try {
+        const res = await apiFetch('/assignments/me');
+        if (!res.ok) throw new Error('Failed to fetch assignments');
+        const assignments = await res.json();
+
+        if (!Array.isArray(assignments) || !assignments.length) {
+          container.innerHTML = `
+            <div class="p-8 text-center">
+              <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13"/></svg>
+              </div>
+              <p class="mt-3 text-xs font-semibold text-slate-700">No assignments</p>
+            </div>`;
+          return;
+        }
+
+        const limited = assignments.slice(0, 4);
+        container.innerHTML = limited.map(a => {
+          const status = String(a.status || 'pending').toLowerCase();
+          const statusMap = {
+            completed: ['bg-emerald-50 text-emerald-700', 'Completed'],
+            submitted: ['bg-emerald-50 text-emerald-700', 'Submitted'],
+            overdue: ['bg-red-50 text-red-700', 'Overdue'],
+            reviewed: ['bg-amber-50 text-amber-700', 'Reviewed'],
+            pending: ['bg-indigo-50 text-indigo-700', 'Pending']
+          };
+          const [badge, label] = statusMap[status] || statusMap.pending;
+          const due = a.dueDate ? new Date(a.dueDate).toLocaleDateString(undefined, {day:'numeric', month:'short'}) : 'No due date';
+          return `
+            <div class="flex items-center gap-3 px-5 py-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h9l3 3v15H6V3Z"/><path d="M9 11h6M9 15h6"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-bold text-slate-800">${escapeHtml(a.title || 'Untitled assignment')}</p>
+                <p class="mt-0.5 truncate text-[11px] text-slate-500">${escapeHtml(a.subject || 'Subject')} · Due ${escapeHtml(due)}</p>
+              </div>
+              <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${badge}">${label}</span>
+            </div>`;
+        }).join('');
+
+        const dueCount = assignments.filter(a => !['completed','submitted','reviewed'].includes(String(a.status || '').toLowerCase())).length;
+        $('dueCount').textContent = dueCount;
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-500">Assignments unavailable.</div>`;
+      }
+    }
+
+    function populateDashboard(data) {
+      currentStudent = data || null;
+      if (!data) return;
+
+      const name = data.name || data.fullName || 'Student';
+      const className = data.class?.name || data.className || 'Student';
+
+      $('sidebarStudentName').textContent = name;
+      $('sidebarStudentClass').textContent = className;
+      $('heroGreeting').textContent = `Welcome back, ${name}`;
+      $('headerMeta').textContent = `${className} · Student workspace`;
+
+      const avatar = data.photo_url || data.photo || data.avatar || avatarUrl(name);
+      $('sidebarAvatar').src = avatar;
+      $('headerAvatar').src = avatar;
+
+      if (Array.isArray(data.news) && data.news.length) {
+        $('newsContent').innerHTML = data.news.slice(0, 4).map(n => `
+          <div class="px-5 py-3.5">
+            <p class="text-xs font-bold text-slate-800">${escapeHtml(n.title || 'School update')}</p>
+            <p class="mt-1 text-[11px] text-slate-500">${escapeHtml(n.summary || '')}</p>
+            ${n.date ? `<p class="mt-1 text-[10px] text-slate-400">${escapeHtml(n.date)}</p>` : ''}
+          </div>`).join('');
+      } else {
+        $('newsContent').innerHTML = `<div class="p-6 text-center text-xs text-slate-500">No updates.</div>`;
+      }
+
+      if (Array.isArray(data.grades) && data.grades.length) {
+        $('gradesTable').innerHTML = data.grades.slice(0, 6).map(g => `
+          <tr>
+            <td class="px-5 py-3 font-semibold text-slate-800">${escapeHtml(g.subject || 'Subject')}</td>
+            <td class="px-5 py-3">${escapeHtml(g.latest ?? '--')}</td>
+            <td class="px-5 py-3 font-semibold text-slate-800">${escapeHtml(g.termAvg ?? '--')}</td>
+          </tr>`).join('');
+      } else {
+        $('gradesTable').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-xs text-slate-500">No grades available.</td></tr>`;
+      }
+
+      if (Array.isArray(data.timetable) && data.timetable.length) {
+        const today = data.timetable[0];
+        $('todayTimetable').innerHTML = (today.subjects || []).slice(0, 5).map(s => `
+          <div class="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-slate-50">
+            <span class="w-14 shrink-0 text-[10px] font-bold text-slate-400">${escapeHtml(s.time || '--')}</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-indigo-500"></span>
+            <span class="truncate text-xs font-semibold text-slate-700">${escapeHtml(s.name || 'Class')}</span>
+          </div>`).join('');
+      } else {
+        $('todayTimetable').innerHTML = `<div class="py-6 text-center text-xs text-slate-500">No classes scheduled.</div>`;
+      }
+
+      const upcoming = data.upcoming || data.nextClass;
+      if (upcoming) {
+        $('upcomingTitle').textContent = upcoming.title || upcoming.name || 'Upcoming';
+        $('upcomingMeta').textContent = upcoming.date || upcoming.time || '';
+        $('upcomingNote').textContent = upcoming.note || upcoming.description || 'Stay prepared.';
+      }
+    }
+
+    async function fetchStudentDashboard() {
+      showLoader();
+      try {
+        const res = await apiFetch('/students/me');
+        if (!res.ok) throw new Error(`Student request failed: ${res.status}`);
+        const data = await res.json();
+
+        await loadSchoolConfig(data);
+        populateDashboard(data);
+        await fetchDashboardAssignments();
+
+        const attendance = data.attendance ?? data.attendancePercentage;
+        if (attendance !== undefined && attendance !== null) $('attPct').textContent = `${attendance}%`;
+
+        const avg = data.cumulativeAverage ?? data.cumAvg ?? data.average;
+        if (avg !== undefined && avg !== null) $('cumAvg').textContent = `${avg}%`;
+
+        const progress = data.progress ?? data.progressPercentage;
+        if (progress !== undefined && progress !== null) $('progCircle').textContent = `${progress}%`;
+
+        if (data.upcoming) {
+          $('upcomingTitle').textContent = data.upcoming.title || data.upcoming.name || '--';
+          $('upcomingMeta').textContent = data.upcoming.meta || data.upcoming.date || data.upcoming.time || '--';
+          $('upcomingNote').textContent = data.upcoming.note || data.upcoming.description || '--';
+        }
+      } catch (err) {
+        console.error('Dashboard error:', err);
+        $('heroGreeting').textContent = 'Welcome back';
+        $('assignmentsList').innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Unable to load dashboard data.</div>`;
+      } finally {
+        hideLoader();
+      }
+    }
+
+    async function fetchAndRenderTimetable(classId) {
+      const grid = $('timetableGrid');
+      grid.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Loading timetable…</div>`;
+      try {
+        const res = await apiFetch(`/academics/cbt/mocks/today/${encodeURIComponent(classId)}`);
+        if (!res.ok) throw new Error('Timetable request failed');
+        const cbts = await res.json();
+
+        if (!Array.isArray(cbts) || !cbts.length) {
+          grid.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">No schedule available.</div>`;
+          return;
+        }
+
+        grid.innerHTML = `
+          <div class="grid grid-cols-6 border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <div class="p-3">Time</div><div class="p-3">Mon</div><div class="p-3">Tue</div><div class="p-3">Wed</div><div class="p-3">Thu</div><div class="p-3">Fri</div>
+          </div>
+          ${cbts.map(c => `
+            <div class="grid grid-cols-6 border-b border-slate-100 last:border-0">
+              <div class="p-3 text-xs font-bold text-slate-500">${escapeHtml(new Date(c.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}))}</div>
+              <div class="col-span-5 p-3"><div class="rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs font-semibold text-indigo-800">${escapeHtml(c.title || 'Class')}</div></div>
+            </div>`).join('')}`;
+      } catch (err) {
+        console.error(err);
+        grid.innerHTML = `<div class="p-8 text-center text-xs text-slate-500">Timetable unavailable.</div>`;
+      }
+    }
+
+    function initResources() {
+      const resources = Array.isArray(currentStudent?.resources) ? currentStudent.resources : [];
+      const grid = $('resourcesGrid');
+      if (!resources.length) {
+        grid.innerHTML = `<div class="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500 sm:col-span-2 lg:col-span-3">No resources available.</div>`;
+        return;
+      }
+      const render = list => {
+        grid.innerHTML = list.map(r => `
+          <button type="button" class="resource-open rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-indigo-200 hover:shadow-md" data-url="${escapeHtml(r.url || '')}" data-title="${escapeHtml(r.title || 'Resource')}">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/></svg>
+            </span>
+            <p class="mt-3 text-xs font-bold text-slate-800">${escapeHtml(r.title || 'Resource')}</p>
+            <p class="mt-1 line-clamp-2 text-[11px] text-slate-500">${escapeHtml(r.description || '')}</p>
+          </button>`).join('');
+      };
+      render(resources);
+      $('resourceSearch').addEventListener('input', e => {
+        const q = e.target.value.toLowerCase().trim();
+        render(resources.filter(r => `${r.title || ''} ${r.description || ''}`.toLowerCase().includes(q)));
+      });
+    }
+
+    function openResource(url, title) {
+      if (!url) return;
+      $('modalTitle').textContent = title || 'Resource';
+      $('modalBody').innerHTML = `<iframe src="${escapeHtml(url)}" class="h-full w-full border-0" title="${escapeHtml(title || 'Resource')}"></iframe>`;
+      $('resourceModal').classList.remove('hidden');
+      $('resourceModal').classList.add('flex');
+    }
+
+    function closeResource() {
+      $('resourceModal').classList.add('hidden');
+      $('resourceModal').classList.remove('flex');
+      $('modalBody').innerHTML = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      $('openSidebar').addEventListener('click', openSidebar);
+      $('closeSidebar').addEventListener('click', closeSidebar);
+      $('sidebarBackdrop').addEventListener('click', closeSidebar);
+
+      $('mobileMenuBtn').addEventListener('click', openSidebar);
+
+      $('logoutBtn').addEventListener('click', logout);
+      $('headerLogout').addEventListener('click', logout);
+      $('drawerLogout').addEventListener('click', logout);
+
+      document.querySelectorAll('[data-section]').forEach(el => {
+        el.addEventListener('click', () => navTo(el.dataset.section));
+      });
+
+      $('modalClose').addEventListener('click', closeResource);
+      $('resourceModal').addEventListener('click', e => {
+        if (e.target === $('resourceModal')) closeResource();
+      });
+
+      $('resourcesGrid').addEventListener('click', e => {
+        const btn = e.target.closest('.resource-open');
+        if (btn) openResource(btn.dataset.url, btn.dataset.title);
+      });
+
+      window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) {
+          $('sidebarBackdrop').classList.add('hidden');
+          $('sidebar').classList.remove('-translate-x-full');
+          document.body.classList.remove('overflow-hidden');
+          $('mobileNav').classList.remove('hidden');
+        }
+      });
+
+      fetchStudentDashboard().then(initResources);
+    });
+  </script>
+</body>
+</html>
