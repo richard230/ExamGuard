@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Alumni | School Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    :root{
+      --school-primary:#1e40af;--school-secondary:#0f172a;--school-accent:#3b82f6;
+      --school-primary-dark:#16358f;--school-primary-light:#eff6ff;--school-primary-soft:#dbeafe;
+      --bg:#f6f8fc;--surface:#fff;--text:#172033;--muted:#64748b;--line:#e7ebf2;
+      --success:#15803d;--sidebar:#0b1220;--sidebar-w:256px;--radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+    body{padding-bottom:0}
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    a{text-decoration:none;color:inherit}
+    .app{min-height:100vh}
+    .sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar-w);background:linear-gradient(180deg,#0b1220,#101d32);color:#dbe5f5;z-index:100;display:flex;flex-direction:column;padding:18px 12px;box-shadow:8px 0 30px rgba(15,23,42,.10);overflow:auto}
+    .brand{display:flex;align-items:center;gap:11px;padding:6px 9px 18px}
+    .brand-logo{width:42px;height:42px;border-radius:12px;object-fit:cover;background:#fff;border:1px solid rgba(255,255,255,.15);flex:none}
+    .brand-title{font-weight:800;font-size:14px;color:#fff;line-height:1.25;max-width:170px}
+    .brand-sub{font-size:11px;color:#94a8c5;margin-top:3px}
+    .nav{display:flex;flex-direction:column;gap:4px}
+    .nav a{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:11px;font-size:13px;font-weight:600;color:#b9c7da;transition:.18s}
+    .nav a i{width:18px;text-align:center;font-size:14px}
+    .nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+    .nav a.active{background:rgba(255,255,255,.09);color:#fff;box-shadow:inset 3px 0 0 var(--school-accent)}
+    .sidebar-footer{margin-top:auto;padding:16px 10px 4px;color:#8192aa;font-size:11px}
+    .sidebar-footer strong{display:block;color:#dbe5f5;font-size:12px;margin-top:3px}
+    .main-wrap{margin-left:var(--sidebar-w);min-height:100vh}
+    .topbar{height:64px;position:sticky;top:0;z-index:80;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+    .top-left{display:flex;align-items:center;gap:12px;min-width:0}
+    .mobile-menu{display:none;border:0;background:#f1f5f9;width:38px;height:38px;border-radius:10px;color:#334155}
+    .top-title{font-size:14px;font-weight:700;color:#334155;white-space:nowrap}
+    .top-actions{display:flex;align-items:center;gap:5px}
+    .top-icon{width:36px;height:36px;border:0;background:transparent;border-radius:10px;color:#64748b}
+    .top-icon:hover{background:#f1f5f9;color:#1e293b}
+    .content{padding:28px 28px 110px;max-width:1500px;margin:auto}
+    .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px}
+    .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--school-primary);margin-bottom:7px}
+    h1{margin:0;font-size:25px;letter-spacing:-.025em;line-height:1.15}
+    .subtitle{margin:7px 0 0;color:var(--muted);font-size:13px}
+    .count-pill{display:inline-flex;align-items:center;gap:7px;background:var(--school-primary-light);color:var(--school-primary);border:1px solid var(--school-primary-soft);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+    .filters{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:grid;grid-template-columns:minmax(240px,2fr) minmax(160px,1fr) auto;gap:10px;margin-bottom:20px;box-shadow:0 3px 12px rgba(15,23,42,.035)}
+    .field{position:relative}
+    .field i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none}
+    .field input,.field select{width:100%;height:42px;border:1px solid #dfe5ed;background:#fff;border-radius:10px;padding:0 12px;color:#1e293b;outline:none;font-size:13px;transition:.18s}
+    .field input{padding-left:36px}
+    .field input:focus,.field select:focus{border-color:var(--school-accent);box-shadow:0 0 0 3px var(--school-primary-soft)}
+    .btn{height:42px;border:0;border-radius:10px;padding:0 16px;background:var(--school-primary);color:#fff;font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.18s;white-space:nowrap}
+    .btn:hover{background:var(--school-primary-dark);transform:translateY(-1px);box-shadow:0 5px 14px rgba(30,64,175,.18)}
+    .btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;min-height:235px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;transition:.2s;box-shadow:0 2px 9px rgba(15,23,42,.025)}
+    .card:hover{transform:translateY(-3px);border-color:var(--school-primary-soft);box-shadow:0 10px 24px rgba(15,23,42,.08)}
+    .avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#eef2f7;border:3px solid var(--school-primary-soft);margin-bottom:12px}
+    .name{font-size:15px;font-weight:800;margin:0;color:#172033;line-height:1.3}
+    .meta{font-size:11px;color:var(--muted);line-height:1.6;margin:7px 0 0}
+    .meta strong{color:#475569}
+    .achievement{margin:12px 0 0;color:var(--success);font-size:11px;font-weight:700;line-height:1.4;display:flex;align-items:center;justify-content:center;gap:5px}
+    .remark{font-size:11px;color:#64748b;line-height:1.45;margin:8px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .view-hint{margin-top:auto;padding-top:12px;font-size:10px;color:#94a3b8}
+    .state{grid-column:1/-1;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed #dbe2eb;border-radius:var(--radius)}
+    .state i{font-size:24px;margin-bottom:12px;color:#94a3b8}
+    .state.error i{color:#dc2626}
+    .state p{margin:0;font-size:13px}
+    .spinner{width:28px;height:28px;border:3px solid var(--school-primary-soft);border-top-color:var(--school-primary);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.52);backdrop-filter:blur(3px);z-index:1000;display:none;align-items:center;justify-content:center;padding:18px}
+    .modal-backdrop.open{display:flex}
+    .modal{width:min(500px,100%);max-height:min(720px,92vh);overflow:auto;background:#fff;border-radius:20px;box-shadow:0 25px 70px rgba(15,23,42,.25);position:relative}
+    .modal-head{padding:24px 24px 16px;text-align:center;border-bottom:1px solid var(--line)}
+    .modal-avatar{width:88px;height:88px;border-radius:50%;object-fit:cover;border:4px solid var(--school-primary-soft);margin-bottom:10px}
+    .modal-name{margin:0;font-size:19px;font-weight:800}
+    .modal-close{position:absolute;right:14px;top:14px;width:34px;height:34px;border:0;border-radius:9px;background:#f1f5f9;color:#64748b}
+    .modal-close:hover{background:#e2e8f0;color:#1e293b}
+    .details{padding:18px 24px 24px}
+    .detail-row{display:flex;justify-content:space-between;gap:18px;padding:11px 0;border-bottom:1px solid #eef2f6;font-size:12px}
+    .detail-row:last-child{border-bottom:0}
+    .detail-label{color:#94a3b8;font-weight:600}
+    .detail-value{color:#334155;font-weight:700;text-align:right}
+    .highlight{margin-top:15px;padding:13px;border-radius:12px;background:#f8fafc;border-left:3px solid var(--school-primary);font-size:12px;line-height:1.6;color:#475569}
+    .highlight.achievement{border-left-color:var(--success);background:#f0fdf4;color:#166534;display:block;text-align:left}
+    .drawer{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -16px 45px rgba(15,23,42,.18);z-index:950;transform:translateY(105%);transition:transform .25s ease;max-height:78vh;overflow:auto;padding:10px 18px 28px}
+    .drawer.open{transform:translateY(0)}
+    .drawer-handle{width:38px;height:4px;border-radius:99px;background:#cbd5e1;margin:2px auto 15px}
+    .drawer-title{font-size:14px;font-weight:800;margin:0 0 12px;color:#1e293b}
+    .drawer-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+    .drawer-item{min-height:72px;border:1px solid #e8edf3;background:#fff;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#475569;font-size:10px;font-weight:600}
+    .drawer-item i{font-size:16px;color:#64748b}
+    .drawer-item.active{background:var(--school-primary-light);border-color:var(--school-primary-soft);color:var(--school-primary)}
+    .drawer-item.active i{color:var(--school-primary)}
+    .bottom-nav{display:none}
+    .overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.42);z-index:90}
+    .overlay.open{display:block}
+    #pageLoader{position:fixed;inset:0;background:rgba(255,255,255,.94);z-index:2000;display:flex;align-items:center;justify-content:center;transition:.25s}
+    #pageLoader.hide{opacity:0;pointer-events:none}
+    .loader-box{text-align:center;color:#64748b;font-size:12px}
+    .loader-ring{width:38px;height:38px;border:4px solid var(--school-primary-soft);border-top-color:var(--school-primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+    @media(max-width:900px){
+      :root{--sidebar-w:240px}
+      .filters{grid-template-columns:1fr 150px auto}
+      .content{padding-left:20px;padding-right:20px}
+    }
+    @media(max-width:720px){
+      body{padding-bottom:72px}
+      .sidebar{transform:translateX(-100%);transition:transform .22s ease;width:280px}
+      .sidebar.open{transform:translateX(0)}
+      .main-wrap{margin-left:0}
+      .topbar{height:58px;padding:0 13px}
+      .mobile-menu{display:block}
+      .top-title{font-size:13px}
+      .top-actions .top-icon:nth-child(n+2){display:none}
+      .content{padding:20px 13px 90px}
+      .page-head{align-items:flex-start;margin-bottom:17px}
+      h1{font-size:21px}
+      .subtitle{font-size:12px}
+      .count-pill{font-size:10px;padding:7px 9px}
+      .filters{grid-template-columns:1fr;padding:11px;margin-bottom:15px}
+      .btn{width:100%}
+      .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+      .card{min-height:215px;padding:14px 10px}
+      .avatar{width:62px;height:62px}
+      .name{font-size:13px}
+      .meta{font-size:10px}
+      .remark{font-size:10px}
+      .bottom-nav{position:fixed;display:grid;grid-template-columns:1fr 1fr 1.2fr 1fr 1fr;left:0;right:0;bottom:0;height:68px;background:rgba(255,255,255,.97);backdrop-filter:blur(14px);border-top:1px solid var(--line);z-index:900;padding:7px 7px calc(7px + env(safe-area-inset-bottom))}
+      .bottom-item{border:0;background:transparent;border-radius:12px;color:#64748b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:9px;font-weight:600}
+      .bottom-item i{font-size:16px}
+      .bottom-item.active{color:var(--school-primary)}
+      .module-wrap{position:relative;display:flex;justify-content:center}
+      .module-btn{position:absolute;top:-25px;width:54px;height:54px;border-radius:17px;border:4px solid var(--bg);background:var(--school-primary);color:#fff;box-shadow:0 7px 18px rgba(15,23,42,.22);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9px;font-weight:700}
+      .module-btn i{font-size:18px}
+      .module-space{padding-top:20px}
+      .drawer-grid{grid-template-columns:repeat(4,1fr)}
+    }
+    @media(max-width:390px){
+      .grid{grid-template-columns:1fr}
+      .card{min-height:205px}
+      .drawer-grid{grid-template-columns:repeat(3,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div id="pageLoader"><div class="loader-box"><div class="loader-ring"></div><div>Loading school data…</div></div></div>
+
+  <div class="overlay" id="sidebarOverlay"></div>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Admin navigation">
+      <div class="brand">
+        <img id="schoolLogo" class="brand-logo" src="" alt="School logo" onerror="handleLogoError(this)">
+        <div>
+          <div class="brand-title" id="schoolBrandName">School Portal</div>
+          <div class="brand-sub">Admin Portal</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="admin.html"><i class="fa-solid fa-house"></i>Dashboard</a>
+        <a href="admission.html"><i class="fa-solid fa-user-plus"></i>Admission</a>
+        <a href="more.html"><i class="fa-solid fa-globe"></i>Multi-location</a>
+        <a href="people.html"><i class="fa-solid fa-users"></i>People</a>
+        <a href="academics.html"><i class="fa-solid fa-book-open"></i>Academics</a>
+        <a href="admin-cbt.html"><i class="fa-solid fa-display"></i>CBT</a>
+        <a href="results.html"><i class="fa-solid fa-file-lines"></i>Results</a>
+        <a href="finance.html"><i class="fa-solid fa-wallet"></i>Finance</a>
+        <a href="attendance.html"><i class="fa-solid fa-calendar-check"></i>Attendance</a>
+        <a href="students-promotion.html"><i class="fa-solid fa-arrow-right-arrow-left"></i>Promotion</a>
+        <a href="students-alumni.html" class="active"><i class="fa-solid fa-user-graduate"></i>Alumni</a>
+        <a href="#"><i class="fa-solid fa-gear"></i>Settings</a>
+      </nav>
+      <div class="sidebar-footer">Signed in as<strong id="adminName">Admin</strong></div>
+    </aside>
+
+    <div class="main-wrap">
+      <header class="topbar">
+        <div class="top-left">
+          <button class="mobile-menu" id="sidebarToggle" aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
+          <div class="top-title">Alumni</div>
+        </div>
+        <div class="top-actions">
+          <button class="top-icon" title="Notifications" aria-label="Notifications"><i class="fa-regular fa-bell"></i></button>
+          <button class="top-icon" title="Help" aria-label="Help"><i class="fa-regular fa-circle-question"></i></button>
+          <button class="top-icon" title="Settings" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="page-head">
+          <div>
+            <div class="eyebrow">Students</div>
+            <h1>Alumni</h1>
+            <p class="subtitle">View graduated students and their records.</p>
+          </div>
+          <div class="count-pill"><i class="fa-solid fa-user-graduate"></i><span id="alumniCount">0 alumni</span></div>
+        </section>
+
+        <section class="filters" aria-label="Alumni filters">
+          <div class="field">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="searchName" type="search" placeholder="Search name or reg. no." autocomplete="off">
+          </div>
+          <div class="field">
+            <select id="filterYear" aria-label="Graduation year"><option value="">All years</option></select>
+          </div>
+          <button class="btn" id="searchBtn"><i class="fa-solid fa-magnifying-glass"></i>Search</button>
+        </section>
+
+        <section class="grid" id="alumniGrid" aria-live="polite">
+          <div class="state"><div class="spinner"></div><p>Loading alumni…</p></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Mobile navigation">
+    <a class="bottom-item" href="admin.html"><i class="fa-solid fa-house"></i><span>Home</span></a>
+    <a class="bottom-item" href="people.html"><i class="fa-solid fa-users"></i><span>People</span></a>
+    <div class="module-wrap">
+      <button class="module-btn" id="moduleButton" aria-label="Open modules"><i class="fa-solid fa-layer-group"></i><span>Modules</span></button>
+      <div class="module-space"></div>
+    </div>
+    <a class="bottom-item" href="finance.html"><i class="fa-solid fa-wallet"></i><span>Finance</span></a>
+    <button class="bottom-item" id="moreButton"><i class="fa-solid fa-ellipsis"></i><span>More</span></button>
+  </nav>
+
+  <div class="drawer" id="moduleDrawer" aria-hidden="true">
+    <div class="drawer-handle"></div>
+    <h2 class="drawer-title">Quick access</h2>
+    <div class="drawer-grid">
+      <a class="drawer-item" href="admission.html"><i class="fa-solid fa-user-plus"></i><span>Admission</span></a>
+      <a class="drawer-item" href="academics.html"><i class="fa-solid fa-book-open"></i><span>Academics</span></a>
+      <a class="drawer-item" href="admin-cbt.html"><i class="fa-solid fa-display"></i><span>CBT</span></a>
+      <a class="drawer-item" href="results.html"><i class="fa-solid fa-file-lines"></i><span>Results</span></a>
+      <a class="drawer-item" href="attendance.html"><i class="fa-solid fa-calendar-check"></i><span>Attendance</span></a>
+      <a class="drawer-item" href="students-promotion.html"><i class="fa-solid fa-arrow-right-arrow-left"></i><span>Promotion</span></a>
+      <a class="drawer-item active" href="students-alumni.html"><i class="fa-solid fa-user-graduate"></i><span>Alumni</span></a>
+      <a class="drawer-item" href="more.html"><i class="fa-solid fa-globe"></i><span>Locations</span></a>
+      <a class="drawer-item" href="finance.html"><i class="fa-solid fa-wallet"></i><span>Finance</span></a>
+      <a class="drawer-item" href="people.html"><i class="fa-solid fa-users"></i><span>People</span></a>
+      <a class="drawer-item" href="admin.html"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+      <a class="drawer-item" href="#"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="alumniModal" role="dialog" aria-modal="true" aria-labelledby="modalName">
+    <div class="modal" id="alumniModalContent">
+      <button class="modal-close" id="modalClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-head">
+        <img id="modalAvatar" class="modal-avatar" src="" alt="Alumni photo" onerror="handleLogoError(this)">
+        <h2 class="modal-name" id="modalName">Alumni</h2>
+      </div>
+      <div class="details">
+        <div class="detail-row"><span class="detail-label">Registration no.</span><span class="detail-value" id="modalRegNo">—</span></div>
+        <div class="detail-row"><span class="detail-label">Graduation year</span><span class="detail-value" id="modalYear">—</span></div>
+        <div class="detail-row"><span class="detail-label">Class</span><span class="detail-value" id="modalClass">—</span></div>
+        <div class="highlight achievement" id="modalAchievement">No achievement recorded.</div>
+        <div class="highlight" id="modalReport">No report available.</div>
+        <div class="highlight" id="modalRemark">No remark available.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+  const API_ROOT = `${BACKEND_URL}/api`;
+  const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+  const BASE_DOMAINS = [window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng', 'examguard.com.ng'];
+
+  let currentUser = null;
+  let currentSchool = null;
+  let publicSchoolId = null;
+  let schoolSubdomain = null;
+  let alumniList = [];
+  let lastLoaded = false;
+
+  const $ = id => document.getElementById(id);
+
+  function getToken(){
+    return localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+  }
+
+  function getTenantSubdomain(){
+    const stored = localStorage.getItem('schoolSubdomain');
+    if(stored) return stored;
+    const host = window.location.hostname.toLowerCase();
+    for(const base of BASE_DOMAINS){
+      const suffix = `.${base}`;
+      if(host.endsWith(suffix)) return host.slice(0, -suffix.length);
+    }
+    return null;
+  }
+
+  function authHeaders(extra={}){
+    const headers = {'Content-Type':'application/json', ...extra};
+    const token = getToken();
+    if(token) headers.Authorization = `Bearer ${token}`;
+    if(publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+    return headers;
+  }
+
+  async function apiFetch(url, options={}){
+    const headers = authHeaders(options.headers || {});
+    const res = await fetch(url, {...options, headers});
+    if(res.status === 401){ localStorage.removeItem('adminToken'); }
+    return res;
+  }
+
+  async function loadSchoolConfig(){
+    const token = getToken();
+    if(!token) throw new Error('Your session has expired. Please sign in again.');
+
+    const meRes = await fetch(`${API_ROOT}/auth/me`, {headers: authHeaders()});
+    if(!meRes.ok) throw new Error('Unable to load your school account.');
+    const raw = await meRes.json();
+
+    currentUser = raw.user || raw.data?.user || raw;
+    const schoolFromMe = raw.school || raw.data?.school || currentUser?.school || null;
+
+    if(!currentUser?.schoolId) throw new Error('No school is attached to this account.');
+    if(!schoolFromMe?._id) throw new Error('School configuration is unavailable.');
+
+    if(String(currentUser.schoolId) !== String(schoolFromMe._id)){
+      throw new Error('School context could not be verified.');
+    }
+
+    currentSchool = schoolFromMe;
+    publicSchoolId = schoolFromMe.schoolId || schoolFromMe.code || schoolFromMe._id;
+    schoolSubdomain = schoolFromMe.subdomain || schoolFromMe.slug || getTenantSubdomain();
+
+    try{
+      const configRes = await fetch(SCHOOL_CONFIG_ENDPOINT, {headers: authHeaders()});
+      if(configRes.ok){
+        const configRaw = await configRes.json();
+        const configured = configRaw.school || configRaw.data?.school || configRaw.data || configRaw;
+        if(configured?._id && String(configured._id) === String(currentUser.schoolId)){
+          currentSchool = {...currentSchool, ...configured};
+          publicSchoolId = configured.schoolId || configured.code || publicSchoolId;
+        }
+      }
+    }catch(e){ /* /schools/config is supplemental */ }
+
+    applySchoolBranding(currentSchool);
+  }
+
+  function schoolInitials(name){
+    return (name || 'School').trim().split(/\s+/).slice(0,2).map(x => x[0]).join('').toUpperCase();
+  }
+
+  function handleLogoError(img){
+    if(!img || img.dataset.fallback === '1') return;
+    img.dataset.fallback = '1';
+    const name = currentSchool?.name || currentSchool?.schoolName || 'School';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="100%" height="100%" rx="28" fill="#eef2f7"/><text x="50%" y="55%" text-anchor="middle" font-family="Arial" font-size="54" font-weight="700" fill="#475569">${schoolInitials(name)}</text></svg>`;
+    img.src = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }
+  window.handleLogoError = handleLogoError;
+
+  function applySchoolBranding(school){
+    const name = school?.name || school?.schoolName || school?.institutionName || 'School Portal';
+    const logo = school?.logoUrl || school?.logo || school?.logo_url || school?.branding?.logo || '';
+    const primary = school?.primaryColor || school?.colors?.primary || '#1e40af';
+    const secondary = school?.secondaryColor || school?.colors?.secondary || '#0f172a';
+    const accent = school?.accentColor || school?.colors?.accent || primary;
+    document.documentElement.style.setProperty('--school-primary', primary);
+    document.documentElement.style.setProperty('--school-secondary', secondary);
+    document.documentElement.style.setProperty('--school-accent', accent);
+    document.documentElement.style.setProperty('--school-primary-dark', school?.primaryDarkColor || primary);
+    document.documentElement.style.setProperty('--school-primary-light', school?.primaryLightColor || '#eff6ff');
+    document.documentElement.style.setProperty('--school-primary-soft', school?.primarySoftColor || '#dbeafe');
+    $('schoolBrandName').textContent = name;
+    $('schoolLogo').src = logo || '';
+    if(!logo) handleLogoError($('schoolLogo'));
+    document.title = `Alumni | ${name}`;
+    $('adminName').textContent = currentUser?.name || currentUser?.fullName || currentUser?.username || 'Admin';
+  }
+
+  function avatarFor(alumni){
+    return alumni.photoBase64 || alumni.photo_url || alumni.photoUrl ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(`${alumni.firstname || ''} ${alumni.surname || ''}`.trim() || 'Alumni')}&background=1e40af&color=fff`;
+  }
+
+  function safeText(value, fallback=''){
+    return value == null || value === '' ? fallback : String(value);
+  }
+
+  function renderState(type, message){
+    const icon = type === 'error' ? 'fa-circle-exclamation' : type === 'empty' ? 'fa-user-graduate' : 'fa-inbox';
+    $('alumniGrid').innerHTML = `<div class="state ${type === 'error' ? 'error':''}"><i class="fa-solid ${icon}"></i><p>${message}</p></div>`;
+  }
+
+  function renderAlumni(list){
+    alumniList = list;
+    $('alumniCount').textContent = `${list.length} ${list.length === 1 ? 'alumnus' : 'alumni'}`;
+    if(!list.length){ renderState('empty','No alumni found.'); return; }
+
+    $('alumniGrid').innerHTML = list.map((a, index) => {
+      const name = `${a.firstname || ''} ${a.surname || ''}`.trim() || 'Unnamed student';
+      const year = a.graduationYear || a.academicSession || '';
+      return `
+        <article class="card" tabindex="0" role="button" data-index="${index}" aria-label="View ${escapeHtml(name)}">
+          <img class="avatar" src="${escapeAttr(avatarFor(a))}" alt="" onerror="handleLogoError(this)">
+          <h3 class="name">${escapeHtml(name)}</h3>
+          <p class="meta">
+            ${a.regNo ? `<strong>${escapeHtml(a.regNo)}</strong><br>` : ''}
+            ${a.class ? `${escapeHtml(a.class)}${year ? ' · ' : ''}` : ''}${year ? escapeHtml(year) : ''}
+          </p>
+          ${a.achievement ? `<div class="achievement"><i class="fa-solid fa-trophy"></i>${escapeHtml(a.achievement)}</div>` : ''}
+          ${a.remark ? `<p class="remark">${escapeHtml(a.remark)}</p>` : ''}
+          <div class="view-hint">View record <i class="fa-solid fa-arrow-right"></i></div>
+        </article>`;
+    }).join('');
+
+    document.querySelectorAll('.card[data-index]').forEach(card => {
+      const open = () => openAlumniModal(alumniList[Number(card.dataset.index)]);
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){e.preventDefault();open();} });
+    });
+  }
+
+  function escapeHtml(value){
+    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+  function escapeAttr(value){ return escapeHtml(value); }
+
+  function fillYears(list){
+    const years = [...new Set(list.map(a => a.graduationYear || a.academicSession).filter(Boolean))]
+      .sort((a,b) => String(b).localeCompare(String(a), undefined, {numeric:true}));
+    $('filterYear').innerHTML = `<option value="">All years</option>` +
+      years.map(y => `<option value="${escapeAttr(y)}">${escapeHtml(y)}</option>`).join('');
+  }
+
+  async function fetchAlumni(){
+    const search = $('searchName').value.trim();
+    const year = $('filterYear').value;
+    const params = new URLSearchParams({class:'Graduated'});
+    if(search) params.set('search', search);
+    if(year) params.set('graduationYear', year);
+
+    renderState('loading','Loading alumni…');
+    try{
+      const res = await apiFetch(`${API_ROOT}/student?${params.toString()}`);
+      if(!res.ok){
+        let message = 'Unable to load alumni.';
+        try{ const err = await res.json(); message = err.error || err.message || message; }catch(_){}
+        throw new Error(message);
+      }
+      const data = await res.json();
+      const list = Array.isArray(data.students) ? data.students : [];
+      fillYears(list);
+      renderAlumni(list);
+      lastLoaded = true;
+    }catch(error){
+      console.error('Alumni fetch error:', error);
+      renderState('error', error.message || 'Unable to load alumni.');
+    }
+  }
+
+  function openAlumniModal(alumni){
+    const name = `${alumni.firstname || ''} ${alumni.surname || ''}`.trim() || 'Unnamed student';
+    const avatar = $('modalAvatar');
+    avatar.dataset.fallback = '';
+    avatar.src = avatarFor(alumni);
+    avatar.alt = name;
+    $('modalName').textContent = name;
+    $('modalRegNo').textContent = safeText(alumni.regNo,'—');
+    $('modalYear').textContent = safeText(alumni.graduationYear || alumni.academicSession,'—');
+    $('modalClass').textContent = safeText(alumni.class,'—');
+    $('modalAchievement').innerHTML = `<i class="fa-solid fa-trophy"></i> ${escapeHtml(safeText(alumni.achievement,'No achievement recorded.'))}`;
+    $('modalReport').textContent = safeText(alumni.report,'No report available.');
+    $('modalRemark').textContent = safeText(alumni.remark,'No remark available.');
+    $('alumniModal').classList.add('open');
+    $('alumniModal').setAttribute('aria-hidden','false');
+    $('modalClose').focus();
+  }
+
+  function closeAlumniModal(){
+    $('alumniModal').classList.remove('open');
+    $('alumniModal').setAttribute('aria-hidden','true');
+  }
+
+  function toggleSidebar(open){
+    $('sidebar').classList.toggle('open', open);
+    $('sidebarOverlay').classList.toggle('open', open);
+  }
+
+  function toggleDrawer(open){
+    $('moduleDrawer').classList.toggle('open', open);
+    $('moduleDrawer').setAttribute('aria-hidden', String(!open));
+  }
+
+  async function init(){
+    try{
+      await loadSchoolConfig();
+      await fetchAlumni();
+    }catch(error){
+      console.error(error);
+      renderState('error', error.message || 'Unable to load the school portal.');
+    }finally{
+      setTimeout(() => $('pageLoader').classList.add('hide'), 180);
+    }
+  }
+
+  $('sidebarToggle').addEventListener('click', () => toggleSidebar(true));
+  $('sidebarOverlay').addEventListener('click', () => toggleSidebar(false));
+  $('moduleButton').addEventListener('click', () => toggleDrawer(!$('moduleDrawer').classList.contains('open')));
+  $('moreButton').addEventListener('click', () => toggleDrawer(!$('moduleDrawer').classList.contains('open')));
+  $('modalClose').addEventListener('click', closeAlumniModal);
+  $('alumniModal').addEventListener('click', e => { if(e.target === $('alumniModal')) closeAlumniModal(); });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ closeAlumniModal(); toggleDrawer(false); toggleSidebar(false); }
+  });
+  $('searchBtn').addEventListener('click', fetchAlumni);
+  $('searchName').addEventListener('keydown', e => { if(e.key === 'Enter') fetchAlumni(); });
+  $('filterYear').addEventListener('change', fetchAlumni);
+
+  window.addEventListener('resize', () => {
+    if(window.innerWidth > 720) toggleSidebar(false);
+  });
+
+  init();
+</script>
+</body>
+</html>
