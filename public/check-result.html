@@ -1,1019 +1,94 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Check Results | Gold and Linc Schools</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Fonts & Icons -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <style>
-    :root {
-      --bg-0: #f6f8ff;
-      --bg-1: #eef2ff;
-      --accent: #3b82f6;
-      --accent-2: #6366f1;
-      --muted: #6b7280;
-      --card-bg: #ffffff;
-      --radius: 12px;
-      --sidebar-w: 300px;
-      --shadow: 0 8px 20px rgba(11, 42, 60, 0.04);
-      --shadow-hover: 0 12px 32px rgba(59, 130, 246, 0.08);
-      --text-main: #0b2a44;
-      --text-muted: #7a90b3;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --primary: #2647a6;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: 'Inter', system-ui, Arial;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
-      color: var(--text-main);
-      width: 100vw;
-      overflow-x: hidden;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    /* App layout */
-    .app {
-      display: flex;
-      min-height: 100vh;
-      align-items: stretch;
-      width: 100vw;
-      max-width: 100vw;
-      overflow-x: hidden;
-    }
-
-    /* Overlay */
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(2, 6, 23, 0.45);
-      z-index: 50;
-      display: none;
-    }
-
-    .overlay.visible {
-      display: block;
-    }
-
-    /* SIDEBAR */
-    .sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 100%);
-      color: #fff;
-      padding: 20px 16px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 100;
-      box-shadow: 4px 0 28px rgba(15, 23, 42, 0.12);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      will-change: transform;
-    }
-
-    .sidebar.hidden {
-      transform: translateX(-110%);
-      transition: transform 0.28s ease;
-    }
-
-    .sidebar.open {
-      transform: translateX(0);
-      transition: transform 0.28s ease;
-    }
-
-    .brand {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .brand img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 3px solid rgba(255, 224, 102, 0.12);
-      background: #fff;
-    }
-
-    .brand .title {
-      font-weight: 700;
-      font-size: 1.18rem;
-      color: #ffe066;
-    }
-
-    .brand .subtitle {
-      font-size: 0.96rem;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    /* Nav */
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 6px;
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 12px;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 1.05rem;
-      color: #e6eefc;
-      background: transparent;
-      transition: background 0.12s, transform 0.08s;
-      touch-action: manipulation;
-      cursor: pointer;
-    }
-
-    .nav a.active,
-    .nav a:hover {
-      background: rgba(255, 255, 255, 0.04);
-      color: #ffe066;
-      transform: translateX(3px);
-    }
-
-    .spacer {
-      flex: 1;
-    }
-
-    .profile {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .profile img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      object-fit: cover;
-      border: 2px solid #ffe066;
-    }
-
-    .profile .name {
-      font-weight: 700;
-      font-size: 1.02rem;
-      color: #ffe066;
-    }
-
-    .profile .muted {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 0.92rem;
-    }
-
-    /* TOPBAR */
-    .topbar {
-      position: fixed;
-      left: var(--sidebar-w);
-      top: 0;
-      width: calc(100vw - var(--sidebar-w));
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 14px;
-      backdrop-filter: blur(6px);
-      background: rgba(255, 255, 255, 0.86);
-      border-bottom: 1px solid rgba(11, 42, 60, 0.06);
-      box-shadow: 0 6px 18px rgba(11, 42, 60, 0.04);
-      min-height: 64px;
-      max-width: 100%;
-      box-sizing: border-box;
-    }
-
-    .topbar .hamburger {
-      display: none;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 9px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: 800;
-      font-size: 1.05rem;
-    }
-
-    .topbar .page-title {
-      font-weight: 800;
-      font-size: 1.18rem;
-      color: var(--accent-2);
-    }
-
-    /* MAIN CONTENT */
-    .main {
-      margin-left: var(--sidebar-w);
-      padding: 20px;
-      flex: 1;
-      transition: margin-left 0.28s;
-      min-height: 100vh;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      width: 100%;
-      max-width: calc(100vw - var(--sidebar-w));
-      box-sizing: border-box;
-      overflow-x: hidden;
-      padding-top: 90px;
-    }
-
-    .main.full {
-      margin-left: 0;
-      max-width: 100vw;
-    }
-
-    /* SECTIONS */
-    .results-section {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: var(--shadow);
-      border: 1px solid rgba(11, 42, 60, 0.03);
-    }
-
-    .section-title {
-      font-size: 1.2rem;
-      font-weight: 800;
-      color: var(--accent-2);
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .section-title i {
-      color: var(--accent);
-    }
-
-    /* SEARCH FORM */
-    .result-search-form {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      align-items: end;
-    }
-
-    .result-form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .result-form-label {
-      font-weight: 700;
-      font-size: 0.95rem;
-      color: var(--text-main);
-    }
-
-    .result-form-input,
-    .result-form-select {
-      padding: 10px 12px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-family: 'Inter', Arial, sans-serif;
-      transition: all 0.12s ease;
-      background: #fff;
-      color: var(--text-main);
-    }
-
-    .result-form-input:focus,
-    .result-form-select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    .result-form-input:disabled {
-      background: #f3f6fb;
-      color: var(--muted);
-      cursor: not-allowed;
-    }
-
-    .result-form-input:read-only {
-      background: #f3f6fb;
-      cursor: not-allowed;
-    }
-
-    .result-search-btn {
-      padding: 10px 20px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.12s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 0.95rem;
-    }
-
-    .result-search-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-hover);
-    }
-
-    .result-search-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* ERROR MESSAGE */
-    .result-search-error {
-      padding: 12px 16px;
-      background: #fee2e2;
-      border: 1px solid #fecaca;
-      border-radius: 8px;
-      color: #b91c1c;
-      font-weight: 600;
-      margin-top: 12px;
-      display: none;
-    }
-
-    .result-search-error.show {
-      display: block;
-    }
-
-    /* SUCCESS MESSAGE */
-    .result-search-success {
-      padding: 12px 16px;
-      background: #dcfce7;
-      border: 1px solid #bbf7d0;
-      border-radius: 8px;
-      color: #166534;
-      font-weight: 600;
-      margin-top: 12px;
-      display: none;
-    }
-
-    .result-search-success.show {
-      display: block;
-    }
-
-    /* RESULT TABLE */
-    .results-table-container {
-      overflow-x: auto;
-      margin: 16px 0;
-      border-radius: 8px;
-      border: 1px solid #eef3ff;
-    }
-
-    .results-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.95rem;
-    }
-
-    .results-table thead {
-      background: #f8faff;
-      border-bottom: 2px solid #e5e7eb;
-    }
-
-    .results-table th {
-      padding: 12px 10px;
-      text-align: left;
-      font-weight: 700;
-      color: var(--accent-2);
-    }
-
-    .results-table td {
-      padding: 12px 10px;
-      border-bottom: 1px solid #eef3ff;
-    }
-
-    .results-table tbody tr:hover {
-      background: #f9fbff;
-    }
-
-    .results-table tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-    .grade-high {
-      color: var(--success);
-      font-weight: 700;
-    }
-
-    .grade-mid {
-      color: var(--warning);
-      font-weight: 700;
-    }
-
-    .grade-low {
-      color: var(--danger);
-      font-weight: 700;
-    }
-
-    /* DISPLAY INFO */
-    .result-display-info {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      margin-bottom: 16px;
-      padding: 12px 0;
-      border-bottom: 1px solid #eef3ff;
-    }
-
-    .result-display-info span {
-      font-size: 0.95rem;
-    }
-
-    .result-display-info b {
-      color: var(--accent-2);
-      font-weight: 700;
-    }
-
-    /* BUTTONS */
-    .download-btn {
-      padding: 10px 20px;
-      background: linear-gradient(90deg, var(--success), #059669);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.12s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 12px;
-      font-size: 0.95rem;
-    }
-
-    .download-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.12);
-    }
-
-    .download-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* STUDENT INFO CARD */
-    .student-info-card {
-      display: flex;
-      gap: 16px;
-      align-items: flex-start;
-      padding: 16px;
-      background: linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%);
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
-      margin-bottom: 16px;
-    }
-
-    .student-info-card img {
-      width: 80px;
-      height: 80px;
-      border-radius: 8px;
-      object-fit: cover;
-      border: 2px solid var(--accent);
-    }
-
-    .student-info-details {
-      flex: 1;
-    }
-
-    .student-info-details .name {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text-main);
-      margin-bottom: 4px;
-    }
-
-    .student-info-details .meta {
-      font-size: 0.9rem;
-      color: var(--muted);
-      margin-bottom: 2px;
-    }
-
-    /* SKILLS & ATTENDANCE SECTION */
-    .skills-attendance-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 16px;
-      margin-top: 16px;
-    }
-
-    .skill-box {
-      background: linear-gradient(135deg, #fef3c7 0%, #fef08a 100%);
-      border: 1px solid #fde68a;
-      border-radius: 8px;
-      padding: 14px;
-    }
-
-    .skill-box h4 {
-      margin: 0 0 10px 0;
-      color: var(--text-main);
-      font-size: 0.95rem;
-    }
-
-    .skill-item {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.9rem;
-      margin-bottom: 6px;
-    }
-
-    .skill-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .attendance-box {
-      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-      border: 1px solid #86efac;
-      border-radius: 8px;
-      padding: 14px;
-    }
-
-    .attendance-box h4 {
-      margin: 0 0 10px 0;
-      color: var(--text-main);
-      font-size: 0.95rem;
-    }
-
-    .attendance-item {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.9rem;
-      margin-bottom: 6px;
-    }
-
-    .attendance-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .principal-comment-box {
-      background: linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%);
-      border: 1px solid #ddd6fe;
-      border-radius: 8px;
-      padding: 14px;
-      margin-top: 16px;
-    }
-
-    .principal-comment-box h4 {
-      margin: 0 0 8px 0;
-      color: var(--text-main);
-      font-size: 0.95rem;
-    }
-
-    .principal-comment-box p {
-      margin: 0;
-      color: var(--text-main);
-      font-size: 0.9rem;
-      line-height: 1.5;
-    }
-
-    /* PREVIOUS RESULTS */
-    .previous-results-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 12px;
-    }
-
-    .previous-result-card {
-      padding: 14px;
-      background: linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%);
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.12s ease;
-    }
-
-    .previous-result-card:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-hover);
-      border-color: var(--accent);
-    }
-
-    .previous-result-title {
-      font-weight: 700;
-      color: var(--accent-2);
-      margin-bottom: 4px;
-    }
-
-    .previous-result-meta {
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-
-    /* Accessibility */
-    .nav a:focus {
-      outline: 3px solid rgba(99, 102, 241, 0.18);
-      outline-offset: 3px;
-      border-radius: 8px;
-    }
-
-    /* Helper */
-    .small {
-      font-size: 0.92rem;
-      color: var(--muted);
-    }
-
-    /* Loading spinner */
-    .spinner-small {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* Responsive */
-    @media (max-width: 1100px) {
-      .main {
-        padding: 20px 13px;
-      }
-    }
-
-    @media (max-width: 980px) {
-      .topbar .hamburger {
-        display: inline-flex;
-      }
-    }
-
-    @media (max-width: 720px) {
-      :root {
-        --sidebar-w: 86vw;
-      }
-
-      .sidebar {
-        transform: translateX(-110%);
-        position: fixed;
-        width: var(--sidebar-w);
-        min-width: var(--sidebar-w);
-      }
-
-      .sidebar.open {
-        transform: translateX(0);
-        box-shadow: 0 24px 48px rgba(2, 6, 23, 0.5);
-      }
-
-      .sidebar.hidden {
-        transform: translateX(-110%);
-      }
-
-      .overlay {
-        display: none;
-      }
-
-      .overlay.visible {
-        display: block;
-      }
-
-      body.no-scroll {
-        overflow: hidden;
-        height: 100vh;
-        touch-action: none;
-      }
-
-      .main {
-        margin-left: 0;
-        padding: 20px 14px;
-        padding-top: 20px;
-        max-width: 100vw;
-      }
-
-      .main.full {
-        margin-left: 0;
-      }
-
-      .topbar {
-        left: 0;
-        width: 100vw;
-        padding: 10px 12px;
-        min-height: 56px;
-      }
-
-      .nav a {
-        padding: 14px 14px;
-        font-size: 1.08rem;
-      }
-
-      .result-search-form {
-        grid-template-columns: 1fr;
-      }
-
-      .results-table {
-        font-size: 0.85rem;
-      }
-
-      .results-table th,
-      .results-table td {
-        padding: 8px 6px;
-      }
-
-      .result-display-info {
-        gap: 12px;
-      }
-
-      .skills-attendance-container {
-        grid-template-columns: 1fr;
-      }
-
-      .student-info-card {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-      }
-
-      .student-info-card img {
-        width: 100px;
-        height: 100px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .main {
-        padding: 20px 2vw;
-        padding-top: 80px;
-      }
-
-      .topbar {
-        padding: 10px 2vw;
-      }
-
-      .results-section {
-        padding: 12px;
-      }
-
-      .section-title {
-        font-size: 1.05rem;
-      }
-
-      .results-table {
-        font-size: 0.8rem;
-      }
-
-      .results-table th,
-      .results-table td {
-        padding: 6px 4px;
-      }
-
-      .previous-results-list {
-        grid-template-columns: 1fr;
-      }
-
-      .result-search-form {
-        gap: 12px;
-      }
-
-      .student-info-card {
-        padding: 12px;
-      }
-
-      .student-info-card img {
-        width: 70px;
-        height: 70px;
-      }
-    }
-
-    @media print {
-      .sidebar, .topbar, .result-search-form, .download-btn {
-        display: none;
-      }
-
-      .main {
-        margin-left: 0;
-        padding: 0;
-      }
-
-      .results-section {
-        page-break-inside: avoid;
-        box-shadow: none;
-        border: 1px solid #ddd;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="app" id="app">
-    <div class="overlay" id="overlay" aria-hidden="true"></div>
-
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar" aria-label="Main navigation" role="navigation">
-      <div class="brand" aria-hidden="false">
-        <img src="mainlogo.png" alt="Logo">
-        <div>
-          <div class="title">Gold and Linc Schools</div>
-          <div class="subtitle" id="schoolSubtitle">Central Results Portal</div>
-        </div>
-      </div>
-
-      <nav class="nav" id="nav" aria-label="Primary">
-        <a href="student-dashboard.html" data-section="home" onclick="navClick(event)">🏠 Home</a>
-        <a href="student-dashboard.html">📘 My Courses</a>
-        <a href="#student-dashboard.html">📝 Assignments</a>
-        <a href="check-result.html" data-section="grades" class="active" onclick="navClick(event)">📊 Grades</a>
-        <a href="student-dashboard.html">⏰ Timetable</a>
-        <a href="student-dashboard.html">✉️ Messages</a>
-        <a href="student-dashboard.html">📂 Resources</a>
-        <a href="student-dashboard.html">⚙️ Settings</a>
-      </nav>
-
-      <div class="spacer" aria-hidden="true"></div>
-
-      <div class="profile" role="region" aria-label="Student profile">
-        <img src="avatar.jpg" alt="Student avatar" id="studentAvatar">
-        <div>
-          <div class="name" id="studentName">Student</div>
-          <div class="muted" id="studentClass">N/A</div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Fixed Topbar -->
-    <div class="topbar" id="fixedTopbar">
-      <div style="display:flex; gap:12px; align-items:center;">
-        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
-        <div>
-          <div class="page-title" id="pageTitle">📊 Check Results</div>
-        </div>
-      </div>
-
-      <div style="display:flex; gap:12px; align-items:center;">
-        <img src="avatar.jpg" alt="You" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:2px solid #fff;" id="topbarAvatar">
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Results | Student Portal</title><script src="https://cdn.tailwindcss.com"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><style>html{font-family:Inter,system-ui,sans-serif}body.drawer-open{overflow:hidden}#searchError.show,#searchSuccess.show{display:block}.grade-high{font-weight:800;color:#059669}.grade-mid{font-weight:800;color:#d97706}.grade-low{font-weight:800;color:#dc2626}.previous-result-card{border:1px solid #e2e8f0;border-radius:16px;padding:16px;background:#fff;cursor:pointer;transition:.2s}.previous-result-card:hover{border-color:#c7d2fe;box-shadow:0 8px 24px rgba(15,23,42,.06);transform:translateY(-1px)}.previous-result-title{font-weight:800;font-size:13px;color:#0f172a}.previous-result-meta{font-size:11px;color:#64748b;margin-top:5px}.spinner-small{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:999px;animation:spin .7s linear infinite;vertical-align:-2px}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body class="bg-slate-50 text-slate-900">
+<div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 backdrop-blur-sm lg:hidden"></div>
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 lg:translate-x-0">
+  <div class="flex items-center gap-3 border-b border-slate-100 px-5 py-5">
+    <div class="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+      <img id="schoolLogo" src="mainlogo.png" alt="School logo" class="h-full w-full object-cover" onerror="handleSchoolLogoError(this)">
+      <span id="schoolLogoFallback" class="hidden h-full w-full items-center justify-center text-sm font-extrabold text-indigo-600"></span>
+    </div>
+    <div class="min-w-0">
+      <p id="schoolName" class="truncate text-sm font-extrabold text-slate-900">Student Portal</p>
+      <p id="schoolSubtitle" class="truncate text-xs text-slate-500">Student workspace</p>
+    </div>
+  </div>
+  <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><span class="text-base">⌂</span> Home</a>
+    <a href="assignments.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><span>▤</span> Assignments</a>
+    <a href="check-result.html" class="flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-extrabold text-indigo-700"><span>▥</span> Results</a>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><span>◷</span> Timetable</a>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><span>✉</span> Messages</a>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><span>▱</span> Resources</a>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><span>⚙</span> Settings</a>
+  </nav>
+  <div class="border-t border-slate-100 p-4">
+    <div class="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+      <img id="studentAvatar" src="avatar.jpg" alt="Student" class="h-10 w-10 rounded-full object-cover ring-2 ring-white" onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+      <div class="min-w-0"><p id="studentName" class="truncate text-xs font-extrabold text-slate-900">Student</p><p id="studentClass" class="truncate text-[11px] font-medium text-slate-500">N/A</p></div>
+    </div>
+  </div>
+</aside>
+<div class="min-h-screen lg:pl-72">
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+  <div class="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+    <div class="flex min-w-0 items-center gap-3">
+      <button id="openSidebar" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 lg:hidden" aria-label="Open menu"><span class="text-lg">☰</span></button>
+      <div class="min-w-0"><p class="truncate text-sm font-extrabold text-slate-900 sm:text-base">Check Results</p><p class="hidden truncate text-xs text-slate-500 sm:block">Academic performance and report cards</p></div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="cbt-warning.html" class="hidden rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white sm:inline-flex">CBT</a>
+      <button id="headerLogout" type="button" class="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 sm:inline-flex">Sign out</button>
+      <img id="topbarAvatar" src="avatar.jpg" alt="Student" class="h-9 w-9 rounded-full object-cover ring-2 ring-slate-100" onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+    </div>
+  </div>
+</header>
+<main class="mx-auto max-w-[1600px] px-4 py-5 pb-28 sm:px-6 lg:px-8 lg:pb-8">
+  <section class="mb-5 overflow-hidden rounded-2xl bg-slate-950 shadow-sm">
+    <div class="relative px-5 py-7 sm:px-7 sm:py-9">
+      <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-indigo-950/70"></div>
+      <div class="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div><span class="inline-flex rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">Student portal</span><h1 class="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Your Results</h1><p id="heroSchool" class="mt-2 text-sm text-slate-300">Loading school...</p></div>
+        <div class="rounded-xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm"><p class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Academic record</p><p class="mt-1 text-sm font-bold text-white">View, review and download results</p></div>
       </div>
     </div>
-
-    <!-- Main Content -->
-    <main class="main" id="main" role="main" tabindex="-1">
-      <!-- Search Section -->
-      <section class="results-section" id="searchSection">
-        <div class="section-title"><i class="fa fa-search"></i> Check Your Result</div>
-        <form class="result-search-form" id="resultSearchForm" autocomplete="off" onsubmit="return handleResultSearch(event)">
-          <div class="result-form-group">
-            <label class="result-form-label" for="regNoInput">Registration Number</label>
-            <input id="regNoInput" class="result-form-input" placeholder="Enter Reg. Number" readonly disabled required>
-          </div>
-          <div class="result-form-group">
-            <label class="result-form-label" for="scratchCardInput">Scratch Card</label>
-            <input id="scratchCardInput" class="result-form-input" type="password" placeholder="Enter Scratch Card" required autocomplete="off">
-          </div>
-          <div class="result-form-group">
-            <label class="result-form-label" for="classInput">Class</label>
-            <select id="classInput" class="result-form-select" required>
-              <option value="">Select Class</option>
-              <option>Beginner</option>
-              <option>KG1</option>
-              <option>KG2</option>
-              <option>Creche</option>
-              <option>Nursery 1</option>
-              <option>Nursery 2</option>
-              <option>Nursery 3</option>
-              <option>Primary 1</option>
-              <option>Primary 2</option>
-              <option>Primary 3</option>
-              <option>Primary 4</option>
-              <option>Primary 5</option>
-              <option>Primary 6</option>
-              <option>JSS1</option>
-              <option>JSS2</option>
-              <option>JSS3</option>
-              <option>SS1</option>
-              <option>SS2</option>
-              <option>SS3</option>
-            </select>
-          </div>
-          <div class="result-form-group">
-            <label class="result-form-label" for="sessionInput">Session</label>
-            <select id="sessionInput" class="result-form-select" required>
-              <option value="">Select Session</option>
-              <option>2027-2028</option>
-              <option>2026-2027</option>
-              <option>2025-2026</option>
-              <option>2024-2025</option>
-              <option>2023-2024</option>
-              <option>2022-2023</option>
-            </select>
-          </div>
-          <div class="result-form-group">
-            <label class="result-form-label" for="termInput">Term</label>
-            <select id="termInput" class="result-form-select" required>
-              <option value="">Select Term</option>
-              <option>FIRST TERM</option>
-              <option>SECOND TERM</option>
-              <option>THIRD TERM</option>
-            </select>
-          </div>
-          <button class="result-search-btn" type="submit" id="submitBtn"><i class="fa fa-search"></i> View Result</button>
-        </form>
-        <div class="result-search-error" id="searchError"></div>
-        <div class="result-search-success" id="searchSuccess"></div>
-      </section>
-
-      <!-- Results Display Section -->
-      <section class="results-section" id="resultsDisplaySection" style="display:none;">
-        <div class="section-title"><i class="fa fa-table"></i> Result Details</div>
-        
-        <!-- Student Info Card -->
-        <div class="student-info-card">
-          <img id="resultStudentPhoto" src="" alt="Student photo" style="display:none;">
-          <div class="student-info-details">
-            <div class="name" id="resultStudentName">Student Name</div>
-            <div class="meta"><strong>Reg. No:</strong> <span id="resultRegNo"></span></div>
-            <div class="meta"><strong>Gender:</strong> <span id="resultGender">-</span></div>
-            <div class="meta"><strong>DOB:</strong> <span id="resultDOB">-</span></div>
-            <div class="meta"><strong>Class:</strong> <span id="resultClass">-</span></div>
-            <div class="meta"><strong>Session:</strong> <span id="resultSession">-</span></div>
-            <div class="meta"><strong>Term:</strong> <span id="resultTerm">-</span></div>
-            <div class="meta"><strong>Class Size:</strong> <span id="resultClassSize">-</span></div>
-          </div>
-        </div>
-
-        <!-- Results Table -->
-        <div class="result-display-info">
-          <span><b>Total Subjects:</b> <span id="totalSubjects">0</span></span>
-          <span><b>Average Score:</b> <span id="averageScore">0.00</span></span>
-          <span><b>Highest Score:</b> <span id="highestScore">0</span></span>
-          <span><b>Lowest Score:</b> <span id="lowestScore">0</span></span>
-        </div>
-
-        <div class="results-table-container">
-          <table class="results-table" id="resultsTable">
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>CA1</th>
-                <th>CA2</th>
-                <th>Midterm</th>
-                <th>Exam</th>
-                <th>Total</th>
-                <th>Grade</th>
-                <th>Remark</th>
-                <th>Position</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- JS fills rows -->
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Skills & Attendance Section -->
-        <div class="skills-attendance-container" id="skillsAttendanceContainer" style="display:none;">
-          <div class="skill-box" id="affectiveSkillsBox"></div>
-          <div class="skill-box" id="psychomotorSkillsBox"></div>
-          <div class="attendance-box" id="attendanceBox"></div>
-        </div>
-
-        <!-- Principal Comment -->
-        <div class="principal-comment-box" id="principalCommentBox" style="display:none;">
-          <h4>📝 Principal's Comment</h4>
-          <p id="principalCommentText"></p>
-        </div>
-
-        <button class="download-btn" id="downloadBtn" onclick="downloadCurrentResult()"><i class="fa fa-download"></i> Download Result</button>
-      </section>
-
-      <!-- Previously Viewed Results -->
-      <section class="results-section">
-        <div class="section-title"><i class="fa fa-history"></i> Previously Viewed Results</div>
-        <div class="previous-results-list" id="previousResultsList"></div>
-      </section>
-    </main>
-  </div>
-   <script>
-const API_BASE_URL = "https://goldlincschools.onrender.com";
+  </section>
+  <section id="searchSection" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <div class="mb-5 flex items-center justify-between gap-3"><div><h2 class="text-sm font-extrabold text-slate-900 sm:text-base">Check your result</h2><p class="mt-1 text-xs text-slate-500">Enter your result access details below.</p></div><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">▥</span></div>
+    <form class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" id="resultSearchForm" autocomplete="off" onsubmit="return handleResultSearch(event)">
+      <div><label class="mb-1.5 block text-xs font-bold text-slate-600" for="regNoInput">Registration Number</label><input id="regNoInput" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" placeholder="Enter Reg. Number" readonly disabled required></div>
+      <div><label class="mb-1.5 block text-xs font-bold text-slate-600" for="scratchCardInput">Scratch Card</label><input id="scratchCardInput" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" type="password" placeholder="Enter Scratch Card" required autocomplete="off"></div>
+      <div><label class="mb-1.5 block text-xs font-bold text-slate-600" for="classInput">Class</label><select id="classInput" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" required><option value="">Select Class</option><option>Beginner</option><option>KG1</option><option>KG2</option><option>Creche</option><option>Nursery 1</option><option>Nursery 2</option><option>Nursery 3</option><option>Primary 1</option><option>Primary 2</option><option>Primary 3</option><option>Primary 4</option><option>Primary 5</option><option>Primary 6</option><option>JSS1</option><option>JSS2</option><option>JSS3</option><option>SS1</option><option>SS2</option><option>SS3</option></select></div>
+      <div><label class="mb-1.5 block text-xs font-bold text-slate-600" for="sessionInput">Session</label><select id="sessionInput" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" required><option value="">Select Session</option><option>2027-2028</option><option>2026-2027</option><option>2025-2026</option><option>2024-2025</option><option>2023-2024</option><option>2022-2023</option></select></div>
+      <div><label class="mb-1.5 block text-xs font-bold text-slate-600" for="termInput">Term</label><select id="termInput" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" required><option value="">Select Term</option><option>FIRST TERM</option><option>SECOND TERM</option><option>THIRD TERM</option></select></div>
+      <div class="flex items-end"><button class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60" type="submit" id="submitBtn">View Result</button></div>
+    </form>
+    <div class="mt-4 hidden rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700" id="searchError"></div><div class="mt-4 hidden rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-700" id="searchSuccess"></div>
+  </section>
+  <section id="resultsDisplaySection" class="mt-5 hidden space-y-5">
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"><div class="mb-5 flex items-center justify-between"><div><h2 class="text-sm font-extrabold text-slate-900 sm:text-base">Result details</h2><p class="mt-1 text-xs text-slate-500">Academic performance for the selected term.</p></div><button class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50" onclick="document.getElementById('resultsDisplaySection').scrollIntoView({behavior:'smooth'})">Overview</button></div>
+      <div class="grid gap-4 rounded-2xl bg-slate-50 p-4 sm:grid-cols-[auto_1fr] sm:p-5"><img id="resultStudentPhoto" src="" alt="Student photo" class="hidden h-20 w-20 rounded-2xl object-cover ring-4 ring-white"/><div class="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-4"><div class="col-span-2 sm:col-span-4"><p class="text-lg font-extrabold text-slate-900" id="resultStudentName">Student Name</p></div><div><p class="text-[10px] font-bold uppercase text-slate-400">Reg. No</p><p class="text-xs font-bold" id="resultRegNo"></p></div><div><p class="text-[10px] font-bold uppercase text-slate-400">Gender</p><p class="text-xs font-bold" id="resultGender">-</p></div><div><p class="text-[10px] font-bold uppercase text-slate-400">DOB</p><p class="text-xs font-bold" id="resultDOB">-</p></div><div><p class="text-[10px] font-bold uppercase text-slate-400">Class</p><p class="text-xs font-bold" id="resultClass">-</p></div><div><p class="text-[10px] font-bold uppercase text-slate-400">Session</p><p class="text-xs font-bold" id="resultSession">-</p></div><div><p class="text-[10px] font-bold uppercase text-slate-400">Term</p><p class="text-xs font-bold" id="resultTerm">-</p></div><div><p class="text-[10px] font-bold uppercase text-slate-400">Class Size</p><p class="text-xs font-bold" id="resultClassSize">-</p></div></div></div>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4"><div class="rounded-xl border border-slate-200 p-4"><p class="text-[10px] font-bold uppercase text-slate-400">Subjects</p><p id="totalSubjects" class="mt-1 text-xl font-extrabold">0</p></div><div class="rounded-xl border border-slate-200 p-4"><p class="text-[10px] font-bold uppercase text-slate-400">Average</p><p id="averageScore" class="mt-1 text-xl font-extrabold">0.00</p></div><div class="rounded-xl border border-slate-200 p-4"><p class="text-[10px] font-bold uppercase text-slate-400">Highest</p><p id="highestScore" class="mt-1 text-xl font-extrabold">0</p></div><div class="rounded-xl border border-slate-200 p-4"><p class="text-[10px] font-bold uppercase text-slate-400">Lowest</p><p id="lowestScore" class="mt-1 text-xl font-extrabold">0</p></div></div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200"><table class="w-full min-w-[850px] text-left text-xs" id="resultsTable"><thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th class="px-4 py-3">Subject</th><th class="px-4 py-3">CA1</th><th class="px-4 py-3">CA2</th><th class="px-4 py-3">Midterm</th><th class="px-4 py-3">Exam</th><th class="px-4 py-3">Total</th><th class="px-4 py-3">Grade</th><th class="px-4 py-3">Remark</th><th class="px-4 py-3">Position</th></tr></thead><tbody class="divide-y divide-slate-100"></tbody></table></div>
+      <div class="grid gap-4 md:grid-cols-3" id="skillsAttendanceContainer"><div id="affectiveSkillsBox" class="rounded-2xl border border-slate-200 bg-white p-4"></div><div id="psychomotorSkillsBox" class="rounded-2xl border border-slate-200 bg-white p-4"></div><div id="attendanceBox" class="rounded-2xl border border-slate-200 bg-white p-4"></div></div>
+      <div class="hidden rounded-2xl border border-indigo-100 bg-indigo-50 p-4" id="principalCommentBox"><h4 class="text-xs font-extrabold text-indigo-900">Principal's Comment</h4><p id="principalCommentText" class="mt-2 text-sm leading-6 text-indigo-900"></p></div>
+      <button class="rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white hover:bg-slate-800" id="downloadBtn" onclick="downloadCurrentResult()">Download Result</button>
+    </div>
+  </section>
+  <section class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"><div class="mb-4"><h2 class="text-sm font-extrabold text-slate-900">Previously viewed results</h2><p class="mt-1 text-xs text-slate-500">Quickly reopen a result you have checked before.</p></div><div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" id="previousResultsList"></div></section>
+</main></div>
+<nav id="mobileNav" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+  <div class="mx-auto flex max-w-md items-center justify-around"><a href="student-dashboard.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500"><span>⌂</span><span class="text-[10px] font-bold">Home</span></a><a href="assignments.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500"><span>▤</span><span class="text-[10px] font-bold">Tasks</span></a><button id="mobileMoreBtn" class="-mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-xl text-white shadow-lg ring-4 ring-slate-50" type="button" aria-label="More tools">+</button><a href="student-dashboard.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500"><span>✉</span><span class="text-[10px] font-bold">Messages</span></a><button id="mobileMenuBtn" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500" type="button"><span>☰</span><span class="text-[10px] font-bold">Menu</span></button></div>
+</nav>
+<div id="drawerBackdrop" class="fixed inset-0 z-[55] hidden bg-slate-950/50 backdrop-blur-sm"></div>
+<div id="studentDrawer" class="fixed bottom-0 left-0 right-0 z-[60] hidden translate-y-full rounded-t-3xl border border-slate-200 bg-white p-5 shadow-2xl transition-transform duration-300">
+  <div class="mx-auto mb-5 h-1.5 w-12 rounded-full bg-slate-200"></div><div class="mb-4 flex items-center justify-between"><div><h3 class="text-sm font-extrabold text-slate-900">Student menu</h3><p class="text-xs text-slate-500">More tools and account options</p></div><button id="closeStudentDrawer" class="h-9 w-9 rounded-xl bg-slate-100 text-slate-600">×</button></div>
+  <div class="grid grid-cols-3 gap-3"><a href="student-dashboard.html" class="rounded-xl bg-slate-50 p-3 text-center text-xs font-bold text-slate-700">Dashboard</a><a href="check-result.html" class="rounded-xl bg-indigo-50 p-3 text-center text-xs font-bold text-indigo-700">Results</a><a href="student-dashboard.html" class="rounded-xl bg-slate-50 p-3 text-center text-xs font-bold text-slate-700">Resources</a><button id="drawerLogout" type="button" class="rounded-xl bg-red-50 p-3 text-xs font-bold text-red-600">Sign out</button></div>
+</div>
+<script>
+const API_BASE_URL = window.BACKEND_URL || "https://examguard-8rxe.onrender.com";
+const API_ROOT = `${API_BASE_URL}/api`;
+const BASE_DOMAINS = [window.EXAMGUARD_BASE_DOMAIN || "goldlincschools.com.ng", "examguard.com.ng"];
+let currentSchool = null;
+let publicSchoolId = "";
 const API_TIMEOUT = 15000; // 15 seconds timeout
 
 let lastStudentProfile = null;
@@ -1064,41 +139,34 @@ function clearMessages() {
 // ============================================
 // Sidebar & Navigation Functions
 // ============================================
-const hamburger = document.getElementById('hamburger');
 const sidebar = document.getElementById('sidebar');
-const overlay = document.getElementById('overlay');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+const drawer = document.getElementById('studentDrawer');
+const drawerBackdrop = document.getElementById('drawerBackdrop');
 
-hamburger?.addEventListener('click', () => {
-  sidebar.classList.toggle('open');
-  overlay.classList.toggle('visible');
-  document.body.classList.toggle('no-scroll');
-});
+function openSidebar(){ sidebar?.classList.remove('-translate-x-full'); sidebarBackdrop?.classList.remove('hidden'); document.body.classList.add('drawer-open'); }
+function closeSidebar(){ sidebar?.classList.add('-translate-x-full'); sidebarBackdrop?.classList.add('hidden'); document.body.classList.remove('drawer-open'); }
+function openStudentDrawer(){ if(!drawer||!drawerBackdrop)return; drawer.classList.remove('hidden'); drawerBackdrop.classList.remove('hidden'); document.body.classList.add('drawer-open'); requestAnimationFrame(()=>drawer.classList.remove('translate-y-full')); }
+function closeStudentDrawer(){ if(!drawer||!drawerBackdrop)return; drawer.classList.add('translate-y-full'); drawerBackdrop.classList.add('hidden'); document.body.classList.remove('drawer-open'); setTimeout(()=>drawer.classList.add('hidden'),300); }
 
-overlay?.addEventListener('click', () => {
-  sidebar.classList.remove('open');
-  overlay.classList.remove('visible');
-  document.body.classList.remove('no-scroll');
-});
+document.getElementById('openSidebar')?.addEventListener('click',openSidebar);
+document.getElementById('mobileMenuBtn')?.addEventListener('click',openSidebar);
+sidebarBackdrop?.addEventListener('click',closeSidebar);
+document.getElementById('mobileMoreBtn')?.addEventListener('click',openStudentDrawer);
+drawerBackdrop?.addEventListener('click',closeStudentDrawer);
+document.getElementById('closeStudentDrawer')?.addEventListener('click',closeStudentDrawer);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSidebar();closeStudentDrawer();}});
 
-function navClick(event) {
-  event.preventDefault();
-  const link = event.currentTarget;
-  document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-  link.classList.add('active');
-  
-  // Close sidebar on mobile
-  if (window.innerWidth <= 720) {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('visible');
-    document.body.classList.remove('no-scroll');
-  }
+document.getElementById('headerLogout')?.addEventListener('click',()=>{localStorage.removeItem('studentToken');localStorage.removeItem('student_token');localStorage.removeItem('token');localStorage.removeItem('authToken');window.location.href='index.html';});
+document.getElementById('drawerLogout')?.addEventListener('click',()=>{localStorage.removeItem('studentToken');localStorage.removeItem('student_token');localStorage.removeItem('token');localStorage.removeItem('authToken');window.location.href='index.html';});
 
-  // Navigate if href is set
-  const href = link.getAttribute('href');
-  if (href && href !== '#') {
-    window.location.href = href;
-  }
-}
+function getToken(){return localStorage.getItem('student_token')||localStorage.getItem('studentToken')||localStorage.getItem('token')||localStorage.getItem('authToken')||'';}
+function getTenantSubdomain(){const saved=localStorage.getItem('schoolSubdomain');if(saved)return saved.toLowerCase();const host=location.hostname.toLowerCase();for(const base of BASE_DOMAINS){const suffix='.'+base.toLowerCase();if(host.endsWith(suffix)){const sub=host.slice(0,-suffix.length);if(sub&&!sub.includes('.'))return sub;}}return '';}
+function authHeaders(extra={}){const h={Accept:'application/json',...extra};const token=getToken();if(token)h.Authorization='Bearer '+token;if(publicSchoolId)h['X-School-Code']=publicSchoolId;return h;}
+function schoolInitials(name='School'){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'SP';}
+function handleSchoolLogoError(img){img.dataset.failed='1';img.style.display='none';const f=document.getElementById('schoolLogoFallback');if(f){f.textContent=schoolInitials(currentSchool?.schoolName||currentSchool?.name||'School');f.classList.remove('hidden');f.classList.add('flex');}}
+function applySchoolBranding(school){if(!school)return;currentSchool=school;const name=school.schoolName||school.name||'Student Portal';const branding=school.branding||{};const logo=school.logoUrl||school.logo||branding.logo||branding.lightLogo||branding.darkLogo||'';publicSchoolId=school.schoolId||school.code||publicSchoolId;document.getElementById('schoolName').textContent=name;document.getElementById('schoolSubtitle').textContent=school.motto||'Student workspace';document.getElementById('heroSchool').textContent=name;document.title=name+' | Results';const img=document.getElementById('schoolLogo');const fallback=document.getElementById('schoolLogoFallback');if(logo){img.src=logo;img.style.display='';fallback.classList.add('hidden');fallback.classList.remove('flex');}else handleSchoolLogoError(img);if(school.subdomain)localStorage.setItem('schoolSubdomain',String(school.subdomain).toLowerCase());if(publicSchoolId){localStorage.setItem('publicSchoolId',publicSchoolId);localStorage.setItem('schoolId',publicSchoolId);}document.documentElement.style.setProperty('--school-primary',branding.primaryColor||'#4f46e5');}
+async function loadSchoolConfig(student){let school=student?.school||(student?.schoolId&&typeof student.schoolId==='object'?student.schoolId:null);const mongoId=typeof student?.schoolId==='string'?student.schoolId:String(school?._id||school?.id||'');const sub=getTenantSubdomain();const candidates=[];if(sub)candidates.push(`${API_ROOT}/schools/config?subdomain=${encodeURIComponent(sub)}`);if(mongoId)candidates.push(`${API_ROOT}/schools/config?schoolId=${encodeURIComponent(mongoId)}`);try{const me=await fetch(`${API_ROOT}/auth/me`,{headers:authHeaders()});if(me.ok){const md=await me.json();const u=md.user||md.data?.user||md.data||md;const ms=u.school||md.school||md.data?.school;if(ms&&(!mongoId||String(ms._id||ms.id)===mongoId))school=ms;}}catch(e){}for(const url of candidates){try{const r=await fetch(url,{headers:authHeaders()});if(r.ok){const d=await r.json();const x=d.school||d.data?.school||d.data||d;const id=String(x?._id||x?.id||'');if(x&&(!mongoId||!id||id===mongoId)){school=x;break;}}}catch(e){}}if(!school&&sub){try{const c=localStorage.getItem('examguard_school_config_'+sub);if(c)school=JSON.parse(c);}catch(e){}}if(school)applySchoolBranding(school);}
 
 // ============================================
 // Student Profile & Result Management
@@ -1106,7 +174,7 @@ function navClick(event) {
 let affixedClass = null, affixedSession = null, affixedTerm = null;
 
 async function autofillRegNoAndAffix() {
-  const token = localStorage.getItem('studentToken') || localStorage.getItem('token');
+  const token = getToken();
   const regNoInput = document.getElementById('regNoInput');
   const submitBtn = document.getElementById('submitBtn');
   
@@ -1121,7 +189,7 @@ async function autofillRegNoAndAffix() {
 
   try {
     const res = await fetchWithTimeout(API_BASE_URL + '/api/students/me', {
-      headers: { 'Authorization': 'Bearer ' + token }
+      headers: authHeaders()
     });
 
     if (res.ok) {
@@ -1178,7 +246,7 @@ async function autofillRegNoAndAffix() {
   }
 }
 
-autofillRegNoAndAffix();
+autofillRegNoAndAffix().then(()=>loadSchoolConfig(lastStudentProfile));
 
 // ============================================
 // Local Storage for Previously Viewed Results
@@ -1295,7 +363,7 @@ async function handleResultSearch(event) {
     url.searchParams.append('session', session);
     url.searchParams.append('term', term);
 
-    const response = await fetchWithTimeout(url.toString());
+    const response = await fetchWithTimeout(url.toString(), { headers: authHeaders() });
     const data = await response.json();
 
     if (!response.ok) {
@@ -1621,3 +689,5 @@ document.addEventListener('DOMContentLoaded', () => {
     </script>
 </body>
 </html>
+
+</body></html>
