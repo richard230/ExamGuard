@@ -1,1024 +1,513 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8">
   <title>Attendance Records - Admin Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  
+  <!-- Tailwind CSS & Flowbite CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+  
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: 'var(--school-primary, #1e3a8a)',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
   <style>
     :root {
       --school-primary: #1e3a8a;
       --school-secondary: #f59e0b;
       --school-accent: #10b981;
-      
-      --bg-app: #f8fafc;
-      --card-bg: #ffffff;
-      --sidebar-bg: #0f172a;
-      --sidebar-hover: rgba(255, 255, 255, 0.06);
-      --sidebar-border: rgba(255, 255, 255, 0.08);
-      --sidebar-w: 270px;
-      
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      
-      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
-      --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
-      --radius: 14px;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    body {
+      font-family: 'Inter', sans-serif;
     }
 
-    html, body {
-      height: 100%;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--bg-app);
-      color: var(--text-main);
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
+    /* Dynamic Branding Fallbacks & Custom Utility Styles */
+    .bg-brand-primary {
+      background-color: var(--school-primary, #1e3a8a) !important;
     }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .app {
-      display: flex;
-      min-height: 100vh;
-      width: 100vw;
-    }
-
-    /* ================= SIDEBAR ================= */
-    .sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: var(--sidebar-bg);
-      color: #f8fafc;
-      padding: 24px 16px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 100;
-      border-right: 1px solid var(--sidebar-border);
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .sidebar.hidden {
-      transform: translateX(-110%);
-    }
-
-    .sidebar-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(4px);
-      z-index: 95;
-      display: none;
-    }
-
-    .sidebar-overlay.active {
-      display: block;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 0 8px 20px 8px;
-      border-bottom: 1px solid var(--sidebar-border);
-      margin-bottom: 20px;
-    }
-
-    .brand img {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      object-fit: cover;
-      background: #ffffff;
-      border: 2px solid rgba(255, 255, 255, 0.15);
-    }
-
-    .brand .title {
-      font-weight: 700;
-      font-size: 1rem;
-      color: #ffffff;
-      letter-spacing: -0.02em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .brand .subtitle {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      font-weight: 500;
-    }
-
-    .sidebar-search {
-      margin-bottom: 18px;
-      position: relative;
-    }
-
-    .sidebar-search i {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #64748b;
-      font-size: 0.85rem;
-    }
-
-    .sidebar-search input {
-      width: 100%;
-      padding: 9px 12px 9px 34px;
-      border: 1px solid var(--sidebar-border);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.04);
-      color: #f8fafc;
-      font-size: 0.85rem;
-      outline: none;
-      transition: all 0.2s ease;
-    }
-
-    .sidebar-search input:focus {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .sidebar-search input::placeholder {
-      color: #64748b;
-    }
-
-    .nav-section-title {
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #64748b;
-      font-weight: 700;
-      margin: 14px 10px 8px;
-    }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
-      overflow-y: auto;
-    }
-
-    .nav::-webkit-scrollbar {
-      width: 4px;
-    }
-    .nav::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-    }
-
-    .nav a {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      font-weight: 500;
-      font-size: 0.88rem;
-      color: #94a3b8;
-      transition: all 0.15s ease;
-    }
-
-    .nav a i {
-      font-size: 1rem;
-      width: 20px;
-      text-align: center;
-      color: #64748b;
-      transition: color 0.15s ease;
-    }
-
-    .nav a:hover {
-      background: var(--sidebar-hover);
-      color: #f1f5f9;
-    }
-
-    .nav a:hover i {
-      color: #cbd5e1;
-    }
-
-    .nav a.active {
-      background: var(--school-primary);
-      color: #ffffff;
-      font-weight: 600;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .nav a.active i {
-      color: #ffffff;
-    }
-
-    .sidebar-footer {
-      padding-top: 16px;
-      border-top: 1px solid var(--sidebar-border);
-      margin-top: auto;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .avatar-circle {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-      font-weight: 700;
-      font-size: 0.9rem;
-      border: 1px solid var(--sidebar-border);
-    }
-
-    .user-info {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .user-info strong {
-      font-size: 0.85rem;
-      color: #f8fafc;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .user-info small {
-      font-size: 0.72rem;
-      color: #94a3b8;
-    }
-
-    /* ================= TOPBAR ================= */
-    .topbar {
-      position: fixed;
-      left: var(--sidebar-w);
-      top: 0;
-      width: calc(100% - var(--sidebar-w));
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 28px;
-      background: rgba(255, 255, 255, 0.85);
-      border-bottom: 1px solid var(--border-color);
-      backdrop-filter: blur(12px);
-      transition: left 0.28s ease, width 0.28s ease;
-    }
-
-    .sidebar-toggle {
-      display: none;
-      background: #ffffff;
-      color: var(--text-main);
-      border: 1px solid var(--border-color);
-      padding: 8px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 1rem;
-      margin-right: 12px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .page-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .page-title {
-      font-weight: 700;
-      font-size: 1.25rem;
-      color: var(--text-main);
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .page-title i {
-      color: var(--school-primary);
-    }
-
-    .admin-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(30, 58, 138, 0.08);
-      color: var(--school-primary);
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border: 1px solid rgba(30, 58, 138, 0.15);
-    }
-
-    .topbar-icons {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .icon-btn {
-      background: #ffffff;
-      border: 1px solid var(--border-color);
-      color: var(--text-muted);
-      width: 38px;
-      height: 38px;
-      cursor: pointer;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.95rem;
-      transition: all 0.2s ease;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-    }
-
-    .icon-btn:hover {
-      background: #f8fafc;
-      color: var(--text-main);
-      border-color: #cbd5e1;
-    }
-
-    .notification-dot {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 8px;
-      height: 8px;
-      background: #ef4444;
-      border-radius: 50%;
-      border: 2px solid #ffffff;
+    .text-brand-primary {
+      color: var(--school-primary, #1e3a8a) !important;
     }
-
-    /* ================= MAIN CONTENT ================= */
-    .main-content {
-      margin-left: var(--sidebar-w);
-      padding: 28px;
-      flex: 1;
-      min-height: 100vh;
-      padding-top: 90px;
-      width: calc(100% - var(--sidebar-w));
-      transition: margin-left 0.28s ease, width 0.28s ease;
-    }
-
-    /* ================= CARDS & SECTIONS ================= */
-    .section {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 24px;
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-sm);
-      margin-bottom: 24px;
-    }
-
-    .section-title {
-      font-weight: 700;
-      font-size: 1.05rem;
-      color: var(--text-main);
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      letter-spacing: -0.01em;
-    }
-
-    .section-title i {
-      color: var(--school-primary);
-    }
-
-    /* STATS GRID */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 20px;
-    }
-
-    .stat-card {
-      padding: 20px;
-      background: #ffffff;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius);
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-      border-color: #cbd5e1;
-    }
-
-    .stat-icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(30, 58, 138, 0.1);
-      color: var(--school-primary);
-      font-size: 1.35rem;
-      flex-shrink: 0;
-    }
-
-    .stat-details {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stat-value {
-      font-size: 1.65rem;
-      font-weight: 800;
-      color: var(--text-main);
-      line-height: 1.2;
-      letter-spacing: -0.02em;
-    }
-
-    .stat-label {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      font-weight: 500;
-      margin-top: 2px;
-    }
-
-    /* FILTERS */
-    .filters-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-      align-items: flex-end;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .form-group label {
-      font-weight: 600;
-      font-size: 0.82rem;
-      margin-bottom: 6px;
-      color: var(--text-main);
-    }
-
-    .form-group input,
-    .form-group select {
-      padding: 10px 14px;
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      font-size: 0.88rem;
-      font-family: inherit;
-      color: var(--text-main);
-      background-color: #ffffff;
-      transition: all 0.2s ease;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: var(--school-primary);
-      box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.12);
-    }
-
-    /* BUTTONS */
-    .btn {
-      padding: 10px 18px;
-      border-radius: 10px;
-      border: none;
-      background: var(--school-primary);
-      color: #ffffff;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 0.88rem;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .btn:hover {
-      opacity: 0.92;
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .btn.secondary {
-      background: #ffffff;
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-    }
-
-    .btn.secondary:hover {
-      background: #f8fafc;
-      border-color: #cbd5e1;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    /* TABLE */
-    .table-wrapper {
-      overflow-x: auto;
-      border-radius: 10px;
-      border: 1px solid var(--border-color);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 800px;
-      text-align: left;
-    }
-
-    thead {
-      background: #f8fafc;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    th {
-      padding: 12px 16px;
-      font-weight: 600;
-      color: var(--text-muted);
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    tbody tr {
-      border-bottom: 1px solid var(--border-color);
-      transition: background 0.15s ease;
-    }
-
-    tbody tr:last-child {
-      border-bottom: none;
-    }
-
-    tbody tr:hover {
-      background: #f8fafc;
-    }
-
-    td {
-      padding: 14px 16px;
-      font-size: 0.88rem;
-      color: var(--text-main);
-      vertical-align: middle;
-    }
-
-    /* BADGE */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 20px;
-      padding: 4px 10px;
-      font-size: 0.78rem;
-      font-weight: 600;
-    }
-
-    .badge-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-
-    .badge-present {
-      background: #dcfce7;
-      color: #15803d;
-    }
-    .badge-present .badge-dot { background: #16a34a; }
-
-    .badge-absent {
-      background: #fee2e2;
-      color: #b91c1c;
-    }
-    .badge-absent .badge-dot { background: #dc2626; }
-
-    .badge-late {
-      background: #fef3c7;
-      color: #b45309;
-    }
-    .badge-late .badge-dot { background: #d97706; }
-
-    .badge-excused {
-      background: #e0f2fe;
-      color: #0369a1;
-    }
-    .badge-excused .badge-dot { background: #0284c7; }
-
-    .badge-leave {
-      background: #e0e7ff;
-      color: #4338ca;
-    }
-    .badge-leave .badge-dot { background: #4f46e5; }
-
-    /* CHART CONTAINER */
-    .chart-container {
-      position: relative;
-      height: 320px;
-      width: 100%;
-    }
-
-    /* EMPTY STATE */
-    .empty-state {
-      text-align: center;
-      padding: 48px 20px;
-      color: var(--text-muted);
-    }
-
-    .empty-state-icon {
-      font-size: 2.5rem;
-      margin-bottom: 12px;
-      opacity: 0.7;
-    }
-
-    .empty-state-title {
-      font-weight: 600;
-      font-size: 1rem;
-      color: var(--text-main);
-      margin-bottom: 4px;
+    .border-brand-primary {
+      border-color: var(--school-primary, #1e3a8a) !important;
     }
 
-    /* SPINNER */
+    /* Custom Spinner */
     #pageSpinnerOverlay {
       position: fixed;
       z-index: 99999;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(4px);
+      inset: 0;
+      background: rgba(255, 255, 255, 0.95);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: opacity 0.3s;
+      transition: opacity 0.3s ease;
     }
-
     #pageSpinnerOverlay.hidden {
       opacity: 0;
       pointer-events: none;
     }
 
-    .spinner {
-      border: 4px solid #e2e8f0;
-      border-top: 4px solid var(--school-primary);
-      border-radius: 50%;
-      width: 48px;
-      height: 48px;
-      animation: spinner-spin 0.8s cubic-bezier(0.6, 0.2, 0.4, 0.8) infinite;
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.625rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
     }
+    .badge-present { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .badge-absent { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .badge-late { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .badge-excused { background-color: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+    .badge-leave { background-color: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
 
-    @keyframes spinner-spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
     }
-
-    /* MOBILE DRAWERS & NAVBAR */
-    .mobile-bottom-toolbar { display: none; }
-    .mobile-menu-backdrop.hidden, .mobile-menu-drawer.hidden { display: none; }
-    
-    .mobile-menu-backdrop {
-      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 300; backdrop-filter: blur(2px);
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
     }
-    
-    .mobile-menu-drawer {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 301;
-      background: #ffffff; border-radius: 20px 20px 0 0; padding: 16px 20px 32px;
-      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
     }
-    
-    .drawer-handle { width: 36px; height: 4px; border-radius: 99px; background: #cbd5e1; margin: 0 auto 16px; }
-    .drawer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .drawer-header strong { font-size: 1rem; color: var(--text-main); }
-    .drawer-header small { color: var(--text-muted); display: block; }
-    .drawer-header button { border: 0; background: #f1f5f9; width: 32px; height: 32px; border-radius: 8px; color: var(--text-muted); cursor: pointer; }
-    .drawer-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .drawer-grid a {
-      display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px;
-      border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main); font-size: 0.75rem; font-weight: 600;
-    }
-    .drawer-grid i { font-size: 1.1rem; color: var(--school-primary); }
-
-    /* RESPONSIVE STYLES */
-    @media (max-width: 1024px) {
-      .sidebar {
-        transform: translateX(-110%);
-      }
-      .sidebar.open {
-        transform: translateX(0);
-        box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
-      }
-      .topbar {
-        left: 0;
-        width: 100%;
-      }
-      .main-content {
-        margin-left: 0;
-        width: 100%;
-        padding: 20px 16px 100px;
-      }
-      .sidebar-toggle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .mobile-bottom-toolbar {
-        display: flex; position: fixed; left: 12px; right: 12px; bottom: 12px; height: 64px;
-        background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
-        border: 1px solid var(--border-color); border-radius: 18px; z-index: 250;
-        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
-        align-items: center; justify-content: space-around;
-      }
-      .mobile-tool {
-        width: 20%; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 3px; color: var(--text-muted); font-size: 0.65rem; font-weight: 600;
-      }
-      .mobile-tool i { font-size: 1.1rem; }
-      .mobile-tool[href="attendance.html"] { color: var(--school-primary); }
-      
-      .mobile-menu-button {
-        width: 48px; height: 48px; border: 0; border-radius: 14px; background: var(--school-primary);
-        color: #ffffff; margin-top: -20px; box-shadow: 0 6px 16px rgba(30, 58, 138, 0.3);
-        display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;
-      }
-      .mobile-menu-button i { font-size: 1.1rem; }
-      
-      .filters-section { grid-template-columns: 1fr; }
-      .btn-group { width: 100%; }
-      .btn-group .btn { flex: 1; }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
     }
   </style>
 </head>
-<body>
+<body class="h-full bg-slate-50 text-slate-800 antialiased selection:bg-blue-500 selection:text-white">
+
   <!-- Spinner Overlay -->
   <div id="pageSpinnerOverlay">
-    <div class="spinner"></div>
+    <div class="flex flex-col items-center gap-3">
+      <div class="inline-block h-10 w-10 animate-spin rounded-full border-4 border-solid border-blue-700 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status"></div>
+      <span class="text-sm font-semibold text-slate-600">Loading Dashboard...</span>
+    </div>
   </div>
 
-  <div class="app" id="app">
-    <!-- Sidebar Overlay -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="min-h-screen flex flex-col" id="app">
+    
+    <!-- TOP NAV BAR -->
+    <header class="fixed top-0 z-30 w-full bg-white/95 backdrop-blur border-b border-slate-200">
+      <div class="px-3 py-3 lg:px-5 lg:pl-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center justify-start gap-3">
+            <button id="sidebarToggle" type="button" class="inline-flex items-center p-2 text-sm text-slate-600 rounded-lg lg:hidden hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200">
+              <span class="sr-only">Open sidebar</span>
+              <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center justify-center h-10 w-10 rounded-xl bg-blue-50 text-brand-primary border border-slate-200 shadow-sm">
+                <i class="fa-solid fa-calendar-check text-lg"></i>
+              </div>
+              <div>
+                <h1 class="text-lg font-bold text-slate-900 leading-tight flex items-center gap-2">
+                  Attendance Records
+                  <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200" data-page-school>School Admin</span>
+                </h1>
+                <p class="text-xs text-slate-500 hidden sm:block">Monitor and manage daily attendance logs</p>
+              </div>
+            </div>
+          </div>
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
-      <div class="brand">
-        <img src="mainlogo.png" alt="School Logo" data-school-logo>
-        <div style="overflow: hidden;">
-          <div class="title" data-school-name>School Name</div>
-          <div class="subtitle">Admin Portal</div>
+          <div class="flex items-center gap-2 sm:gap-3">
+            <button type="button" class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors relative" title="Notifications">
+              <i class="fa-regular fa-bell text-lg"></i>
+              <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full"></span>
+            </button>
+            <button type="button" class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title="Help">
+              <i class="fa-regular fa-circle-question text-lg"></i>
+            </button>
+            <div class="h-6 w-px bg-slate-200 mx-1"></div>
+            <div class="flex items-center gap-2 pl-1">
+              <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs ring-2 ring-slate-200">
+                <i class="fa-solid fa-user-shield"></i>
+              </div>
+              <span class="text-xs font-semibold text-slate-700 hidden sm:inline-block" id="adminName">Admin</span>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div class="sidebar-search">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" placeholder="Quick search..." aria-label="Quick search">
-      </div>
-
-      <div class="nav-section-title">Main Menu</div>
-      <nav class="nav" aria-label="Primary Navigation">
-        <a href="admin.html" class="nav-link">
-          <i class="fa-solid fa-house"></i> <span>Dashboard</span>
-        </a>
-        <a href="admission.html" class="nav-link">
-          <i class="fa-solid fa-user-plus"></i> <span>Admission</span>
-        </a>
-        <a href="people.html" class="nav-link">
-          <i class="fa-solid fa-users"></i> <span>People</span>
-        </a>
-
-        <div class="nav-section-title">Academics & Records</div>
-        <a href="academics.html" class="nav-link">
-          <i class="fa-solid fa-book-open"></i> <span>Academics</span>
-        </a>
-        <a href="results.html" class="nav-link">
-          <i class="fa-solid fa-file-invoice"></i> <span>Results</span>
-        </a>
-        <a href="attendance.html" class="nav-link active">
-          <i class="fa-solid fa-calendar-check"></i> <span>Attendance</span>
-        </a>
-
-        <div class="nav-section-title">Management</div>
-        <a href="finance.html" class="nav-link">
-          <i class="fa-solid fa-wallet"></i> <span>Finance</span>
-        </a>
-        <a href="settings.html" class="nav-link">
-          <i class="fa-solid fa-gear"></i> <span>Settings</span>
-        </a>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="avatar-circle">A</div>
-        <div class="user-info">
-          <strong id="adminName">Admin</strong>
-          <small>Signed in</small>
-        </div>
-      </div>
-    </aside>
-
-    <!-- TOPBAR -->
-    <header class="topbar" role="banner">
-      <div class="page-header">
-        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open Sidebar">
-          <i class="fa-solid fa-bars"></i>
-        </button>
-        <div>
-          <h1 class="page-title">
-            <i class="fa-solid fa-chart-pie"></i>
-            Attendance Records
-            <span class="admin-badge" data-page-school>School Admin</span>
-          </h1>
-        </div>
-      </div>
-
-      <div class="topbar-icons">
-        <button class="icon-btn" title="Notifications">
-          <i class="fa-regular fa-bell"></i>
-          <span class="notification-dot"></span>
-        </button>
-        <button class="icon-btn" title="Help">
-          <i class="fa-regular fa-circle-question"></i>
-        </button>
-        <button class="icon-btn" title="Settings">
-          <i class="fa-solid fa-sliders"></i>
-        </button>
       </div>
     </header>
 
-    <!-- MAIN CONTENT -->
-    <main class="main-content" role="main">
-      <!-- SUMMARY CARDS -->
-      <section class="section">
-        <h2 class="section-title">
-          <i class="fa-solid fa-chart-line"></i>
-          Today's Attendance Summary
-        </h2>
+    <div class="flex pt-16 overflow-hidden bg-slate-50 min-h-screen">
 
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">
-              <i class="fa-solid fa-user-graduate"></i>
+      <!-- SIDEBAR OVERLAY -->
+      <div id="sidebarOverlay" class="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm hidden lg:hidden transition-opacity"></div>
+
+      <!-- SIDEBAR -->
+      <aside id="sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen pt-16 transition-transform -translate-x-full bg-slate-900 border-r border-slate-800 lg:translate-x-0 flex flex-col" aria-label="Sidebar">
+        <div class="h-full px-3 py-4 overflow-y-auto flex flex-col justify-between">
+          <div class="space-y-4">
+            
+            <!-- School Brand Header -->
+            <div class="px-3 py-2 bg-slate-800/80 rounded-xl border border-slate-700/60 flex items-center gap-3">
+              <img src="mainlogo.png" alt="School Logo" data-school-logo class="w-10 h-10 rounded-lg object-cover border border-slate-600 bg-white p-0.5">
+              <div class="overflow-hidden">
+                <h2 class="text-sm font-bold text-white truncate" data-school-name>School</h2>
+                <p class="text-xs text-slate-400 truncate">Admin Portal</p>
+              </div>
             </div>
-            <div class="stat-details">
-              <div class="stat-value" id="studentsPresent">0</div>
-              <div class="stat-label">Students Present</div>
+
+            <!-- Quick Search -->
+            <div class="relative px-1">
+              <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-slate-400">
+                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+              </div>
+              <input type="text" placeholder="Quick search..." aria-label="Quick search" class="bg-slate-800/60 border border-slate-700 text-slate-200 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 placeholder-slate-400 transition">
             </div>
+
+            <!-- Navigation Links -->
+            <nav class="space-y-1 font-medium text-xs">
+              <a href="admin.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                <i class="fa-solid fa-house w-5 text-slate-400 group-hover:text-blue-400"></i>
+                <span class="ml-2 font-semibold">Dashboard</span>
+              </a>
+              <a href="admission.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                <i class="fa-solid fa-graduation-cap w-5 text-slate-400 group-hover:text-blue-400"></i>
+                <span class="ml-2 font-semibold">Admission</span>
+              </a>
+              <a href="people.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                <i class="fa-solid fa-users w-5 text-slate-400 group-hover:text-blue-400"></i>
+                <span class="ml-2 font-semibold">People</span>
+              </a>
+              <a href="academics.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                <i class="fa-solid fa-book-open w-5 text-slate-400 group-hover:text-blue-400"></i>
+                <span class="ml-2 font-semibold">Academics</span>
+              </a>
+              <a href="results.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                <i class="fa-solid fa-file-lines w-5 text-slate-400 group-hover:text-blue-400"></i>
+                <span class="ml-2 font-semibold">Results</span>
+              </a>
+              <a href="attendance.html" class="flex items-center px-3 py-2.5 text-white rounded-lg bg-blue-600/90 font-bold shadow-sm transition group">
+                <i class="fa-solid fa-calendar-check w-5 text-white"></i>
+                <span class="ml-2">Attendance</span>
+              </a>
+              <a href="finance.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                <i class="fa-solid fa-wallet w-5 text-slate-400 group-hover:text-blue-400"></i>
+                <span class="ml-2 font-semibold">Finance</span>
+              </a>
+              <a href="settings.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                <i class="fa-solid fa-gear w-5 text-slate-400 group-hover:text-blue-400"></i>
+                <span class="ml-2 font-semibold">Settings</span>
+              </a>
+            </nav>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
-              <i class="fa-solid fa-chalkboard-user"></i>
-            </div>
-            <div class="stat-details">
-              <div class="stat-value" id="teachingPresent">0</div>
-              <div class="stat-label">Teaching Staff Present</div>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
-              <i class="fa-solid fa-user-tie"></i>
-            </div>
-            <div class="stat-details">
-              <div class="stat-value" id="nonTeachingPresent">0</div>
-              <div class="stat-label">Non-Teaching Staff Present</div>
+          <!-- Footer user info -->
+          <div class="pt-4 border-t border-slate-800">
+            <div class="flex items-center gap-3 px-2 py-1">
+              <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 font-semibold text-xs border border-slate-700">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <div class="overflow-hidden">
+                <p class="text-xs font-semibold text-slate-200 truncate">Logged in as</p>
+                <p class="text-[11px] text-slate-400 truncate">School Administrator</p>
+              </div>
             </div>
           </div>
         </div>
-      </section>
+      </aside>
 
-      <!-- ATTENDANCE TRENDS CHART -->
-      <section class="section">
-        <h2 class="section-title">
-          <i class="fa-solid fa-chart-area"></i>
-          Attendance Trends
-        </h2>
-        <div class="chart-container">
-          <canvas id="attendanceTrendChart"></canvas>
-        </div>
-      </section>
-
-      <!-- FILTERS -->
-      <section class="section">
-        <h2 class="section-title">
-          <i class="fa-solid fa-filter"></i>
-          Filter Records
-        </h2>
-
-        <div class="filters-section">
-          <div class="form-group">
-            <label for="filterDate">Date</label>
-            <input type="date" id="filterDate">
+      <!-- MAIN CONTENT WRAPPER -->
+      <main class="relative w-full h-full overflow-y-auto bg-slate-50 lg:ml-64 p-4 lg:p-6 pb-24 lg:pb-12">
+        
+        <!-- SUMMARY CARDS -->
+        <section class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-brand-primary"></i>
+              Today's Attendance Summary
+            </h2>
+            <span class="text-xs font-medium text-slate-500">Live Overview</span>
           </div>
 
-          <div class="form-group">
-            <label for="filterRole">Role</label>
-            <select id="filterRole">
-              <option value="">All Roles</option>
-              <option value="student">Student</option>
-              <option value="teaching">Teaching Staff</option>
-              <option value="non-teaching">Non-Teaching Staff</option>
-            </select>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            <!-- Card 1 -->
+            <div class="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Students Present</p>
+                  <h3 class="text-3xl font-extrabold text-slate-900 tracking-tight" id="studentsPresent">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl border border-blue-100">
+                  <i class="fa-solid fa-users"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Recorded today</span>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Teaching Staff</p>
+                  <h3 class="text-3xl font-extrabold text-slate-900 tracking-tight" id="teachingPresent">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl border border-emerald-100">
+                  <i class="fa-solid fa-chalkboard-user"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Active duty</span>
+              </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all sm:col-span-2 lg:col-span-1">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Non-Teaching Staff</p>
+                  <h3 class="text-3xl font-extrabold text-slate-900 tracking-tight" id="nonTeachingPresent">0</h3>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl border border-amber-100">
+                  <i class="fa-solid fa-user-tie"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>On campus</span>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ATTENDANCE TRENDS CHART -->
+        <section class="mb-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-brand-primary"></i>
+              Attendance Trends
+            </h2>
+            <span class="text-xs font-medium text-slate-400">Weekly Breakdown</span>
+          </div>
+          <div class="relative w-full h-72">
+            <canvas id="attendanceTrendChart"></canvas>
+          </div>
+        </section>
+
+        <!-- FILTERS & CONTROLS -->
+        <section class="mb-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h2 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-filter text-brand-primary"></i>
+            Filter & Search Records
+          </h2>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            
+            <div>
+              <label for="filterDate" class="block mb-1.5 text-xs font-semibold text-slate-700">Date</label>
+              <input type="date" id="filterDate" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+            </div>
+
+            <div>
+              <label for="filterRole" class="block mb-1.5 text-xs font-semibold text-slate-700">Role</label>
+              <select id="filterRole" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                <option value="">All Roles</option>
+                <option value="student">Student</option>
+                <option value="teaching">Teaching Staff</option>
+                <option value="non-teaching">Non-Teaching Staff</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="filterStatus" class="block mb-1.5 text-xs font-semibold text-slate-700">Status</label>
+              <select id="filterStatus" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                <option value="">All Statuses</option>
+                <option value="Present">Present</option>
+                <option value="Absent">Absent</option>
+                <option value="Late">Late</option>
+                <option value="Excused">Excused</option>
+                <option value="Leave">Leave</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="searchName" class="block mb-1.5 text-xs font-semibold text-slate-700">Name or ID</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                </div>
+                <input type="text" id="searchName" placeholder="Search name or ID..." class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5">
+              </div>
+            </div>
+
           </div>
 
-          <div class="form-group">
-            <label for="filterStatus">Status</label>
-            <select id="filterStatus">
-              <option value="">All Statuses</option>
-              <option value="Present">Present</option>
-              <option value="Absent">Absent</option>
-              <option value="Late">Late</option>
-              <option value="Excused">Excused</option>
-              <option value="Leave">Leave</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="searchName">Name or ID</label>
-            <input type="text" id="searchName" placeholder="Search name or ID...">
-          </div>
-
-          <div class="btn-group">
-            <button class="btn" onclick="fetchAttendanceRecords()">
+          <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-100 justify-end">
+            <button type="button" onclick="fetchAttendanceRecords()" class="inline-flex items-center gap-2 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-semibold rounded-xl text-xs px-4 py-2.5 transition shadow-sm">
               <i class="fa-solid fa-magnifying-glass"></i> Filter
             </button>
-            <button class="btn secondary" onclick="exportTableToCSV('attendance-records.csv')">
+            <button type="button" onclick="exportTableToCSV('attendance-records.csv')" class="inline-flex items-center gap-2 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 focus:ring-4 focus:ring-slate-200 font-semibold rounded-xl text-xs px-4 py-2.5 transition">
               <i class="fa-solid fa-file-arrow-down"></i> Export CSV
             </button>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ATTENDANCE TABLE -->
-      <section class="section">
-        <h2 class="section-title">
-          <i class="fa-solid fa-list-check"></i>
-          Attendance Records
-        </h2>
+        <!-- ATTENDANCE TABLE -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-brand-primary"></i>
+              Attendance Records
+            </h2>
+            <span class="text-xs text-slate-500 font-medium">Real-time data logs</span>
+          </div>
 
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Name</th>
-                <th>ID</th>
-                <th>Role</th>
-                <th>Class/Dept</th>
-                <th>Status</th>
-                <th>Remark</th>
-                <th>Recorded By</th>
-              </tr>
-            </thead>
-            <tbody id="attendanceTableBody">
-              <tr>
-                <td colspan="8">
-                  <div class="empty-state">
-                    <div class="empty-state-icon"><i class="fa-solid fa-spinner fa-spin"></i></div>
-                    <div class="empty-state-title">Loading attendance records...</div>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left text-slate-600">
+              <thead class="text-[11px] text-slate-500 uppercase bg-slate-50 border-b border-slate-200 font-bold tracking-wider">
+                <tr>
+                  <th scope="col" class="px-5 py-3.5">Date</th>
+                  <th scope="col" class="px-5 py-3.5">Name</th>
+                  <th scope="col" class="px-5 py-3.5">ID</th>
+                  <th scope="col" class="px-5 py-3.5">Role</th>
+                  <th scope="col" class="px-5 py-3.5">Class / Dept</th>
+                  <th scope="col" class="px-5 py-3.5">Status</th>
+                  <th scope="col" class="px-5 py-3.5">Remark</th>
+                  <th scope="col" class="px-5 py-3.5">Recorded By</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceTableBody" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="8" class="px-5 py-12 text-center">
+                    <div class="flex flex-col items-center justify-center gap-2 text-slate-400">
+                      <i class="fa-solid fa-spinner animate-spin text-2xl text-blue-600"></i>
+                      <p class="text-xs font-semibold text-slate-600">Loading attendance records...</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION TOOLBAR -->
+    <div class="lg:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl shadow-xl px-2 py-2 flex items-center justify-around" id="mobileBottomToolbar">
+      <a href="admin.html" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 px-2 py-1">
+        <i class="fa-solid fa-house text-base"></i>
+        <span>Home</span>
+      </a>
+      <a href="admission.html" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 px-2 py-1">
+        <i class="fa-solid fa-user-plus text-base"></i>
+        <span>Admission</span>
+      </a>
+      <button id="attendanceBottomMenuBtn" type="button" class="w-12 h-12 -mt-5 rounded-2xl bg-blue-700 text-white shadow-lg flex flex-col items-center justify-center gap-0.5 border-2 border-white focus:outline-none">
+        <i class="fa-solid fa-grip text-base"></i>
+        <span class="text-[9px] font-extrabold uppercase">Menu</span>
+      </button>
+      <a href="finance.html" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 px-2 py-1">
+        <i class="fa-solid fa-wallet text-base"></i>
+        <span>Finance</span>
+      </a>
+      <a href="people.html" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 px-2 py-1">
+        <i class="fa-solid fa-users text-base"></i>
+        <span>People</span>
+      </a>
+    </div>
+
+    <!-- MOBILE MENU DRAWER BACKDROP & DRAWER -->
+    <div id="attendanceMenuBackdrop" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden transition-opacity"></div>
+    <div id="attendanceMenuDrawer" class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl p-5 shadow-2xl hidden transition-transform border-t border-slate-200 max-h-[80vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Admin Menu</h3>
+          <p class="text-xs text-slate-500" data-school-name>School</p>
         </div>
-      </section>
-    </main>
+        <button type="button" id="closeAttendanceMenu" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+      <div class="grid grid-cols-4 gap-2.5">
+        <a href="academics.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 text-slate-700 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-book-open text-base text-blue-700"></i>
+          <span>Academics</span>
+        </a>
+        <a href="results.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 text-slate-700 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-file-lines text-base text-blue-700"></i>
+          <span>Results</span>
+        </a>
+        <a href="admin-cbt.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 text-slate-700 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-laptop text-base text-blue-700"></i>
+          <span>CBT</span>
+        </a>
+        <a href="adminfees.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 text-slate-700 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-money-bill text-base text-blue-700"></i>
+          <span>Fees</span>
+        </a>
+        <a href="adminpayment.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 text-slate-700 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-credit-card text-base text-blue-700"></i>
+          <span>Payments</span>
+        </a>
+        <a href="attendance.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-calendar-check text-base text-blue-700"></i>
+          <span>Attendance</span>
+        </a>
+        <a href="more.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 text-slate-700 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-location-dot text-base text-blue-700"></i>
+          <span>Locations</span>
+        </a>
+        <a href="settings.html" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50 text-slate-700 text-[11px] font-bold gap-1.5 transition">
+          <i class="fa-solid fa-gear text-base text-blue-700"></i>
+          <span>Settings</span>
+        </a>
+      </div>
+    </div>
+
   </div>
 
-  <!-- SCRIPT INTEGRATION -->
+  <!-- Flowbite JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
   <script>
-    // BACKEND URL
+    // BACKEND URL & CONFIGS
     const API_BASE_URL = window.API_BASE_URL || "https://examguard-8rxe.onrender.com";
     const API_BASE = `${API_BASE_URL}/api`;
     const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || "goldlincschools.com.ng";
@@ -1125,24 +614,36 @@
 
     function showPageError(message) {
       const body = document.getElementById("attendanceTableBody");
-      if (body) body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i></div><div class="empty-state-title">${message}</div><p style="color:var(--text-muted); font-size: 0.85rem;">Please refresh or sign in again.</p></div></td></tr>`;
+      if (body) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="8" class="px-5 py-10 text-center">
+              <div class="flex flex-col items-center justify-center gap-2">
+                <i class="fa-solid fa-circle-exclamation text-3xl text-rose-500"></i>
+                <p class="text-sm font-bold text-slate-800">${message}</p>
+                <p class="text-xs text-slate-500">Please refresh the page or sign in again.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
     }
 
-    // Sidebar mobile toggle logic
+    // Sidebar Toggle Logic
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
 
     function openSidebar() {
-      sidebar.classList.add('open');
-      sidebarOverlay.classList.add('active');
-      document.body.style.overflow = 'hidden';
+      sidebar?.classList.remove('-translate-x-full');
+      sidebarOverlay?.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
     }
 
     function closeSidebar() {
-      sidebar.classList.remove('open');
-      sidebarOverlay.classList.remove('active');
-      document.body.style.overflow = 'auto';
+      sidebar?.classList.add('-translate-x-full');
+      sidebarOverlay?.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
     }
 
     if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
@@ -1154,11 +655,8 @@
 
     // Fill profile
     function fillProfile(data) {
-      const name = data.name || 'Administrator';
-      document.getElementById('adminName').textContent = name;
-      const initial = name.charAt(0).toUpperCase();
-      const circle = document.querySelector('.avatar-circle');
-      if (circle) circle.textContent = initial;
+      const nameEl = document.getElementById('adminName');
+      if (nameEl) nameEl.textContent = data.name || 'Administrator';
     }
 
     // Fetch attendance summary
@@ -1191,7 +689,9 @@
     // Attendance trends chart
     let attendanceTrendChartInstance;
     function renderAttendanceTrendChart(trends) {
-      const ctx = document.getElementById('attendanceTrendChart').getContext('2d');
+      const canvas = document.getElementById('attendanceTrendChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
       const labels = trends.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
       const students = trends.students || [85, 88, 90, 87, 92];
       const teaching = trends.teaching || [95, 94, 96, 95, 98];
@@ -1208,9 +708,9 @@
               label: 'Students',
               data: students,
               borderColor: '#10b981',
-              backgroundColor: 'rgba(16, 185, 129, 0.05)',
+              backgroundColor: 'rgba(16, 185, 129, 0.08)',
               fill: true,
-              tension: 0.35,
+              tension: 0.3,
               pointRadius: 4,
               pointBackgroundColor: '#10b981'
             },
@@ -1218,9 +718,9 @@
               label: 'Teaching Staff',
               data: teaching,
               borderColor: '#3b82f6',
-              backgroundColor: 'rgba(59, 130, 246, 0.05)',
+              backgroundColor: 'rgba(59, 130, 246, 0.08)',
               fill: true,
-              tension: 0.35,
+              tension: 0.3,
               pointRadius: 4,
               pointBackgroundColor: '#3b82f6'
             },
@@ -1228,9 +728,9 @@
               label: 'Non-Teaching Staff',
               data: nonTeaching,
               borderColor: '#f59e0b',
-              backgroundColor: 'rgba(245, 158, 11, 0.05)',
+              backgroundColor: 'rgba(245, 158, 11, 0.08)',
               fill: true,
-              tension: 0.35,
+              tension: 0.3,
               pointRadius: 4,
               pointBackgroundColor: '#f59e0b'
             }
@@ -1242,9 +742,8 @@
           plugins: {
             legend: {
               display: true,
-              position: 'top',
-              align: 'end',
-              labels: { font: { family: 'Inter', size: 12 }, usePointStyle: true, boxWidth: 8 }
+              position: 'bottom',
+              labels: { font: { family: 'Inter', size: 12 }, padding: 16 }
             }
           },
           scales: {
@@ -1252,11 +751,11 @@
               beginAtZero: true,
               max: 100,
               grid: { color: '#f1f5f9' },
-              ticks: { font: { family: 'Inter', size: 11 } }
+              ticks: { font: { family: 'Inter' } }
             },
             x: {
               grid: { color: '#f1f5f9' },
-              ticks: { font: { family: 'Inter', size: 11 } }
+              ticks: { font: { family: 'Inter' } }
             }
           }
         }
@@ -1290,11 +789,11 @@
         if (!records.length) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="8">
-                <div class="empty-state">
-                  <div class="empty-state-icon"><i class="fa-regular fa-folder-open"></i></div>
-                  <div class="empty-state-title">No records found</div>
-                  <p style="color: var(--text-muted); font-size: 0.85rem;">Try adjusting your filter criteria</p>
+              <td colspan="8" class="px-5 py-10 text-center">
+                <div class="flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                  <i class="fa-solid fa-folder-open text-3xl"></i>
+                  <p class="text-sm font-semibold text-slate-700">No records found</p>
+                  <p class="text-xs text-slate-500">Try adjusting your filters or search terms.</p>
                 </div>
               </td>
             </tr>
@@ -1308,20 +807,15 @@
             else if (r.status === 'Leave') badgeClass = 'badge-leave';
 
             return `
-              <tr>
-                <td>${r.date ? r.date.slice(0, 10) : '-'}</td>
-                <td><strong>${r.name || '-'}</strong></td>
-                <td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.8rem; color:#475569;">${r.id || r.regNo || r.staffId || '-'}</code></td>
-                <td>${r.role ? r.role.charAt(0).toUpperCase() + r.role.slice(1).replace('-', ' ') : '-'}</td>
-                <td>${r.class || r.department || '-'}</td>
-                <td>
-                  <span class="badge ${badgeClass}">
-                    <span class="badge-dot"></span>
-                    ${r.status || 'Unknown'}
-                  </span>
-                </td>
-                <td>${r.remark || '-'}</td>
-                <td>${r.recordedBy?.name || r.recordedBy || '-'}</td>
+              <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="px-5 py-3.5 font-medium text-slate-700 whitespace-nowrap">${r.date ? r.date.slice(0, 10) : ''}</td>
+                <td class="px-5 py-3.5 font-bold text-slate-900 whitespace-nowrap">${r.name || ''}</td>
+                <td class="px-5 py-3.5 font-mono text-xs text-slate-500 whitespace-nowrap">${r.id || r.regNo || r.staffId || ''}</td>
+                <td class="px-5 py-3.5 text-slate-600 whitespace-nowrap capitalize">${r.role ? r.role.replace('-', ' ') : ''}</td>
+                <td class="px-5 py-3.5 text-slate-600 whitespace-nowrap">${r.class || r.department || ''}</td>
+                <td class="px-5 py-3.5 whitespace-nowrap"><span class="badge ${badgeClass}">${r.status || 'Unknown'}</span></td>
+                <td class="px-5 py-3.5 text-slate-500 max-w-xs truncate">${r.remark || '-'}</td>
+                <td class="px-5 py-3.5 text-slate-600 whitespace-nowrap">${r.recordedBy?.name || r.recordedBy || '-'}</td>
               </tr>
             `;
           }).join('');
@@ -1330,11 +824,11 @@
         console.error('Error fetching records:', err);
         document.getElementById('attendanceTableBody').innerHTML = `
           <tr>
-            <td colspan="8">
-              <div class="empty-state">
-                <div class="empty-state-icon"><i class="fa-solid fa-circle-exclamation" style="color:#ef4444;"></i></div>
-                <div class="empty-state-title">Unable to load records</div>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">Please check network connection and try again</p>
+            <td colspan="8" class="px-5 py-10 text-center">
+              <div class="flex flex-col items-center justify-center gap-1.5 text-rose-500">
+                <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                <p class="text-xs font-bold">Unable to load records</p>
+                <p class="text-xs text-slate-500">Please verify your connection and try again.</p>
               </div>
             </td>
           </tr>
@@ -1342,9 +836,10 @@
       }
     }
 
-    // CSV Export
+    // Export CSV
     function exportTableToCSV(filename) {
       const table = document.querySelector("table");
+      if (!table) return;
       let csv = [];
       const rows = table.querySelectorAll("tr");
 
@@ -1368,7 +863,6 @@
       document.body.removeChild(downloadLink);
     }
 
-    // Page Initialization
     async function initializeAttendancePage() {
       const spinner = document.getElementById("pageSpinnerOverlay");
       try {
@@ -1382,7 +876,6 @@
       } finally {
         if (spinner) {
           spinner.classList.add("hidden");
-          setTimeout(() => { spinner.style.display = "none"; }, 300);
         }
       }
     }
@@ -1392,14 +885,27 @@
       const drawer = document.getElementById("attendanceMenuDrawer");
       const backdrop = document.getElementById("attendanceMenuBackdrop");
       const closeBtn = document.getElementById("closeAttendanceMenu");
-      const close = () => { drawer?.classList.add("hidden"); backdrop?.classList.add("hidden"); };
-      const open = () => { drawer?.classList.remove("hidden"); backdrop?.classList.remove("hidden"); };
       
+      const close = () => {
+        drawer?.classList.add("hidden");
+        backdrop?.classList.add("hidden");
+      };
+      const open = () => {
+        drawer?.classList.remove("hidden");
+        backdrop?.classList.remove("hidden");
+      };
+
       btn?.addEventListener("click", open);
       backdrop?.addEventListener("click", close);
       closeBtn?.addEventListener("click", close);
       drawer?.querySelectorAll("a").forEach(a => a.addEventListener("click", close));
-      document.addEventListener("keydown", e => { if (e.key === "Escape") { close(); closeSidebar(); } });
+      
+      document.addEventListener("keydown", e => { 
+        if (e.key === "Escape") { 
+          close(); 
+          closeSidebar(); 
+        } 
+      });
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -1407,39 +913,5 @@
       initializeAttendancePage();
     });
   </script>
-
-  <!-- MOBILE BOTTOM NAVIGATION -->
-  <div class="mobile-bottom-toolbar" id="mobileBottomToolbar">
-    <a href="admin.html" class="mobile-tool"><i class="fa-solid fa-house"></i><span>Home</span></a>
-    <a href="admission.html" class="mobile-tool"><i class="fa-solid fa-user-plus"></i><span>Admission</span></a>
-    <button class="mobile-menu-button" id="attendanceBottomMenuBtn" type="button" aria-label="Open admin menu">
-      <i class="fa-solid fa-grip"></i>
-    </button>
-    <a href="finance.html" class="mobile-tool"><i class="fa-solid fa-wallet"></i><span>Finance</span></a>
-    <a href="people.html" class="mobile-tool"><i class="fa-solid fa-users"></i><span>People</span></a>
-  </div>
-
-  <!-- MOBILE MENU DRAWER -->
-  <div class="mobile-menu-backdrop hidden" id="attendanceMenuBackdrop"></div>
-  <div class="mobile-menu-drawer hidden" id="attendanceMenuDrawer">
-    <div class="drawer-handle"></div>
-    <div class="drawer-header">
-      <div>
-        <strong>Admin Menu</strong>
-        <small data-school-name>School Name</small>
-      </div>
-      <button type="button" id="closeAttendanceMenu"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="drawer-grid">
-      <a href="academics.html"><i class="fa-solid fa-book-open"></i><span>Academics</span></a>
-      <a href="results.html"><i class="fa-solid fa-file-invoice"></i><span>Results</span></a>
-      <a href="admin-cbt.html"><i class="fa-solid fa-laptop"></i><span>CBT</span></a>
-      <a href="adminfees.html"><i class="fa-solid fa-money-bill-wave"></i><span>Fees</span></a>
-      <a href="adminpayment.html"><i class="fa-solid fa-credit-card"></i><span>Payments</span></a>
-      <a href="attendance.html"><i class="fa-solid fa-calendar-check"></i><span>Attendance</span></a>
-      <a href="more.html"><i class="fa-solid fa-ellipsis"></i><span>More</span></a>
-      <a href="settings.html"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
-    </div>
-  </div>
 </body>
 </html>
