@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Attendance Records - Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  
+  <!-- Tailwind CSS & Flowbite -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Tailwind Configuration for Custom Branding -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            school: {
+              primary: 'var(--school-primary, #1e3a8a)',
+              secondary: 'var(--school-secondary, #f59e0b)',
+              accent: 'var(--school-accent, #10b981)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --school-primary: #1e3a8a;
+      --school-secondary: #f59e0b;
+      --school-accent: #10b981;
+      --school-dark: #0f172a;
+    }
+    
+    body {
+      background-color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+    }
+
+    #pageSpinnerOverlay {
+      transition: opacity 0.3s ease-out;
+    }
+    #pageSpinnerOverlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .spinner {
+      border: 3.5px solid #e2e8f0;
+      border-top: 3.5px solid var(--school-primary);
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      animation: spinner-spin 0.8s linear infinite;
+    }
+
+    @keyframes spinner-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Scrollbar Polish */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="antialiased text-slate-800 bg-slate-50 min-h-screen flex flex-col">
+
+  <!-- Spinner Overlay -->
+  <div id="pageSpinnerOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-white/90 backdrop-blur-sm">
+    <div class="flex flex-col items-center gap-3">
+      <div class="spinner"></div>
+      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Loading Dashboard...</span>
+    </div>
+  </div>
+
+  <!-- MOBILE SIDEBAR BACKDROP OVERLAY -->
+  <div id="sidebarBackdrop" onclick="toggleMobileSidebar(false)" class="fixed inset-0 z-[45] bg-slate-950/60 backdrop-blur-[2px] transition-opacity duration-300 hidden md:hidden"></div>
+
+  <!-- TOP NAVBAR -->
+  <header class="fixed top-0 z-30 w-full bg-white border-b border-slate-200 shadow-xs">
+    <div class="px-4 py-2.5 lg:px-6">
+      <div class="flex items-center justify-between">
+        
+        <!-- Left: Hamburger & Brand -->
+        <div class="flex items-center gap-3">
+          <button onclick="toggleMobileSidebar(true)" type="button" class="inline-flex items-center p-2 text-slate-600 rounded-lg md:hidden hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-200">
+            <span class="sr-only">Toggle Sidebar</span>
+            <i class="fa-solid fa-bars text-lg"></i>
+          </button>
+          
+          <a href="#" class="flex items-center gap-3">
+            <img src="mainlogo.png" data-school-logo class="h-9 w-9 rounded-lg border border-slate-200 object-cover shadow-xs" alt="Logo" onerror="this.src='https://via.placeholder.com/150'" />
+            <div class="flex flex-col">
+              <span class="text-base font-bold text-slate-900 leading-tight" data-school-name>School Portal</span>
+              <span class="text-[11px] font-medium text-slate-500 hidden sm:inline-block" data-page-school>Admin Management</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Right: Actions & User -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <span id="academicSessionBadge" class="hidden lg:inline-flex bg-blue-50 text-school-primary border border-blue-100 text-xs font-semibold px-3 py-1 rounded-full">
+            Academic Session
+          </span>
+          
+          <button class="p-2 text-slate-500 rounded-lg hover:bg-slate-100 hover:text-slate-700 transition-colors relative">
+            <i class="fa-solid fa-bell text-base"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+          </button>
+
+          <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+          <!-- User Profile -->
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-school-primary text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-white">
+              A
+            </div>
+            <div class="hidden sm:flex flex-col text-left">
+              <span class="text-xs font-bold text-slate-800 leading-tight" id="adminName">Administrator</span>
+              <span class="text-[10px] font-medium text-slate-500">Super Admin</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- SIDEBAR (Fixed Drawer on Mobile, Docked on Desktop) -->
+  <aside id="logo-sidebar" class="fixed top-0 left-0 z-[50] md:z-20 w-64 h-screen pt-16 transition-transform -translate-x-full bg-slate-900 border-r border-slate-800 md:translate-x-0 shadow-xl md:shadow-none" aria-label="Sidebar">
+    <div class="h-full px-3 py-4 overflow-y-auto bg-slate-900 flex flex-col justify-between">
+      
+      <div class="space-y-4">
+        <!-- Close button for mobile -->
+        <div class="flex items-center justify-between px-2 md:hidden">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation</span>
+          <button onclick="toggleMobileSidebar(false)" class="text-slate-400 hover:text-white p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Quick Search -->
+        <div class="px-1">
+          <div class="relative">
+            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+              <i class="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
+            </div>
+            <input type="text" class="block w-full p-2 ps-9 text-xs text-slate-200 bg-slate-800/80 border border-slate-700/80 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400" placeholder="Quick search...">
+          </div>
+        </div>
+
+        <!-- Menu Links -->
+        <nav class="space-y-1 font-medium text-xs">
+          <a onclick="toggleMobileSidebar(false)" href="admin.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-house w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Dashboard</span>
+          </a>
+          <a onclick="toggleMobileSidebar(false)" href="admission.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-user-plus w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Admission</span>
+          </a>
+          <a onclick="toggleMobileSidebar(false)" href="people.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-users w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">People</span>
+          </a>
+          <a onclick="toggleMobileSidebar(false)" href="academics.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-book-open w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Academics</span>
+          </a>
+          <a onclick="toggleMobileSidebar(false)" href="results.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-file-lines w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Results</span>
+          </a>
+          <a onclick="toggleMobileSidebar(false)" href="attendance.html" class="flex items-center px-3 py-2.5 text-white bg-blue-600 rounded-lg font-semibold shadow-xs">
+            <i class="fa-solid fa-calendar-check w-5 text-white text-sm"></i>
+            <span class="ms-2.5">Attendance</span>
+          </a>
+          <a onclick="toggleMobileSidebar(false)" href="finance.html" class="flex items-center px-3 py-2.5 text-slate-300 rounded-lg hover:bg-slate-800 hover:text-white group transition-colors">
+            <i class="fa-solid fa-wallet w-5 text-slate-400 group-hover:text-white text-sm"></i>
+            <span class="ms-2.5">Finance</span>
+          </a>
+        </nav>
+      </div>
+
+      <!-- User Footnote -->
+      <div class="px-3 py-3 rounded-lg bg-slate-800/50 border border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+        <div class="truncate">
+          <p class="text-[10px] uppercase font-bold text-slate-500">System Mode</p>
+          <p class="text-slate-200 font-medium">Online Admin</p>
+        </div>
+        <i class="fa-solid fa-circle text-[8px] text-emerald-400"></i>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 md:ml-64 pt-20 pb-24 md:pb-8 px-4 sm:px-6 lg:px-8 max-w-[1440px] w-full">
+    
+    <!-- Header Title & Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+          <span>Attendance Records</span>
+        </h1>
+        <p class="text-xs text-slate-500 mt-1">Monitor daily presence, staff check-ins, and aggregate trends across departments.</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- RECORD ATTENDANCE BUTTON -->
+        <button onclick="openAttendanceModal()" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-300 transition-colors shadow-sm">
+          <i class="fa-solid fa-plus text-sm"></i>
+          <span>Record Attendance</span>
+        </button>
+
+        <button onclick="fetchAttendanceRecords()" class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:ring-2 focus:ring-slate-200 transition-colors shadow-2xs">
+          <i class="fa-solid fa-rotate-right text-slate-500"></i>
+          <span class="hidden sm:inline">Refresh</span>
+        </button>
+        <button onclick="exportTableToCSV('attendance-records.csv')" class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-school-primary rounded-lg hover:opacity-95 focus:ring-2 focus:ring-blue-300 transition-colors shadow-2xs">
+          <i class="fa-solid fa-download"></i>
+          <span class="hidden sm:inline">Export CSV</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SUMMARY METRIC CARDS -->
+    <div class="grid grid-cols-2 gap-4 mb-6 items-stretch">
+
+      <!-- Students -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Students</span>
+            <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-2" id="studentsPresent">0</p>
+          </div>
+          <span class="shrink-0 inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 text-blue-600 bg-blue-50 rounded-xl">
+            <i class="fa-solid fa-graduation-cap text-base sm:text-lg"></i>
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5 mt-2 text-[10px] sm:text-[11px] text-emerald-600 font-semibold">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>Present Today</span>
+        </div>
+      </div>
+
+      <!-- Teaching Staff -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Teaching Staff</span>
+            <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-2" id="teachingPresent">0</p>
+          </div>
+          <span class="shrink-0 inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 text-emerald-600 bg-emerald-50 rounded-xl">
+            <i class="fa-solid fa-chalkboard-user text-base sm:text-lg"></i>
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5 mt-2 text-[10px] sm:text-[11px] text-emerald-600 font-semibold">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>Present Today</span>
+        </div>
+      </div>
+
+      <!-- Non-Teaching Staff: centered beneath the two fixed cards -->
+      <div class="col-span-2 justify-self-center w-full max-w-md bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Non-Teaching Staff</span>
+            <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-2" id="nonTeachingPresent">0</p>
+          </div>
+          <span class="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 text-amber-600 bg-amber-50 rounded-xl">
+            <i class="fa-solid fa-user-tie text-base sm:text-lg"></i>
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5 mt-2 text-[10px] sm:text-[11px] text-amber-600 font-semibold">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>Present Today</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ATTENDANCE TRENDS CHART CARD -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-2xs p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-school-primary"></i>
+            <span>Weekly Attendance Trends (%)</span>
+          </h2>
+        </div>
+        <span class="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">Mon - Fri</span>
+      </div>
+      <div class="relative h-64 w-full">
+        <canvas id="attendanceTrendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- FILTERS & TABLE CONTAINER -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+      
+      <!-- Filters Panel -->
+      <div class="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/70">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+            <i class="fa-solid fa-filter text-school-primary"></i> Filter Records
+          </h2>
+          <button onclick="resetFilters()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+            Reset Filters
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label for="filterDate" class="block mb-1 text-xs font-bold text-slate-700">Date</label>
+            <input type="date" id="filterDate" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5 shadow-2xs">
+          </div>
+
+          <div>
+            <label for="filterRole" class="block mb-1 text-xs font-bold text-slate-700">Role</label>
+            <select id="filterRole" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5 shadow-2xs">
+              <option value="">All Roles</option>
+              <option value="student">Student</option>
+              <option value="teaching">Teaching Staff</option>
+              <option value="non-teaching">Non-Teaching Staff</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="filterStatus" class="block mb-1 text-xs font-bold text-slate-700">Status</label>
+            <select id="filterStatus" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full p-2.5 shadow-2xs">
+              <option value="">All Statuses</option>
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+              <option value="Late">Late</option>
+              <option value="Excused">Excused</option>
+              <option value="Leave">Leave</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="searchName" class="block mb-1 text-xs font-bold text-slate-700">Search Keyword</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
+              </div>
+              <input type="text" id="searchName" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg focus:ring-school-primary focus:border-school-primary block w-full ps-9 p-2.5 shadow-2xs" placeholder="Name or ID number...">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left text-slate-600">
+          <thead class="text-[11px] font-bold text-slate-700 uppercase bg-slate-100/80 border-b border-slate-200 tracking-wider">
+            <tr>
+              <th scope="col" class="px-5 py-3.5">Date</th>
+              <th scope="col" class="px-5 py-3.5">Name</th>
+              <th scope="col" class="px-5 py-3.5">ID / Reg No</th>
+              <th scope="col" class="px-5 py-3.5">Role</th>
+              <th scope="col" class="px-5 py-3.5">Class / Dept</th>
+              <th scope="col" class="px-5 py-3.5">Status</th>
+              <th scope="col" class="px-5 py-3.5">Remark</th>
+              <th scope="col" class="px-5 py-3.5">Recorded By</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceTableBody" class="divide-y divide-slate-200 bg-white">
+            <tr>
+              <td colspan="8" class="px-6 py-12 text-center text-slate-500">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-school-primary"></i>
+                <p class="font-medium">Loading attendance records...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- RECORD ATTENDANCE MODAL COMPONENT -->
+  <div id="attendanceModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-200 hidden opacity-0" tabindex="-1" aria-hidden="true">
+    <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all duration-200 scale-95" id="attendanceModalCard">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-200">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+            <i class="fa-solid fa-calendar-plus text-base"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Record New Attendance</h3>
+            <p class="text-xs text-slate-500">Add an individual presence or absence entry</p>
+          </div>
+        </div>
+        <button onclick="closeAttendanceModal()" type="button" class="text-slate-400 bg-transparent hover:bg-slate-200 hover:text-slate-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center transition-colors">
+          <i class="fa-solid fa-xmark text-lg"></i>
+          <span class="sr-only">Close modal</span>
+        </button>
+      </div>
+
+      <!-- Alert Banner Container -->
+      <div id="modalAlert" class="hidden px-6 pt-4"></div>
+
+      <!-- Modal Form -->
+      <form id="attendanceForm" onsubmit="saveAttendanceRecord(event)" class="p-6 space-y-4">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Date -->
+          <div>
+            <label for="recordDate" class="block mb-1 text-xs font-bold text-slate-700">Date <span class="text-rose-500">*</span></label>
+            <input type="date" id="recordDate" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+          </div>
+
+          <!-- Role -->
+          <div>
+            <label for="recordRole" class="block mb-1 text-xs font-bold text-slate-700">Role <span class="text-rose-500">*</span></label>
+            <select id="recordRole" onchange="handleRoleChange()" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+              <option value="student">Student</option>
+              <option value="teaching">Teaching Staff</option>
+              <option value="non-teaching">Non-Teaching Staff</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Full Name -->
+          <div>
+            <label for="recordName" class="block mb-1 text-xs font-bold text-slate-700">Full Name <span class="text-rose-500">*</span></label>
+            <input type="text" id="recordName" placeholder="e.g. John Doe" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+          </div>
+
+          <!-- Reg/Staff ID -->
+          <div>
+            <label for="recordId" class="block mb-1 text-xs font-bold text-slate-700">ID / Reg No <span class="text-rose-500">*</span></label>
+            <input type="text" id="recordId" placeholder="e.g. STU-2026-041" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Class or Department -->
+          <div>
+            <label for="recordClassDept" id="lblClassDept" class="block mb-1 text-xs font-bold text-slate-700">Class <span class="text-rose-500">*</span></label>
+            <input type="text" id="recordClassDept" placeholder="e.g. Grade 10-A / Science" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+          </div>
+
+          <!-- Status -->
+          <div>
+            <label for="recordStatus" class="block mb-1 text-xs font-bold text-slate-700">Attendance Status <span class="text-rose-500">*</span></label>
+            <select id="recordStatus" required class="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold text-slate-900 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+              <option value="Late">Late</option>
+              <option value="Excused">Excused</option>
+              <option value="Leave">On Leave</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Remark / Note -->
+        <div>
+          <label for="recordRemark" class="block mb-1 text-xs font-bold text-slate-700">Remark / Note (Optional)</label>
+          <input type="text" id="recordRemark" placeholder="e.g. Arrived 15 mins late due to medical checkup" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+          <button type="button" onclick="closeAttendanceModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+          <button type="submit" id="saveRecordBtn" class="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-300 transition-colors shadow-sm">
+            <i class="fa-solid fa-check"></i>
+            <span>Save Attendance</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- MOBILE BOTTOM NAVIGATION + SHARED DRAWER -->
+  <nav id="mobileBottomNav" class="fixed bottom-0 left-0 z-40 w-full h-16 bg-white/95 backdrop-blur-md border-t border-slate-200 md:hidden shadow-[0_-6px_20px_rgba(15,23,42,0.08)]">
+    <div class="grid grid-cols-5 h-full max-w-xl mx-auto">
+      <a href="admin.html" class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-school-primary transition-colors">
+        <i class="fa-solid fa-house text-[15px]"></i>
+        <span class="text-[10px] font-semibold">Home</span>
+      </a>
+      <a href="people.html" class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-school-primary transition-colors">
+        <i class="fa-solid fa-users text-[15px]"></i>
+        <span class="text-[10px] font-semibold">People</span>
+      </a>
+      <a href="attendance.html" class="flex flex-col items-center justify-center gap-0.5 text-school-primary font-bold">
+        <span class="flex items-center justify-center w-8 h-8 rounded-xl bg-blue-50">
+          <i class="fa-solid fa-calendar-check text-[15px]"></i>
+        </span>
+        <span class="text-[10px] -mt-0.5">Attendance</span>
+      </a>
+      <a href="finance.html" class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-school-primary transition-colors">
+        <i class="fa-solid fa-wallet text-[15px]"></i>
+        <span class="text-[10px] font-semibold">Finance</span>
+      </a>
+      <button type="button" onclick="toggleMobileSidebar(true)" class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-school-primary transition-colors">
+        <i class="fa-solid fa-bars-staggered text-[15px]"></i>
+        <span class="text-[10px] font-semibold">More</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Flowbite JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
+  <script>
+    // MULTI-SCHOOL CONFIGURATION & BACKEND ROUTING
+    const API_BASE_URL = window.API_BASE_URL || "https://examguard-8rxe.onrender.com";
+    const API_BASE = `${API_BASE_URL}/api`;
+    const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || "goldlincschools.com.ng";
+    const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE}/schools/config`;
+
+    let currentSchool = null;
+    let currentUser = null;
+    let publicSchoolId = "";
+    let schoolSubdomain = "";
+    let schoolConfigReady = false;
+
+    function getAdminToken() {
+      return localStorage.getItem("token") ||
+             localStorage.getItem("adminToken") ||
+             localStorage.getItem("superadmin_token") ||
+             localStorage.getItem("authToken") || "";
+    }
+
+    function decodeJwtPayload(token) {
+      try {
+        const part = token.split('.')[1];
+        return JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+      } catch {
+        return null;
+      }
+    }
+
+    function getTenantSubdomain() {
+      const saved = localStorage.getItem("schoolSubdomain");
+      if (saved) return saved.toLowerCase().trim();
+
+      const host = window.location.hostname.toLowerCase();
+      const suffix = `.${BASE_DOMAIN}`;
+      if (host.endsWith(suffix)) {
+        const prefix = host.slice(0, -suffix.length);
+        if (prefix && !prefix.includes(".")) return prefix;
+      }
+      return "";
+    }
+
+    function authHeaders(json = false) {
+      const headers = {};
+      const token = getAdminToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (json) headers["Content-Type"] = "application/json";
+      if (publicSchoolId) headers["X-School-Code"] = publicSchoolId;
+      return headers;
+    }
+
+    function tenantUrl(path, params = {}) {
+      const url = new URL(`${API_BASE}${path}`);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          url.searchParams.set(key, value);
+        }
+      });
+      return url.toString();
+    }
+
+    async function apiFetch(pathOrUrl, options = {}, timeoutMs = 15000) {
+      const url = pathOrUrl.startsWith("http") ? pathOrUrl : tenantUrl(pathOrUrl);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const headers = {
+          ...authHeaders(Boolean(options.body && typeof options.body === "string")),
+          ...(options.headers || {})
+        };
+
+        const response = await fetch(url, {
+          ...options,
+          headers,
+          signal: options.signal || controller.signal
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Request failed (${response.status})`);
+        }
+
+        return response;
+      } catch (error) {
+        if (error.name === "AbortError") {
+          throw new Error("The request timed out. Please check your connection and try again.");
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    // Mobile shared drawer control
+    function toggleMobileSidebar(show) {
+      const sidebar = document.getElementById("logo-sidebar");
+      const backdrop = document.getElementById("sidebarBackdrop");
+      if (!sidebar || !backdrop) return;
+
+      sidebar.classList.toggle("-translate-x-full", !show);
+      backdrop.classList.toggle("hidden", !show);
+      document.body.classList.toggle("overflow-hidden", show);
+      sidebar.setAttribute("aria-hidden", show ? "false" : "true");
+    }
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") toggleMobileSidebar(false);
+    });
+
+    // SCHOOL BRANDING / CONFIG
+    function applySchoolBranding(school) {
+      if (!school) return;
+
+      const branding = school.branding || {};
+      const root = document.documentElement;
+
+      const primary = branding.primaryColor || branding.primary || "#1e3a8a";
+      const secondary = branding.secondaryColor || branding.secondary || "#f59e0b";
+      const accent = branding.accentColor || branding.accent || "#10b981";
+
+      root.style.setProperty("--school-primary", primary);
+      root.style.setProperty("--school-secondary", secondary);
+      root.style.setProperty("--school-accent", accent);
+
+      const logo = school.logoUrl || branding.logo || branding.lightLogo || branding.darkLogo || "mainlogo.png";
+      document.querySelectorAll("[data-school-logo]").forEach(el => {
+        el.src = logo;
+        el.onerror = () => { el.src = "mainlogo.png"; };
+      });
+
+      const name = school.schoolName || school.name || "School Portal";
+      document.querySelectorAll("[data-school-name]").forEach(el => el.textContent = name);
+
+      const pageSchool = document.querySelector("[data-page-school]");
+      if (pageSchool) {
+        pageSchool.textContent = school.abbreviation || school.motto || "Admin Management";
+      }
+
+      const session = school.academicConfig?.currentSession ||
+                      school.currentSession ||
+                      school.academicSession ||
+                      school.session ||
+                      school.settings?.academicSession ||
+                      "";
+
+      const sessionBadge = document.getElementById("academicSessionBadge");
+      if (sessionBadge) {
+        sessionBadge.textContent = session ? `Academic Session ${session}` : "Academic Session";
+      }
+
+      document.title = `${name} • Attendance Records`;
+    }
+
+    function normalizeSchool(raw) {
+      return raw?.school || raw?.data?.school || raw?.data || raw || null;
+    }
+
+    async function loadSchoolConfig() {
+      const token = getAdminToken();
+      const subdomain = getTenantSubdomain();
+      let resolvedSchool = null;
+      let resolvedUser = null;
+
+      // Authenticated context is authoritative for the current tenant.
+      if (token) {
+        try {
+          const meResponse = await fetch(`${API_BASE}/auth/me`, {
+            headers: authHeaders()
+          });
+
+          if (meResponse.ok) {
+            const me = await meResponse.json();
+            resolvedUser = me.user || me.data?.user || null;
+            resolvedSchool = normalizeSchool(me.school || me.data?.school);
+
+            if (resolvedUser?.schoolId && resolvedSchool?._id &&
+                String(resolvedUser.schoolId) !== String(resolvedSchool._id)) {
+              throw new Error("Authenticated school context does not match the current school.");
+            }
+          }
+        } catch (error) {
+          console.warn("Authenticated school context unavailable:", error.message);
+        }
+      }
+
+      // Public config is used as a fallback when the authenticated response
+      // does not include school metadata.
+      if (!resolvedSchool && subdomain) {
+        try {
+          const response = await fetch(
+            `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`
+          );
+          if (response.ok) resolvedSchool = normalizeSchool(await response.json());
+        } catch (error) {
+          console.warn("Public school configuration unavailable:", error.message);
+        }
+      }
+
+      // Last-resort cached tenant identity prevents a blank/incorrect shell.
+      if (!resolvedSchool && subdomain) {
+        try {
+          const cached = localStorage.getItem(`examguard_school_config_${subdomain}`);
+          if (cached) resolvedSchool = JSON.parse(cached);
+        } catch {}
+      }
+
+      if (!resolvedSchool) {
+        throw new Error("Unable to determine the current school.");
+      }
+
+      currentSchool = resolvedSchool;
+      currentUser = resolvedUser || currentUser;
+
+      publicSchoolId = currentSchool.schoolId || currentSchool.code || "";
+      schoolSubdomain = String(currentSchool.subdomain || subdomain || "").toLowerCase();
+
+      if (!publicSchoolId) {
+        throw new Error("The current school configuration has no school identifier.");
+      }
+
+      localStorage.setItem("schoolSubdomain", schoolSubdomain);
+      localStorage.setItem("schoolId", publicSchoolId);
+      localStorage.setItem("publicSchoolId", publicSchoolId);
+      localStorage.setItem(`examguard_school_config_${schoolSubdomain}`, JSON.stringify(currentSchool));
+
+      applySchoolBranding(currentSchool);
+      schoolConfigReady = true;
+    }
+
+    async function loadAdminContext() {
+      const token = getAdminToken();
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: authHeaders()
+        });
+        if (!response.ok) return;
+
+        const raw = await response.json();
+        currentUser = raw.user || raw.data?.user || currentUser;
+        const responseSchool = normalizeSchool(raw.school || raw.data?.school);
+
+        if (responseSchool?._id && currentUser?.schoolId &&
+            String(responseSchool._id) !== String(currentUser.schoolId)) {
+          throw new Error("School context mismatch.");
+        }
+
+        if (responseSchool && (!currentSchool || String(responseSchool._id) === String(currentSchool._id))) {
+          currentSchool = responseSchool;
+          publicSchoolId = currentSchool.schoolId || currentSchool.code || publicSchoolId;
+          applySchoolBranding(currentSchool);
+        }
+
+        fillProfile(currentUser);
+      } catch (error) {
+        console.error("Error loading admin context:", error);
+      }
+    }
+
+    function fillProfile(data) {
+      const el = document.getElementById("adminName");
+      if (el && data) el.textContent = data.name || data.fullName || data.email || "Administrator";
+
+      const avatar = document.querySelector("#adminName")?.previousElementSibling;
+      if (avatar && data) {
+        const name = data.name || data.fullName || data.email || "A";
+        avatar.textContent = name.charAt(0).toUpperCase();
+      }
+    }
+
+    let attendanceTrendChartInstance = null;
+    function renderAttendanceTrendChart(trends) {
+      const ctx = document.getElementById('attendanceTrendChart')?.getContext('2d');
+      if (!ctx) return;
+
+      const labels = trends.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      const students = trends.students || [88, 92, 89, 94, 96];
+      const teaching = trends.teaching || [96, 98, 97, 98, 100];
+      const nonTeaching = trends.nonTeaching || [92, 94, 93, 95, 96];
+
+      if (attendanceTrendChartInstance) attendanceTrendChartInstance.destroy();
+
+      attendanceTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Students',
+              data: students,
+              borderColor: '#2563eb', 
+              backgroundColor: 'rgba(37, 99, 235, 0.08)',
+              fill: true,
+              tension: 0.35,
+              borderWidth: 2,
+              pointRadius: 3
+            },
+            {
+              label: 'Teaching Staff',
+              data: teaching,
+              borderColor: '#10b981', 
+              backgroundColor: 'transparent',
+              fill: false,
+              tension: 0.35,
+              borderWidth: 2,
+              pointRadius: 3
+            },
+            {
+              label: 'Non-Teaching',
+              data: nonTeaching,
+              borderColor: '#f59e0b', 
+              backgroundColor: 'transparent',
+              fill: false,
+              tension: 0.35,
+              borderWidth: 2,
+              pointRadius: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 10, font: { size: 11, family: 'Inter' } } }
+          },
+          scales: {
+            y: { beginAtZero: false, min: 60, max: 100, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+          }
+        }
+      });
+    }
+
+    async function fetchAttendanceSummary() {
+      try {
+        const url = tenantUrl("/attendance/summary", { schoolId: publicSchoolId || '' });
+        const res = await apiFetch(url, { headers: authHeaders() });
+        if (!res.ok) throw new Error('Unable to fetch summary');
+        const data = await res.json();
+        
+        document.getElementById('studentsPresent').textContent = data.studentsPresent || 0;
+        document.getElementById('teachingPresent').textContent = data.teachingPresent || 0;
+        document.getElementById('nonTeachingPresent').textContent = data.nonTeachingPresent || 0;
+
+        renderAttendanceTrendChart(data.trends || {});
+      } catch (err) {
+        renderAttendanceTrendChart({});
+      }
+    }
+
+    async function fetchAttendanceRecords() {
+      const tbody = document.getElementById('attendanceTableBody');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="px-6 py-12 text-center text-slate-500">
+            <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-school-primary"></i>
+            <p class="font-medium">Refreshing records...</p>
+          </td>
+        </tr>`;
+      
+      try {
+        const url = tenantUrl("/attendance/records", {
+          schoolId: publicSchoolId || '',
+          date: document.getElementById('filterDate')?.value || '',
+          role: document.getElementById('filterRole')?.value || '',
+          status: document.getElementById('filterStatus')?.value || '',
+          search: document.getElementById('searchName')?.value || ''
+        });
+
+        const res = await apiFetch(url, { headers: authHeaders() });
+        if (!res.ok) throw new Error('Failed to fetch records');
+        const records = await res.json();
+
+        if (!records || !records.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="8" class="px-6 py-12 text-center text-slate-400">
+                <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
+                <p class="font-medium text-slate-500">No attendance records found matching filters.</p>
+              </td>
+            </tr>`;
+          return;
+        } 
+
+        tbody.innerHTML = records.map(r => {
+          let badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'; 
+          if (r.status === 'Absent') badgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
+          else if (r.status === 'Late') badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+          else if (r.status === 'Excused') badgeClass = 'bg-cyan-50 text-cyan-700 border-cyan-200';
+          else if (r.status === 'Leave') badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+
+          return `
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              <td class="px-5 py-3.5 font-medium text-slate-900">${r.date ? r.date.slice(0, 10) : '-'}</td>
+              <td class="px-5 py-3.5 font-bold text-slate-900">${r.name || '-'}</td>
+              <td class="px-5 py-3.5 font-mono text-[11px] text-slate-500">${r.id || r.regNo || r.staffId || '-'}</td>
+              <td class="px-5 py-3.5 capitalize">${r.role ? r.role.replace('-', ' ') : '-'}</td>
+              <td class="px-5 py-3.5">${r.class || r.department || '-'}</td>
+              <td class="px-5 py-3.5">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${badgeClass}">
+                  ${r.status || 'Unknown'}
+                </span>
+              </td>
+              <td class="px-5 py-3.5 text-slate-500">${r.remark || '-'}</td>
+              <td class="px-5 py-3.5">${r.recordedBy?.name || r.recordedBy || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="px-6 py-10 text-center">
+              <i class="fa-solid fa-triangle-exclamation text-3xl mb-2 text-amber-500"></i>
+              <p class="text-slate-700 font-semibold text-xs">Failed to load live data.</p>
+            </td>
+          </tr>`;
+      }
+    }
+
+    function resetFilters() {
+      if (document.getElementById('filterDate')) document.getElementById('filterDate').value = '';
+      if (document.getElementById('filterRole')) document.getElementById('filterRole').value = '';
+      if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = '';
+      if (document.getElementById('searchName')) document.getElementById('searchName').value = '';
+      fetchAttendanceRecords();
+    }
+
+    // Auto trigger on Filter select change
+    ['filterDate', 'filterRole', 'filterStatus'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', fetchAttendanceRecords);
+    });
+
+    // Debounce Search input
+    let searchTimeout;
+    document.getElementById('searchName')?.addEventListener('input', function () {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(fetchAttendanceRecords, 300);
+    });
+
+    // CSV Export
+    function exportTableToCSV(filename) {
+      const table = document.querySelector("table");
+      if (!table) return;
+      let csv = [];
+      const rows = table.querySelectorAll("tr");
+      
+      for (let row of rows) {
+        let cols = row.querySelectorAll("th, td");
+        let rowData = [];
+        for (let col of cols) {
+          let data = col.innerText.replace(/"/g, '""').trim();
+          rowData.push('"' + data + '"');
+        }
+        csv.push(rowData.join(","));
+      }
+      
+      let csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+      let downloadLink = document.createElement("a");
+      downloadLink.download = filename;
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      downloadLink.style.display = "none";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+
+    async function initPage() {
+      const spinner = document.getElementById("pageSpinnerOverlay");
+
+      try {
+        await loadSchoolConfig();
+        await loadAdminContext();
+
+        if (!schoolConfigReady) {
+          throw new Error("School configuration could not be loaded.");
+        }
+
+        await Promise.all([
+          fetchAttendanceSummary(),
+          fetchAttendanceRecords()
+        ]);
+      } catch (error) {
+        console.error("Initialization error:", error);
+
+        const tbody = document.getElementById("attendanceTableBody");
+        if (tbody) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="8" class="px-6 py-12 text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 mb-3">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <p class="text-slate-800 font-bold text-sm">Unable to load attendance</p>
+                <p class="text-slate-500 text-xs mt-1 max-w-sm mx-auto">${error.message || "Please refresh and try again."}</p>
+                <button onclick="initPage()" class="mt-4 inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-school-primary rounded-lg hover:opacity-95">
+                  <i class="fa-solid fa-rotate-right"></i> Retry
+                </button>
+              </td>
+            </tr>`;
+        }
+      } finally {
+        if (spinner) {
+          spinner.classList.add("hidden");
+          setTimeout(() => spinner.remove(), 250);
+        }
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initPage);
+  </script>
+</body>
+</html>
