@@ -251,35 +251,119 @@ function handleSchoolLogoError(img){
   if(f){f.textContent=schoolInitials(currentSchool?.schoolName||currentSchool?.name||'School');f.classList.remove('hidden');f.classList.add('flex');}
 }
 function applySchoolBranding(school){
-  if(!school)return;
-  currentSchool=school;
-  const name=school.schoolName||school.name||school.school_name||'Student Portal';
-  const branding=school.branding||{};
-  const logo=getSchoolLogo(school);
-  publicSchoolId=school.schoolId||school.code||school.schoolCode||publicSchoolId;
-  document.getElementById('schoolName').textContent=name;
-  document.getElementById('schoolSubtitle').textContent=school.motto||school.tagline||'Student workspace';
-  document.getElementById('heroSchool').textContent=name;
-  document.title=name+' | Results';
-  const img=document.getElementById('schoolLogo');
-  const fallback=document.getElementById('schoolLogoFallback');
+  if(!school) return;
+  // Preserve existing properties so partial API objects don't wipe out the logo
+  currentSchool = { ...(currentSchool || {}), ...school };
+  
+  const name = currentSchool.schoolName || currentSchool.name || currentSchool.school_name || 'Student Portal';
+  const branding = currentSchool.branding || {};
+  const logo = getSchoolLogo(currentSchool);
+  publicSchoolId = currentSchool.schoolId || currentSchool.code || currentSchool.schoolCode || publicSchoolId;
+  
+  document.getElementById('schoolName').textContent = name;
+  document.getElementById('schoolSubtitle').textContent = currentSchool.motto || currentSchool.tagline || 'Student workspace';
+  document.getElementById('heroSchool').textContent = name;
+  document.title = name + ' | Results';
+  
+  const img = document.getElementById('schoolLogo');
+  const fallback = document.getElementById('schoolLogoFallback');
+  
   if(img){
-    img.dataset.failed='0';
-    img.alt=name+' logo';
-    img.loading='lazy';
-    img.decoding='async';
-    img.onerror=()=>handleSchoolLogoError(img);
+    img.alt = name + ' logo';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.onerror = () => handleSchoolLogoError(img);
+    
     if(logo){
-      img.src=logo;
-      img.style.display='block';
-      if(fallback){fallback.textContent='';fallback.classList.add('hidden');fallback.classList.remove('flex');}
-    }else handleSchoolLogoError(img);
+      // Only set src if changed or reset to prevent redundant image reloads
+      const resolvedLogo = resolveMediaUrl(logo);
+      if(img.dataset.failed === '1' || img.src !== resolvedLogo){
+        img.dataset.failed = '0';
+        img.src = logo;
+      }
+      img.style.display = 'block';
+      if(fallback){
+        fallback.textContent = '';
+        fallback.classList.add('hidden');
+        fallback.classList.remove('flex');
+      }
+    } else if (img.dataset.failed === '1' || !img.src) {
+      handleSchoolLogoError(img);
+    }
   }
-  if(school.subdomain)localStorage.setItem('schoolSubdomain',String(school.subdomain).toLowerCase());
-  if(publicSchoolId){localStorage.setItem('publicSchoolId',publicSchoolId);localStorage.setItem('schoolId',publicSchoolId);}
-  try{localStorage.setItem('examguard_school_config_last',JSON.stringify(school));}catch(e){}
-  document.documentElement.style.setProperty('--school-primary',branding.primaryColor||'#4f46e5');
+  
+  if(currentSchool.subdomain) localStorage.setItem('schoolSubdomain', String(currentSchool.subdomain).toLowerCase());
+  if(publicSchoolId){
+    localStorage.setItem('publicSchoolId', publicSchoolId);
+    localStorage.setItem('schoolId', publicSchoolId);
+  }
+  try {
+    localStorage.setItem('examguard_school_config_last', JSON.stringify(currentSchool));
+  } catch(e) {}
+  document.documentElement.style.setProperty('--school-primary', branding.primaryColor || '#4f46e5');
 }
+
+async function loadSchoolConfig(student){
+  let school = student?.school || (student?.schoolId && typeof student.schoolId === 'object' ? student.schoolId : null);
+  const mongoId = typeof student?.schoolId === 'string' ? student.schoolId : String(school?._id || school?.id || '');
+  const sub = getTenantSubdomain();
+  const cachedKeys = ['examguard_school_config_' + sub, 'examguard_school_config_last'];
+  
+  if(!school){
+    for(const key of cachedKeys){
+      if(!key) continue;
+      try {
+        const c = localStorage.getItem(key);
+        if(c){
+          school = JSON.parse(c);
+          if(school) break;
+        }
+      } catch(e){}
+    }
+  }
+  
+  if(school) applySchoolBranding(school);
+  
+  const candidates = [];
+  if(sub) candidates.push(`${API_ROOT}/schools/config?subdomain=${encodeURIComponent(sub)}`);
+  if(mongoId) candidates.push(`${API_ROOT}/schools/config?schoolId=${encodeURIComponent(mongoId)}`);
+  
+  try {
+    const me = await fetch(`${API_ROOT}/auth/me`, { headers: authHeaders() });
+    if(me.ok){
+      const md = await me.json();
+      const u = md.user || md.data?.user || md.data || md;
+      const ms = u.school || md.school || md.data?.school;
+      if(ms && (!mongoId || String(ms._id || ms.id) === mongoId)){
+        // Shallow merge instead of replacing school completely
+        school = { ...(school || {}), ...ms };
+      }
+    }
+  } catch(e) {
+    console.warn('School profile fetch failed', e);
+  }
+  
+  for(const url of candidates){
+    try {
+      const r = await fetch(url, { headers: authHeaders() });
+      if(r.ok){
+        const d = await r.json();
+        const x = d.school || d.data?.school || d.data || d;
+        const id = String(x?._id || x?.id || '');
+        if(x && (!mongoId || !id || id === mongoId)){
+          // Shallow merge instead of replacing school completely
+          school = { ...(school || {}), ...x };
+          break;
+        }
+      }
+    } catch(e) {
+      console.warn('School config fetch failed', e);
+    }
+  }
+  
+  if(school) applySchoolBranding(school);
+}
+
 function setResultsLoading(loading){
   const section=document.getElementById('resultsDisplaySection');
   const skeleton=document.getElementById('resultsSkeleton');
@@ -295,44 +379,6 @@ function setResultsLoading(loading){
     Array.from(section.children).forEach((el,i)=>{if(i>0)el.classList.remove('hidden');});
   }
 }
-async function loadSchoolConfig(student){
-  let school=student?.school||(student?.schoolId&&typeof student.schoolId==='object'?student.schoolId:null);
-  const mongoId=typeof student?.schoolId==='string'?student.schoolId:String(school?._id||school?.id||'');
-  const sub=getTenantSubdomain();
-  const cachedKeys=['examguard_school_config_'+sub,'examguard_school_config_last'];
-  if(!school){
-    for(const key of cachedKeys){
-      if(!key)continue;
-      try{const c=localStorage.getItem(key);if(c){school=JSON.parse(c);if(school)break;}}catch(e){}
-    }
-  }
-  if(school)applySchoolBranding(school);
-  const candidates=[];
-  if(sub)candidates.push(`${API_ROOT}/schools/config?subdomain=${encodeURIComponent(sub)}`);
-  if(mongoId)candidates.push(`${API_ROOT}/schools/config?schoolId=${encodeURIComponent(mongoId)}`);
-  try{
-    const me=await fetch(`${API_ROOT}/auth/me`,{headers:authHeaders()});
-    if(me.ok){
-      const md=await me.json();
-      const u=md.user||md.data?.user||md.data||md;
-      const ms=u.school||md.school||md.data?.school;
-      if(ms&&(!mongoId||String(ms._id||ms.id)===mongoId))school=ms;
-    }
-  }catch(e){console.warn('School profile fetch failed',e);}
-  for(const url of candidates){
-    try{
-      const r=await fetch(url,{headers:authHeaders()});
-      if(r.ok){
-        const d=await r.json();
-        const x=d.school||d.data?.school||d.data||d;
-        const id=String(x?._id||x?.id||'');
-        if(x&&(!mongoId||!id||id===mongoId)){school=x;break;}
-      }
-    }catch(e){console.warn('School config fetch failed',e);}
-  }
-  if(school)applySchoolBranding(school);
-}
-
 
 // ============================================
 // Student Profile & Result Management
