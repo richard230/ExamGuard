@@ -359,9 +359,86 @@ button{cursor:pointer}
         pageLoader.setAttribute('aria-hidden', 'true');
       }
 
-      function sanitizeText(s) { 
-        return String(s == null ? '' : s); 
+      function sanitizeText(s) {
+        const d = document.createElement('div');
+        d.textContent = String(s == null ? '' : s);
+        return d.innerHTML;
       }
+
+      function unwrapPayload(payload) {
+        if (payload == null) return payload;
+        if (payload.data !== undefined) return payload.data;
+        if (payload.result !== undefined) return payload.result;
+        if (payload.item !== undefined) return payload.item;
+        return payload;
+      }
+
+      function normalizeList(payload) {
+        const data = unwrapPayload(payload);
+        if (Array.isArray(data)) return data;
+        if (!data || typeof data !== 'object') return [];
+        for (const key of ['items','results','books','rooms','routes','menus','birthdays','students','records','data']) {
+          if (Array.isArray(data[key])) return data[key];
+        }
+        return [];
+      }
+
+      async function apiRequest(url, options = {}) {
+        const opts = { ...options, headers: authHeaders(options.headers || {}) };
+        const response = await fetch(url, opts);
+        let payload = null;
+        const type = response.headers.get('content-type') || '';
+        if (type.includes('application/json')) {
+          try { payload = await response.json(); } catch {}
+        } else {
+          try { payload = await response.text(); } catch {}
+        }
+        if (!response.ok) {
+          const message = typeof payload === 'object' && payload ? (payload.message || payload.error) : payload;
+          const error = new Error(message || `Request failed (${response.status})`);
+          error.status = response.status;
+          error.payload = payload;
+          throw error;
+        }
+        return payload;
+      }
+
+      async function postCandidates(candidates, body, successMessage = 'Request submitted successfully.') {
+        let lastError = null;
+        for (const url of candidates) {
+          try {
+            const payload = await apiRequest(url, {
+              method: 'POST',
+              headers: { 'Content-Type':'application/json' },
+              body: JSON.stringify(body || {})
+            });
+            return { payload, message: successMessage };
+          } catch (err) {
+            lastError = err;
+            if (![400,401,403,404,405,409,422].includes(err.status)) break;
+          }
+        }
+        throw lastError || new Error('No supported backend endpoint was available.');
+      }
+
+      async function getItemById(type, id) {
+        const encoded = encodeURIComponent(id);
+        const candidates = {
+          library: [`${API_ROOT}/library/books/${encoded}`,`${API_ROOT}/books/${encoded}`],
+          hostel: [`${API_ROOT}/hostel/rooms/${encoded}`,`${API_ROOT}/rooms/${encoded}`],
+          route: [`${API_ROOT}/transport/routes/${encoded}`,`${API_ROOT}/routes/${encoded}`],
+          birthday: [`${API_ROOT}/birthdays/${encoded}`,`${API_ROOT}/students/${encoded}`]
+        }[type] || [];
+        for (const url of candidates) {
+          try { return unwrapPayload(await apiRequest(url)); } catch {}
+        }
+        return null;
+      }
+
+      function invalidateServiceCache(type) {
+        try { localStorage.removeItem(cacheKey(type)); } catch {}
+      }
+
 
       let currentSchool = null;
       let publicSchoolId = '';
@@ -886,6 +963,116 @@ button{cursor:pointer}
       });
 
       // ============================================
+      // Service actions
+      // ============================================
+      function bookActionBody(note, phone, extra = {}) {
+        return {
+          ...extra,
+          note: note || '',
+          reason: note || '',
+          phone: phone || '',
+          studentId: currentStudent?.id || currentStudent?._id || currentStudent?.studentId || undefined
+        };
+      }
+
+      let currentStudent = null;
+
+      async function showLibraryDetails(id) {
+        const item = libraryBooks.find(x => String(x.id || x._id) === String(id)) || await getItemById('library', id);
+        if (!item) return alert('Book details could not be loaded.');
+        openDetail(`<div style="display:grid;gap:10px">
+          <div style="font-size:1rem;font-weight:800">${sanitizeText(item.title || item.name || 'Untitled')}</div>
+          <div class="muted-small">Author: ${sanitizeText(item.author || item.writer || '—')}</div>
+          <div class="muted-small">ISBN: ${sanitizeText(item.isbn || '—')}</div>
+          <div class="muted-small">Category: ${sanitizeText(item.category || item.cat || '—')}</div>
+          <div class="muted-small">Status: ${sanitizeText(item.available === false ? 'Unavailable' : 'Available')}</div>
+          <div>${sanitizeText(item.description || item.summary || 'No additional description available.')}</div>
+        </div>`);
+      }
+
+      async function submitLibraryRequest(id, note, phone, waitlist = false) {
+        const result = await postCandidates([
+          `${API_ROOT}/library/requests`, `${API_ROOT}/library/request`, `${API_ROOT}/books/${encodeURIComponent(id)}/request`, `${API_ROOT}/library/books/${encodeURIComponent(id)}/request`
+        ], bookActionBody(note, phone, { bookId:id, resourceId:id, waitlist }), 'Book request submitted.');
+        invalidateServiceCache('library');
+        return result;
+      }
+
+      async function submitHostelRequest(roomId, note, phone) {
+        const result = await postCandidates([
+          `${API_ROOT}/hostel/applications`, `${API_ROOT}/hostel/apply`, `${API_ROOT}/hostel/requests`, `${API_ROOT}/rooms/${encodeURIComponent(roomId)}/apply`
+        ], bookActionBody(note, phone, { roomId, hostelRoomId:roomId }), 'Hostel application submitted.');
+        invalidateServiceCache('hostel');
+        return result;
+      }
+
+      async function submitTransportReservation(routeId, note, phone) {
+        const result = await postCandidates([
+          `${API_ROOT}/transport/reservations`, `${API_ROOT}/transport/reserve`, `${API_ROOT}/routes/${encodeURIComponent(routeId)}/reserve`
+        ], bookActionBody(note, phone, { routeId, transportRouteId:routeId }), 'Seat reservation submitted.');
+        invalidateServiceCache('routes');
+        return result;
+      }
+
+      async function submitDietaryRequest(note, phone) {
+        return postCandidates([
+          `${API_ROOT}/feeding/requests`, `${API_ROOT}/feeding/dietary-requests`, `${API_ROOT}/feeding/dietary`
+        ], bookActionBody(note, phone, { type:'dietary' }), 'Dietary request submitted.');
+      }
+
+      async function sendBirthdayWish(name, note) {
+        return postCandidates([
+          `${API_ROOT}/birthdays/wishes`, `${API_ROOT}/birthday-wishes`, `${API_ROOT}/birthdays/wish`
+        ], bookActionBody(note, '', { recipientName:name, message:note, type:'birthday-wish' }), 'Birthday wish sent.');
+      }
+
+      function wireServiceActions() {
+        document.addEventListener('click', async (e) => {
+          const actionEl = e.target.closest('[data-action]');
+          if (!actionEl) return;
+          const action = actionEl.dataset.action;
+          const id = actionEl.dataset.id || '';
+          const name = actionEl.dataset.name || '';
+          try {
+            if (action === 'view' && actionEl.closest('#libGrid')) return showLibraryDetails(id);
+            if (action === 'request' || action === 'waitlist') {
+              return openForm(action === 'waitlist' ? 'Join book waitlist' : 'Request book', ({note,phone}) => submitLibraryRequest(id,note,phone,action === 'waitlist'));
+            }
+            if (action === 'details') {
+              const room = hostelRooms.find(x => String(x.id || x.roomId || x._id) === String(id)) || await getItemById('hostel', id);
+              if (!room) return alert('Room details could not be loaded.');
+              return openDetail(`<div style="display:grid;gap:10px"><div style="font-size:1rem;font-weight:800">Room ${sanitizeText(room.id || room.roomId || room._id || id)}</div><div class="muted-small">Block: ${sanitizeText(room.block || room.building || '—')}</div><div class="muted-small">Type: ${sanitizeText(room.type || room.roomType || '—')}</div><div class="muted-small">Status: ${sanitizeText(room.occupant || room.tenant ? 'Occupied' : 'Available')}</div></div>`);
+            }
+            if (action === 'book') return openForm('Apply for lodging', ({note,phone}) => submitHostelRequest(id,note,phone));
+            if (action === 'reserve') return openForm('Reserve transport seat', ({note,phone}) => submitTransportReservation(id,note,phone));
+            if (action === 'wish') return openForm(`Birthday wish for ${name}`, ({note}) => sendBirthdayWish(name,note));
+            if (action === 'view' && actionEl.closest('#bdayWrap')) {
+              return openDetail(`<div style="font-size:1rem;font-weight:800">${sanitizeText(name)}</div><div class="muted-small" style="margin-top:7px">Birthday information is available in the student directory.</div>`);
+            }
+          } catch (err) {
+            console.error(err);
+            alert(err.message || 'The request could not be completed.');
+          }
+        });
+
+        document.getElementById('libNewReq').addEventListener('click', () => openForm('Request a book', ({note,phone}) => submitLibraryRequest('',note,phone,false)));
+        document.getElementById('hostelApplyBtn').addEventListener('click', () => openForm('Apply for lodging', ({note,phone}) => submitHostelRequest('',note,phone)));
+        document.getElementById('hostelAvailableBtn').addEventListener('click', () => {
+          const available = hostelRooms.filter(r => !r.occupant && !r.tenant && r.available !== false && r.isAvailable !== false);
+          renderHostel(available);
+        });
+        document.getElementById('reserveSeatBtn').addEventListener('click', () => {
+          const selected = routeFilter.value;
+          const route = routes.find(r => String(r.id || r.routeId || r.code) === String(selected));
+          if (!selected && routes.length > 1) return alert('Select a route first.');
+          const id = selected || route?.id || route?.routeId || route?.code || '';
+          openForm('Reserve transport seat', ({note,phone}) => submitTransportReservation(id,note,phone));
+        });
+        document.getElementById('viewMenuBtn').addEventListener('click', () => setActiveTab('feeding'));
+        document.getElementById('dietReqBtn').addEventListener('click', () => openForm('Dietary request', ({note,phone}) => submitDietaryRequest(note,phone)));
+      }
+
+      // ============================================
       // Search & Filter Handlers
       // ============================================
       libSearch.addEventListener('input', () => {
@@ -973,6 +1160,7 @@ button{cursor:pointer}
       async function init() {
         try {
           const studentData = await fetchStudentData();
+          currentStudent = studentData || null;
           populateStudentUI(studentData);
 
           const cachedSets = {
@@ -1028,6 +1216,8 @@ button{cursor:pointer}
           location.href = 'login.html';
         });
       }
+
+      wireServiceActions();
 
       // Start initialization when page loads
       window.addEventListener('load', init);
