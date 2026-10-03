@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#4f46e5">
+<title>Payment History | Student Portal</title>
+<meta name="description" content="Student payment history">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui','sans-serif']}}}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+<style>
+:root{--school-primary:#4f46e5;--school-secondary:#f59e0b;--school-accent:#10b981}
+.skeleton{position:relative;overflow:hidden;background:#e2e8f0!important;color:transparent!important;border-color:#e2e8f0!important;pointer-events:none}
+.skeleton:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent);animation:shimmer 1.35s infinite}
+@keyframes shimmer{100%{transform:translateX(100%)}}
+@media(prefers-reduced-motion:reduce){.skeleton:after{animation:none}}
+.modal-open{overflow:hidden}
+.school-primary{color:var(--school-primary)}
+.school-primary-bg{background-color:var(--school-primary)}
+.school-primary-soft{background:color-mix(in srgb,var(--school-primary) 8%,white)}
+
+.transaction-list{display:grid;gap:10px}
+.transaction{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:13px;border:1px solid #edf2f7;border-radius:16px;background:#fbfdff;transition:.18s ease}
+.transaction:hover{background:#fff;border-color:color-mix(in srgb,var(--school-primary) 18%,#edf2f7);transform:translateY(-1px)}
+.tx-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:#fff;background:var(--school-primary)}
+.tx-icon.success{background:linear-gradient(135deg,var(--school-accent),color-mix(in srgb,var(--school-accent) 72%,#047857))}
+.tx-icon.failed{background:linear-gradient(135deg,#ef4444,#b91c1c)}
+.tx-title{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-meta{font-size:10px;color:#64748b;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-right{text-align:right}.tx-amount{font-size:13px;font-weight:900}.tx-date{font-size:10px;color:#64748b;margin-top:4px}
+.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:6px 9px;font-size:9px;font-weight:900;white-space:nowrap}
+.filter-btn.active{background:var(--school-primary)!important;color:#fff!important;border-color:var(--school-primary)!important}.badge-success{background:#dcfce7;color:#166534}.badge-failed{background:#fee2e2;color:#991b1b}.badge-pending{background:#eef2ff;color:#4338ca}.badge-refunded{background:#cffafe;color:#155e75}
+@media(max-width:760px){.transaction{grid-template-columns:42px minmax(0,1fr);align-items:start}.tx-right{grid-column:2;text-align:left}.transaction>.badge{grid-column:2;justify-self:start}}
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased font-sans">
+
+<div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 backdrop-blur-sm lg:hidden"></div>
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:translate-x-0" aria-label="Student navigation">
+  <div class="flex h-20 items-center gap-3 border-b border-slate-100 px-5">
+    <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+      <img id="schoolLogo" src="" alt="School logo" class="h-full w-full object-cover" loading="eager" decoding="async">
+      <span id="schoolLogoFallback" class="hidden text-sm font-extrabold school-primary">SP</span>
+    </div>
+    <div class="min-w-0">
+      <p id="schoolName" class="truncate text-sm font-extrabold text-slate-900">Student Portal</p>
+      <p id="schoolSubtitle" class="truncate text-xs font-medium text-slate-500">Student workspace</p>
+    </div>
+    <button id="closeSidebar" type="button" class="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Close menu"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+    <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-house w-5 text-center"></i>Overview</a>
+    <a href="assignments.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-list-check w-5 text-center"></i>Assignments</a>
+    <a href="check-result.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-chart-line w-5 text-center"></i>Results</a>
+    <a href="fees.html" class="flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700"><i class="fa-solid fa-wallet w-5 text-center"></i>Fees</a>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-regular fa-calendar-days w-5 text-center"></i>Timetable</a>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-regular fa-message w-5 text-center"></i>Messages</a>
+    <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-regular fa-folder-open w-5 text-center"></i>Resources</a>
+    <p class="px-3 pb-2 pt-6 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Account</p>
+    <a href="profile.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-regular fa-user w-5 text-center"></i>Profile</a>
+    <a href="fees-history.html" class="flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-semibold text-indigo-700"><i class="fa-solid fa-clock-rotate-left w-5 text-center"></i>Payment History</a>
+  </nav>
+  <div class="border-t border-slate-100 p-3">
+    <div class="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+      <img id="sidebarAvatar" src="" loading="lazy" decoding="async" alt="Student" class="h-9 w-9 rounded-full object-cover ring-2 ring-white">
+      <div class="min-w-0 flex-1">
+        <p id="sidebarStudentName" class="truncate text-xs font-bold text-slate-800">Student</p>
+        <p id="sidebarStudentClass" class="truncate text-[11px] text-slate-500">Student</p>
+      </div>
+    </div>
+    <button id="logoutBtn" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100"><i class="fa-solid fa-right-from-bracket"></i>Sign out</button>
+  </div>
+</aside>
+
+<div class="min-h-screen lg:pl-72">
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+  <div class="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+    <div class="flex min-w-0 items-center gap-3">
+      <button id="openSidebar" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 lg:hidden" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+      <div class="min-w-0"><p class="truncate text-sm font-bold text-slate-900 sm:text-base">Payment History</p><p id="headerSubtitle" class="hidden truncate text-xs text-slate-500 sm:block">Loading school...</p></div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="fees.html" class="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 sm:inline-flex"><i class="fa-solid fa-wallet"></i>Fees</a>
+      <img id="headerAvatar" src="" loading="lazy" decoding="async" alt="Student" class="h-9 w-9 rounded-full object-cover ring-2 ring-slate-100">
+    </div>
+  </div>
+</header>
+
+
+<main class="mx-auto max-w-[1600px] px-4 py-5 pb-28 sm:px-6 lg:px-8 lg:pb-8">
+  <section class="mb-5 overflow-hidden rounded-2xl bg-slate-950 shadow-sm">
+    <div class="relative px-5 py-7 sm:px-7 sm:py-9">
+      <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-indigo-950/70"></div>
+      <div class="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">Student portal</span>
+          <h1 class="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Payment History</h1>
+          <p id="heroSchool" class="mt-2 text-sm text-slate-300">Loading school...</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Fee account</p>
+          <p class="mt-1 text-sm font-bold text-white">Review your previous school fee payments</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <div class="flex items-center gap-3">
+      <img id="historyStudentAvatar" src="" loading="lazy" decoding="async" alt="Student" class="h-12 w-12 rounded-xl object-cover ring-2 ring-slate-100">
+      <div class="min-w-0 flex-1">
+        <p id="historyStudentName" class="truncate text-sm font-extrabold text-slate-900">Loading student...</p>
+        <p id="historyStudentMeta" class="mt-1 truncate text-xs text-slate-500">Loading student information...</p>
+      </div>
+      <span class="hidden rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-bold text-emerald-700 sm:inline-flex"><i class="fa-solid fa-circle-check mr-1"></i>Payment account</span>
+    </div>
+  </section>
+
+  <section class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <div class="mb-5">
+      <h2 class="text-sm font-extrabold text-slate-900 sm:text-base">Payment Summary</h2>
+      <p class="mt-1 text-xs text-slate-500">A quick overview of your recorded payment activity.</p>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Total Paid</p>
+        <p id="totalPaid" class="mt-3 text-2xl font-extrabold text-emerald-700">₦0</p>
+      </div>
+      <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Transactions</p>
+        <p id="totalTransactions" class="mt-3 text-2xl font-extrabold text-indigo-700">0</p>
+      </div>
+      <div class="rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-sky-600">Successful</p>
+        <p id="successCount" class="mt-3 text-2xl font-extrabold text-sky-700">0</p>
+      </div>
+      <div class="rounded-2xl border border-red-100 bg-red-50/60 p-4">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-red-600">Failed</p>
+        <p id="failedCount" class="mt-3 text-2xl font-extrabold text-red-700">0</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-sm font-extrabold text-slate-900 sm:text-base">Transaction History</h2>
+        <p class="mt-1 text-xs text-slate-500">Search, filter, print or download your payment records.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="filter-btn rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white" data-filter="all">All</button>
+        <button type="button" class="filter-btn rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50" data-filter="successful">Successful</button>
+        <button type="button" class="filter-btn rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50" data-filter="failed">Failed</button>
+        <button type="button" class="filter-btn rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50" data-filter="pending">Pending</button>
+      </div>
+    </div>
+    <div class="flex flex-col gap-2 sm:flex-row">
+      <div class="relative flex-1">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input id="searchInput" type="search" placeholder="Search reference, fee, amount..." class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 pl-9 text-xs outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10">
+      </div>
+      <button id="downloadBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-download"></i>Download</button>
+      <button id="printBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-print"></i>Print</button>
+      <button id="refreshBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-extrabold text-white hover:bg-indigo-700"><i class="fa-solid fa-rotate"></i>Refresh</button>
+    </div>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <div id="transactionsContainer" class="space-y-3">
+      <div class="rounded-2xl border border-slate-100 p-4">
+        <div class="animate-pulse space-y-3">
+          <div class="h-4 w-1/3 rounded bg-slate-200"></div>
+          <div class="h-4 w-full rounded bg-slate-200"></div>
+          <div class="h-4 w-4/5 rounded bg-slate-200"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+
+</div>
+<nav id="mobileNav" class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+  <div class="mx-auto flex max-w-md items-end justify-around">
+    <a href="student-dashboard.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500"><i class="fa-solid fa-house text-sm"></i><span class="text-[10px] font-bold">Home</span></a>
+    <a href="assignments.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500"><i class="fa-solid fa-list-check text-sm"></i><span class="text-[10px] font-bold">Work</span></a>
+    <button id="mobileMoreBtn" class="relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-4 ring-slate-50" type="button" aria-label="More tools"><i class="fa-solid fa-ellipsis"></i></button>
+    <a href="check-result.html" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-slate-500"><i class="fa-solid fa-chart-line text-sm"></i><span class="text-[10px] font-bold">Results</span></a>
+    <button id="mobileMenuBtn" class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-indigo-600" type="button"><i class="fa-solid fa-bars text-sm"></i><span class="text-[10px] font-bold">Menu</span></button>
+  </div>
+</nav>
+
+<div id="studentDrawerBackdrop" class="fixed inset-0 z-[55] hidden bg-slate-950/50 backdrop-blur-sm"></div>
+<div id="studentDrawer" class="fixed bottom-0 left-0 right-0 z-[60] hidden w-full translate-y-full rounded-t-2xl border border-slate-200 bg-white shadow-2xl transition-transform duration-300">
+  <div class="mx-auto w-full max-w-2xl p-5">
+    <div class="mb-4 flex items-center justify-between"><div><h2 class="text-sm font-extrabold text-slate-900">Quick access</h2><p class="text-xs text-slate-500">Student tools</p></div><button id="closeStudentDrawer" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <a href="student-dashboard.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><i class="fa-solid fa-house"></i></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Dashboard</span></a>
+      <a href="assignments.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><i class="fa-solid fa-list-check"></i></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Assignments</span></a>
+      <a href="check-result.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 text-sky-600"><i class="fa-solid fa-chart-line"></i></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Results</span></a>
+      <a href="fees-history.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><i class="fa-solid fa-clock-rotate-left"></i></span><span class="mt-2 block text-[11px] font-bold text-slate-700">History</span></a>
+      <a href="profile.html" class="rounded-xl border border-slate-200 p-3 text-center hover:bg-slate-50"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><i class="fa-regular fa-user"></i></span><span class="mt-2 block text-[11px] font-bold text-slate-700">Profile</span></a>
+      <button id="drawerLogout" type="button" class="rounded-xl border border-red-100 bg-red-50 p-3 text-center hover:bg-red-100"><span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-white text-red-600"><i class="fa-solid fa-right-from-bracket"></i></span><span class="mt-2 block text-[11px] font-bold text-red-600">Sign out</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="receiptModal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+  <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-100 p-5"><div><h2 class="text-sm font-extrabold text-slate-900">Payment Receipt</h2><p class="mt-1 text-xs text-slate-500">Transaction details</p></div><button id="closeReceipt" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="receiptBody" class="p-5"></div>
+    <div class="flex justify-end gap-2 border-t border-slate-100 p-4"><button id="closeReceipt2" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600">Close</button><button id="downloadReceiptBtn" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white"><i class="fa-solid fa-download mr-1"></i>Download</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+
+  // Shared backend/tenant configuration — same architecture as the dashboard, results and profile pages.
+  const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+  const API_ROOT = `${BACKEND_URL}/api`;
+  const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+  const BASE_DOMAINS = [window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng', 'examguard.com.ng'];
+  const CACHE_VERSION = 'student-portal-v3';
+  const STUDENT_CACHE_TTL = 5 * 60 * 1000;
+  const SCHOOL_CACHE_TTL = 30 * 60 * 1000;
+  const FEES_CACHE_TTL = 5 * 60 * 1000;
+
+  let currentStudent = null, currentSchool = null, publicSchoolId = '';
+  let allTransactions = [], currentFilter = 'all', currentReceipt = null;
+
+  const $ = id => document.getElementById(id);
+
+  function getToken() {
+    return localStorage.getItem('student_token') ||
+           localStorage.getItem('studentToken') ||
+           localStorage.getItem('token') ||
+           localStorage.getItem('authToken') || '';
+  }
+
+  function authHeaders(extra = {}) {
+    const headers = { Accept:'application/json', ...extra };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+    return headers;
+  }
+
+  async function apiFetch(path, options = {}) {
+    const headers = authHeaders(options.headers || {});
+    return fetch(`${API_ROOT}${path}`, { ...options, headers });
+  }
+
+  function cacheKey(name){ return `${CACHE_VERSION}:${name}`; }
+  function readCache(name, ttl) {
+    try {
+      const item = JSON.parse(localStorage.getItem(cacheKey(name)) || 'null');
+      if (!item || Date.now() - Number(item.ts || 0) > ttl) return null;
+      return item.data;
+    } catch { return null; }
+  }
+  function saveCache(name, data) {
+    try { localStorage.setItem(cacheKey(name), JSON.stringify({ts:Date.now(),data})); } catch {}
+  }
+
+  function normalizeStudent(raw) {
+    return raw?.student || raw?.data?.student || raw?.data || raw;
+  }
+  function normalizeSchool(raw) {
+    if (!raw) return null;
+    const candidate = raw.school || raw.data?.school || raw.data || raw;
+    return candidate && typeof candidate === 'object' ? candidate : null;
+  }
+  function schoolMongoId(s){ return String(s?._id || s?.id || ''); }
+  function schoolPublicId(s){ return String(s?.schoolId || s?.code || s?.schoolCode || ''); }
+
+  function tenantSubdomain() {
+    const stored = localStorage.getItem('schoolSubdomain');
+    if (stored) return stored.toLowerCase();
+    const host = location.hostname.toLowerCase();
+    for (const base of BASE_DOMAINS) {
+      const suffix = `.${base.toLowerCase()}`;
+      if (host.endsWith(suffix)) {
+        const sub = host.slice(0, -suffix.length);
+        if (sub && !sub.includes('.')) return sub;
+      }
+    }
+    return '';
+  }
+
+  function studentSchoolId(student) {
+    const s = student?.school || student?.schoolId || student?.school_id;
+    if (!s) return '';
+    return typeof s === 'object' ? String(s._id || s.id || s.schoolId || s.code || '') : String(s);
+  }
+
+  function initials(name='School') {
+    return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase() || 'SP';
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+
+  function imageSource(value) {
+    if (!value) return '';
+    const s = String(value).trim();
+    if (!s) return '';
+    if (/^data:image\//i.test(s) || /^https?:\/\//i.test(s) || s.startsWith('//')) return s;
+    if (/^[A-Za-z0-9+/=\s]+$/.test(s) && s.length > 80) return `data:image/jpeg;base64,${s.replace(/\s/g,'')}`;
+    return '';
+  }
+
+  function avatarUrl(name='Student'){ return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f46e5&color=fff&bold=true`; }
+
+   function studentPhoto(student) {
+    const keys = ['photo_url','photoUrl','photo','avatar','profile_pic','profilePicture','profile_picture','image','imageUrl','studentPhoto','picture','photoBase64'];
+    for (const key of keys) {
+      const src = imageSource(student?.[key]);
+      if (src) return src;
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(student?.full_name || student?.name || 'Student')}&background=4f46e5&color=fff&bold=true`;
+  }
+
+  function schoolLogo(school) {
+    const keys = ['logo','logoUrl','logo_url','logoURL','schoolLogo','school_logo','image','imageUrl','favicon'];
+    for (const key of keys) {
+      const src = imageSource(school?.[key]);
+      if (src) return src;
+    }
+    return '';
+  }
+
+  function applySchoolBranding(school) {
+    currentSchool = school;
+    publicSchoolId = schoolPublicId(school);
+    const primary = school?.primaryColor || school?.primary_color || school?.theme?.primary || '#4f46e5';
+    const secondary = school?.secondaryColor || school?.secondary_color || school?.theme?.secondary || '#f59e0b';
+    const accent = school?.accentColor || school?.accent_color || school?.theme?.accent || '#10b981';
+    document.documentElement.style.setProperty('--school-primary', primary);
+    document.documentElement.style.setProperty('--school-secondary', secondary);
+    document.documentElement.style.setProperty('--school-accent', accent);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', primary);
+
+    const name = school?.name || school?.schoolName || school?.school_name || 'School';
+    const motto = school?.motto || school?.tagline || school?.slogan || 'Student Portal';
+    const logo = schoolLogo(school);
+    const subdomain = String(school?.subdomain || tenantSubdomain() || '').toLowerCase();
+
+    $('schoolName').textContent = name;
+    $('schoolSubtitle').textContent = motto;
+    $('headerSubtitle').textContent = `${name} • Payment History`;
+    $('schoolName').textContent = name;
+    $('schoolSubtitle').textContent = motto;
+    $('heroSchool').textContent = name;
+    document.title = `Payment History | ${name}`;
+
+    if (logo) {
+      $('schoolLogo').src = logo;
+      $('schoolLogo').classList.remove('hidden');
+      $('schoolLogoFallback').classList.add('hidden');
+    } else {
+      $('schoolLogo').removeAttribute('src');
+      $('schoolLogo').classList.add('hidden');
+      $('schoolLogoFallback').textContent = initials(name);
+      $('schoolLogoFallback').classList.remove('hidden');
+    }
+
+    if (publicSchoolId) {
+      localStorage.setItem('publicSchoolId', publicSchoolId);
+      localStorage.setItem('schoolId', publicSchoolId);
+    }
+    if (subdomain) {
+      localStorage.setItem('schoolSubdomain', subdomain);
+      try { localStorage.setItem(`examguard_school_config_${subdomain}`, JSON.stringify(school)); } catch {}
+    }
+  }
+
+  async function loadSchoolConfig(student) {
+    let school = normalizeSchool(student?.school);
+    const expectedMongoId = studentSchoolId(student);
+    const savedSubdomain = tenantSubdomain();
+
+    if (!school && savedSubdomain) {
+      school = normalizeSchool(readCache(`school:${savedSubdomain}`, SCHOOL_CACHE_TTL));
+    }
+
+    if (!school) {
+      try {
+        const me = await apiFetch('/auth/me');
+        if (me.ok) {
+          const raw = await me.json();
+          const authSchool = raw?.school || raw?.data?.school || raw?.user?.school;
+          if (authSchool) school = normalizeSchool(authSchool);
+        }
+      } catch(e) { console.warn('Auth school lookup failed', e); }
+    }
+
+    const candidates = [];
+    if (savedSubdomain) candidates.push(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(savedSubdomain)}`);
+    if (expectedMongoId) candidates.push(`${SCHOOL_CONFIG_ENDPOINT}?schoolId=${encodeURIComponent(expectedMongoId)}`);
+
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, {headers:authHeaders()});
+        if (!res.ok) continue;
+        const found = normalizeSchool(await res.json());
+        if (!found) continue;
+        const foundId = schoolMongoId(found);
+        if (!expectedMongoId || !foundId || foundId === expectedMongoId) {
+          school = {...(school || {}), ...found};
+          break;
+        }
+      } catch(e) { console.warn('School config lookup failed', e); }
+    }
+
+    if (!school) {
+      // Last safe tenant fallback: use locally cached config already established by another portal page.
+      try {
+        const raw = localStorage.getItem('schoolConfig') || '';
+        if (raw) school = normalizeSchool(JSON.parse(raw));
+      } catch {}
+    }
+
+    if (school) {
+      const sub = String(school.subdomain || savedSubdomain || '').toLowerCase();
+      if (sub) saveCache(`school:${sub}`, school);
+      applySchoolBranding(school);
+    }
+  }
+
+  function populateStudent(student) {
+    currentStudent = student;
+    const name = student?.full_name || student?.name || student?.fullName || 'Student';
+    const cls = student?.class_name || student?.class || student?.className || 'Student';
+    const reg = student?.regNo || student?.student_id || student?.studentId || '';
+    const avatar = studentPhoto(student);
+
+    $('sidebarStudentName').textContent = name;
+    $('sidebarStudentClass').textContent = [cls, reg].filter(Boolean).join(' • ') || 'Student account';
+    $('sidebarAvatar').src = avatar;
+    $('headerAvatar').src = avatar;
+    $('historyStudentAvatar').src = avatar;
+    $('historyStudentName').textContent = name;
+    $('historyStudentMeta').textContent = [cls, reg].filter(Boolean).join(' • ') || 'Student account';
+  }
+
+  function normalizeFeesResponse(raw) {
+    // /fees/me returns the fee payload directly on some deployments and under
+    // `data` on others. Normalize both shapes before reading breakdown.
+    const data = raw?.data && typeof raw.data === 'object' && !Array.isArray(raw.data)
+      ? raw.data
+      : raw;
+
+    const breakdown = Array.isArray(data?.breakdown) ? data.breakdown :
+      Array.isArray(data?.fees) ? data.fees :
+      Array.isArray(data?.transactions) ? data.transactions :
+      Array.isArray(data?.payments) ? data.payments :
+      Array.isArray(raw?.breakdown) ? raw.breakdown :
+      Array.isArray(raw?.fees) ? raw.fees :
+      Array.isArray(raw?.transactions) ? raw.transactions :
+      Array.isArray(raw?.payments) ? raw.payments : [];
+
+    return breakdown.filter(fee => {
+      const status = String(fee?.status || '').toLowerCase();
+      return status && status !== 'unpaid';
+    }).map(fee => ({
+      id: fee._id || fee.id || fee.paymentRef || crypto.randomUUID?.() || String(Math.random()),
+      reference: fee.paymentRef || fee.reference || fee.transactionRef || fee.transaction_id || fee.transactionId || 'N/A',
+      amount: Number(fee.amount || fee.totalAmount || fee.total || 0),
+      paidAmount: Number(fee.paidAmount || fee.paid_amount || fee.amountPaid || fee.amount_paid || 0),
+      status: fee.status || 'Pending',
+      method: fee.paymentMethod || fee.payment_method || fee.method || 'Unknown',
+      date: fee.paidDate || fee.paid_date || fee.paymentDate || fee.payment_date || fee.createdAt || fee.created_at || fee.dueDate,
+      feeType: fee.type || fee.feeType || fee.fee_type || fee.name || fee.description || 'School Fee',
+      description: fee.description || fee.type || fee.feeType || 'Payment',
+      term: fee.term || '',
+      session: fee.session || ''
+    }));
+  }
+
+  function formatCurrency(value) {
+    const currency = currentSchool?.currency || currentSchool?.currencyCode || 'NGN';
+    try {
+      return new Intl.NumberFormat('en-NG',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value)||0);
+    } catch {
+      return `₦${(Number(value)||0).toLocaleString('en-NG')}`;
+    }
+  }
+  function formatDate(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('en-NG',{year:'numeric',month:'short',day:'numeric'});
+  }
+  function statusKey(status) {
+    const s = String(status||'pending').toLowerCase();
+    if (s === 'paid' || s === 'successful' || s === 'waived') return 'successful';
+    if (s === 'failed') return 'failed';
+    if (s === 'pending' || s === 'partial') return 'pending';
+    if (s === 'refunded') return 'refunded';
+    return 'pending';
+  }
+  function badge(status) {
+    const k=statusKey(status);
+    const map={successful:['badge-success','✓ Successful'],failed:['badge-failed','✗ Failed'],refunded:['badge-refunded','↩ Refunded'],pending:['badge-pending','⏳ Pending']};
+    return `<span class="badge ${map[k][0]}">${map[k][1]}</span>`;
+  }
+
+  function updateStats() {
+    let total=0, success=0, failed=0;
+    allTransactions.forEach(tx => {
+      const k=statusKey(tx.status);
+      if(k==='successful'){ total += tx.paidAmount || tx.amount; success++; }
+      else if(k==='failed') failed++;
+    });
+    $('totalPaid').textContent=formatCurrency(total);
+    $('totalTransactions').textContent=allTransactions.length;
+    $('successCount').textContent=success;
+    $('failedCount').textContent=failed;
+  }
+
+  function filteredTransactions() {
+    let rows=[...allTransactions];
+    if(currentFilter!=='all') rows=rows.filter(tx=>statusKey(tx.status)===currentFilter);
+    const q=($('searchInput').value||'').trim().toLowerCase();
+    if(q) rows=rows.filter(tx=>[tx.reference,tx.feeType,tx.description,tx.method,tx.amount,tx.paidAmount,tx.term,tx.session,formatDate(tx.date)].some(v=>String(v??'').toLowerCase().includes(q)));
+    return rows;
+  }
+
+  function renderTransactions() {
+    const rows=filteredTransactions();
+    const box=$('transactionsContainer');
+    if(!rows.length){
+      box.innerHTML=`<div class="empty"><i class="fa-regular fa-folder-open"></i><h3>No transactions found</h3><p>No payment records match your current search or filter.</p></div>`;
+      
+      return;
+    }
+    box.innerHTML=rows.map(tx=>{
+      const k=statusKey(tx.status);
+      const success=k==='successful';
+      const desc=tx.description && tx.description!==tx.feeType ? ` • ${escapeHtml(tx.description)}` : '';
+      return `<article class="transaction">
+        <div class="tx-icon ${success?'success':k==='failed'?'failed':''}"><i class="fa-solid ${success?'fa-check':k==='failed'?'fa-xmark':'fa-clock'}"></i></div>
+        <div>
+          <div class="tx-title">${escapeHtml(tx.feeType)}</div>
+          <div class="tx-meta">Ref: <strong>${escapeHtml(tx.reference)}</strong> • ${escapeHtml(tx.method)} • ${escapeHtml(tx.term)} ${escapeHtml(tx.session)}${desc}</div>
+        </div>
+        <div class="tx-right"><div class="tx-amount">${formatCurrency(tx.paidAmount || tx.amount)}</div><div class="tx-date">${formatDate(tx.date)}</div></div>
+        ${badge(tx.status)}
+      </article>`;
+    }).join('');
+  }
+
+  function openReceipt(tx) {
+    currentReceipt=tx;
+    $('receiptBody').innerHTML=`
+      <div class="receipt-row"><span>Transaction ID</span><span>${escapeHtml(tx.reference)}</span></div>
+      <div class="receipt-row"><span>Date</span><span>${formatDate(tx.date)}</span></div>
+      <div class="receipt-row"><span>Fee Type</span><span>${escapeHtml(tx.feeType)}</span></div>
+      <div class="receipt-row"><span>Payment Method</span><span>${escapeHtml(tx.method)}</span></div>
+      <div class="receipt-row"><span>Status</span><span>${badge(tx.status)}</span></div>
+      <div class="receipt-total"><span>Total Amount</span><span>${formatCurrency(tx.paidAmount || tx.amount)}</span></div>
+      <div class="receipt-row"><span>Description</span><span>${escapeHtml(tx.description || tx.feeType)}</span></div>`;
+    $('receiptModal').classList.add('open');
+  }
+  function closeReceipt(){ $('receiptModal').classList.remove('open'); currentReceipt=null; }
+
+  async function fetchStudent() {
+    const cached=readCache('student',STUDENT_CACHE_TTL);
+    if(cached) populateStudent(normalizeStudent(cached));
+    const res=await apiFetch('/students/me');
+    if(!res.ok) throw new Error(`Unable to load student profile (${res.status})`);
+    const student=normalizeStudent(await res.json());
+    saveCache('student',student); populateStudent(student);
+    return student;
+  }
+
+  async function fetchFees() {
+    const cached=readCache('fees',FEES_CACHE_TTL);
+    if(cached) { allTransactions=normalizeFeesResponse(cached); updateStats(); renderTransactions(); }
+    const res=await apiFetch('/fees/me');
+    if(!res.ok) throw new Error(`Unable to load payment history (${res.status})`);
+    const data=await res.json();
+    saveCache('fees',data);
+    const student=normalizeStudent(data);
+    if(student && (student.full_name || student.name || student.regNo || student.student_id)) populateStudent(student);
+    allTransactions=normalizeFeesResponse(data);
+    updateStats(); renderTransactions();
+  }
+
+  async function loadPage(force=false) {
+    const token=getToken();
+    if(!token){ location.href='login.html'; return; }
+    try {
+      $('transactionsContainer').classList.add('loading');
+      let student;
+      if(!force) student=readCache('student',STUDENT_CACHE_TTL);
+      if(!student) student=await fetchStudent();
+      else populateStudent(normalizeStudent(student));
+      await loadSchoolConfig(normalizeStudent(student));
+      await fetchFees();
+      $('transactionsContainer').classList.remove('loading');
+    } catch(err) {
+      console.error(err);
+      $('transactionsContainer').classList.remove('loading');
+      $('transactionsContainer').innerHTML=`<div class="empty"><i class="fa-solid fa-triangle-exclamation"></i><h3>Unable to load payment history</h3><p>${escapeHtml(err.message||'Please try again.')}</p></div>`;
+    }
+  }
+
+  function downloadHistory() {
+    const rows=filteredTransactions();
+    const name=(currentStudent?.full_name || currentStudent?.name || 'student').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'') || 'student';
+    const school=currentSchool?.name || currentSchool?.schoolName || 'School';
+    const lines=[
+      school,'Payment History',`Student: ${currentStudent?.full_name || currentStudent?.name || 'Student'}`,
+      `Generated: ${new Date().toLocaleString('en-NG')}`,'',
+      'Date | Reference | Fee | Amount | Status | Method',
+      ...rows.map(tx=>`${formatDate(tx.date)} | ${tx.reference} | ${tx.feeType} | ${formatCurrency(tx.paidAmount||tx.amount)} | ${tx.status} | ${tx.method}`)
+    ];
+    const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${name}-payment-history.txt`; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  function downloadReceipt() {
+    if(!currentReceipt) return;
+    const tx=currentReceipt, school=currentSchool?.name || 'School';
+    const text=[school,'Payment Receipt','',`Student: ${currentStudent?.full_name || currentStudent?.name || 'Student'}`,`Reference: ${tx.reference}`,`Date: ${formatDate(tx.date)}`,`Fee: ${tx.feeType}`,`Method: ${tx.method}`,`Status: ${tx.status}`,`Amount: ${formatCurrency(tx.paidAmount||tx.amount)}`,`Description: ${tx.description||tx.feeType}`].join('\n');
+    const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`receipt-${tx.reference||'payment'}.txt`; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  // Allow tapping a transaction to view its receipt without changing the payment data.
+  $('transactionsContainer').addEventListener('click', e => {
+    const item=e.target.closest('.transaction'); if(!item) return;
+    const index=[...$('transactionsContainer').querySelectorAll('.transaction')].indexOf(item);
+    const rows=filteredTransactions(); if(rows[index]) openReceipt(rows[index]);
+  });
+  document.querySelectorAll('.filter-btn').forEach(btn=>btn.addEventListener('click',(event)=>{
+    event.preventDefault();
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    currentFilter = event.currentTarget.dataset.filter || 'all';
+    renderTransactions();
+  }));
+  $('searchInput').addEventListener('input',renderTransactions);
+  $('refreshBtn').addEventListener('click',()=>loadPage(true));
+  $('downloadBtn').addEventListener('click',downloadHistory);
+  $('printBtn').addEventListener('click',()=>window.print());
+  $('closeReceipt').addEventListener('click',closeReceipt);
+  $('closeReceipt2').addEventListener('click',closeReceipt);
+  $('downloadReceiptBtn').addEventListener('click',downloadReceipt);
+  $('receiptModal').addEventListener('click',e=>{if(e.target===$('receiptModal'))closeReceipt();});
+
+  function toggleDrawer(open) {
+    $('sidebar').classList.toggle('-translate-x-full', !open);
+    $('sidebarBackdrop').classList.toggle('hidden', !open);
+    document.body.classList.toggle('modal-open', open);
+  }
+  $('openSidebar').addEventListener('click',()=>toggleDrawer(true));
+  $('closeSidebar').addEventListener('click',()=>toggleDrawer(false));
+  $('sidebarBackdrop').addEventListener('click',()=>toggleDrawer(false));
+
+  function openStudentDrawer(){
+    $('studentDrawer').classList.remove('hidden');
+    $('studentDrawerBackdrop').classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    requestAnimationFrame(()=>$('studentDrawer').classList.remove('translate-y-full'));
+  }
+  function closeStudentDrawer(){
+    $('studentDrawer').classList.add('translate-y-full');
+    $('studentDrawerBackdrop').classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    setTimeout(()=>$('studentDrawer').classList.add('hidden'),300);
+  }
+  $('mobileMoreBtn').addEventListener('click',openStudentDrawer);
+  $('mobileMenuBtn').addEventListener('click',openStudentDrawer);
+  $('closeStudentDrawer').addEventListener('click',closeStudentDrawer);
+  $('studentDrawerBackdrop').addEventListener('click',closeStudentDrawer);
+  document.querySelectorAll('#sidebar a').forEach(a=>a.addEventListener('click',()=>toggleDrawer(false)));
+
+  function logout(){
+    ['student_token','studentToken','token','authToken','publicSchoolId','schoolId','schoolSubdomain','schoolConfig']
+      .forEach(k=>localStorage.removeItem(k));
+    sessionStorage.clear();
+    location.href='login.html';
+  }
+  $('logoutBtn').addEventListener('click',logout);
+  $('drawerLogout').addEventListener('click',logout);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){toggleDrawer(false);closeStudentDrawer();closeReceipt();}});
+  loadPage(false);
+})();
+</script>
+</body>
+</html>
