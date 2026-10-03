@@ -941,16 +941,28 @@ async function resolveHomepageSchool(req, res) {
   const platformAdmin = isPlatformAdmin(user);
   const identifiers = getUserSchoolIdentifiers(user);
 
-  let requestedSchool =
-    req.body?.schoolId ||
-    req.query?.schoolId ||
-    '';
+  // Accept the active school from the request, but always fall back to the
+  // school attached to the authenticated user. This is important for
+  // superadmins who are acting on behalf of a specific school.
+  const requestCandidates = [
+    req.body?.schoolId,
+    req.query?.schoolId,
+    req.headers?.['x-school-id'],
+    req.headers?.['x-school-code'],
+    req.headers?.['x-schoolid']
+  ];
 
-  requestedSchool = String(requestedSchool || '').trim();
+  let requestedSchool = requestCandidates
+    .find(value => value !== undefined && value !== null && String(value).trim() !== '');
 
-  if (!platformAdmin && !requestedSchool) {
+  // If the frontend did not explicitly provide a school, use the school
+  // associated with the authenticated user. Prefer the schoolId field that
+  // auth middleware normally attaches, then the other known identifiers.
+  if (requestedSchool === undefined || requestedSchool === null || String(requestedSchool).trim() === '') {
     requestedSchool = identifiers[0] || '';
   }
+
+  requestedSchool = String(requestedSchool || '').trim();
 
   if (!requestedSchool) {
     return {
@@ -961,32 +973,9 @@ async function resolveHomepageSchool(req, res) {
     };
   }
 
-  if (!platformAdmin && identifiers.length > 0) {
-    const directMatch = identifiers.includes(requestedSchool);
-
-    if (!directMatch) {
-      let ownershipMatch = null;
-
-      if (mongoose.Types.ObjectId.isValid(requestedSchool)) {
-        ownershipMatch = await School.findOne({
-          _id: requestedSchool,
-          schoolId: { $in: identifiers },
-          status: 'active',
-          isDeleted: { $ne: true }
-        }).select('_id schoolId');
-      }
-
-      if (!ownershipMatch) {
-        return {
-          errorResponse: res.status(403).json({
-            success: false,
-            error: 'You are not authorized to manage this school homepage.'
-          })
-        };
-      }
-    }
-  }
-
+  // Resolve the requested school first. For a non-platform admin, make sure
+  // the resolved School belongs to the authenticated user's school before
+  // allowing the request to continue.
   const query = {
     status: 'active',
     isDeleted: { $ne: true }
@@ -997,6 +986,8 @@ async function resolveHomepageSchool(req, res) {
   } else if (mongoose.Types.ObjectId.isValid(requestedSchool)) {
     query._id = requestedSchool;
   } else {
+    // Preserve compatibility with installations where schoolId is not using
+    // the SCH-... format.
     query.schoolId = requestedSchool;
   }
 
@@ -1011,10 +1002,20 @@ async function resolveHomepageSchool(req, res) {
     };
   }
 
-  if (!platformAdmin && identifiers.length > 0) {
-    const schoolMatches =
-      identifiers.includes(String(school.schoolId)) ||
-      identifiers.includes(String(school._id));
+  if (!platformAdmin) {
+    if (identifiers.length === 0) {
+      return {
+        errorResponse: res.status(403).json({
+          success: false,
+          error: 'The authenticated user is not associated with a school.'
+        })
+      };
+    }
+
+    const schoolMatches = identifiers.some(identifier =>
+      identifier === String(school.schoolId) ||
+      identifier === String(school._id)
+    );
 
     if (!schoolMatches) {
       return {
