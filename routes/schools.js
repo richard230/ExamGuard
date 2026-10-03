@@ -9,6 +9,15 @@ const crypto = require('crypto');
 const postmark = require('postmark');
 const ensureSuperAdmin = require("../utils/ensureSuperAdmin");
 
+/* ============================================================
+ * TENANT / ADMIN SECURITY MODEL
+ * ------------------------------------------------------------
+ * - Every school has its own school-scoped `superadmin`.
+ * - `superadmin` is NOT a global/platform role.
+ * - Only explicit system/platform roles may cross school boundaries.
+ * - All school-scoped admin reads/writes resolve and verify the target
+ *   school against req.user.schoolId (or an equivalent school identifier).
+ * ============================================================ */
 
 // ===== VALIDATION MIDDLEWARE =====
 const validateSchool = (req, res, next) => {
@@ -851,7 +860,8 @@ const HOMEPAGE_SECTIONS = new Set([
   'updates',
   'testimonials',
   'enquiry',
-  'footer'
+  'footer',
+  'seo'
 ]);
 
 const HOMEPAGE_FORBIDDEN_KEYS = new Set([
@@ -860,31 +870,75 @@ const HOMEPAGE_FORBIDDEN_KEYS = new Set([
   'constructor'
 ]);
 
+const HOMEPAGE_LIMITS = {
+  maxDepth: 20,
+  maxArrayItems: 100,
+  maxObjectKeys: 100,
+  maxStringLength: 10000
+};
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isSafeHomepageString(value) {
+  if (typeof value !== 'string') return true;
+
+  // Prevent stored homepage content from carrying executable URL schemes.
+  // Normal HTTPS/HTTP URLs, relative URLs, phone links and mail links remain
+  // supported by the frontend.
+  return !/^\s*(javascript:|vbscript:|data:text\/html)/i.test(value);
+}
+
 function sanitizeHomepageValue(value, depth = 0) {
-  if (depth > 20) {
+  if (depth > HOMEPAGE_LIMITS.maxDepth) {
     throw new Error('Homepage configuration is too deeply nested.');
   }
 
+  if (typeof value === 'string') {
+    if (value.length > HOMEPAGE_LIMITS.maxStringLength) {
+      throw new Error(`Homepage text exceeds the ${HOMEPAGE_LIMITS.maxStringLength}-character limit.`);
+    }
+
+    if (!isSafeHomepageString(value)) {
+      throw new Error('Homepage contains an unsafe URL or executable protocol.');
+    }
+
+    return value;
+  }
+
   if (Array.isArray(value)) {
+    if (value.length > HOMEPAGE_LIMITS.maxArrayItems) {
+      throw new Error(`Homepage arrays cannot contain more than ${HOMEPAGE_LIMITS.maxArrayItems} items.`);
+    }
+
     return value.map(item => sanitizeHomepageValue(item, depth + 1));
   }
 
   if (isPlainObject(value)) {
+    const keys = Object.keys(value);
+
+    if (keys.length > HOMEPAGE_LIMITS.maxObjectKeys) {
+      throw new Error(`Homepage objects cannot contain more than ${HOMEPAGE_LIMITS.maxObjectKeys} fields.`);
+    }
+
     const out = {};
     for (const [key, item] of Object.entries(value)) {
       if (HOMEPAGE_FORBIDDEN_KEYS.has(key)) {
         throw new Error(`Invalid homepage configuration key: ${key}`);
       }
+
       out[key] = sanitizeHomepageValue(item, depth + 1);
     }
+
     return out;
   }
 
-  return value;
+  if (value === null || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+
+  throw new Error('Homepage contains an unsupported value type.');
 }
 
 function deepMergeHomepage(base, patch) {
@@ -911,11 +965,14 @@ function isPlatformAdmin(user) {
     user?.userType,
     user?.accountType,
     user?.type
-  ].filter(Boolean).map(value => String(value).toLowerCase());
+  ]
+    .filter(Boolean)
+    .map(value => String(value).toLowerCase().trim());
 
+  // IMPORTANT: `superadmin` is school-scoped. It must NEVER be treated as
+  // a global/platform administrator. Only an explicitly defined system or
+  // platform role may bypass tenant isolation.
   return roles.some(role => [
-    'superadmin',
-    'super_admin',
     'systemadmin',
     'system_admin',
     'platformadmin',
@@ -934,6 +991,78 @@ function getUserSchoolIdentifiers(user) {
   ].filter(Boolean).map(value => String(value).trim());
 
   return [...new Set(values)];
+}
+
+function userBelongsToSchool(user, school) {
+  const identifiers = getUserSchoolIdentifiers(user);
+
+  return identifiers.some(identifier =>
+    identifier === String(school.schoolId) ||
+    identifier === String(school._id)
+  );
+}
+
+function requirePlatformAdmin(req, res) {
+  if (isPlatformAdmin(req.user)) return true;
+
+  res.status(403).json({
+    success: false,
+    error: 'This operation is restricted to a system/platform administrator.'
+  });
+
+  return false;
+}
+
+async function resolveSchoolForAdminRequest(req, res, options = {}) {
+  const { allowInactive = false } = options;
+  const user = req.user || {};
+  const platformAdmin = isPlatformAdmin(user);
+  const requestedId = String(req.params?.id || req.body?.schoolId || req.query?.schoolId || '').trim();
+
+  if (!requestedId) {
+    return {
+      errorResponse: res.status(400).json({
+        success: false,
+        error: 'A school identifier is required.'
+      })
+    };
+  }
+
+  const query = {
+    isDeleted: { $ne: true }
+  };
+
+  if (!allowInactive) query.status = 'active';
+
+  if (mongoose.Types.ObjectId.isValid(requestedId)) {
+    query._id = requestedId;
+  } else {
+    query.schoolId = requestedId;
+  }
+
+  const school = await School.findOne(query);
+
+  if (!school) {
+    return {
+      errorResponse: res.status(404).json({
+        success: false,
+        error: 'School not found or inactive.'
+      })
+    };
+  }
+
+  // System/platform admins may operate across schools. A school-scoped
+  // superadmin must match the target school exactly.
+  if (!platformAdmin && !userBelongsToSchool(user, school)) {
+    return {
+      errorResponse: res.status(403).json({
+        success: false,
+        error: 'You are not authorized to manage this school.'
+      })
+    };
+  }
+
+  return { school, platformAdmin };
 }
 
 async function resolveHomepageSchool(req, res) {
@@ -1203,7 +1332,15 @@ router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
     if (resolved.errorResponse) return resolved.errorResponse;
 
     const { school } = resolved;
-    const homepage = sanitizeHomepageValue(req.body?.homepage);
+
+    if (req.body?.homepage === undefined || req.body?.homepage === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'homepage is required.'
+      });
+    }
+
+    const homepage = sanitizeHomepageValue(req.body.homepage);
 
     if (!isPlainObject(homepage)) {
       return res.status(400).json({
@@ -1260,7 +1397,8 @@ router.patch('/homepage/admin/section/:section', authMiddleware, adminAuth, asyn
     if (resolved.errorResponse) return resolved.errorResponse;
 
     const { school } = resolved;
-    const sectionData = sanitizeHomepageValue(req.body?.section ?? req.body);
+    const rawSectionData = req.body?.section ?? req.body;
+    const sectionData = sanitizeHomepageValue(rawSectionData);
 
     if (!isPlainObject(sectionData)) {
       return res.status(400).json({
@@ -1308,6 +1446,47 @@ router.patch('/homepage/admin/section/:section', authMiddleware, adminAuth, asyn
 });
 
 /**
+ * GET /api/schools/homepage/admin/preview
+ * Return the unpublished/draft homepage for the authenticated school admin.
+ * This endpoint never changes publication state.
+ */
+router.get('/homepage/admin/preview', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const { school } = resolved;
+
+    return res.json({
+      success: true,
+      data: {
+        school: {
+          id: school._id,
+          schoolId: school.schoolId,
+          name: school.schoolName,
+          subdomain: school.subdomain || '',
+          customDomain: school.customDomain || ''
+        },
+        homepage: school.homepage || {},
+        homepageSettings: school.homepageSettings || {
+          enabled: true,
+          published: false,
+          revision: 1,
+          lastPublishedAt: null
+        },
+        preview: true
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN HOMEPAGE PREVIEW ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load homepage preview.'
+    });
+  }
+});
+
+/**
  * POST /api/schools/homepage/admin/publish
  * Publish the current saved homepage.
  */
@@ -1349,8 +1528,8 @@ router.post('/homepage/admin/publish', authMiddleware, adminAuth, async (req, re
 
 /**
  * POST /api/schools/homepage/admin/reset
- * Clear custom homepage content. The public index falls back to its
- * built-in sample/default configuration.
+ * Clear custom homepage content and save the result as a draft.
+ * The live published homepage is not changed until /publish is called.
  */
 router.post('/homepage/admin/reset', authMiddleware, adminAuth, async (req, res) => {
   try {
@@ -1363,9 +1542,7 @@ router.post('/homepage/admin/reset', authMiddleware, adminAuth, async (req, res)
     school.homepageSettings = {
       ...(school.homepageSettings || {}),
       enabled: true,
-      published: true,
-      lastPublishedAt: new Date(),
-      lastPublishedBy: req.user?._id || null,
+      published: false,
       revision: Number(school.homepageSettings?.revision || 0) + 1
     };
     school.lastModifiedBy = req.user?._id || null;
@@ -1374,7 +1551,7 @@ router.post('/homepage/admin/reset', authMiddleware, adminAuth, async (req, res)
 
     return res.json({
       success: true,
-      message: 'Homepage reset to the frontend default configuration.',
+      message: 'Homepage reset saved as a draft. Publish it when you are ready to make the reset live.',
       data: {
         homepage: {},
         homepageSettings: school.homepageSettings
@@ -1392,6 +1569,8 @@ router.post('/homepage/admin/reset', authMiddleware, adminAuth, async (req, res)
 
 router.get('/admin/all', authMiddleware, adminAuth, async (req, res) => {
   try {
+    if (!requirePlatformAdmin(req, res)) return;
+
     const { status, subscriptionStatus, search, page = 1, limit = 10 } = req.query;
 
     let query = {};
@@ -1446,6 +1625,7 @@ router.get('/admin/all', authMiddleware, adminAuth, async (req, res) => {
 
 router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => {
   try {
+    if (!requirePlatformAdmin(req, res)) return;
     const {
       schoolName,
       schoolType,
@@ -1623,7 +1803,10 @@ router.post('/', authMiddleware, adminAuth, validateSchool, async (req, res) => 
  */
 router.get('/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const school = await School.findById(req.params.id)
+    const resolved = await resolveSchoolForAdminRequest(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const school = await School.findById(resolved.school._id)
       .populate('accountManager', 'name email')
       .populate('demoRequestId')
       .populate('createdBy', 'name email');
@@ -1688,10 +1871,13 @@ router.put('/:id', authMiddleware, adminAuth, async (req, res) => {
       }
     }
 
+    const resolved = await resolveSchoolForAdminRequest(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
     updates.lastModifiedBy = req.user._id;
 
     const school = await School.findByIdAndUpdate(
-      req.params.id,
+      resolved.school._id,
       updates,
       { new: true, runValidators: true }
     ).populate('accountManager', 'name email');
@@ -1731,7 +1917,10 @@ router.put('/:id', authMiddleware, adminAuth, async (req, res) => {
  */
 router.delete('/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const school = await School.findById(req.params.id);
+    const resolved = await resolveSchoolForAdminRequest(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const school = await School.findById(resolved.school._id);
     if (!school) {
       return res.status(404).json({
         success: false,
@@ -1761,7 +1950,10 @@ router.delete('/:id', authMiddleware, adminAuth, async (req, res) => {
  */
 router.post('/:id/generate-api-key', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const school = await School.findById(req.params.id);
+    const resolved = await resolveSchoolForAdminRequest(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const school = await School.findById(resolved.school._id);
     if (!school) {
       return res.status(404).json({
         success: false,
@@ -1797,6 +1989,7 @@ router.post('/:id/generate-api-key', authMiddleware, adminAuth, async (req, res)
  */
 router.post('/from-request/:requestId', authMiddleware, adminAuth, async (req, res) => {
   try {
+    if (!requirePlatformAdmin(req, res)) return;
     const demoRequest = await DemoRequest.findById(req.params.requestId);
 
     if (!demoRequest || demoRequest.status !== 'approved') {
@@ -1866,6 +2059,7 @@ router.post('/from-request/:requestId', authMiddleware, adminAuth, async (req, r
  */
 router.post('/bulk-import', authMiddleware, adminAuth, async (req, res) => {
   try {
+    if (!requirePlatformAdmin(req, res)) return;
     const { schools } = req.body;
 
     if (!Array.isArray(schools) || schools.length === 0) {
