@@ -433,6 +433,58 @@ const schoolSchema = new Schema(
       transportEnabled: { type: Boolean, default: false }
     },
 
+    /*
+     * Public website / homepage configuration.
+     *
+     * This intentionally uses Mixed rather than hard-coding every possible
+     * website field into the School model. The public index page owns the
+     * default configuration and the admin editor can persist the school's
+     * customized version here.
+     *
+     * Expected top-level keys include:
+     *   enabled
+     *   navigation
+     *   announcementBar
+     *   admissionModal
+     *   hero
+     *   quickCards
+     *   proprietor
+     *   foundations
+     *   services
+     *   academics
+     *   metrics
+     *   gallery
+     *   updates
+     *   testimonials
+     *   enquiry
+     *   footer
+     *
+     * Every section can contain its own `visible` flag and arrays of
+     * editable items. The frontend falls back to its sample/default
+     * configuration whenever a school has not customized a section.
+     */
+    homepage: {
+      type: Schema.Types.Mixed,
+      default: {}
+    },
+
+    /*
+     * Homepage publishing metadata. Keeping this separate from the
+     * content allows the future admin editor to support draft/save/preview
+     * and publish workflows without changing the homepage data shape.
+     */
+    homepageSettings: {
+      enabled: { type: Boolean, default: true },
+      published: { type: Boolean, default: true },
+      lastPublishedAt: { type: Date, default: null },
+      lastPublishedBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+      },
+      revision: { type: Number, default: 1 }
+    },
+
     subscriptionPlan: {
       type: String,
       enum: ['starter', 'professional', 'enterprise'],
