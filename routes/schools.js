@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const School = require('../models/School');
 const DemoRequest = require('../models/DemoRequest');
@@ -582,6 +583,8 @@ router.get('/config', async (req, res) => {
     communication
     pwaSettings
     settings
+    homepage
+    homepageSettings
 `)
       .lean();
 
@@ -801,6 +804,14 @@ router.get('/config', async (req, res) => {
         displayMode: school.pwaSettings?.displayMode || 'standalone',
         icon192: school.pwaSettings?.icon192 || school.branding?.logo || '',
         icon512: school.pwaSettings?.icon512 || school.branding?.logo || ''
+      },
+
+      homepage: school.homepage || {},
+      homepageSettings: {
+        enabled: school.homepageSettings?.enabled ?? true,
+        published: school.homepageSettings?.published ?? true,
+        revision: school.homepageSettings?.revision ?? 1,
+        lastPublishedAt: school.homepageSettings?.lastPublishedAt || null
       }
     };
 
@@ -819,6 +830,563 @@ router.get('/config', async (req, res) => {
   }
 });
 
+
+
+/* ============================================================
+ * PUBLIC WEBSITE / HOMEPAGE ENDPOINTS
+ * ============================================================ */
+
+const HOMEPAGE_SECTIONS = new Set([
+  'navigation',
+  'announcementBar',
+  'admissionModal',
+  'hero',
+  'quickCards',
+  'proprietor',
+  'foundations',
+  'services',
+  'academics',
+  'metrics',
+  'gallery',
+  'updates',
+  'testimonials',
+  'enquiry',
+  'footer'
+]);
+
+const HOMEPAGE_FORBIDDEN_KEYS = new Set([
+  '__proto__',
+  'prototype',
+  'constructor'
+]);
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function sanitizeHomepageValue(value, depth = 0) {
+  if (depth > 20) {
+    throw new Error('Homepage configuration is too deeply nested.');
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => sanitizeHomepageValue(item, depth + 1));
+  }
+
+  if (isPlainObject(value)) {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (HOMEPAGE_FORBIDDEN_KEYS.has(key)) {
+        throw new Error(`Invalid homepage configuration key: ${key}`);
+      }
+      out[key] = sanitizeHomepageValue(item, depth + 1);
+    }
+    return out;
+  }
+
+  return value;
+}
+
+function deepMergeHomepage(base, patch) {
+  if (!isPlainObject(patch)) return base;
+
+  const output = isPlainObject(base) ? { ...base } : {};
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (HOMEPAGE_FORBIDDEN_KEYS.has(key)) continue;
+
+    if (isPlainObject(value) && isPlainObject(output[key])) {
+      output[key] = deepMergeHomepage(output[key], value);
+    } else {
+      output[key] = value;
+    }
+  }
+
+  return output;
+}
+
+function isPlatformAdmin(user) {
+  const roles = [
+    user?.role,
+    user?.userType,
+    user?.accountType,
+    user?.type
+  ].filter(Boolean).map(value => String(value).toLowerCase());
+
+  return roles.some(role => [
+    'superadmin',
+    'super_admin',
+    'systemadmin',
+    'system_admin',
+    'platformadmin',
+    'platform_admin'
+  ].includes(role));
+}
+
+function getUserSchoolIdentifiers(user) {
+  const values = [
+    user?.schoolId,
+    user?.schoolKey,
+    user?.schoolCode,
+    typeof user?.school === 'string' ? user.school : null,
+    user?.school?.schoolId,
+    user?.school?._id
+  ].filter(Boolean).map(value => String(value).trim());
+
+  return [...new Set(values)];
+}
+
+async function resolveHomepageSchool(req, res) {
+  const user = req.user || {};
+  const platformAdmin = isPlatformAdmin(user);
+  const identifiers = getUserSchoolIdentifiers(user);
+
+  let requestedSchool =
+    req.body?.schoolId ||
+    req.query?.schoolId ||
+    '';
+
+  requestedSchool = String(requestedSchool || '').trim();
+
+  if (!platformAdmin && !requestedSchool) {
+    requestedSchool = identifiers[0] || '';
+  }
+
+  if (!requestedSchool) {
+    return {
+      errorResponse: res.status(400).json({
+        success: false,
+        error: 'A schoolId is required or must be associated with the authenticated user.'
+      })
+    };
+  }
+
+  if (!platformAdmin && identifiers.length > 0) {
+    const directMatch = identifiers.includes(requestedSchool);
+
+    if (!directMatch) {
+      let ownershipMatch = null;
+
+      if (mongoose.Types.ObjectId.isValid(requestedSchool)) {
+        ownershipMatch = await School.findOne({
+          _id: requestedSchool,
+          schoolId: { $in: identifiers },
+          status: 'active',
+          isDeleted: { $ne: true }
+        }).select('_id schoolId');
+      }
+
+      if (!ownershipMatch) {
+        return {
+          errorResponse: res.status(403).json({
+            success: false,
+            error: 'You are not authorized to manage this school homepage.'
+          })
+        };
+      }
+    }
+  }
+
+  const query = {
+    status: 'active',
+    isDeleted: { $ne: true }
+  };
+
+  if (/^SCH-[A-Z0-9]+-[A-Z0-9]+$/i.test(requestedSchool)) {
+    query.schoolId = requestedSchool.toUpperCase();
+  } else if (mongoose.Types.ObjectId.isValid(requestedSchool)) {
+    query._id = requestedSchool;
+  } else {
+    query.schoolId = requestedSchool;
+  }
+
+  const school = await School.findOne(query);
+
+  if (!school) {
+    return {
+      errorResponse: res.status(404).json({
+        success: false,
+        error: 'School not found or inactive.'
+      })
+    };
+  }
+
+  if (!platformAdmin && identifiers.length > 0) {
+    const schoolMatches =
+      identifiers.includes(String(school.schoolId)) ||
+      identifiers.includes(String(school._id));
+
+    if (!schoolMatches) {
+      return {
+        errorResponse: res.status(403).json({
+          success: false,
+          error: 'You are not authorized to manage this school homepage.'
+        })
+      };
+    }
+  }
+
+  return { school, platformAdmin };
+}
+
+/**
+ * GET /api/schools/homepage
+ * Public homepage configuration.
+ *
+ * Query:
+ *   schoolId OR subdomain OR domain
+ */
+router.get('/homepage', async (req, res) => {
+  try {
+    const { schoolId, domain, subdomain } = req.query;
+
+    if (!schoolId && !domain && !subdomain) {
+      return res.status(400).json({
+        success: false,
+        error: 'A schoolId, domain, or subdomain query parameter is required.'
+      });
+    }
+
+    const query = {
+      status: 'active',
+      isDeleted: { $ne: true }
+    };
+
+    if (schoolId) {
+      query.schoolId = String(schoolId).trim();
+    } else if (subdomain) {
+      query.subdomain = String(subdomain).trim().toLowerCase();
+    } else {
+      const cleanDomain = String(domain).trim().toLowerCase();
+      query.$or = [
+        { customDomain: cleanDomain },
+        { subdomain: cleanDomain }
+      ];
+    }
+
+    const school = await School.findOne(query)
+      .select(`
+        _id
+        schoolId
+        schoolName
+        abbreviation
+        motto
+        tagline
+        subdomain
+        customDomain
+        email
+        phone
+        website
+        country
+        state
+        city
+        address
+        principal
+        logoUrl
+        branding
+        homepage
+        homepageSettings
+      `)
+      .lean();
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School homepage not found or account is inactive.'
+      });
+    }
+
+    const settings = school.homepageSettings || {};
+    const isPublished =
+      settings.enabled !== false &&
+      settings.published !== false;
+
+    return res.json({
+      success: true,
+      data: {
+        school: {
+          id: school._id,
+          schoolId: school.schoolId,
+          name: school.schoolName,
+          abbreviation: school.abbreviation || '',
+          motto: school.motto || '',
+          tagline: school.tagline || '',
+          subdomain: school.subdomain || '',
+          customDomain: school.customDomain || '',
+          contact: {
+            email: school.email || '',
+            phone: school.phone || '',
+            website: school.website || ''
+          },
+          location: {
+            country: school.country || '',
+            state: school.state || '',
+            city: school.city || '',
+            address: school.address || ''
+          },
+          principal: school.principal || {},
+          logoUrl: school.logoUrl || '',
+          branding: school.branding || {}
+        },
+        homepage: isPublished ? (school.homepage || {}) : {},
+        homepageSettings: {
+          enabled: settings.enabled ?? true,
+          published: settings.published ?? true,
+          revision: settings.revision ?? 1,
+          lastPublishedAt: settings.lastPublishedAt || null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[PUBLIC HOMEPAGE ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load homepage configuration.'
+    });
+  }
+});
+
+/**
+ * GET /api/schools/homepage/admin
+ * Authenticated school/platform admin reads editable homepage.
+ */
+router.get('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const { school } = resolved;
+
+    return res.json({
+      success: true,
+      data: {
+        school: {
+          id: school._id,
+          schoolId: school.schoolId,
+          name: school.schoolName,
+          subdomain: school.subdomain || '',
+          customDomain: school.customDomain || ''
+        },
+        homepage: school.homepage || {},
+        homepageSettings: school.homepageSettings || {
+          enabled: true,
+          published: true,
+          revision: 1,
+          lastPublishedAt: null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN HOMEPAGE GET ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load homepage editor configuration.'
+    });
+  }
+});
+
+/**
+ * PUT /api/schools/homepage/admin
+ * Save the complete homepage as a draft.
+ *
+ * Body:
+ * {
+ *   "schoolId": "SCH-...",
+ *   "homepage": { ... },
+ *   "enabled": true
+ * }
+ */
+router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const { school } = resolved;
+    const homepage = sanitizeHomepageValue(req.body?.homepage);
+
+    if (!isPlainObject(homepage)) {
+      return res.status(400).json({
+        success: false,
+        error: 'homepage must be a JSON object.'
+      });
+    }
+
+    school.homepage = homepage;
+    school.homepageSettings = {
+      ...(school.homepageSettings || {}),
+      enabled: req.body?.enabled ?? school.homepageSettings?.enabled ?? true,
+      published: false,
+      revision: Number(school.homepageSettings?.revision || 0) + 1
+    };
+    school.lastModifiedBy = req.user?._id || null;
+
+    await school.save();
+
+    return res.json({
+      success: true,
+      message: 'Homepage saved as draft.',
+      data: {
+        homepage: school.homepage || {},
+        homepageSettings: school.homepageSettings
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN HOMEPAGE PUT ERROR]', error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Unable to save homepage configuration.'
+    });
+  }
+});
+
+/**
+ * PATCH /api/schools/homepage/admin/section/:section
+ * Update only one homepage section.
+ */
+router.patch('/homepage/admin/section/:section', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const section = String(req.params.section || '').trim();
+
+    if (!HOMEPAGE_SECTIONS.has(section)) {
+      return res.status(400).json({
+        success: false,
+        error: `Unsupported homepage section: ${section}`,
+        allowedSections: [...HOMEPAGE_SECTIONS]
+      });
+    }
+
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const { school } = resolved;
+    const sectionData = sanitizeHomepageValue(req.body?.section ?? req.body);
+
+    if (!isPlainObject(sectionData)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Section data must be a JSON object.'
+      });
+    }
+
+    const currentHomepage =
+      isPlainObject(school.homepage) ? school.homepage : {};
+
+    school.homepage = {
+      ...currentHomepage,
+      [section]: deepMergeHomepage(
+        currentHomepage[section] || {},
+        sectionData
+      )
+    };
+
+    school.homepageSettings = {
+      ...(school.homepageSettings || {}),
+      published: false,
+      revision: Number(school.homepageSettings?.revision || 0) + 1
+    };
+    school.lastModifiedBy = req.user?._id || null;
+
+    await school.save();
+
+    return res.json({
+      success: true,
+      message: `${section} section saved as draft.`,
+      data: {
+        section,
+        value: school.homepage[section],
+        homepageSettings: school.homepageSettings
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN HOMEPAGE SECTION PATCH ERROR]', error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Unable to update homepage section.'
+    });
+  }
+});
+
+/**
+ * POST /api/schools/homepage/admin/publish
+ * Publish the current saved homepage.
+ */
+router.post('/homepage/admin/publish', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const { school } = resolved;
+
+    school.homepageSettings = {
+      ...(school.homepageSettings || {}),
+      enabled: true,
+      published: true,
+      lastPublishedAt: new Date(),
+      lastPublishedBy: req.user?._id || null,
+      revision: Number(school.homepageSettings?.revision || 0) + 1
+    };
+    school.lastModifiedBy = req.user?._id || null;
+
+    await school.save();
+
+    return res.json({
+      success: true,
+      message: 'Homepage published successfully.',
+      data: {
+        homepage: school.homepage || {},
+        homepageSettings: school.homepageSettings
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN HOMEPAGE PUBLISH ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to publish homepage.'
+    });
+  }
+});
+
+/**
+ * POST /api/schools/homepage/admin/reset
+ * Clear custom homepage content. The public index falls back to its
+ * built-in sample/default configuration.
+ */
+router.post('/homepage/admin/reset', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const { school } = resolved;
+
+    school.homepage = {};
+    school.homepageSettings = {
+      ...(school.homepageSettings || {}),
+      enabled: true,
+      published: true,
+      lastPublishedAt: new Date(),
+      lastPublishedBy: req.user?._id || null,
+      revision: Number(school.homepageSettings?.revision || 0) + 1
+    };
+    school.lastModifiedBy = req.user?._id || null;
+
+    await school.save();
+
+    return res.json({
+      success: true,
+      message: 'Homepage reset to the frontend default configuration.',
+      data: {
+        homepage: {},
+        homepageSettings: school.homepageSettings
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN HOMEPAGE RESET ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to reset homepage.'
+    });
+  }
+});
 
 
 router.get('/admin/all', authMiddleware, adminAuth, async (req, res) => {
