@@ -968,18 +968,25 @@
             : Array.isArray(academicsSource.items)
                 ? academicsSource.items
                 : [];
-        const academicTabs = academicPrograms.map((program, index) => ({
-            id: program.id || `program-${index + 1}`,
-            tabTitle: program.tabTitle || program.title || '',
-            tabSubtitle: program.tabSubtitle || '',
-            panelTitle: program.title || '',
-            panelDescription: program.description || '',
-            bullets: Array.isArray(program.features) ? program.features : [],
-            linkText: program.linkLabel || '',
-            linkUrl: program.link || '#',
-            image: program.image || '',
-            imageAlt: program.imageAlt || program.title || ''
-        }));
+        // Build stable, UNIQUE tab/panel ids. MongoDB content can legitimately
+        // contain duplicate program ids (for example two records using
+        // "secondary"), but HTML ids must never be duplicated or Flowbite tabs
+        // will target the wrong panel.
+        const academicTabs = academicPrograms
+            .filter(program => program && program.visible !== false)
+            .map((program, index) => ({
+                id: `academic-program-${index + 1}`,
+                sourceId: program.id || '',
+                tabTitle: program.tabTitle || program.title || '',
+                tabSubtitle: program.tabSubtitle || '',
+                panelTitle: program.title || '',
+                panelDescription: program.description || '',
+                bullets: Array.isArray(program.features) ? program.features : [],
+                linkText: program.linkLabel || (program.link ? 'Explore Programme →' : ''),
+                linkUrl: program.link || '',
+                image: program.image || program.imageUrl || '',
+                imageAlt: program.imageAlt || program.title || ''
+            }));
         const metricsSource = Array.isArray(source.metrics) ? source.metrics : (Array.isArray(source.stats) ? source.stats : []);
         const gallerySource = Array.isArray(source.gallery) ? source.gallery : (Array.isArray(source.gallery?.items) ? source.gallery.items : []);
         const galleryCategories = [...new Set(gallerySource.map(item => item?.category).filter(Boolean))].map(id => ({
@@ -1378,10 +1385,15 @@
             `).join('');
         }
 
-        // Proprietor Paragraphs Render
+        // Proprietor rich message. The backend stores both `paragraphs` and
+        // the richer Quill `message`; when message exists it is the source of
+        // truth so images, line breaks and all additional content are retained.
         const proprietorParagraphs = document.getElementById('proprietor-paragraphs');
-        if (proprietorParagraphs && cms.proprietor?.paragraphs) {
-            proprietorParagraphs.innerHTML = cms.proprietor.paragraphs.map(p => `<p>${evaluateTemplate(p, config)}</p>`).join('');
+        if (proprietorParagraphs) {
+            const richMessage = cms.proprietor?.message || '';
+            const paragraphItems = Array.isArray(cms.proprietor?.paragraphs) ? cms.proprietor.paragraphs : [];
+            const proprietorHtml = richMessage || paragraphItems.map(p => `<p>${p || ''}</p>`).join('');
+            proprietorParagraphs.innerHTML = proprietorHtml ? evaluateTemplate(proprietorHtml, config) : '';
         }
 
         // Foundations Paragraphs & Features
@@ -1410,16 +1422,19 @@
             };
             servicesGrid.innerHTML = cms.services.items.map(item => {
                 const colors = colorMap[item.color || 'blue'] || colorMap.blue;
+                const serviceImage = item.image || item.imageUrl || item.iconUrl || '';
+                const serviceLink = item.linkUrl || item.link || '#';
                 return `
-                    <div class="group bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-lg hover:border-brand-300 transition-all p-6">
-                        <div class="${colors.bg} w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${colors.hover} transition-colors">
-                            <svg class="w-6 h-6 ${colors.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <div class="group bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-lg hover:border-brand-300 transition-all overflow-hidden">
+                        ${serviceImage ? `<div class="w-full h-44 bg-gray-100 overflow-hidden"><img src="${serviceImage}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${evaluateTemplate(item.title || 'Service', config)}"></div>` : ''}
+                        <div class="p-6">
+                            ${!serviceImage ? `<div class="${colors.bg} w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${colors.hover} transition-colors"><svg class="w-6 h-6 ${colors.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>` : ''}
+                            <h3 class="text-lg font-bold text-brand-900 font-serif mb-2">${evaluateTemplate(item.title, config)}</h3>
+                            <div class="text-gray-600 text-sm mb-4 leading-relaxed">${evaluateTemplate(item.description, config)}</div>
+                            <a href="${serviceLink}" class="inline-flex items-center ${colors.text} font-semibold text-sm ${colors.hoverText} transition-colors">
+                                ${evaluateTemplate(item.linkText || item.linkLabel || 'Learn More →', config)} <svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </a>
                         </div>
-                        <h3 class="text-lg font-bold text-brand-900 font-serif mb-2">${evaluateTemplate(item.title, config)}</h3>
-                        <p class="text-gray-600 text-sm mb-4">${evaluateTemplate(item.description, config)}</p>
-                        <a href="${item.linkUrl || '#'}" class="inline-flex items-center ${colors.text} font-semibold text-sm ${colors.hoverText} transition-colors">
-                            ${evaluateTemplate(item.linkText, config)} <svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                        </a>
                     </div>
                 `;
             }).join('');
@@ -1429,32 +1444,52 @@
         const programTabs = document.getElementById('programTabs');
         const programTabsContent = document.getElementById('programTabsContent');
         if (programTabs && programTabsContent && cms.academicFramework?.tabs) {
-            programTabs.innerHTML = cms.academicFramework.tabs.map((tab, idx) => `
+            const academicTabs = cms.academicFramework.tabs;
+            programTabs.innerHTML = academicTabs.map((tab, idx) => `
                 <li role="presentation">
-                    <button class="inline-block p-4 rounded-lg w-full text-left border-l-4 transition-all" id="${tab.id}-tab" data-tabs-target="#${tab.id}-panel" type="button" role="tab" aria-controls="${tab.id}-panel" aria-selected="${idx === 0}">
+                    <button class="academic-tab inline-block p-4 rounded-lg w-full text-left border-l-4 transition-all ${idx === 0 ? 'bg-brand-50 border-brand-500 text-brand-900' : 'border-transparent hover:bg-gray-50'}" id="${tab.id}-tab" data-academic-index="${idx}" type="button" role="tab" aria-controls="${tab.id}-panel" aria-selected="${idx === 0}">
                         <span class="block font-bold text-base">${evaluateTemplate(tab.tabTitle, config)}</span>
                         <span class="text-xs text-gray-400">${evaluateTemplate(tab.tabSubtitle, config)}</span>
                     </button>
                 </li>
             `).join('');
 
-            programTabsContent.innerHTML = cms.academicFramework.tabs.map(tab => `
-                <div class="hidden" id="${tab.id}-panel" role="tabpanel" aria-labelledby="${tab.id}-tab">
+            programTabsContent.innerHTML = academicTabs.map((tab, idx) => `
+                <div class="academic-panel ${idx === 0 ? '' : 'hidden'}" id="${tab.id}-panel" role="tabpanel" aria-labelledby="${tab.id}-tab">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                         <div>
                             <h3 class="text-2xl font-bold text-brand-900 font-serif mb-4">${evaluateTemplate(tab.panelTitle, config)}</h3>
-                            <p class="text-gray-600 mb-6 leading-relaxed">${evaluateTemplate(tab.panelDescription, config)}</p>
+                            <div class="text-gray-600 mb-6 leading-relaxed">${evaluateTemplate(tab.panelDescription, config)}</div>
                             <ul class="space-y-2 mb-6">
                                 ${tab.bullets ? tab.bullets.map(b => `<li class="flex items-center text-sm text-gray-700"><span class="w-1.5 h-1.5 bg-brand-500 rounded-full mr-2.5"></span>${evaluateTemplate(b, config)}</li>`).join('') : ''}
                             </ul>
-                            <a href="${tab.linkUrl || '#'}" class="text-brand-500 font-semibold text-sm hover:underline">${evaluateTemplate(tab.linkText, config)}</a>
+                            ${tab.linkUrl ? `<a href="${tab.linkUrl}" class="inline-flex items-center text-brand-500 font-semibold text-sm hover:underline" aria-label="${evaluateTemplate(tab.linkText || 'Explore', config)}">${evaluateTemplate(tab.linkText || 'Explore Programme →', config)}</a>` : ''}
                         </div>
-                        <div>
-                            <img src="${tab.image}" class="rounded-lg object-cover w-full" alt="${tab.panelTitle}">
+                        <div class="min-w-0">
+                            ${tab.image ? `<a href="${tab.linkUrl || '#'}" class="block group" aria-label="Open ${evaluateTemplate(tab.panelTitle, config)}"><img src="${tab.image}" loading="lazy" class="rounded-xl object-cover w-full max-h-[360px] shadow-md group-hover:scale-[1.01] transition-transform" alt="${tab.imageAlt || tab.panelTitle}"></a>` : `<div class="rounded-xl bg-gray-100 border border-dashed border-gray-300 min-h-[220px] flex items-center justify-center text-gray-400 text-sm">No programme image uploaded</div>`}
                         </div>
                     </div>
                 </div>
             `).join('');
+
+            // Use a small native tab controller instead of relying only on Flowbite.
+            // This remains reliable after CMS content is injected dynamically.
+            programTabs.querySelectorAll('.academic-tab').forEach(button => {
+                button.addEventListener('click', () => {
+                    const index = Number(button.dataset.academicIndex || 0);
+                    programTabs.querySelectorAll('.academic-tab').forEach((tabButton, i) => {
+                        const active = i === index;
+                        tabButton.setAttribute('aria-selected', active ? 'true' : 'false');
+                        tabButton.classList.toggle('bg-brand-50', active);
+                        tabButton.classList.toggle('border-brand-500', active);
+                        tabButton.classList.toggle('text-brand-900', active);
+                        tabButton.classList.toggle('border-transparent', !active);
+                    });
+                    programTabsContent.querySelectorAll('.academic-panel').forEach((panel, i) => {
+                        panel.classList.toggle('hidden', i !== index);
+                    });
+                });
+            });
         }
 
         // Stats Render
