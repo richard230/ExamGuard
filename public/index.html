@@ -215,7 +215,7 @@
 
     <!-- Dynamic Header Carousel -->
     <header class="relative bg-brand-900 overflow-hidden">
-        <div id="default-carousel" class="hero-carousel relative w-full min-h-[500px] h-[clamp(500px,78vh,820px)] overflow-hidden" data-carousel="static">
+        <div id="default-carousel" class="hero-carousel relative w-full min-h-[500px] h-[clamp(500px,78vh,820px)] overflow-hidden">
             <div id="carousel-slides-container" class="relative h-full overflow-hidden">
                 <!-- Slide Skeleton Loader -->
                 <div class="h-full w-full bg-brand-900 flex flex-col items-center justify-center p-4">
@@ -1371,7 +1371,7 @@
                 ).trim() || '#'; 
                 const safeAlt = slide.alt || slide.altText || `Hero Slide ${idx + 1}`;
                 return `
-                <div class="hidden duration-700 ease-in-out hero-slide" data-carousel-item>
+                <div class="hidden duration-700 ease-in-out hero-slide">
                     ${backgroundImage ? `<div class="hero-backdrop" style="background-image:url('${backgroundImage.replace(/'/g, "%27")}');"></div>` : '<div class="hero-backdrop" style="background:linear-gradient(135deg,#031b4e,#0f3f78);"></div>'}
                     <div class="hero-backdrop-overlay"></div>
                     <div class="hero-slide-scroll">
@@ -1668,7 +1668,18 @@
 
         initResponsiveHeroCarousel();
 
-        // Re-initialize Flowbite JS Components for dynamic content (Carousels, Tabs, etc)
+        // The hero carousel is custom-controlled above. Do not initialize
+        // Flowbite's carousel component on it, otherwise Flowbite can toggle
+        // the same `hidden` classes and leave non-active slides blank.
+        const heroRoot = document.getElementById('default-carousel');
+        if (heroRoot) {
+            heroRoot.removeAttribute('data-carousel');
+            heroRoot.querySelectorAll('[data-carousel-item]').forEach(el => {
+                el.removeAttribute('data-carousel-item');
+            });
+        }
+
+        // Re-initialize Flowbite for the other dynamic components only.
         if (typeof Flowbite !== 'undefined' && Flowbite.init) {
             Flowbite.init();
         } else if (window.initFlowbite) {
