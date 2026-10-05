@@ -1302,7 +1302,7 @@ function normalizeSchoolPayload(data = {}) {
         tagline: source.tagline || '',
         subdomain: source.subdomain || '',
         customDomain: source.customDomain || '',
-        logoUrl: source.logoUrl || source.logo || '',
+        logoUrl: source.logoUrl || source.logo || source.branding?.logo || '',
         email: source.email || contact.email || '',
         phone: source.phone || contact.phone || '',
         website: source.website || contact.website || '',
@@ -1315,7 +1315,8 @@ function normalizeSchoolPayload(data = {}) {
             name: principal.name || source.principalName || '',
             title: principal.title || source.principalTitle || ''
         },
-        branding: data?.branding || source.branding || {}
+        branding: data?.branding || source.branding || {},
+        customDomain: source.customDomain || ''
     };
 }
 function getTokenPayload() {
@@ -1638,18 +1639,31 @@ function populateAllEditors() {
 }
 function populateNavigation() {
     const data = homepage.navigation || {};
-    setValue('navHomeLabel', data.homeLabel || 'Home');
-    setValue('navAdmissionsLabel', data.admissionsLabel || 'Admissions');
-    setValue('navAboutLabel', data.aboutLabel || 'About');
-    setValue('navAcademicsLabel', data.academicsLabel || 'Academics');
-    setValue('navCampusLabel', data.campusLifeLabel || 'Campus Life');
-    setValue('navGalleryLabel', data.galleryLabel || 'Gallery');
-    setValue('navContactLabel', data.contactLabel || 'Contact');
-    setValue('navPortalLabel', data.portalLabel || 'Portal Login');
-    setValue('navEnquiryLabel', data.enquiryLabel || 'Enquire Now');
+    const items = Array.isArray(data.items)
+        ? data.items
+        : Array.isArray(data.value?.items)
+            ? data.value.items
+            : Array.isArray(data.value?.links)
+                ? data.value.links
+                : [];
+    const itemLabel = (name, fallback) => {
+        const item = items.find(x => String(x?.label || '').toLowerCase() === name);
+        return item?.label || fallback;
+    };
+    const portal = data.portalLogin || data.value?.portalLogin || {};
+    const enquire = data.enquireButton || data.value?.enquireButton || data.value?.admissionButton || {};
+    setValue('navHomeLabel', data.homeLabel || itemLabel('home', 'Home'));
+    setValue('navAdmissionsLabel', data.admissionsLabel || itemLabel('admissions', 'Admissions'));
+    setValue('navAboutLabel', data.aboutLabel || itemLabel('about', 'About'));
+    setValue('navAcademicsLabel', data.academicsLabel || itemLabel('academics', 'Academics'));
+    setValue('navCampusLabel', data.campusLifeLabel || itemLabel('campus life', 'Campus Life'));
+    setValue('navGalleryLabel', data.galleryLabel || itemLabel('gallery', 'Gallery'));
+    setValue('navContactLabel', data.contactLabel || itemLabel('contact', 'Contact'));
+    setValue('navPortalLabel', data.portalLabel || portal.label || 'Portal Login');
+    setValue('navEnquiryLabel', data.enquiryLabel || enquire.label || 'Enquire Now');
     setChecked(
         'navShowPortal',
-        data.showPortal !== false
+        data.showPortal ?? data.enabled ?? portal.visible ?? true
     );
 }
 function populateAnnouncement() {
@@ -1670,11 +1684,11 @@ function populateAdmission() {
     );
     setValue(
         'admissionTitle',
-        data.title || 'Admissions Open!'
+        data.title || data.badge || 'Admissions Open!'
     );
     setValue(
         'admissionDescription',
-        data.description || ''
+        data.description || data.message || ''
     );
     setValue(
         'admissionButtonText',
@@ -1713,17 +1727,19 @@ function populateQuickCards() {
 function populateProprietor() {
     const data = homepage.proprietor || {};
     setValue('propEyebrow', data.eyebrow || '');
-    setValue('propHeading', data.heading || '');
-    setValue('propMessage', data.message || data.description || '');
+    setValue('propHeading', data.heading || data.title || '');
+    setValue('propMessage', data.message || data.description || (Array.isArray(data.paragraphs) ? data.paragraphs.join('<p></p>') : ''));
     setValue(
         'propName',
         data.name ||
         school?.principal?.name ||
+        school?.adminName ||
         ''
     );
     setValue(
         'propTitle',
         data.title ||
+        data.role ||
         school?.principal?.title ||
         'Proprietor'
     );
@@ -1747,7 +1763,7 @@ function populateServices() {
 function populateAcademics() {
     const data = homepage.academics || {};
     setValue('academicEyebrow', data.eyebrow || '');
-    setValue('academicHeading', data.heading || '');
+    setValue('academicHeading', data.heading || data.title || '');
     setValue('academicDescription', data.description || '');
     const items =
         Array.isArray(data.items)
@@ -1788,11 +1804,11 @@ function populateTestimonials() {
 function populateEnquiry() {
     const data = homepage.enquiry || {};
     setValue('enquiryEyebrow', data.eyebrow || '');
-    setValue('enquiryHeading', data.heading || '');
+    setValue('enquiryHeading', data.heading || data.title || '');
     setValue('enquiryDescription', data.description || '');
     setValue(
         'enquiryButtonText',
-        data.buttonText || 'Submit Enquiry'
+        data.buttonText || data.submitLabel || 'Submit Enquiry'
     );
     setValue(
         'enquirySuccessMessage',
@@ -1844,11 +1860,11 @@ function populateSEO() {
     setValue('seoTitle', data.title || '');
     setValue('seoDescription', data.description || '');
     setValue('seoKeywords', data.keywords || '');
-    setValue('seoOgTitle', data.ogTitle || '');
-    setValue('seoOgDescription', data.ogDescription || '');
-    setValue('seoOgImage', data.ogImage || '');
-    setValue('seoCanonical', data.canonicalUrl || '');
-    setValue('seoFavicon', data.favicon || '');
+    setValue('seoOgTitle', data.ogTitle || data.title || '');
+    setValue('seoOgDescription', data.ogDescription || data.description || '');
+    setValue('seoOgImage', data.ogImage || school?.logoUrl || school?.branding?.logo || '');
+    setValue('seoCanonical', data.canonicalUrl || data.canonical || getSchoolOrigin());
+    setValue('seoFavicon', data.favicon || school?.branding?.favicon || '');
     updateCounters();
 }
 function renderHeroSlides(slides) {
