@@ -512,59 +512,42 @@
                     <p>Manage the main website navigation.</p>
                 </div>
                 <div class="section-card p-5 sm:p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                         <div>
-                            <label class="label">Home Label</label>
-                            <input id="navHomeLabel" class="input-field" placeholder="Home">
+                            <h3 class="font-bold text-sm text-slate-900">Homepage Navigation Items</h3>
+                            <p class="text-xs text-slate-400 mt-1">Edit the actual labels, destination references and visibility stored in <code>homepage.navigation.items</code>.</p>
                         </div>
-                        <div>
-                            <label class="label">Admissions Label</label>
-                            <input id="navAdmissionsLabel" class="input-field" placeholder="Admissions">
-                        </div>
-                        <div>
-                            <label class="label">About Label</label>
-                            <input id="navAboutLabel" class="input-field" placeholder="About">
-                        </div>
-                        <div>
-                            <label class="label">Academics Label</label>
-                            <input id="navAcademicsLabel" class="input-field" placeholder="Academics">
-                        </div>
-                        <div>
-                            <label class="label">Campus Life Label</label>
-                            <input id="navCampusLabel" class="input-field" placeholder="Campus Life">
-                        </div>
-                        <div>
-                            <label class="label">Gallery Label</label>
-                            <input id="navGalleryLabel" class="input-field" placeholder="Gallery">
-                        </div>
-                        <div>
-                            <label class="label">Contact Label</label>
-                            <input id="navContactLabel" class="input-field" placeholder="Contact">
-                        </div>
-                        <div>
-                            <label class="label">Portal Login Label</label>
-                            <input id="navPortalLabel" class="input-field" placeholder="Portal Login">
-                        </div>
-                        <div>
-                            <label class="label">Enquiry Button Label</label>
-                            <input id="navEnquiryLabel" class="input-field" placeholder="Enquire Now">
-                        </div>
+                        <button onclick="addNavigationItem()" class="px-4 py-2.5 rounded-xl text-white text-xs font-bold" style="background:var(--school-secondary)">+ Add Navigation Item</button>
                     </div>
+                    <div id="navigationItems" class="space-y-3"></div>
                     <div class="mt-6 pt-5 border-t border-slate-100">
-                        <label class="flex items-center justify-between gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <p class="font-semibold text-sm text-slate-800">
-                                    Show Portal Login
-                                </p>
-                                <p class="text-xs text-slate-400 mt-1">
-                                    Display the portal login button in the navigation.
-                                </p>
+                                <label class="label">Navigation Visibility</label>
+                                <label class="flex items-center gap-3">
+                                    <span class="switch"><input id="navVisible" type="checkbox"><span class="slider"></span></span>
+                                    <span class="text-xs text-slate-500">Show the main navigation on the homepage</span>
+                                </label>
                             </div>
-                            <label class="switch">
-                                <input id="navShowPortal" type="checkbox">
-                                <span class="slider"></span>
-                            </label>
-                        </label>
+                            <div>
+                                <label class="label">Portal Login</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input id="navPortalLabel" class="input-field" placeholder="Portal Login">
+                                    <input id="navPortalHref" class="input-field" placeholder="login">
+                                </div>
+                                <label class="flex items-center gap-3 mt-2">
+                                    <span class="switch"><input id="navShowPortal" type="checkbox"><span class="slider"></span></span>
+                                    <span class="text-xs text-slate-500">Show portal login</span>
+                                </label>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="label">Enquiry / CTA Button</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <input id="navEnquiryLabel" class="input-field" placeholder="Apply Now">
+                                    <input id="navEnquiryHref" class="input-field" placeholder="#admissions">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1399,13 +1382,24 @@ function initializeRichTextEditors(root = document) {
         const quill = new Quill(wrapper, {
             theme: 'snow',
             modules: {
-                toolbar: [
-                    [{header: [2, 3, false]}],
-                    ['bold', 'italic', 'underline'],
-                    [{list: 'ordered'}, {list: 'bullet'}],
-                    ['link'],
-                    ['clean']
-                ]
+                toolbar: {
+                    container: [
+                        [{header: [2, 3, false]}],
+                        ['bold', 'italic', 'underline'],
+                        [{list: 'ordered'}, {list: 'bullet'}],
+                        ['link', 'image'],
+                        ['clean']
+                    ],
+                    handlers: {
+                        image: function () {
+                            const range = this.quill.getSelection(true);
+                            const url = window.prompt('Paste the image URL (HTTPS or Cloudinary URL):');
+                            if (!url || !/^https?:\/\//i.test(url.trim())) return;
+                            this.quill.insertEmbed(range ? range.index : this.quill.getLength(), 'image', url.trim(), 'user');
+                            this.quill.setSelection((range ? range.index : this.quill.getLength()) + 1, 0, 'silent');
+                        }
+                    }
+                }
             }
         });
         quill.root.innerHTML = field.value || '';
@@ -1646,25 +1640,78 @@ function populateNavigation() {
             : Array.isArray(data.value?.links)
                 ? data.value.links
                 : [];
-    const itemLabel = (name, fallback) => {
-        const item = items.find(x => String(x?.label || '').toLowerCase() === name);
-        return item?.label || fallback;
-    };
+    renderNavigationItems(items);
     const portal = data.portalLogin || data.value?.portalLogin || {};
     const enquire = data.enquireButton || data.value?.enquireButton || data.value?.admissionButton || {};
-    setValue('navHomeLabel', data.homeLabel || itemLabel('home', 'Home'));
-    setValue('navAdmissionsLabel', data.admissionsLabel || itemLabel('admissions', 'Admissions'));
-    setValue('navAboutLabel', data.aboutLabel || itemLabel('about', 'About'));
-    setValue('navAcademicsLabel', data.academicsLabel || itemLabel('academics', 'Academics'));
-    setValue('navCampusLabel', data.campusLifeLabel || itemLabel('campus life', 'Campus Life'));
-    setValue('navGalleryLabel', data.galleryLabel || itemLabel('gallery', 'Gallery'));
-    setValue('navContactLabel', data.contactLabel || itemLabel('contact', 'Contact'));
-    setValue('navPortalLabel', data.portalLabel || portal.label || 'Portal Login');
-    setValue('navEnquiryLabel', data.enquiryLabel || enquire.label || 'Enquire Now');
-    setChecked(
-        'navShowPortal',
-        data.showPortal ?? data.enabled ?? portal.visible ?? true
-    );
+    setChecked('navVisible', data.visible !== false);
+    setValue('navPortalLabel', portal.label || data.portalLabel || 'Portal Login');
+    setValue('navPortalHref', portal.href || 'login');
+    setChecked('navShowPortal', portal.visible !== false && data.showPortal !== false);
+    setValue('navEnquiryLabel', enquire.label || data.enquiryLabel || 'Enquire Now');
+    setValue('navEnquiryHref', enquire.href || '#admissions');
+}
+function renderNavigationItems(items) {
+    const container = document.getElementById('navigationItems');
+    if (!container) return;
+    if (!items.length) {
+        container.innerHTML = emptyState('No navigation items', 'Add the first homepage navigation link.');
+        return;
+    }
+    container.innerHTML = items.map((item, index) => `
+        <div class="navigation-item section-card border border-slate-200 p-4" data-index="${index}">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">${index + 1}</div>
+                <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="label">Label</label>
+                        <input class="input-field nav-item-label" value="${escapeAttr(item.label || '')}" placeholder="Home">
+                    </div>
+                    <div>
+                        <label class="label">Reference / href</label>
+                        <input class="input-field nav-item-href" value="${escapeAttr(item.href || '')}" placeholder="#home or admissions">
+                    </div>
+                    <div>
+                        <label class="label">Visibility</label>
+                        <label class="flex items-center gap-3 h-[42px]">
+                            <span class="switch"><input class="nav-item-visible" type="checkbox" ${item.visible !== false ? 'checked' : ''}><span class="slider"></span></span>
+                            <span class="text-xs text-slate-500">${item.visible !== false ? 'Visible' : 'Hidden'}</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button type="button" onclick="moveNavigationItem(${index}, -1)" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 text-xs" title="Move up">↑</button>
+                    <button type="button" onclick="moveNavigationItem(${index}, 1)" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 text-xs" title="Move down">↓</button>
+                    <button type="button" onclick="removeNavigationItem(${index})" class="w-8 h-8 rounded-lg bg-red-50 text-red-500 text-xs" title="Remove">×</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+function collectNavigationItems() {
+    return [...document.querySelectorAll('.navigation-item')].map(item => ({
+        label: item.querySelector('.nav-item-label')?.value.trim() || '',
+        href: item.querySelector('.nav-item-href')?.value.trim() || '#',
+        visible: item.querySelector('.nav-item-visible')?.checked === true
+    })).filter(item => item.label);
+}
+function addNavigationItem() {
+    const items = collectNavigationItems();
+    items.push({label: '', href: '#', visible: true});
+    renderNavigationItems(items);
+    markDirty();
+}
+function removeNavigationItem(index) {
+    const items = collectNavigationItems().filter((_, i) => i !== index);
+    renderNavigationItems(items);
+    markDirty();
+}
+function moveNavigationItem(index, direction) {
+    const items = collectNavigationItems();
+    const target = index + direction;
+    if (target < 0 || target >= items.length) return;
+    [items[index], items[target]] = [items[target], items[index]];
+    renderNavigationItems(items);
+    markDirty();
 }
 function populateAnnouncement() {
     const data = homepage.announcementBar || {};
@@ -2738,18 +2785,35 @@ function collectTestimonials() {
 function buildHomepageFromEditor() {
     const current = normalizeHomepage(homepage || {});
     const next = structuredClone(current);
+    const navigationItems = collectNavigationItems();
+    const portalLogin = {
+        ...(current.navigation?.portalLogin || {}),
+        label: getValue('navPortalLabel'),
+        href: getValue('navPortalHref') || 'login',
+        visible: getChecked('navShowPortal')
+    };
+    const enquireButton = {
+        ...(current.navigation?.enquireButton || {}),
+        label: getValue('navEnquiryLabel'),
+        href: getValue('navEnquiryHref') || '#admissions',
+        visible: true
+    };
     next.navigation = {
         ...(current.navigation || {}),
-        homeLabel: getValue('navHomeLabel'),
-        admissionsLabel: getValue('navAdmissionsLabel'),
-        aboutLabel: getValue('navAboutLabel'),
-        academicsLabel: getValue('navAcademicsLabel'),
-        campusLifeLabel: getValue('navCampusLabel'),
-        galleryLabel: getValue('navGalleryLabel'),
-        contactLabel: getValue('navContactLabel'),
-        portalLabel: getValue('navPortalLabel'),
-        enquiryLabel: getValue('navEnquiryLabel'),
-        showPortal: getChecked('navShowPortal')
+        visible: getChecked('navVisible'),
+        items: navigationItems,
+        portalLogin,
+        enquireButton,
+        homeLabel: navigationItems.find(i => i.href === '#home')?.label || navigationItems[0]?.label || 'Home',
+        admissionsLabel: navigationItems.find(i => i.href === '#admissions')?.label || 'Admissions',
+        aboutLabel: navigationItems.find(i => i.href === '#about')?.label || 'About',
+        academicsLabel: navigationItems.find(i => i.href === '#academics')?.label || 'Academics',
+        campusLifeLabel: navigationItems.find(i => /campus/i.test(i.label))?.label || 'Campus Life',
+        galleryLabel: navigationItems.find(i => i.href === '#gallery')?.label || 'Gallery',
+        contactLabel: navigationItems.find(i => i.href === '#contact')?.label || 'Contact',
+        portalLabel: portalLogin.label,
+        enquiryLabel: enquireButton.label,
+        showPortal: portalLogin.visible
     };
     next.announcementBar = {
         ...(current.announcementBar || {}),
