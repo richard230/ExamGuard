@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const School = require('../models/School');
 const DemoRequest = require('../models/DemoRequest');
+const SchoolEnquiry = require('../models/SchoolEnquiry');
 const { authMiddleware } = require('./auth');
 const adminAuth = require('../middleware/adminAuth');
 const crypto = require('crypto');
@@ -581,6 +582,7 @@ router.get('/config', async (req, res) => {
     phone
     altPhone
     website
+    description
     principal
     branding
     academicConfig
@@ -614,72 +616,17 @@ router.get('/config', async (req, res) => {
       }];
     }
 
-    const config = {
-      school: {
-        id: school._id,
-        schoolId: school.schoolId,
-        name: school.schoolName,
-        abbreviation: school.abbreviation || '',
-        motto: school.motto || school.settings?.motto || '',
-        tagline: school.tagline || school.settings?.tagline || '',
-        schoolType: school.schoolType || 'K-12',
-        ownershipType: school.ownershipType || 'Private',
-        establishedYear: school.establishedYear || null,
-        registrationNumber: school.registrationNumber || '',
-        domains: {
-          subdomain: school.subdomain || '',
-          customDomain: school.customDomain || ''
-        },
-        contact: {
-          email: school.email || '',
-          phone: school.phone || '',
-          altPhone: school.altPhone || '',
-          website: school.website || ''
-        },
-        location: {
-          country: school.country || '',
-          state: school.state || '',
-          city: school.city || '',
-          address: school.address || '',
-          postalCode: school.postalCode || '',
-          coordinates: {
-            latitude: school.coordinates?.latitude ?? null,
-            longitude: school.coordinates?.longitude ?? null
-          }
-        },
-        principal: {
-          name: typeof school.principal === 'object' ? (school.principal?.name || '') : (school.principal || ''),
-          title: school.principal?.title || 'Principal',
-          email: school.principal?.email || '',
-          signatureUrl: school.principal?.signatureUrl || ''
-        }
-      },
+    const configSettings = school.homepageSettings || {};
+    const publicPayload = buildPublicSchoolPayload(
+      school,
+      (configSettings.enabled !== false && configSettings.published !== false)
+        ? (school.homepage || {})
+        : {},
+      configSettings
+    );
 
-      branding: {
-    logos: {
-        main: school.branding?.logo || school.logoUrl || '',
-        dark: school.branding?.darkLogo || school.branding?.logo || school.logoUrl || '',
-        light: school.branding?.lightLogo || school.branding?.logo || school.logoUrl || '',
-        monochrome: school.branding?.monochromeLogo || school.logoUrl || '',
-        watermark: school.branding?.watermark || school.branding?.logo || school.logoUrl || '',
-        stamp: school.branding?.schoolStamp || ''
-    },
-        favicon: school.branding?.favicon || '',
-        colors: {
-          primary: school.branding?.primaryColor || '#1E3A8A',
-          secondary: school.branding?.secondaryColor || '#F59E0B',
-          accent: school.branding?.accentColor || '#10B981',
-          dark: school.branding?.darkColor || '#111827',
-          light: school.branding?.lightColor || '#F9FAFB',
-          sidebarBg: school.branding?.sidebarBg || '#1E293B',
-          headerBg: school.branding?.headerBg || '#FFFFFF'
-        },
-        typography: {
-          fontFamily: school.branding?.fontFamily || 'Inter, sans-serif',
-          headingFont: school.branding?.headingFont || 'Inter, sans-serif'
-        },
-        customCssUrl: school.branding?.customCssUrl || ''
-      },
+    const config = {
+      ...publicPayload,
 
       academic: {
         currentSession: school.academicConfig?.currentSession || '',
@@ -815,13 +762,6 @@ router.get('/config', async (req, res) => {
         icon512: school.pwaSettings?.icon512 || school.branding?.logo || ''
       },
 
-      homepage: school.homepage || {},
-      homepageSettings: {
-        enabled: school.homepageSettings?.enabled ?? true,
-        published: school.homepageSettings?.published ?? true,
-        revision: school.homepageSettings?.revision ?? 1,
-        lastPublishedAt: school.homepageSettings?.lastPublishedAt || null
-      }
     };
 
     return res.json({
@@ -864,6 +804,15 @@ const HOMEPAGE_SECTIONS = new Set([
   'seo'
 ]);
 
+// Legacy frontend names remain accepted so older admin clients do not break.
+const HOMEPAGE_SECTION_ALIASES = Object.freeze({
+  nav: 'navigation',
+  modal: 'admissionModal',
+  academicFramework: 'academics',
+  stats: 'metrics',
+  news: 'updates'
+});
+
 const HOMEPAGE_FORBIDDEN_KEYS = new Set([
   '__proto__',
   'prototype',
@@ -877,16 +826,16 @@ const HOMEPAGE_LIMITS = {
   maxStringLength: 10000
 };
 
+const SCHOOL_BASE_DOMAIN = String(
+  process.env.SCHOOL_BASE_DOMAIN || 'goldlincschools.com.ng'
+).replace(/^https?:\/\//i, '').replace(/\/$/, '').toLowerCase();
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function isSafeHomepageString(value) {
   if (typeof value !== 'string') return true;
-
-  // Prevent stored homepage content from carrying executable URL schemes.
-  // Normal HTTPS/HTTP URLs, relative URLs, phone links and mail links remain
-  // supported by the frontend.
   return !/^\s*(javascript:|vbscript:|data:text\/html)/i.test(value);
 }
 
@@ -899,11 +848,9 @@ function sanitizeHomepageValue(value, depth = 0) {
     if (value.length > HOMEPAGE_LIMITS.maxStringLength) {
       throw new Error(`Homepage text exceeds the ${HOMEPAGE_LIMITS.maxStringLength}-character limit.`);
     }
-
     if (!isSafeHomepageString(value)) {
       throw new Error('Homepage contains an unsafe URL or executable protocol.');
     }
-
     return value;
   }
 
@@ -911,13 +858,11 @@ function sanitizeHomepageValue(value, depth = 0) {
     if (value.length > HOMEPAGE_LIMITS.maxArrayItems) {
       throw new Error(`Homepage arrays cannot contain more than ${HOMEPAGE_LIMITS.maxArrayItems} items.`);
     }
-
     return value.map(item => sanitizeHomepageValue(item, depth + 1));
   }
 
   if (isPlainObject(value)) {
     const keys = Object.keys(value);
-
     if (keys.length > HOMEPAGE_LIMITS.maxObjectKeys) {
       throw new Error(`Homepage objects cannot contain more than ${HOMEPAGE_LIMITS.maxObjectKeys} fields.`);
     }
@@ -927,10 +872,8 @@ function sanitizeHomepageValue(value, depth = 0) {
       if (HOMEPAGE_FORBIDDEN_KEYS.has(key)) {
         throw new Error(`Invalid homepage configuration key: ${key}`);
       }
-
       out[key] = sanitizeHomepageValue(item, depth + 1);
     }
-
     return out;
   }
 
@@ -943,20 +886,214 @@ function sanitizeHomepageValue(value, depth = 0) {
 
 function deepMergeHomepage(base, patch) {
   if (!isPlainObject(patch)) return base;
-
   const output = isPlainObject(base) ? { ...base } : {};
 
   for (const [key, value] of Object.entries(patch)) {
     if (HOMEPAGE_FORBIDDEN_KEYS.has(key)) continue;
-
     if (isPlainObject(value) && isPlainObject(output[key])) {
       output[key] = deepMergeHomepage(output[key], value);
     } else {
       output[key] = value;
     }
   }
-
   return output;
+}
+
+function canonicalHomepageSection(section) {
+  const key = String(section || '').trim();
+  return HOMEPAGE_SECTION_ALIASES[key] || key;
+}
+
+function normalizeHomepageAliases(input = {}) {
+  const homepage = isPlainObject(input) ? { ...input } : {};
+
+  for (const [legacy, canonical] of Object.entries(HOMEPAGE_SECTION_ALIASES)) {
+    if (homepage[canonical] === undefined && homepage[legacy] !== undefined) {
+      homepage[canonical] = homepage[legacy];
+    }
+  }
+
+  // announcementBar historically also existed under communication. Keep the
+  // homepage API self-contained while remaining backward compatible.
+  if (homepage.announcementBar === undefined) {
+    homepage.announcementBar = {};
+  }
+
+  return homepage;
+}
+
+function buildSchoolCanonicalUrl(school) {
+  const custom = String(school?.customDomain || '').trim().toLowerCase();
+  const subdomain = String(school?.subdomain || '').trim().toLowerCase();
+
+  if (custom) return `https://${custom}`;
+  if (subdomain) return `https://${subdomain}.${SCHOOL_BASE_DOMAIN}`;
+
+  const website = String(school?.website || '').trim();
+  if (/^https?:\/\//i.test(website)) return website.replace(/\/$/, '');
+  return '';
+}
+
+function buildDefaultSchoolSeo(school, homepage = {}) {
+  const loc = school?.location || {};
+  const name = school?.schoolName || 'School';
+  const motto = school?.motto || school?.tagline || '';
+  const hero = homepage?.hero?.slides?.[0] || {};
+
+  const fallbackDescription = [
+    school?.description,
+    hero?.description,
+    `${name} provides quality education, character development and a supportive learning environment${loc.city ? ` in ${loc.city}` : ''}${loc.state ? `, ${loc.state}` : ''}.`
+  ].find(value => typeof value === 'string' && value.trim());
+
+  const canonical = buildSchoolCanonicalUrl(school);
+  const logo = school?.branding?.logo || school?.logoUrl || '';
+
+  return {
+    title: `${name}${motto ? ` | ${motto}` : ''}`.slice(0, 70),
+    description: String(fallbackDescription || '').replace(/\s+/g, ' ').trim().slice(0, 300),
+    keywords: [
+      name,
+      school?.abbreviation,
+      'school',
+      'education',
+      'admissions',
+      'students',
+      loc.city,
+      loc.state,
+      loc.country
+    ].filter(Boolean).join(', ').slice(0, 500),
+    canonical,
+    ogImage: logo,
+    robots: 'index,follow',
+    ogType: 'website',
+    twitterCard: 'summary_large_image'
+  };
+}
+
+function normalizeHomepageForSchool(homepage, school) {
+  const normalized = normalizeHomepageAliases(homepage || {});
+
+  // The school model historically stored announcements under communication.
+  // Promote that value into the homepage CMS contract when no homepage-level
+  // announcement has been configured.
+  const legacyAnnouncement = school?.communication?.announcementBanner;
+  if (isPlainObject(legacyAnnouncement) && Object.keys(normalized.announcementBar || {}).length === 0) {
+    normalized.announcementBar = { ...legacyAnnouncement };
+  }
+
+  const defaultSeo = buildDefaultSchoolSeo(school, normalized);
+  const explicitSeo = isPlainObject(normalized.seo) ? normalized.seo : {};
+
+  normalized.seo = {
+    ...defaultSeo,
+    ...explicitSeo,
+    title: String(explicitSeo.title || defaultSeo.title).slice(0, 70),
+    description: String(explicitSeo.description || defaultSeo.description).slice(0, 300),
+    keywords: String(explicitSeo.keywords || defaultSeo.keywords).slice(0, 500),
+    canonical: String(explicitSeo.canonical || defaultSeo.canonical || '').slice(0, 500),
+    ogImage: String(explicitSeo.ogImage || defaultSeo.ogImage || '').slice(0, 1000),
+    robots: String(explicitSeo.robots || defaultSeo.robots).slice(0, 100),
+    ogType: String(explicitSeo.ogType || defaultSeo.ogType).slice(0, 50),
+    twitterCard: String(explicitSeo.twitterCard || defaultSeo.twitterCard).slice(0, 50)
+  };
+
+  return normalized;
+}
+
+function buildPublicSchoolPayload(school, homepage, homepageSettings) {
+  const branding = school?.branding || {};
+  const normalizedHomepage = normalizeHomepageForSchool(homepage || {}, school);
+
+  return {
+    school: {
+      id: school._id,
+      schoolId: school.schoolId,
+      name: school.schoolName,
+      shortName: school.shortName || '',
+      abbreviation: school.abbreviation || '',
+      motto: school.motto || school.settings?.motto || '',
+      tagline: school.tagline || school.settings?.tagline || '',
+      description: school.description || '',
+      seoTitle: normalizedHomepage.seo?.title || '',
+      seoDescription: normalizedHomepage.seo?.description || '',
+      seoKeywords: normalizedHomepage.seo?.keywords || '',
+      domains: {
+        subdomain: school.subdomain || '',
+        customDomain: school.customDomain || ''
+      },
+      subdomain: school.subdomain || '',
+      customDomain: school.customDomain || '',
+      schoolType: school.schoolType || 'secondary',
+      ownershipType: school.ownershipType || 'Private',
+      establishedYear: school.establishedYear || null,
+      registrationNumber: school.registrationNumber || '',
+      contact: {
+        email: school.email || '',
+        phone: school.phone || '',
+        altPhone: school.altPhone || '',
+        website: school.website || ''
+      },
+      location: {
+        country: school.country || '',
+        state: school.state || '',
+        city: school.city || '',
+        address: school.address || '',
+        postalCode: school.postalCode || '',
+        coordinates: {
+          latitude: school.coordinates?.latitude ?? null,
+          longitude: school.coordinates?.longitude ?? null
+        }
+      },
+      principal: {
+        name: typeof school.principal === 'object' ? (school.principal?.name || '') : (school.principal || ''),
+        title: school.principal?.title || 'Principal',
+        email: school.principal?.email || '',
+        signatureUrl: school.principal?.signatureUrl || ''
+      },
+      logoUrl: school.logoUrl || branding.logo || '',
+      socialLinks: {
+        facebook: school.communication?.socialLinks?.facebook || '',
+        twitter: school.communication?.socialLinks?.twitter || '',
+        instagram: school.communication?.socialLinks?.instagram || '',
+        linkedin: school.communication?.socialLinks?.linkedin || '',
+        youtube: school.communication?.socialLinks?.youtube || '',
+        whatsappSupport: school.communication?.socialLinks?.whatsappSupport || ''
+      }
+    },
+    branding: {
+      logos: {
+        main: branding.logo || school.logoUrl || '',
+        dark: branding.darkLogo || branding.logo || school.logoUrl || '',
+        light: branding.lightLogo || branding.logo || school.logoUrl || '',
+        monochrome: branding.monochromeLogo || school.logoUrl || '',
+        watermark: branding.watermark || branding.logo || school.logoUrl || '',
+        stamp: branding.schoolStamp || ''
+      },
+      favicon: branding.favicon || '',
+      colors: {
+        primary: branding.primaryColor || '#1E3A8A',
+        secondary: branding.secondaryColor || '#F59E0B',
+        accent: branding.accentColor || '#10B981',
+        dark: branding.darkColor || '#111827',
+        light: branding.lightColor || '#F9FAFB',
+        sidebarBg: branding.sidebarBg || '#1E293B',
+        headerBg: branding.headerBg || '#FFFFFF'
+      },
+      typography: {
+        fontFamily: branding.fontFamily || 'Inter, sans-serif',
+        headingFont: branding.headingFont || 'Inter, sans-serif'
+      },
+      customCssUrl: branding.customCssUrl || ''
+    },
+    homepage: normalizedHomepage,
+    homepageSettings: {
+      enabled: homepageSettings?.enabled ?? true,
+      published: homepageSettings?.published ?? true,
+      revision: homepageSettings?.revision ?? 1,
+      lastPublishedAt: homepageSettings?.lastPublishedAt || null
+    }
+  };
 }
 
 function isPlatformAdmin(user) {
@@ -1207,6 +1344,7 @@ router.get('/homepage', async (req, res) => {
         email
         phone
         website
+        description
         country
         state
         city
@@ -1214,6 +1352,7 @@ router.get('/homepage', async (req, res) => {
         principal
         logoUrl
         branding
+        communication
         homepage
         homepageSettings
       `)
@@ -1231,41 +1370,15 @@ router.get('/homepage', async (req, res) => {
       settings.enabled !== false &&
       settings.published !== false;
 
+    const publicPayload = buildPublicSchoolPayload(
+      school,
+      isPublished ? (school.homepage || {}) : {},
+      settings
+    );
+
     return res.json({
       success: true,
-      data: {
-        school: {
-          id: school._id,
-          schoolId: school.schoolId,
-          name: school.schoolName,
-          abbreviation: school.abbreviation || '',
-          motto: school.motto || '',
-          tagline: school.tagline || '',
-          subdomain: school.subdomain || '',
-          customDomain: school.customDomain || '',
-          contact: {
-            email: school.email || '',
-            phone: school.phone || '',
-            website: school.website || ''
-          },
-          location: {
-            country: school.country || '',
-            state: school.state || '',
-            city: school.city || '',
-            address: school.address || ''
-          },
-          principal: school.principal || {},
-          logoUrl: school.logoUrl || '',
-          branding: school.branding || {}
-        },
-        homepage: isPublished ? (school.homepage || {}) : {},
-        homepageSettings: {
-          enabled: settings.enabled ?? true,
-          published: settings.published ?? true,
-          revision: settings.revision ?? 1,
-          lastPublishedAt: settings.lastPublishedAt || null
-        }
-      }
+      data: publicPayload
     });
   } catch (error) {
     console.error('[PUBLIC HOMEPAGE ERROR]', error);
@@ -1277,9 +1390,241 @@ router.get('/homepage', async (req, res) => {
 });
 
 /**
- * GET /api/schools/homepage/admin
- * Authenticated school/platform admin reads editable homepage.
+ * POST /api/schools/enquiries
+ * Public school enquiry submission.
+ *
+ * The school is resolved by schoolId or subdomain. The endpoint intentionally
+ * does not require authentication because this form is public-facing.
  */
+const enquiryRateBucket = new Map();
+const ENQUIRY_RATE_WINDOW_MS = 10 * 60 * 1000;
+const ENQUIRY_RATE_MAX = 8;
+
+function getRequestFingerprint(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.ip || 'unknown';
+}
+
+function allowPublicEnquiry(req) {
+  const key = getRequestFingerprint(req);
+  const now = Date.now();
+  const previous = enquiryRateBucket.get(key) || [];
+  const recent = previous.filter(timestamp => now - timestamp < ENQUIRY_RATE_WINDOW_MS);
+
+  if (recent.length >= ENQUIRY_RATE_MAX) {
+    enquiryRateBucket.set(key, recent);
+    return false;
+  }
+
+  recent.push(now);
+  enquiryRateBucket.set(key, recent);
+
+  // Opportunistic cleanup to keep the in-memory map small on long-running servers.
+  if (enquiryRateBucket.size > 5000) {
+    for (const [fingerprint, timestamps] of enquiryRateBucket.entries()) {
+      if (!timestamps.some(timestamp => now - timestamp < ENQUIRY_RATE_WINDOW_MS)) {
+        enquiryRateBucket.delete(fingerprint);
+      }
+    }
+  }
+
+  return true;
+}
+
+function cleanPublicEnquiryString(value, max = 500) {
+  return String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max);
+}
+
+router.post('/enquiries', async (req, res) => {
+  try {
+    if (!allowPublicEnquiry(req)) {
+      return res.status(429).json({
+        success: false,
+        error: 'Too many enquiries from this connection. Please try again later.'
+      });
+    }
+
+    // Honeypot field for simple automated spam.
+    if (String(req.body?.website || '').trim()) {
+      return res.status(201).json({
+        success: true,
+        message: 'Enquiry received.'
+      });
+    }
+
+    const firstName = cleanPublicEnquiryString(req.body?.firstName, 80);
+    const lastName = cleanPublicEnquiryString(req.body?.lastName, 80);
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 160);
+    const phone = cleanPublicEnquiryString(req.body?.phone, 40);
+    const grade = cleanPublicEnquiryString(req.body?.grade, 100);
+    const comments = cleanPublicEnquiryString(req.body?.comments, 2000);
+    const requestedSchool = cleanPublicEnquiryString(
+      req.body?.schoolId || req.body?.schoolSubdomain || req.body?.subdomain,
+      100
+    ).toLowerCase();
+
+    if (!firstName || !lastName || !email || !phone || !grade || !requestedSchool) {
+      return res.status(400).json({
+        success: false,
+        error: 'First name, last name, email, phone, grade and school are required.'
+      });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address.'
+      });
+    }
+
+    const query = { status: 'active', isDeleted: { $ne: true } };
+    if (mongoose.Types.ObjectId.isValid(requestedSchool)) {
+      query._id = requestedSchool;
+    } else if (/^SCH-[A-Z0-9]+-[A-Z0-9]+$/i.test(requestedSchool)) {
+      query.schoolId = requestedSchool.toUpperCase();
+    } else {
+      query.subdomain = requestedSchool;
+    }
+
+    const school = await School.findOne(query)
+      .select('_id schoolId schoolName subdomain email communication.supportEmail')
+      .lean();
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School could not be identified.'
+      });
+    }
+
+    const enquiry = await SchoolEnquiry.create({
+      school: school._id,
+      schoolId: school.schoolId,
+      schoolName: school.schoolName,
+      schoolSubdomain: school.subdomain || '',
+      firstName,
+      lastName,
+      email,
+      phone,
+      grade,
+      comments,
+      source: cleanPublicEnquiryString(req.body?.source || 'school-homepage', 60),
+      status: 'new'
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Thank you. Your enquiry has been received.',
+      data: {
+        id: enquiry._id,
+        schoolId: school.schoolId,
+        status: enquiry.status
+      }
+    });
+  } catch (error) {
+    console.error('[PUBLIC SCHOOL ENQUIRY ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to submit your enquiry at this time.'
+    });
+  }
+});
+
+/**
+ * GET /api/schools/enquiries/admin
+ * School/platform admin view of enquiries.
+ */
+router.get('/enquiries/admin', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const { school } = resolved;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const skip = (page - 1) * limit;
+    const status = String(req.query.status || '').trim().toLowerCase();
+
+    const filter = { school: school._id };
+    if (['new', 'contacted', 'closed', 'spam'].includes(status)) {
+      filter.status = status;
+    }
+
+    const [items, total] = await Promise.all([
+      SchoolEnquiry.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      SchoolEnquiry.countDocuments(filter)
+    ]);
+
+    return res.json({
+      success: true,
+      data: items,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN SCHOOL ENQUIRIES GET ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load school enquiries.'
+    });
+  }
+});
+
+router.patch('/enquiries/admin/:id/status', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const resolved = await resolveHomepageSchool(req, res);
+    if (resolved.errorResponse) return resolved.errorResponse;
+
+    const status = String(req.body?.status || '').trim().toLowerCase();
+    if (!['new', 'contacted', 'closed', 'spam'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enquiry status.'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enquiry ID.'
+      });
+    }
+
+    const enquiry = await SchoolEnquiry.findOneAndUpdate(
+      { _id: req.params.id, school: resolved.school._id },
+      { $set: { status, updatedBy: req.user?._id || null } },
+      { new: true }
+    ).lean();
+
+    if (!enquiry) {
+      return res.status(404).json({
+        success: false,
+        error: 'Enquiry not found.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Enquiry status updated.',
+      data: enquiry
+    });
+  } catch (error) {
+    console.error('[ADMIN SCHOOL ENQUIRY STATUS ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to update enquiry status.'
+    });
+  }
+});
+
 router.get('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
   try {
     const resolved = await resolveHomepageSchool(req, res);
@@ -1297,7 +1642,7 @@ router.get('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
           subdomain: school.subdomain || '',
           customDomain: school.customDomain || ''
         },
-        homepage: school.homepage || {},
+        homepage: normalizeHomepageForSchool(school.homepage || {}, school),
         homepageSettings: school.homepageSettings || {
           enabled: true,
           published: true,
@@ -1315,17 +1660,6 @@ router.get('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
-/**
- * PUT /api/schools/homepage/admin
- * Save the complete homepage as a draft.
- *
- * Body:
- * {
- *   "schoolId": "SCH-...",
- *   "homepage": { ... },
- *   "enabled": true
- * }
- */
 router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
   try {
     const resolved = await resolveHomepageSchool(req, res);
@@ -1340,7 +1674,7 @@ router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
       });
     }
 
-    const homepage = sanitizeHomepageValue(req.body.homepage);
+    const homepage = normalizeHomepageAliases(sanitizeHomepageValue(req.body.homepage));
 
     if (!isPlainObject(homepage)) {
       return res.status(400).json({
@@ -1364,7 +1698,7 @@ router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
       success: true,
       message: 'Homepage saved as draft.',
       data: {
-        homepage: school.homepage || {},
+        homepage: normalizeHomepageForSchool(school.homepage || {}, school),
         homepageSettings: school.homepageSettings
       }
     });
@@ -1383,7 +1717,8 @@ router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
  */
 router.patch('/homepage/admin/section/:section', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const section = String(req.params.section || '').trim();
+    const requestedSection = String(req.params.section || '').trim();
+    const section = canonicalHomepageSection(requestedSection);
 
     if (!HOMEPAGE_SECTIONS.has(section)) {
       return res.status(400).json({
@@ -1432,7 +1767,7 @@ router.patch('/homepage/admin/section/:section', authMiddleware, adminAuth, asyn
       message: `${section} section saved as draft.`,
       data: {
         section,
-        value: school.homepage[section],
+        value: normalizeHomepageForSchool(school.homepage || {}, school)[section],
         homepageSettings: school.homepageSettings
       }
     });
@@ -1467,7 +1802,7 @@ router.get('/homepage/admin/preview', authMiddleware, adminAuth, async (req, res
           subdomain: school.subdomain || '',
           customDomain: school.customDomain || ''
         },
-        homepage: school.homepage || {},
+        homepage: normalizeHomepageForSchool(school.homepage || {}, school),
         homepageSettings: school.homepageSettings || {
           enabled: true,
           published: false,
@@ -1513,7 +1848,7 @@ router.post('/homepage/admin/publish', authMiddleware, adminAuth, async (req, re
       success: true,
       message: 'Homepage published successfully.',
       data: {
-        homepage: school.homepage || {},
+        homepage: normalizeHomepageForSchool(school.homepage || {}, school),
         homepageSettings: school.homepageSettings
       }
     });
