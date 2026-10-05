@@ -8,7 +8,64 @@ const { authMiddleware } = require('./auth');
 const adminAuth = require('../middleware/adminAuth');
 const crypto = require('crypto');
 const postmark = require('postmark');
+const multer = require('multer');
+const { createClient } = require('@supabase/supabase-js');
 const ensureSuperAdmin = require("../utils/ensureSuperAdmin");
+
+// Homepage carousel/editor image uploads use the existing Supabase editor bucket.
+const HOMEPAGE_EDITOR_BUCKET =
+  process.env.SUPABASE_EDITOR_BUCKET || 'editor';
+
+const homepageUploadStorage = multer.memoryStorage();
+
+const homepageImageUpload = multer({
+  storage: homepageUploadStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  },
+  fileFilter: (req, file, cb) => {
+    if (!/^image\/(jpeg|png|webp|gif|avif)$/i.test(file.mimetype || '')) {
+      return cb(new Error('Only JPEG, PNG, WebP, GIF, and AVIF images are allowed.'));
+    }
+    cb(null, true);
+  }
+});
+
+let homepageSupabase = null;
+
+function getHomepageSupabase() {
+  if (homepageSupabase) return homepageSupabase;
+
+  const url = process.env.SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      'Supabase upload configuration is missing. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+    );
+  }
+
+  homepageSupabase = createClient(url, key, {
+    auth: { persistSession: false }
+  });
+
+  return homepageSupabase;
+}
+
+function safeHomepageImageName(filename = 'image') {
+  const original = String(filename || 'image');
+  const extMatch = original.match(/\.[a-z0-9]{2,5}$/i);
+  const ext = extMatch ? extMatch[0].toLowerCase() : '.jpg';
+  const base = original
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-z0-9_-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'image';
+
+  return `${base}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+}
 
 /* ============================================================
  * TENANT / ADMIN SECURITY MODEL
@@ -1578,6 +1635,10 @@ router.get('/enquiries/admin', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/schools/enquiries/admin/:id/status
+ * Update enquiry workflow status.
+ */
 router.patch('/enquiries/admin/:id/status', authMiddleware, adminAuth, async (req, res) => {
   try {
     const resolved = await resolveHomepageSchool(req, res);
@@ -1625,6 +1686,10 @@ router.patch('/enquiries/admin/:id/status', authMiddleware, adminAuth, async (re
   }
 });
 
+/**
+ * GET /api/schools/homepage/admin
+ * Authenticated school/platform admin reads editable homepage.
+ */
 router.get('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
   try {
     const resolved = await resolveHomepageSchool(req, res);
@@ -1637,11 +1702,41 @@ router.get('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
       data: {
         school: {
           id: school._id,
+          _id: school._id,
           schoolId: school.schoolId,
           name: school.schoolName,
+          schoolName: school.schoolName,
+          motto: school.motto || school.settings?.motto || '',
+          tagline: school.tagline || school.settings?.tagline || '',
+          description: school.description || '',
           subdomain: school.subdomain || '',
-          customDomain: school.customDomain || ''
+          customDomain: school.customDomain || '',
+          country: school.country || '',
+          state: school.state || '',
+          city: school.city || '',
+          address: school.address || '',
+          postalCode: school.postalCode || '',
+          email: school.email || '',
+          phone: school.phone || '',
+          secondaryEmail: school.secondaryEmail || '',
+          altPhone: school.altPhone || '',
+          website: school.website || '',
+          adminName: school.adminName || '',
+          adminEmail: school.adminEmail || '',
+          adminPhone: school.adminPhone || '',
+          logoUrl: school.logoUrl || school.branding?.logo || '',
+          branding: school.branding || {},
+          communication: school.communication || {},
+          portalAccess: school.portalAccess || {},
+          featuresEnabled: school.featuresEnabled || {},
+          principal: school.principal || {
+            name: '',
+            title: 'Principal',
+            email: ''
+          }
         },
+        branding: school.branding || {},
+        communication: school.communication || {},
         homepage: normalizeHomepageForSchool(school.homepage || {}, school),
         homepageSettings: school.homepageSettings || {
           enabled: true,
@@ -1660,6 +1755,99 @@ router.get('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/schools/homepage/admin/upload-image
+ * Upload a homepage editor image to the Supabase editor bucket.
+ *
+ * Form field:
+ *   image: image file (max 5 MB)
+ *
+ * The image is not written into MongoDB by this endpoint. The returned
+ * public URL is placed into the homepage field by the editor, then saved
+ * with the normal homepage draft workflow.
+ */
+router.post(
+  '/homepage/admin/upload-image',
+  authMiddleware,
+  adminAuth,
+  homepageImageUpload.single('image'),
+  async (req, res) => {
+    try {
+      const resolved = await resolveHomepageSchool(req, res);
+      if (resolved.errorResponse) return resolved.errorResponse;
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: 'No image file was uploaded.'
+        });
+      }
+
+      const supabase = getHomepageSupabase();
+      const schoolId = String(resolved.school.schoolId || resolved.school._id);
+      const filename = safeHomepageImageName(req.file.originalname);
+      const storagePath = `homepage/${schoolId}/${filename}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(HOMEPAGE_EDITOR_BUCKET)
+        .upload(storagePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          cacheControl: '31536000',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('[HOMEPAGE IMAGE SUPABASE UPLOAD ERROR]', uploadError);
+        return res.status(500).json({
+          success: false,
+          error: uploadError.message || 'Unable to upload homepage image.'
+        });
+      }
+
+      const { data: publicData } = supabase.storage
+        .from(HOMEPAGE_EDITOR_BUCKET)
+        .getPublicUrl(storagePath);
+
+      const url = publicData?.publicUrl || '';
+
+      if (!url) {
+        return res.status(500).json({
+          success: false,
+          error: 'Image uploaded but a public URL could not be generated.'
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Homepage image uploaded successfully.',
+        data: {
+          url,
+          path: storagePath,
+          filename,
+          purpose: String(req.body?.purpose || 'homepage')
+        }
+      });
+    } catch (error) {
+      console.error('[HOMEPAGE IMAGE UPLOAD ERROR]', error);
+      return res.status(400).json({
+        success: false,
+        error: error.message || 'Unable to upload homepage image.'
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/schools/homepage/admin
+ * Save the complete homepage as a draft.
+ *
+ * Body:
+ * {
+ *   "schoolId": "SCH-...",
+ *   "homepage": { ... },
+ *   "enabled": true
+ * }
+ */
 router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
   try {
     const resolved = await resolveHomepageSchool(req, res);
@@ -1698,6 +1886,25 @@ router.put('/homepage/admin', authMiddleware, adminAuth, async (req, res) => {
       success: true,
       message: 'Homepage saved as draft.',
       data: {
+        school: {
+          id: school._id,
+          _id: school._id,
+          schoolId: school.schoolId,
+          name: school.schoolName,
+          schoolName: school.schoolName,
+          subdomain: school.subdomain || '',
+          customDomain: school.customDomain || '',
+          country: school.country || '',
+          state: school.state || '',
+          city: school.city || '',
+          address: school.address || '',
+          email: school.email || '',
+          phone: school.phone || '',
+          logoUrl: school.logoUrl || school.branding?.logo || '',
+          branding: school.branding || {},
+          principal: school.principal || {}
+        },
+        branding: school.branding || {},
         homepage: normalizeHomepageForSchool(school.homepage || {}, school),
         homepageSettings: school.homepageSettings
       }
