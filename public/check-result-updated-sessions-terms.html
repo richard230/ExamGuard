@@ -384,6 +384,7 @@ function setResultsLoading(loading){
 // Student Profile & Result Management
 // ============================================
 let affixedClass = null, affixedSession = null, affixedTerm = null;
+let affixedClassRef = null, affixedSessionRef = null, affixedTermRef = null;
 
 // ============================================================
 // RESULT SESSION + TERM MANAGEMENT
@@ -408,6 +409,26 @@ const LEGACY_RESULT_TERMS = [
 
 let backendResultSessions = [];
 let backendResultTerms = [];
+let backendResultClasses = [];
+
+function getAcademicRefId(ref) {
+  if (ref === null || ref === undefined) return '';
+  if (typeof ref === 'string' || typeof ref === 'number') {
+    const value = String(ref).trim();
+    return /^[a-f0-9]{24}$/i.test(value) ? value : '';
+  }
+  return String(
+    ref?._id ||
+    ref?.id ||
+    ref?.sessionId ||
+    ref?.termId ||
+    ref?.classId ||
+    ref?.session_id ||
+    ref?.term_id ||
+    ref?.class_id ||
+    ''
+  ).trim();
+}
 
 function getSessionValue(session) {
   if (typeof session === 'string') return session.trim();
@@ -451,6 +472,104 @@ function findBackendSession(value) {
   }) || null;
 }
 
+function getClassValue(cls) {
+  if (typeof cls === 'string') return cls.trim();
+  return String(
+    cls?.name ||
+    cls?.className ||
+    cls?.title ||
+    cls?.label ||
+    cls?.value ||
+    ''
+  ).trim();
+}
+
+function getClassId(cls) {
+  return String(
+    cls?._id ||
+    cls?.id ||
+    cls?.classId ||
+    cls?.class_id ||
+    ''
+  ).trim();
+}
+
+function findBackendClass(value) {
+  const target = String(value || '').trim().toLowerCase();
+  if (!target) return null;
+  return backendResultClasses.find(cls => {
+    const name = getClassValue(cls).toLowerCase();
+    const id = getClassId(cls).toLowerCase();
+    return name === target || id === target;
+  }) || null;
+}
+
+function getCompatibleClassCandidates(selectedClass) {
+  const selectedValue = String(selectedClass || '').trim();
+  const match = findBackendClass(selectedValue);
+  const candidates = [
+    selectedValue,
+    getClassValue(match),
+    getClassId(match),
+    getAcademicRefId(affixedClassRef)
+  ];
+  const ordered = [];
+  const seen = new Set();
+  candidates.forEach(value => {
+    const clean = String(value || '').trim();
+    if (!clean || seen.has(clean.toLowerCase())) return;
+    seen.add(clean.toLowerCase());
+    ordered.push(clean);
+  });
+  return ordered;
+}
+
+async function loadResultClasses(currentClass = '') {
+  try {
+    const response = await fetch(`${API_ROOT}/academics/classes`, {
+      method: 'GET',
+      headers: authHeaders(),
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error(`Failed to load classes (${response.status})`);
+    const data = await response.json();
+    const classes = Array.isArray(data)
+      ? data
+      : (data?.classes || data?.data || data?.results || []);
+    backendResultClasses = classes.filter(cls => getClassValue(cls));
+
+    const select = document.getElementById('classInput');
+    if (!select || !backendResultClasses.length) return;
+    const previous = String(currentClass || select.value || '').trim();
+    const values = [];
+    const seen = new Set();
+    backendResultClasses.forEach(cls => {
+      const name = getClassValue(cls);
+      if (!name || seen.has(name.toLowerCase())) return;
+      seen.add(name.toLowerCase());
+      values.push(name);
+    });
+    // Preserve legacy classes if the backend doesn't contain all of them.
+    [...select.options].forEach(option => {
+      const value = option.value.trim();
+      if (!value || value === 'Select Class' || seen.has(value.toLowerCase())) return;
+      seen.add(value.toLowerCase());
+      values.push(value);
+    });
+    select.innerHTML = '<option value="">Select Class</option>';
+    values.forEach(value => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      select.appendChild(option);
+    });
+    const match = [...select.options].find(o => o.value.toLowerCase() === previous.toLowerCase());
+    if (match) select.value = match.value;
+  } catch (error) {
+    console.warn('Backend class loading failed; keeping current class choices:', error);
+  }
+}
+
 function collectSessionValues(currentSession = '') {
   const values = [];
   const seen = new Set();
@@ -491,9 +610,12 @@ function renderResultSessions(currentSession = '') {
   });
 
   const target = getSessionValue(currentSession) || previous;
-  if (target) {
-    const exact = [...select.options].find(o => o.value.toLowerCase() === target.toLowerCase());
-    const equivalent = [...select.options].find(o => normalizeSessionKey(o.value) === normalizeSessionKey(target));
+  const targetId = getAcademicRefId(currentSession);
+  const targetMatch = findBackendSession(targetId || target);
+  const targetName = getSessionValue(targetMatch) || target;
+  if (targetName) {
+    const exact = [...select.options].find(o => o.value.toLowerCase() === targetName.toLowerCase());
+    const equivalent = [...select.options].find(o => normalizeSessionKey(o.value) === normalizeSessionKey(targetName));
     if (exact) select.value = exact.value;
     else if (equivalent) select.value = equivalent.value;
   }
@@ -555,10 +677,11 @@ function getTermSessionId(term) {
   return String(
     term?.session?._id ||
     term?.session?.id ||
+    (typeof term?.session === 'string' ? term.session : '') ||
     term?.sessionId ||
     term?.session_id ||
     ''
-  );
+  ).trim();
 }
 
 function getSessionNameFromTerm(term) {
@@ -671,7 +794,7 @@ async function loadResultTerms(currentSession = '', currentTerm = '') {
       );
     });
 
-    backendResultTerms = filtered.map(getTermValue).filter(Boolean);
+    backendResultTerms = filtered.filter(term => getTermValue(term));
     renderResultTerms(currentTerm);
   } catch (error) {
     console.warn('Backend term loading failed; using current/legacy term logic:', error);
@@ -683,80 +806,129 @@ async function loadResultTerms(currentSession = '', currentTerm = '') {
 // when the backend returns an empty result. This keeps old and new result
 // records compatible without changing the result data structure.
 function getCompatibleSessionCandidates(selectedSession) {
-  const selectedValue = String(selectedSession || '').trim();
+  const selectedValue = String(getSessionValue(selectedSession) || selectedSession || '').trim();
   const selectedKey = normalizeSessionKey(selectedValue);
+  const selectedMatch = findBackendSession(selectedValue);
   const candidates = [
     selectedValue,
-    getSessionValue(findBackendSession(selectedValue)),
-    getSessionId(findBackendSession(selectedValue)),
-    affixedSession,
-    ...backendResultSessions.map(getSessionValue),
-    ...backendResultSessions.map(getSessionId),
+    getSessionValue(selectedMatch),
+    getSessionId(selectedMatch),
+    getSessionValue(affixedSession),
+    getSessionId(affixedSession),
+    getAcademicRefId(affixedSessionRef),
     ...LEGACY_RESULT_SESSIONS
-  ]
-    .map(v => String(v || '').trim())
-    .filter(Boolean);
+  ];
 
   const ordered = [];
   const seen = new Set();
   const add = value => {
-    const key = value.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    ordered.push(value);
+    const clean = String(value || '').trim();
+    if (!clean || seen.has(clean.toLowerCase())) return;
+    seen.add(clean.toLowerCase());
+    ordered.push(clean);
   };
 
-  // Exact selected session first.
   add(selectedValue);
 
-  // Only equivalent representations of the SAME session are allowed as
-  // fallbacks. Never switch silently to another academic year/session.
-  candidates.forEach(value => {
-    const normalized = normalizeSessionKey(value);
-    const backendMatch = findBackendSession(value);
-    const backendName = getSessionValue(backendMatch);
-    const backendId = getSessionId(backendMatch);
+  // A backend session has two valid representations: its display name and
+  // its MongoDB _id. Try both, but only for the SAME selected session.
+  if (selectedMatch) {
+    add(getSessionValue(selectedMatch));
+    add(getSessionId(selectedMatch));
+  }
 
-    if (
-      normalized === selectedKey ||
-      (backendName && normalizeSessionKey(backendName) === selectedKey) ||
-      (backendId && backendId.toLowerCase() === selectedValue.toLowerCase())
-    ) {
-      add(value);
+  // If the selected value itself is an ID, resolve its display name.
+  backendResultSessions.forEach(session => {
+    const id = getSessionId(session);
+    const name = getSessionValue(session);
+    if (id && id.toLowerCase() === selectedValue.toLowerCase()) {
+      add(name);
+      add(id);
+    } else if (name && normalizeSessionKey(name) === selectedKey) {
+      add(name);
+      add(id);
     }
+  });
+
+  // Legacy sessions are only equivalent when they match the selected value.
+  LEGACY_RESULT_SESSIONS.forEach(value => {
+    if (normalizeSessionKey(value) === selectedKey) add(value);
   });
 
   return ordered;
 }
 
+function findBackendTerm(value) {
+  const target = String(value || '').trim().toLowerCase();
+  if (!target) return null;
+  const targetKey = normalizeTermKey(target);
+  return backendResultTerms.find(term => {
+    const name = getTermValue(term).toLowerCase();
+    const id = String(term?._id || term?.id || term?.termId || '').toLowerCase();
+    return name === target || id === target || normalizeTermKey(name) === targetKey;
+  }) || null;
+}
+
+function getTermId(term) {
+  return String(
+    term?._id ||
+    term?.id ||
+    term?.termId ||
+    term?.term_id ||
+    ''
+  ).trim();
+}
+
 function getCompatibleTermCandidates(selectedTerm) {
-  const selectedKey = normalizeTermKey(selectedTerm);
-  const candidates = [selectedTerm, ...backendResultTerms, affixedTerm, ...LEGACY_RESULT_TERMS]
-    .map(v => String(v || '').trim())
-    .filter(Boolean);
+  const selectedValue = String(selectedTerm || '').trim();
+  const selectedKey = normalizeTermKey(selectedValue);
+  const selectedMatch = findBackendTerm(selectedValue);
+  const candidates = [
+    selectedValue,
+    getTermValue(selectedMatch),
+    getTermId(selectedMatch),
+    getTermValue(affixedTerm),
+    getTermId(affixedTerm),
+    getAcademicRefId(affixedTermRef),
+    ...LEGACY_RESULT_TERMS
+  ].filter(Boolean);
 
   const ordered = [];
   const seen = new Set();
-
   const add = value => {
-    const key = value.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    ordered.push(value);
+    const clean = String(value || '').trim();
+    if (!clean || seen.has(clean.toLowerCase())) return;
+    seen.add(clean.toLowerCase());
+    ordered.push(clean);
   };
 
-  // Exact selected value first.
-  add(selectedTerm);
+  add(selectedValue);
 
-  // Then terms with the same semantic term name.
-  candidates.forEach(value => {
-    if (normalizeTermKey(value) === selectedKey) add(value);
+  // If the selected term is a backend term, try BOTH its human-readable name
+  // and its MongoDB _id. This is important because newer Result documents
+  // store `term` as an ObjectId.
+  if (selectedMatch) {
+    add(getTermValue(selectedMatch));
+    add(getTermId(selectedMatch));
+  }
+
+  // If the selected value is a backend term ID, resolve its name and try both.
+  backendResultTerms.forEach(term => {
+    const id = getTermId(term);
+    const name = getTermValue(term);
+    if (id && id.toLowerCase() === selectedValue.toLowerCase()) {
+      add(id);
+      add(name);
+    } else if (name && normalizeTermKey(name) === selectedKey) {
+      add(name);
+      add(id);
+    }
   });
 
-  // Do NOT fall through to a different academic term. That could display a
-  // valid result for another term when the student actually selected a term
-  // with no result. Only equivalent representations of the selected term are
-  // valid compatibility fallbacks.
+  // Legacy spellings are only valid when they represent the SAME term.
+  LEGACY_RESULT_TERMS.forEach(value => {
+    if (normalizeTermKey(value) === selectedKey) add(value);
+  });
 
   return ordered;
 }
@@ -813,6 +985,7 @@ async function autofillRegNoAndAffix() {
       // Load backend sessions first, without removing the student's
       // existing/current session. Then load backend terms for that selected
       // session, while retaining legacy/current term values.
+      await loadResultClasses(affixedClass);
       await loadResultSessions(affixedSession);
       await loadResultTerms(affixedSession, affixedTerm);
 
@@ -951,6 +1124,7 @@ async function handleResultSearch(event) {
     // Build API URL with proper encoding. Try the selected session first,
     // then equivalent backend/legacy representations of that SAME session.
     // For each session representation, also try equivalent term spellings.
+    const classCandidates = getCompatibleClassCandidates(className);
     const sessionCandidates = getCompatibleSessionCandidates(session);
     let data = null;
     let response = null;
@@ -958,14 +1132,15 @@ async function handleResultSearch(event) {
     let resolvedTerm = term;
     let lastErrorMessage = '';
 
-    for (const candidateSession of sessionCandidates) {
-      const termCandidates = getCompatibleTermCandidates(term);
+    for (const candidateClass of classCandidates) {
+      for (const candidateSession of sessionCandidates) {
+        const termCandidates = getCompatibleTermCandidates(term);
 
-      for (const candidateTerm of termCandidates) {
+        for (const candidateTerm of termCandidates) {
         const url = new URL(API_BASE_URL + '/api/results/check');
         url.searchParams.append('regNo', regNo);
         url.searchParams.append('scratchCard', scratchCard);
-        url.searchParams.append('class', className);
+        url.searchParams.append('class', candidateClass);
         url.searchParams.append('session', candidateSession);
         url.searchParams.append('term', candidateTerm);
 
@@ -989,6 +1164,7 @@ async function handleResultSearch(event) {
         } catch (candidateError) {
           lastErrorMessage = candidateError?.message || lastErrorMessage;
         }
+        }
       }
 
       if (data) break;
@@ -1004,24 +1180,29 @@ async function handleResultSearch(event) {
 
     // Store current result for download - COMPLETE DATA with the actual
     // term that returned the result.
+    const resolvedSessionDisplay = getSessionValue(findBackendSession(resolvedSession)) || resolvedSession;
+    const resolvedTermDisplay = getTermValue(findBackendTerm(resolvedTerm)) || resolvedTerm;
+    const resolvedClassDisplay = getClassValue(findBackendClass(className)) || className;
+
     currentResultData = {
       ...data,
-      session: resolvedSession,
-      term: resolvedTerm
+      session: resolvedSessionDisplay,
+      term: resolvedTermDisplay,
+      className: resolvedClassDisplay
     };
 
     // Save to viewed results
     saveViewedResult({
       regNo,
       scratchCard,
-      class: className,
-      session: resolvedSession,
-      term: resolvedTerm
+      class: resolvedClassDisplay,
+      session: resolvedSessionDisplay,
+      term: resolvedTermDisplay
     });
 
     // Display results
     setResultsLoading(false);
-    displayResults(data, className, resolvedSession, resolvedTerm);
+    displayResults(data, resolvedClassDisplay, resolvedSessionDisplay, resolvedTermDisplay);
     showSuccess('Results loaded successfully!');
 
     // Scroll to results
