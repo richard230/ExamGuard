@@ -139,7 +139,7 @@ router.post('/classes', authMiddleware, adminAuth, async (req, res) => {
     subjects: newClass.subjects
   });
 });
-router.get('/classes', authMiddleware, adminAuth, async (req, res) => {
+router.get('/classes', authMiddleware, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
   const classes = await Class.find({ schoolId })
@@ -165,19 +165,27 @@ router.get('/classes', authMiddleware, adminAuth, async (req, res) => {
     subjects: c.subjects
   })));
 });
-router.get('/sessions', authMiddleware, adminAuth, async (req, res) => {
+router.get('/sessions', authMiddleware, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
 
-  const sessions = await Session.find({ schoolId })
-    .sort('-createdAt');
+  try {
+    const sessions = await Session.find({ schoolId })
+      .sort('-createdAt');
 
-  res.json(sessions.map(s => ({
-    _id: s._id,
-    name: s.name,
-    startDate: s.startDate,
-    endDate: s.endDate
-  })));
+    res.json(sessions.map(s => ({
+      _id: s._id,
+      name: s.name,
+      startDate: s.startDate,
+      endDate: s.endDate
+    })));
+  } catch (error) {
+    console.error('Failed to load sessions:', error);
+    res.status(500).json({
+      error: 'Failed to load sessions',
+      message: error.message
+    });
+  }
 });
 router.post('/sessions', authMiddleware, adminAuth, async (req, res) => {
   try {
@@ -268,7 +276,7 @@ router.post('/sessions', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
-router.get('/terms', authMiddleware, adminAuth, async (req, res) => {
+router.get('/terms', authMiddleware, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
   try {
@@ -665,7 +673,7 @@ router.put('/classes/:id', authMiddleware, adminAuth, async (req, res) => {
     subjects: cls.subjects
   });
 });
-router.get('/classes/:id', authMiddleware, adminAuth, async (req, res) => {
+router.get('/classes/:id', authMiddleware, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
   const cls = await Class.findOne({ _id: req.params.id, schoolId }).populate('teachers');
