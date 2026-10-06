@@ -1,0 +1,116 @@
+const express = require('express');
+const router = express.Router();
+const adminAuth = require('../middleware/adminAuth');
+const { authMiddleware } = require('./auth');
+const Session = require('../models/Session');
+const Term = require('../models/Term');
+const Class = require('../models/Class');
+
+const getSchoolId = req => req.user && req.user.schoolId;
+
+const requireSchoolId = (req, res) => {
+  const schoolId = getSchoolId(req);
+  if (!schoolId) {
+    res.status(403).json({ error: 'School context is required' });
+    return null;
+  }
+  return schoolId;
+};
+
+/*
+ * STUDENT-READABLE ACADEMIC DATA
+ *
+ * These GET endpoints intentionally use authMiddleware only.
+ * Students need to read their school's sessions, terms and classes
+ * so pages such as Check Result can resolve the academic references.
+ *
+ * All write operations should remain protected by adminAuth.
+ */
+
+router.get('/classes', authMiddleware, async (req, res) => {
+  const schoolId = requireSchoolId(req, res);
+  if (!schoolId) return;
+
+  try {
+    const classes = await Class.find({ schoolId })
+      .populate('teachers')
+      .populate({ path: 'subjects.subject', model: 'Subject' })
+      .populate({ path: 'subjects.teacher', model: 'Staff' });
+
+    res.json(classes);
+  } catch (error) {
+    console.error('Failed to load classes:', error);
+    res.status(500).json({
+      error: 'Failed to load classes',
+      message: error.message
+    });
+  }
+});
+
+router.get('/sessions', authMiddleware, async (req, res) => {
+  const schoolId = requireSchoolId(req, res);
+  if (!schoolId) return;
+
+  try {
+    const sessions = await Session.find({ schoolId }).sort('-createdAt');
+
+    res.json(
+      sessions.map(session => ({
+        _id: session._id,
+        name: session.name,
+        startDate: session.startDate,
+        endDate: session.endDate
+      }))
+    );
+  } catch (error) {
+    console.error('Failed to load sessions:', error);
+    res.status(500).json({
+      error: 'Failed to load sessions',
+      message: error.message
+    });
+  }
+});
+
+router.get('/terms', authMiddleware, async (req, res) => {
+  const schoolId = requireSchoolId(req, res);
+  if (!schoolId) return;
+
+  try {
+    const terms = await Term.find({ schoolId })
+      .populate('session')
+      .sort('-createdAt');
+
+    res.json(
+      terms.map(term => ({
+        _id: term._id,
+        name: term.name,
+        session: term.session,
+        sessionId: term.session?._id || term.session || null,
+        startDate: term.startDate,
+        endDate: term.endDate
+      }))
+    );
+  } catch (error) {
+    console.error('Failed to load terms:', error);
+    res.status(500).json({
+      error: 'Failed to load terms',
+      message: error.message
+    });
+  }
+});
+
+/*
+ * KEEP THE REST OF YOUR EXISTING ROUTER BELOW THIS POINT.
+ *
+ * POST / PUT / DELETE academic operations must continue to use:
+ *   authMiddleware, adminAuth
+ *
+ * Do not remove adminAuth from write operations.
+ */
+
+// Example protected write route pattern:
+// router.post('/sessions', authMiddleware, adminAuth, async (req, res) => { ... });
+// router.put('/sessions/:id', authMiddleware, adminAuth, async (req, res) => { ... });
+// router.delete('/sessions/:id', authMiddleware, adminAuth, async (req, res) => { ... });
+
+module.exports = router;
