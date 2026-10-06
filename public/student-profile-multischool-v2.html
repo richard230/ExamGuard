@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Profile</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap">
+    <style>
+        :root {
+            --bg-0: #f6f8ff;
+            --bg-1: #eef2ff;
+            --accent: #0f172a;
+            --accent-2: #1e40af;
+            --muted: #6b7280;
+            --card-bg: #ffffff;
+            --sidebar-w: 300px;
+            --radius: 10px;
+            --header-height: 60px;
+        }
+
+        * { box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', system-ui, Arial;
+            background: linear-gradient(180deg, var(--bg-0), var(--bg-1));
+            -webkit-font-smoothing: antialiased;
+            color: #07102a;
+        }
+        a { color: inherit; text-decoration: none; }
+
+        .app {
+            display: flex;
+            min-height: 100vh;
+            align-items: stretch;
+        }
+
+        .sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
+            color: #fff;
+            padding: 20px 16px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 100;
+            box-shadow: 4px 0 28px rgba(2, 11, 24, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow-y: auto;
+        }
+
+        .brand {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .brand img {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 3px solid rgba(255, 224, 102, 0.12);
+            background: #fff;
+        }
+
+        .brand .title {
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: #ffe066;
+        }
+
+        .brand .muted-small {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.92rem;
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.98rem;
+            color: #e6eefc;
+            text-decoration: none;
+        }
+
+        .nav a.active, .nav a:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: #ffe066;
+        }
+
+        .main-wrapper {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topbar {
+            position: fixed;
+            left: var(--sidebar-w);
+            top: 0;
+            width: calc(100% - var(--sidebar-w));
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid #eef3ff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            height: var(--header-height);
+        }
+
+        .page-title {
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: var(--accent-2);
+        }
+
+        .flex {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .muted-small {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 0;
+            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn.ghost {
+            background: transparent;
+            border: 1px solid rgba(11, 66, 140, 0.08);
+            color: var(--accent-2);
+        }
+
+        .main-content {
+            margin-top: var(--header-height);
+            padding: 20px;
+            flex: 1;
+            min-height: calc(100vh - var(--header-height));
+            overflow-y: auto;
+        }
+
+        #profileSpinnerOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .profile-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+
+        .profile-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            height: fit-content;
+        }
+
+        .profile-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #eef3ff;
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid #eef3ff;
+            object-fit: cover;
+        }
+
+        #student-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--accent);
+            margin: 0;
+        }
+
+        #student-reg {
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        .profile-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .profile-actions button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 0;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .btn-edit {
+            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
+            color: #fff;
+        }
+
+        .btn-skills {
+            background: linear-gradient(90deg, #20c997, #51cf66);
+            color: #fff;
+        }
+
+        .btn-edit:hover {
+            opacity: 0.9;
+        }
+
+        .btn-skills:hover {
+            opacity: 0.9;
+        }
+
+        .profile-details {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .details-header {
+            padding: 20px;
+            border-bottom: 1px solid #eef3ff;
+        }
+
+        .details-header h3 {
+            margin: 0;
+            font-size: 1.15rem;
+            color: var(--accent-2);
+        }
+
+        .profile-detail-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .profile-detail-table tr {
+            border-bottom: 1px solid #f1f5fb;
+        }
+
+        .profile-detail-table td {
+            padding: 14px 20px;
+            font-size: 0.95rem;
+        }
+
+        .profile-detail-table td:first-child {
+            font-weight: 700;
+            color: var(--muted);
+            width: 180px;
+            background: #f7f9fc;
+        }
+
+        .profile-detail-table tr:hover td:first-child {
+            background: #eef2ff;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-panel {
+            background: #fff;
+            border-radius: 12px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eef3ff;
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 10;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--accent-2);
+        }
+
+        .close-modal {
+            cursor: pointer;
+            font-size: 1.5em;
+            color: var(--muted);
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .close-modal:hover {
+            color: var(--accent);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .edit-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .edit-form-row.full {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 700;
+            color: var(--muted);
+            margin-bottom: 6px;
+            font-size: 0.92rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e6e9ef;
+            font-size: 0.95rem;
+            font-family: 'Inter', system-ui, Arial;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-2);
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        #editFieldsWrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        #editFieldsWrapper .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #editFieldsWrapper .form-group[data-fullwidth] {
+            grid-column: 1 / -1;
+        }
+
+        .skills-section {
+            margin-bottom: 24px;
+        }
+
+        .skills-section h4 {
+            font-size: 1.05rem;
+            color: var(--accent-2);
+            margin: 0 0 12px 0;
+            font-weight: 700;
+        }
+
+        .skills-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #f7f9fc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .skills-table tr {
+            border-bottom: 1px solid #e6e9ef;
+        }
+
+        .skills-table td {
+            padding: 12px 16px;
+        }
+
+        .skills-table td:first-child {
+            font-weight: 700;
+            color: var(--accent);
+            width: 70%;
+        }
+
+        .skills-table input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #e6e9ef;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #eef3ff;
+        }
+
+        .btn-submit {
+            padding: 10px 24px;
+            border-radius: 8px;
+            border: 0;
+            background: linear-gradient(90deg, var(--accent-2), #3b82f6);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .btn-cancel {
+            padding: 10px 24px;
+            border-radius: 8px;
+            border: 1px solid #e6e9ef;
+            background: transparent;
+            color: var(--muted);
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .btn-cancel:hover {
+            background: #f7f9fc;
+        }
+
+        .status-message {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 0.92rem;
+            font-weight: 700;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        @media (max-width: 980px) {
+            .sidebar {
+                display: none;
+            }
+            .main-wrapper {
+                margin-left: 0;
+            }
+            .topbar {
+                left: 0;
+                width: 100%;
+            }
+            .profile-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .main-content {
+                padding: 14px;
+            }
+            .profile-card {
+                padding: 16px;
+            }
+            #editFieldsWrapper {
+                grid-template-columns: 1fr;
+            }
+            #editFieldsWrapper .form-group[data-fullwidth] {
+                grid-column: 1;
+            }
+            .modal-panel {
+                max-width: 95vw;
+            }
+            .edit-form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="profileSpinnerOverlay"><div class="spinner"></div></div>
+
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" role="navigation" aria-label="Navigation">
+            <div class="brand" style="margin-bottom:8px">
+                <img id="schoolLogo" src="mainlogo.png" alt="School Logo">
+                <div>
+                    <div class="title" id="schoolBrandName">School Administration</div>
+                    <div class="muted-small">School System</div>
+                </div>
+            </div>
+
+            <nav class="nav" aria-label="Primary">
+                <a href="admin.html" class="nav-link">
+                  <span>🏠</span> Dashboard
+                </a>
+                <a href="admission.html" class="nav-link">
+                  <span>🎓</span> Admission
+                </a>
+                <a href="more.html" class="nav-link">
+                  <span>🌐</span> Multi-location
+                </a>
+                <a href="people.html" class="nav-link active">
+                  <span>👥</span> People
+                </a>
+                <a href="academics.html" class="nav-link">
+                  <span>📚</span> Academics
+                </a>
+                <a href="admin-cbt.html" class="nav-link">
+                  <span>💻</span> CBT Configuration
+                </a>
+                <a href="results.html" class="nav-link">
+                  <span>📄</span> Results
+                </a>
+                <a href="finance.html" class="nav-link">
+                  <span>💰</span> Finance
+                </a>
+                <a href="adminfees.html" class="nav-link">
+                  <span>💳</span> Fees
+                </a>
+                <a href="adminpayment.html" class="nav-link">
+                  <span>💸</span> Payments
+                </a>
+                <a href="attendance.html" class="nav-link">
+                  <span>🗓️</span> Attendance
+                </a>
+                <a href="#" class="nav-link">
+                  <span>⚙️</span> Settings
+                </a>
+            </nav>
+
+            <div style="margin-top:auto" class="muted-small">System Administrator</div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-wrapper">
+            <!-- Topbar -->
+            <div class="topbar" role="banner">
+                <div class="page-title">Student Profile</div>
+                <div class="flex">
+                    <div class="muted-small" id="topbarSchoolName">School Administration</div>
+                    <button class="btn ghost" onclick="alert('Logout')">Sign out</button>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <main class="main-content" role="main">
+                <div class="profile-wrapper">
+                    <!-- Left Column: Profile Card -->
+                    <div class="profile-card">
+                        <div class="profile-header">
+                            <img id="student-avatar" class="profile-avatar" src="" alt="Student Avatar">
+                            <h2 id="student-name"></h2>
+                            <div id="student-reg"></div>
+                        </div>
+                        <div class="profile-actions">
+                            <button class="btn-edit" id="editBtn">✎ Edit Profile</button>
+                            <button class="btn-skills" id="skillsBtn">📊 Fill Skills & Reports</button>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Details -->
+                    <div class="profile-details">
+                        <div class="details-header">
+                            <h3>Student Information</h3>
+                        </div>
+                        <table class="profile-detail-table" id="profile-table"></table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Skills & Reports Modal -->
+    <div class="modal" id="skillsModal">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>📊 Fill Skills & Other Reports</h3>
+                <button class="close-modal" id="closeSkillsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="skillsForm" autocomplete="off">
+                    
+                    <!-- SESSION & TERM SELECTION - AT THE TOP -->
+                    <div class="skills-section" style="border-bottom: 2px solid #eef3ff; padding-bottom: 20px; margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 16px;">📅 Academic Period</h4>
+                        <div class="edit-form-row">
+                            <div class="form-group">
+                                <label for="sessionSelect">Session *</label>
+                                <select id="sessionSelect" name="session" required>
+                                    <option value="">-- Select Session --</option>
+                                    <option value="2027-2028">2027-2028</option>
+                                    <option value="2026-2027">2026-2027</option>
+                                    <option value="2025-2026">2025-2026</option>
+                                    <option value="2024-2025">2024-2025</option>
+                                    <option value="2023-2024">2023-2024</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="termSelect">Term *</label>
+                                <select id="termSelect" name="term" required>
+                                    <option value="">-- Select Term --</option>
+                                    <option value="FIRST TERM">First Term</option>
+                                    <option value="SECOND TERM">Second Term</option>
+                                    <option value="THIRD TERM">Third Term</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Affective Skills -->
+                    <div class="skills-section">
+                        <h4>🎯 Affective Skills (1-5 scale)</h4>
+                        <table class="skills-table">
+                            <tr><td>Attentiveness</td><td><input type="number" name="affective_attentiveness" min="1" max="5" required></td></tr>
+                            <tr><td>Honesty</td><td><input type="number" name="affective_honesty" min="1" max="5" required></td></tr>
+                            <tr><td>Neatness</td><td><input type="number" name="affective_neatness" min="1" max="5" required></td></tr>
+                            <tr><td>Politeness</td><td><input type="number" name="affective_politeness" min="1" max="5" required></td></tr>
+                            <tr><td>Punctuality / Assembly</td><td><input type="number" name="affective_punctuality" min="1" max="5" required></td></tr>
+                            <tr><td>Self Control / Calmness</td><td><input type="number" name="affective_selfcontrol" min="1" max="5" required></td></tr>
+                        </table>
+                    </div>
+
+                    <!-- Psychomotor Skills -->
+                    <div class="skills-section">
+                        <h4>💪 Psychomotor Skills (1-5 scale)</h4>
+                        <table class="skills-table">
+                            <tr><td>Handling Of Tools</td><td><input type="number" name="psycho_handling" min="1" max="5" required></td></tr>
+                            <tr><td>Drawing / Painting</td><td><input type="number" name="psycho_drawing" min="1" max="5" required></td></tr>
+                            <tr><td>Handwriting</td><td><input type="number" name="psycho_handwriting" min="1" max="5" required></td></tr>
+                            <tr><td>Public Speaking</td><td><input type="number" name="psycho_speaking" min="1" max="5" required></td></tr>
+                            <tr><td>Speech Fluency</td><td><input type="number" name="psycho_fluency" min="1" max="5" required></td></tr>
+                        </table>
+                    </div>
+
+                    <!-- Attendance -->
+                    <div class="skills-section">
+                        <h4>📍 Attendance Report</h4>
+                        <div class="edit-form-row">
+                            <div class="form-group">
+                                <label for="schoolOpened">Times School Opened</label>
+                                <input type="number" id="schoolOpened" name="attendance_school_opened" placeholder="e.g., 140" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="timesPresent">No of Times Present</label>
+                                <input type="number" id="timesPresent" name="attendance_present" placeholder="e.g., 126" required>
+                            </div>
+                        </div>
+                        <div class="edit-form-row">
+                            <div class="form-group">
+                                <label for="timesAbsent">No of Times Absent</label>
+                                <input type="number" id="timesAbsent" name="attendance_absent" placeholder="e.g., 14" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Principal Comment -->
+                    <div class="skills-section">
+                        <h4>📝 Principal's Comment</h4>
+                        <div class="form-group">
+                            <textarea name="principal_comment" maxlength="500" placeholder="Enter principal's comment (max 500 characters)" required></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel" id="cancelSkillsBtn">Cancel</button>
+                        <button type="submit" class="btn-submit">✅ Save Skills & Report</button>
+                    </div>
+                    <div id="skillsStatus" style="margin-top: 12px;"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Student Modal -->
+    <div class="modal" id="editStudentModal">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>Edit Student Profile</h3>
+                <button class="close-modal" id="closeEditModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editStudentForm" autocomplete="off">
+                    <div id="editModalSpinner" style="display:none;text-align:center;margin-bottom:16px;"><div class="spinner"></div></div>
+                    <div id="editFieldsWrapper"></div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel" id="cancelEditBtn">Cancel</button>
+                        <button type="submit" class="btn-submit">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getQueryParam(name) {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name);
+        }
+        const studentIdParam = getQueryParam('student_id');
+
+        // Multi-school/current-school context — follows the same tenant logic as students-view.html.
+        const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+        const API_ROOT = `${BACKEND_URL}/api`;
+        const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+        const BASE_DOMAINS = ['goldlincschools.com.ng', 'examguard.com.ng'];
+
+        let token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+        let currentUser = null;
+        let currentSchool = null;
+        let schoolSubdomain = '';
+        let publicSchoolId = '';
+
+        function decodeJwtPayload(jwt) {
+            try {
+                const parts = String(jwt || '').split('.');
+                if (parts.length !== 3) return null;
+                return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            } catch { return null; }
+        }
+
+        function normalizeSchool(raw) {
+            if (!raw) return null;
+            return raw.school || raw.data?.school || raw.data || raw;
+        }
+
+        function normalizeUser(raw) {
+            return raw?.user || raw?.data?.user || raw?.data || raw;
+        }
+
+        function getSchoolMongoId(school) {
+            return school?._id || school?.id || '';
+        }
+
+        function getHostnameSubdomain() {
+            const host = window.location.hostname.toLowerCase();
+            for (const base of BASE_DOMAINS) {
+                const suffix = `.${base}`;
+                if (host.endsWith(suffix)) {
+                    const subdomain = host.slice(0, -suffix.length);
+                    if (subdomain && !subdomain.includes('.')) return subdomain;
+                }
+            }
+            return '';
+        }
+
+        function getTenantSubdomain() {
+            const hostnameSubdomain = getHostnameSubdomain();
+            if (hostnameSubdomain) return hostnameSubdomain;
+            const stored = localStorage.getItem('schoolSubdomain');
+            return stored ? stored.trim().toLowerCase() : '';
+        }
+
+        function getAuthHeaders(extra = {}) {
+            const headers = { Accept: 'application/json', ...extra };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+            return headers;
+        }
+
+        async function apiFetch(url, options = {}) {
+            const headers = { ...getAuthHeaders(), ...(options.headers || {}) };
+            if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 401) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('token');
+                localStorage.removeItem('authToken');
+                throw new Error('Your session has expired. Please sign in again.');
+            }
+            if (response.status === 403) throw new Error('You do not have permission to access this school.');
+            return response;
+        }
+
+        function verifySchoolContext() {
+            if (!token || !currentSchool || !currentUser) return true;
+            const payload = decodeJwtPayload(token);
+            const tokenSchoolId = payload?.schoolId || currentUser?.schoolId;
+            const configSchoolId = getSchoolMongoId(currentSchool);
+            if (!tokenSchoolId) throw new Error('Your administrator account is not linked to a school.');
+            if (configSchoolId && String(tokenSchoolId) !== String(configSchoolId)) {
+                throw new Error('Your account belongs to a different school. Please sign in through the correct school portal.');
+            }
+            if (currentUser.schoolId && configSchoolId && String(currentUser.schoolId) !== String(configSchoolId)) {
+                throw new Error('School security verification failed.');
+            }
+            return true;
+        }
+
+        function applySchoolBranding() {
+            const schoolName = currentSchool?.schoolName || currentSchool?.name || 'School Administration';
+            const logo = currentSchool?.logoUrl || currentSchool?.branding?.logo || currentSchool?.branding?.lightLogo || currentSchool?.branding?.darkLogo || '';
+            const primary = currentSchool?.branding?.primaryColor || '#2563eb';
+            const secondary = currentSchool?.branding?.secondaryColor || '#f59e0b';
+            const accent = currentSchool?.branding?.accentColor || '#10b981';
+
+            document.documentElement.style.setProperty('--school-primary', primary);
+            document.documentElement.style.setProperty('--school-secondary', secondary);
+            document.documentElement.style.setProperty('--school-accent', accent);
+            document.title = `Student Profile | ${schoolName}`;
+
+            const brandName = document.getElementById('schoolBrandName');
+            const topbarName = document.getElementById('topbarSchoolName');
+            const logoEl = document.getElementById('schoolLogo');
+
+            if (brandName) brandName.textContent = schoolName;
+            if (topbarName) topbarName.textContent = schoolName;
+
+            if (logoEl) {
+                if (logo) {
+                    logoEl.src = logo;
+                    logoEl.alt = `${schoolName} Logo`;
+                } else {
+                    logoEl.removeAttribute('src');
+                    logoEl.alt = schoolName;
+                }
+                logoEl.onerror = function () {
+                    this.onerror = null;
+                    this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(schoolName)}&background=ffffff&color=1e3a8a&bold=true`;
+                };
+            }
+
+            document.querySelectorAll('[data-school-name]').forEach(el => el.textContent = schoolName);
+        }
+
+        async function loadSchoolContext() {
+            if (!token) throw new Error('No administrator authentication token was found. Please sign in again.');
+
+            const meResponse = await fetch(`${API_ROOT}/auth/me`, { headers: getAuthHeaders() });
+            if (!meResponse.ok) throw new Error(`Unable to load your school account. Server returned ${meResponse.status}.`);
+
+            const meData = await meResponse.json();
+            currentUser = normalizeUser(meData);
+            currentSchool = normalizeSchool(meData);
+
+            if (!currentUser) throw new Error('Authenticated administrator information was not returned.');
+            if (!currentUser.schoolId) throw new Error('Your administrator account is not assigned to a school.');
+
+            const authenticatedSchoolId = String(currentUser.schoolId);
+            const tenantSubdomain = getTenantSubdomain();
+
+            // Always refresh the tenant configuration from the current school subdomain.
+            // This prevents a previously cached school's branding from remaining on the page.
+            if (tenantSubdomain) {
+                const configResponse = await fetch(
+                    `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(tenantSubdomain)}&_=${Date.now()}`,
+                    { headers: getAuthHeaders(), cache: 'no-store' }
+                );
+
+                if (configResponse.ok) {
+                    const configData = await configResponse.json();
+                    const configuredSchool = normalizeSchool(configData);
+                    const configuredSchoolId = getSchoolMongoId(configuredSchool);
+
+                    if (configuredSchool && configuredSchoolId && String(configuredSchoolId) === authenticatedSchoolId) {
+                        currentSchool = configuredSchool;
+                    } else if (!currentSchool || !getSchoolMongoId(currentSchool)) {
+                        throw new Error('The current school configuration could not be verified against your account.');
+                    }
+                } else if (!currentSchool || !getSchoolMongoId(currentSchool)) {
+                    throw new Error(`Unable to load the current school configuration. Server returned ${configResponse.status}.`);
+                }
+            }
+
+            if (!currentSchool) throw new Error('The current school could not be identified.');
+
+            const configSchoolId = getSchoolMongoId(currentSchool);
+            if (configSchoolId && String(configSchoolId) !== authenticatedSchoolId) {
+                throw new Error('The school configuration does not match your authenticated school.');
+            }
+
+            schoolSubdomain = currentSchool?.subdomain || tenantSubdomain || '';
+            publicSchoolId = currentSchool?.schoolId || currentSchool?.publicSchoolId || '';
+
+            if (schoolSubdomain) localStorage.setItem('schoolSubdomain', schoolSubdomain);
+            if (publicSchoolId) localStorage.setItem('schoolId', publicSchoolId);
+
+            applySchoolBranding();
+            verifySchoolContext();
+            return currentSchool;
+        }
+
+        function showSpinner(show) {
+            const el = document.getElementById('profileSpinnerOverlay');
+            if (el) el.style.display = show ? 'flex' : 'none';
+        }
+
+        async function fetchAndRenderStudent() {
+            const profileWrapper = document.querySelector('.profile-wrapper');
+            showSpinner(true);
+
+            if (!studentIdParam) {
+                showSpinner(false);
+                if (profileWrapper) profileWrapper.innerHTML = "<p style='color:#dc3545;'>No student selected.</p>";
+                return;
+            }
+
+            try {
+                await loadSchoolContext();
+
+                const identifier = encodeURIComponent(studentIdParam);
+                let res = await apiFetch(`${API_ROOT}/student?student_id=${identifier}`);
+                let data = await res.json();
+                let students = Array.isArray(data.students) ? data.students : [];
+
+                if (!students.length) {
+                    res = await apiFetch(`${API_ROOT}/student?regNo=${identifier}`);
+                    data = await res.json();
+                    students = Array.isArray(data.students) ? data.students : [];
+                }
+
+                const stu = students[0];
+                if (!stu) throw new Error('Student not found in the current school.');
+
+                const studentSchoolId = stu.schoolId?._id || stu.schoolId?.id || stu.schoolId || '';
+                const currentSchoolId = getSchoolMongoId(currentSchool);
+                if (studentSchoolId && currentSchoolId && String(studentSchoolId) !== String(currentSchoolId)) {
+                    throw new Error('This student does not belong to the current school.');
+                }
+
+                const avatar = document.getElementById('student-avatar');
+                if (avatar) avatar.src = stu.photoBase64 || stu.photo || 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png';
+
+                const studentName = `${stu.firstname || ''} ${stu.surname || ''}`.trim();
+                const nameEl = document.getElementById('student-name');
+                if (nameEl) nameEl.textContent = studentName || stu.name || 'Student';
+
+                const regEl = document.getElementById('student-reg');
+                if (regEl) regEl.textContent = 'Reg No: ' + (stu.regNo || stu.student_id || studentIdParam);
+
+                const classValue = stu.class && typeof stu.class === 'object' ? (stu.class.name || stu.class.className || '') : (stu.class || '');
+                const detailFields = [
+                    { label: 'Class', value: classValue },
+                    { label: 'Class Arm', value: stu.classArm || '' },
+                    { label: 'Scratch Card', value: stu.scratchCard || '' },
+                    { label: 'Date of Birth', value: stu.dob ? new Date(stu.dob).toLocaleDateString() : '' },
+                    { label: 'Gender', value: stu.gender || '' },
+                    { label: 'Parent Name', value: stu.parentName || '' },
+                    { label: 'Parent Phone', value: stu.parentPhone || '' },
+                    { label: 'Parent Email', value: stu.parentEmail || '' },
+                    { label: 'Student Email', value: stu.studentEmail || '' },
+                    { label: 'Student Phone', value: stu.studentPhone || '' },
+                    { label: 'Address', value: stu.address || '' },
+                    { label: 'Nationality', value: stu.nationality || '' },
+                    { label: 'State', value: stu.state || '' },
+                    { label: 'LGA', value: stu.lga || '' },
+                    { label: 'Previous School', value: stu.previousSchool || '' },
+                    { label: 'Admission Date', value: stu.admissionDate ? new Date(stu.admissionDate).toLocaleDateString() : '' },
+                    { label: 'Academic Session', value: stu.academicSession || stu.session || '' }
+                ];
+
+                const table = document.getElementById('profile-table');
+                if (table) {
+                    const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                    table.innerHTML = detailFields.map(f => `<tr><td>${esc(f.label)}</td><td>${esc(f.value)}</td></tr>`).join('');
+                }
+            } catch (err) {
+                console.error('Student profile loading error:', err);
+                if (profileWrapper) profileWrapper.innerHTML = `<p style='color:#dc3545;'>${String(err.message || 'Unable to load student profile.').replace(/</g,'&lt;')}</p>`;
+            } finally {
+                showSpinner(false);
+            }
+        }
+
+        fetchAndRenderStudent();
+
+        // Skills Modal
+        document.getElementById('skillsBtn').onclick = () => {
+            document.getElementById('skillsModal').classList.add('active');
+        };
+        document.getElementById('closeSkillsModal').onclick = () => {
+            document.getElementById('skillsModal').classList.remove('active');
+        };
+        document.getElementById('cancelSkillsBtn').onclick = () => {
+            document.getElementById('skillsModal').classList.remove('active');
+        };
+
+        document.getElementById('skillsForm').onsubmit = async function(e){
+            e.preventDefault();
+            const form = e.target;
+            if (!loadedStudent || !loadedStudent.regNo) {
+                document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ Student not loaded!</div>';
+                return;
+            }
+
+            // Build correct data structure
+            const affective = {
+                attentiveness: parseInt(form.affective_attentiveness.value),
+                honesty: parseInt(form.affective_honesty.value),
+                neatness: parseInt(form.affective_neatness.value),
+                politeness: parseInt(form.affective_politeness.value),
+                punctuality: parseInt(form.affective_punctuality.value),
+                selfControl: parseInt(form.affective_selfcontrol.value)
+            };
+
+            const psychomotor = {
+                handling: parseInt(form.psycho_handling.value),
+                drawing: parseInt(form.psycho_drawing.value),
+                handwriting: parseInt(form.psycho_handwriting.value),
+                speaking: parseInt(form.psycho_speaking.value),
+                fluency: parseInt(form.psycho_fluency.value)
+            };
+
+            const attendance = {
+                schoolOpened: parseInt(form.attendance_school_opened.value),
+                timesPresent: parseInt(form.attendance_present.value),
+                timesAbsent: parseInt(form.attendance_absent.value)
+            };
+
+            const session = form.session.value;
+            const term = form.term.value;
+            const comment = form.principal_comment.value;
+
+            if (!session || !term) {
+                document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ Please select Session and Term!</div>';
+                return;
+            }
+
+            const payload = {
+                session,
+                term,
+                skills: { affective, psychomotor },
+                attendance,
+                comment
+            };
+
+            console.log('Payload being sent:', JSON.stringify(payload, null, 2));
+
+            document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-success">⏳ Saving...</div>';
+
+            try {
+                const regNo = encodeURIComponent(loadedStudent.regNo);
+                const res = await fetch(`${API_ROOT}/student/${regNo}/skills-report`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-success">✔️ Skills and report saved successfully!</div>';
+                    setTimeout(()=>{document.getElementById('skillsModal').classList.remove('active');},1500);
+                    form.reset();
+                } else {
+                    document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ ' + (data.message || data.error || "Failed to save.") + '</div>';
+                }
+            } catch (err) {
+                console.error('Error saving skills:', err);
+                document.getElementById('skillsStatus').innerHTML = '<div class="status-message status-error">❌ Network error: ' + err.message + '</div>';
+            }
+        };
+
+        // Edit Modal
+        const editModal = document.getElementById('editStudentModal');
+        const editBtn = document.getElementById('editBtn');
+        const closeEditModalBtn = document.getElementById('closeEditModal');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const editFieldsWrapper = document.getElementById('editFieldsWrapper');
+        const editForm = document.getElementById('editStudentForm');
+        const editModalSpinner = document.getElementById('editModalSpinner');
+
+        const editableFields = [
+            {label: "Surname", name: "surname", type: "text", required: true},
+            {label: "First Name", name: "firstname", type: "text", required: true},
+            {label: "Other Names", name: "othernames", type: "text"},
+            {label: "Gender", name: "gender", type: "text", required: true},
+            {label: "DOB", name: "dob", type: "date", required: true},
+            {label: "Nationality", name: "nationality", type: "text"},
+            {label: "State of Origin", name: "state", type: "text"},
+            {label: "LGA", name: "lga", type: "text"},
+            {label: "Home Address", name: "address", type: "text"},
+            {label: "Reg No", name: "regNo", type: "text", readonly: true},
+            {label: "Scratch Card", name: "scratchCard", type: "text", readonly: true},
+            {label: "Class", name: "class", type: "text", required: true},
+            {label: "Class Arm", name: "classArm", type: "text"},
+            {label: "Previous School", name: "previousSchool", type: "text"},
+            {label: "Admission Date", name: "admissionDate", type: "date"},
+            {label: "Academic Session", name: "academicSession", type: "text"},
+            {label: "Parent Name", name: "parentName", type: "text", required: true},
+            {label: "Parent Relationship", name: "parentRelationship", type: "text"},
+            {label: "Parent Phone", name: "parentPhone", type: "text"},
+            {label: "Parent Email", name: "parentEmail", type: "email"},
+            {label: "Parent Address", name: "parentAddress", type: "text"},
+            {label: "Parent Occupation", name: "parentOccupation", type: "text"},
+            {label: "Student Email", name: "studentEmail", type: "email"},
+            {label: "Student Phone", name: "studentPhone", type: "text"},
+            {label: "Religion", name: "religion", type: "text"},
+            {label: "Blood Group", name: "bloodGroup", type: "text"},
+            {label: "Genotype", name: "genotype", type: "text"}
+        ];
+
+        editBtn.onclick = function() {
+            if (!loadedStudent) return;
+            editFieldsWrapper.innerHTML = '';
+            
+            editableFields.forEach((field) => {
+                let val = loadedStudent[field.name] || '';
+                if (field.type === "date" && val) {
+                    val = (new Date(val)).toISOString().slice(0,10);
+                }
+                
+                const fullWidthFields = ['address', 'parentAddress'];
+                const isFullWidth = fullWidthFields.includes(field.name);
+                
+                editFieldsWrapper.innerHTML += `
+                    <div class="form-group"${isFullWidth ? ' data-fullwidth' : ''}>
+                        <label>${field.label}${field.required ? ' *' : ''}</label>
+                        <input name="${field.name}" type="${field.type}" value="${val}" ${field.readonly ? 'readonly' : ''} ${field.required ? 'required' : ''} />
+                    </div>
+                `;
+            });
+            
+            editModalSpinner.style.display = "none";
+            editModal.classList.add('active');
+        };
+
+        closeEditModalBtn.onclick = () => editModal.classList.remove('active');
+        cancelEditBtn.onclick = () => editModal.classList.remove('active');
+
+        editForm.onsubmit = async function(e) {
+            e.preventDefault();
+            if (!loadedStudent) return;
+            editModalSpinner.style.display = "block";
+            const formData = new FormData(editForm);
+            let editData = {};
+            const allowedFields = [
+                "surname", "firstname", "othernames", "dob", "gender", "nationality", "state", "lga", "address",
+                "class", "classArm", "previousSchool", "admissionDate", "academicSession",
+                "parentName", "parentRelationship", "parentPhone", "parentEmail", "parentAddress", "parentOccupation",
+                "studentEmail", "studentPhone", "religion", "bloodGroup", "genotype"
+            ];
+            for (const [k, v] of formData.entries()) {
+                if (allowedFields.includes(k)) editData[k] = v;
+            }
+            try {
+                const identifier = encodeURIComponent(loadedStudent.student_id || loadedStudent.regNo);
+                let res = await fetch(`${API_ROOT}/students/${identifier}`, {
+                    method: "PUT",
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(editData)
+                });
+                if (res.ok) {
+                    editModalSpinner.style.display = "none";
+                    editModal.classList.remove('active');
+                    alert('Student updated!');
+                    fetchAndRenderStudent();
+                } else {
+                    editModalSpinner.style.display = "none";
+                    alert('Failed to update student.');
+                }
+            } catch (err) {
+                editModalSpinner.style.display = "none";
+                alert('Error updating student: ' + err.message);
+                console.error(err);
+            }
+        };
+    </script>
+</body>
+</html>
