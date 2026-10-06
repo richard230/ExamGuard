@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Student Profile | Gold and Linc Schools</title>
+    <title>Student Profile</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap">
     <style>
@@ -578,9 +578,9 @@
         <!-- Sidebar -->
         <aside class="sidebar" role="navigation" aria-label="Navigation">
             <div class="brand" style="margin-bottom:8px">
-                <img src="mainlogo.png" alt="Logo">
+                <img id="schoolLogo" src="mainlogo.png" alt="School Logo">
                 <div>
-                    <div class="title">Gold and Linc Schools</div>
+                    <div class="title" id="schoolBrandName">School Administration</div>
                     <div class="muted-small">School System</div>
                 </div>
             </div>
@@ -633,7 +633,7 @@
             <div class="topbar" role="banner">
                 <div class="page-title">Student Profile</div>
                 <div class="flex">
-                    <div class="muted-small">Gold & Linc Schools</div>
+                    <div class="muted-small" id="topbarSchoolName">School Administration</div>
                     <button class="btn ghost" onclick="alert('Logout')">Sign out</button>
                 </div>
             </div>
@@ -793,8 +793,187 @@
             return url.searchParams.get(name);
         }
         const studentIdParam = getQueryParam('student_id');
-        const API_BASE_URL = "https://examguard-8rxe.onrender.com";
-        let loadedStudent = null;
+
+        // Multi-school/current-school context — follows the same tenant logic as students-view.html.
+        const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+        const API_ROOT = `${BACKEND_URL}/api`;
+        const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
+        const BASE_DOMAINS = ['goldlincschools.com.ng', 'examguard.com.ng'];
+
+        let token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+        let currentUser = null;
+        let currentSchool = null;
+        let schoolSubdomain = '';
+        let publicSchoolId = '';
+
+        function decodeJwtPayload(jwt) {
+            try {
+                const parts = String(jwt || '').split('.');
+                if (parts.length !== 3) return null;
+                return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            } catch { return null; }
+        }
+
+        function normalizeSchool(raw) {
+            if (!raw) return null;
+            return raw.school || raw.data?.school || raw.data || raw;
+        }
+
+        function normalizeUser(raw) {
+            return raw?.user || raw?.data?.user || raw?.data || raw;
+        }
+
+        function getSchoolMongoId(school) {
+            return school?._id || school?.id || '';
+        }
+
+        function getHostnameSubdomain() {
+            const host = window.location.hostname.toLowerCase();
+            for (const base of BASE_DOMAINS) {
+                const suffix = `.${base}`;
+                if (host.endsWith(suffix)) {
+                    const subdomain = host.slice(0, -suffix.length);
+                    if (subdomain && !subdomain.includes('.')) return subdomain;
+                }
+            }
+            return '';
+        }
+
+        function getTenantSubdomain() {
+            const hostnameSubdomain = getHostnameSubdomain();
+            if (hostnameSubdomain) return hostnameSubdomain;
+            const stored = localStorage.getItem('schoolSubdomain');
+            return stored ? stored.trim().toLowerCase() : '';
+        }
+
+        function getAuthHeaders(extra = {}) {
+            const headers = { Accept: 'application/json', ...extra };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            if (publicSchoolId) headers['X-School-Code'] = publicSchoolId;
+            return headers;
+        }
+
+        async function apiFetch(url, options = {}) {
+            const headers = { ...getAuthHeaders(), ...(options.headers || {}) };
+            if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 401) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('token');
+                localStorage.removeItem('authToken');
+                throw new Error('Your session has expired. Please sign in again.');
+            }
+            if (response.status === 403) throw new Error('You do not have permission to access this school.');
+            return response;
+        }
+
+        function verifySchoolContext() {
+            if (!token || !currentSchool || !currentUser) return true;
+            const payload = decodeJwtPayload(token);
+            const tokenSchoolId = payload?.schoolId || currentUser?.schoolId;
+            const configSchoolId = getSchoolMongoId(currentSchool);
+            if (!tokenSchoolId) throw new Error('Your administrator account is not linked to a school.');
+            if (configSchoolId && String(tokenSchoolId) !== String(configSchoolId)) {
+                throw new Error('Your account belongs to a different school. Please sign in through the correct school portal.');
+            }
+            if (currentUser.schoolId && configSchoolId && String(currentUser.schoolId) !== String(configSchoolId)) {
+                throw new Error('School security verification failed.');
+            }
+            return true;
+        }
+
+        function applySchoolBranding() {
+            const schoolName = currentSchool?.schoolName || currentSchool?.name || 'School Administration';
+            const logo = currentSchool?.logoUrl || currentSchool?.branding?.logo || currentSchool?.branding?.lightLogo || currentSchool?.branding?.darkLogo || '';
+            const primary = currentSchool?.branding?.primaryColor || '#2563eb';
+            const secondary = currentSchool?.branding?.secondaryColor || '#f59e0b';
+            const accent = currentSchool?.branding?.accentColor || '#10b981';
+
+            document.documentElement.style.setProperty('--school-primary', primary);
+            document.documentElement.style.setProperty('--school-secondary', secondary);
+            document.documentElement.style.setProperty('--school-accent', accent);
+            document.title = `Student Profile | ${schoolName}`;
+
+            const brandName = document.getElementById('schoolBrandName');
+            const topbarName = document.getElementById('topbarSchoolName');
+            const logoEl = document.getElementById('schoolLogo');
+
+            if (brandName) brandName.textContent = schoolName;
+            if (topbarName) topbarName.textContent = schoolName;
+
+            if (logoEl) {
+                if (logo) {
+                    logoEl.src = logo;
+                    logoEl.alt = `${schoolName} Logo`;
+                } else {
+                    logoEl.removeAttribute('src');
+                    logoEl.alt = schoolName;
+                }
+                logoEl.onerror = function () {
+                    this.onerror = null;
+                    this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(schoolName)}&background=ffffff&color=1e3a8a&bold=true`;
+                };
+            }
+
+            document.querySelectorAll('[data-school-name]').forEach(el => el.textContent = schoolName);
+        }
+
+        async function loadSchoolContext() {
+            if (!token) throw new Error('No administrator authentication token was found. Please sign in again.');
+
+            const meResponse = await fetch(`${API_ROOT}/auth/me`, { headers: getAuthHeaders() });
+            if (!meResponse.ok) throw new Error(`Unable to load your school account. Server returned ${meResponse.status}.`);
+
+            const meData = await meResponse.json();
+            currentUser = normalizeUser(meData);
+            currentSchool = normalizeSchool(meData);
+
+            if (!currentUser) throw new Error('Authenticated administrator information was not returned.');
+            if (!currentUser.schoolId) throw new Error('Your administrator account is not assigned to a school.');
+
+            const authenticatedSchoolId = String(currentUser.schoolId);
+            const tenantSubdomain = getTenantSubdomain();
+
+            // Always refresh the tenant configuration from the current school subdomain.
+            // This prevents a previously cached school's branding from remaining on the page.
+            if (tenantSubdomain) {
+                const configResponse = await fetch(
+                    `${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(tenantSubdomain)}&_=${Date.now()}`,
+                    { headers: getAuthHeaders(), cache: 'no-store' }
+                );
+
+                if (configResponse.ok) {
+                    const configData = await configResponse.json();
+                    const configuredSchool = normalizeSchool(configData);
+                    const configuredSchoolId = getSchoolMongoId(configuredSchool);
+
+                    if (configuredSchool && configuredSchoolId && String(configuredSchoolId) === authenticatedSchoolId) {
+                        currentSchool = configuredSchool;
+                    } else if (!currentSchool || !getSchoolMongoId(currentSchool)) {
+                        throw new Error('The current school configuration could not be verified against your account.');
+                    }
+                } else if (!currentSchool || !getSchoolMongoId(currentSchool)) {
+                    throw new Error(`Unable to load the current school configuration. Server returned ${configResponse.status}.`);
+                }
+            }
+
+            if (!currentSchool) throw new Error('The current school could not be identified.');
+
+            const configSchoolId = getSchoolMongoId(currentSchool);
+            if (configSchoolId && String(configSchoolId) !== authenticatedSchoolId) {
+                throw new Error('The school configuration does not match your authenticated school.');
+            }
+
+            schoolSubdomain = currentSchool?.subdomain || tenantSubdomain || '';
+            publicSchoolId = currentSchool?.schoolId || currentSchool?.publicSchoolId || '';
+
+            if (schoolSubdomain) localStorage.setItem('schoolSubdomain', schoolSubdomain);
+            if (publicSchoolId) localStorage.setItem('schoolId', publicSchoolId);
+
+            applySchoolBranding();
+            verifySchoolContext();
+            return currentSchool;
+        }
 
         function showSpinner(show) {
             const el = document.getElementById('profileSpinnerOverlay');
@@ -804,62 +983,80 @@
         async function fetchAndRenderStudent() {
             const profileWrapper = document.querySelector('.profile-wrapper');
             showSpinner(true);
+
             if (!studentIdParam) {
                 showSpinner(false);
-                profileWrapper.innerHTML = "<p style='color:#dc3545;'>No student selected.</p>";
+                if (profileWrapper) profileWrapper.innerHTML = "<p style='color:#dc3545;'>No student selected.</p>";
                 return;
             }
+
             try {
-                let url = `${API_BASE_URL}/api/student?student_id=${encodeURIComponent(studentIdParam)}`;
-                let res = await fetch(url);
+                await loadSchoolContext();
+
+                const identifier = encodeURIComponent(studentIdParam);
+                let res = await apiFetch(`${API_ROOT}/student?student_id=${identifier}`);
                 let data = await res.json();
-                let stu = (Array.isArray(data.students) && data.students.length > 0) ? data.students[0] : null;
+                let students = Array.isArray(data.students) ? data.students : [];
 
-                if (!stu) {
-                    url = `${API_BASE_URL}/api/student?regNo=${encodeURIComponent(studentIdParam)}`;
-                    res = await fetch(url);
+                if (!students.length) {
+                    res = await apiFetch(`${API_ROOT}/student?regNo=${identifier}`);
                     data = await res.json();
-                    stu = (Array.isArray(data.students) && data.students.length > 0) ? data.students[0] : null;
+                    students = Array.isArray(data.students) ? data.students : [];
                 }
 
-                if (!stu) {
-                    showSpinner(false);
-                    profileWrapper.innerHTML = "<p style='color:#dc3545;'>Student not found.</p>";
-                    return;
+                const stu = students[0];
+                if (!stu) throw new Error('Student not found in the current school.');
+
+                const studentSchoolId = stu.schoolId?._id || stu.schoolId?.id || stu.schoolId || '';
+                const currentSchoolId = getSchoolMongoId(currentSchool);
+                if (studentSchoolId && currentSchoolId && String(studentSchoolId) !== String(currentSchoolId)) {
+                    throw new Error('This student does not belong to the current school.');
                 }
-                loadedStudent = stu;
-                document.getElementById('student-avatar').src = stu.photoBase64 || stu.photo || 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png';
-                document.getElementById('student-name').textContent = ((stu.firstname||'') + ' ' + (stu.surname||'')).trim();
-                document.getElementById('student-reg').textContent = 'Reg No: ' + (stu.regNo || stu.student_id || studentIdParam);
+
+                const avatar = document.getElementById('student-avatar');
+                if (avatar) avatar.src = stu.photoBase64 || stu.photo || 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png';
+
+                const studentName = `${stu.firstname || ''} ${stu.surname || ''}`.trim();
+                const nameEl = document.getElementById('student-name');
+                if (nameEl) nameEl.textContent = studentName || stu.name || 'Student';
+
+                const regEl = document.getElementById('student-reg');
+                if (regEl) regEl.textContent = 'Reg No: ' + (stu.regNo || stu.student_id || studentIdParam);
+
+                const classValue = stu.class && typeof stu.class === 'object' ? (stu.class.name || stu.class.className || '') : (stu.class || '');
+                const detailFields = [
+                    { label: 'Class', value: classValue },
+                    { label: 'Class Arm', value: stu.classArm || '' },
+                    { label: 'Scratch Card', value: stu.scratchCard || '' },
+                    { label: 'Date of Birth', value: stu.dob ? new Date(stu.dob).toLocaleDateString() : '' },
+                    { label: 'Gender', value: stu.gender || '' },
+                    { label: 'Parent Name', value: stu.parentName || '' },
+                    { label: 'Parent Phone', value: stu.parentPhone || '' },
+                    { label: 'Parent Email', value: stu.parentEmail || '' },
+                    { label: 'Student Email', value: stu.studentEmail || '' },
+                    { label: 'Student Phone', value: stu.studentPhone || '' },
+                    { label: 'Address', value: stu.address || '' },
+                    { label: 'Nationality', value: stu.nationality || '' },
+                    { label: 'State', value: stu.state || '' },
+                    { label: 'LGA', value: stu.lga || '' },
+                    { label: 'Previous School', value: stu.previousSchool || '' },
+                    { label: 'Admission Date', value: stu.admissionDate ? new Date(stu.admissionDate).toLocaleDateString() : '' },
+                    { label: 'Academic Session', value: stu.academicSession || stu.session || '' }
+                ];
 
                 const table = document.getElementById('profile-table');
-                const detailFields = [
-                    {label: "Class", value: stu.class && stu.class.name ? stu.class.name : (stu.class || '')},
-                    {label: "Class Arm", value: stu.classArm || ''},
-                    {label: "Scratch Card", value: stu.scratchCard || ''},
-                    {label: "Date of Birth", value: stu.dob ? (new Date(stu.dob)).toLocaleDateString() : ''},
-                    {label: "Gender", value: stu.gender || ''},
-                    {label: "Parent Name", value: stu.parentName || ''},
-                    {label: "Parent Phone", value: stu.parentPhone || ''},
-                    {label: "Parent Email", value: stu.parentEmail || ''},
-                    {label: "Student Email", value: stu.studentEmail || ''},
-                    {label: "Student Phone", value: stu.studentPhone || ''},
-                    {label: "Address", value: stu.address || ''},
-                    {label: "Nationality", value: stu.nationality || ''},
-                    {label: "State", value: stu.state || ''},
-                    {label: "LGA", value: stu.lga || ''},
-                    {label: "Previous School", value: stu.previousSchool || ''},
-                    {label: "Admission Date", value: stu.admissionDate ? (new Date(stu.admissionDate)).toLocaleDateString() : ''},
-                    {label: "Academic Session", value: stu.academicSession || ''}
-                ];
-                table.innerHTML = detailFields.map(f => `<tr><td>${f.label}</td><td>${f.value}</td></tr>`).join('');
+                if (table) {
+                    const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                    table.innerHTML = detailFields.map(f => `<tr><td>${esc(f.label)}</td><td>${esc(f.value)}</td></tr>`).join('');
+                }
             } catch (err) {
-                showSpinner(false);
-                console.error(err);
+                console.error('Student profile loading error:', err);
+                if (profileWrapper) profileWrapper.innerHTML = `<p style='color:#dc3545;'>${String(err.message || 'Unable to load student profile.').replace(/</g,'&lt;')}</p>`;
             } finally {
                 showSpinner(false);
             }
         }
+
         fetchAndRenderStudent();
 
         // Skills Modal
@@ -928,7 +1125,7 @@
 
             try {
                 const regNo = encodeURIComponent(loadedStudent.regNo);
-                const res = await fetch(`${API_BASE_URL}/api/student/${regNo}/skills-report`, {
+                const res = await fetch(`${API_ROOT}/student/${regNo}/skills-report`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
@@ -1032,7 +1229,7 @@
             }
             try {
                 const identifier = encodeURIComponent(loadedStudent.student_id || loadedStudent.regNo);
-                let res = await fetch(`${API_BASE_URL}/api/students/${identifier}`, {
+                let res = await fetch(`${API_ROOT}/students/${identifier}`, {
                     method: "PUT",
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(editData)
