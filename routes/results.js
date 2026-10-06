@@ -719,48 +719,159 @@ router.get('/dashboard/all', async (req, res) => {
 // 9. GET /check (Public route - Resolves schoolId dynamically via Student)
 router.get('/check', async (req, res) => {
   try {
-    const { regNo, scratchCard, class: className, session, term } = req.query;
-    if (!regNo || !scratchCard || !className || !session || !term)
-      return res.status(400).json({ error: 'Missing required parameters.' });
-
-    let student = await Student.findOne({ regNo }) || await Student.findOne({ student_id: regNo });
-    if (!student) return res.status(404).json({ error: 'Student not found.' });
-
-    const schoolId = student.schoolId;
-    if (!schoolId) return res.status(404).json({ error: 'School context for student not found.' });
-
-    const storedCard = (student.scratchCard || 'ABCD').trim().toUpperCase();
-    if (scratchCard.trim().toUpperCase() !== storedCard) {
-      return res.status(401).json({ error: 'Invalid scratch card' });
+    const {
+      regNo,
+      scratchCard,
+      class: classRef,
+      session: sessionRef,
+      term: termRef
+    } = req.query;
+    if (!regNo || !scratchCard || !classRef || !sessionRef || !termRef) {
+      return res.status(400).json({
+        error: 'Missing required parameters.'
+      });
     }
-
-    const classObj = await Class.findOne({ schoolId, name: className });
-    if (!classObj) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
-    
-    const sessionObj = await Session.findOne({ schoolId, name: session });
-    if (!sessionObj) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
-    
-    const termObj = await Term.findOne({ schoolId, name: term });
-    if (!termObj) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
-
-    const results = await Result.find({
+    const student = await Student.findOne({
+      $or: [
+        { regNo: String(regNo).trim() },
+        { student_id: String(regNo).trim() }
+      ]
+    });
+    if (!student) {
+      return res.status(404).json({
+        error: 'Student not found.'
+      });
+    }
+    const schoolId = student.schoolId;
+    if (!schoolId) {
+      return res.status(404).json({
+        error: 'School context for student not found.'
+      });
+    }
+    const storedCard = String(student.scratchCard || 'ABCD')
+      .trim()
+      .toUpperCase();
+    const suppliedCard = String(scratchCard)
+      .trim()
+      .toUpperCase();
+    if (suppliedCard !== storedCard) {
+      return res.status(401).json({
+        error: 'Invalid scratch card'
+      });
+    }
+    let classObj = null;
+    if (mongoose.Types.ObjectId.isValid(String(classRef))) {
+      classObj = await Class.findOne({
+        _id: classRef,
+        schoolId
+      });
+    }
+    if (!classObj) {
+      classObj = await Class.findOne({
+        schoolId,
+        name: String(classRef).trim()
+      });
+    }
+    if (!classObj) {
+      return res.status(404).json({
+        error: 'Result unavailable for selected session and term.'
+      });
+    }
+    let sessionObj = null;
+    if (mongoose.Types.ObjectId.isValid(String(sessionRef))) {
+      sessionObj = await Session.findOne({
+        _id: sessionRef,
+        schoolId
+      });
+    }
+    if (!sessionObj) {
+      sessionObj = await Session.findOne({
+        schoolId,
+        name: String(sessionRef).trim()
+      });
+    }
+    if (!sessionObj) {
+      return res.status(404).json({
+        error: 'Result unavailable for selected session and term.'
+      });
+    }
+    let termObj = null;
+    if (mongoose.Types.ObjectId.isValid(String(termRef))) {
+      termObj = await Term.findOne({
+        _id: termRef,
+        schoolId,
+        session: sessionObj._id
+      });
+    }
+    if (!termObj) {
+      termObj = await Term.findOne({
+        schoolId,
+        name: String(termRef).trim(),
+        session: sessionObj._id
+      });
+    }
+    if (!termObj) {
+      if (mongoose.Types.ObjectId.isValid(String(termRef))) {
+        termObj = await Term.findOne({
+          _id: termRef,
+          schoolId
+        });
+      }
+    }
+    if (!termObj) {
+      return res.status(404).json({
+        error: 'Result unavailable for selected session and term.'
+      });
+    }
+    const resultQuery = {
       schoolId,
       student: student._id,
       class: classObj._id,
       session: sessionObj._id,
       term: termObj._id,
       status: 'Published'
-    }).populate('subject');
-
-    if (!results.length) return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
-
+    };
+    console.log('========== CHECK RESULT ==========');
+    console.log('Reg No:', regNo);
+    console.log('School:', schoolId.toString());
+    console.log('Student:', student._id.toString());
+    console.log('Class:', classObj._id.toString(), classObj.name);
+    console.log('Session:', sessionObj._id.toString(), sessionObj.name);
+    console.log('Term:', termObj._id.toString(), termObj.name);
+    console.log('Result query:', resultQuery);
+    const results = await Result.find(resultQuery)
+      .populate('subject')
+      .sort({ _id: 1 });
+    console.log('Published results found:', results.length);
+    console.log(
+      'Result IDs:',
+      results.map(result => result._id.toString())
+    );
+    console.log('=================================');
+    if (!results.length) {
+      return res.status(404).json({
+        error: 'Result unavailable for selected session and term.'
+      });
+    }
     const sessionSettings = await getSessionSettings(schoolId);
-    const reportData = await buildReportData(student, classObj, sessionObj, termObj, results, sessionSettings, schoolId);
+    const reportData = await buildReportData(
+      student,
+      classObj,
+      sessionObj,
+      termObj,
+      results,
+      sessionSettings,
+      schoolId
+    );
     res.json(reportData);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('CHECK RESULT ERROR:', err);
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
+
 
 // 10. GET /student/:studentId/report
 router.get('/student/:studentId/report', async (req, res) => {
