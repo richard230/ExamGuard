@@ -5,6 +5,111 @@ const Class = require('../models/Class');
 const studentAuth = require('../middleware/studentAuth');
 const adminAuth = require('../middleware/adminAuth');
 const { authMiddleware } = require('./auth');
+const mongoose = require('mongoose');
+const School = require('../models/School');
+
+/* ============================================
+   MULTI-SCHOOL / TENANT HELPERS
+   ============================================ */
+
+function getUserSchoolIdentifiers(user = {}) {
+  const values = [
+    user.schoolId,
+    user.schoolKey,
+    user.schoolCode,
+    typeof user.school === 'string' ? user.school : null,
+    user.school?.schoolId,
+    user.school?._id
+  ]
+    .filter(Boolean)
+    .map(value => String(value).trim());
+
+  return [...new Set(values)];
+}
+
+function isPlatformAdmin(user = {}) {
+  const roles = [user.role, user.userType, user.accountType, user.type]
+    .filter(Boolean)
+    .map(value => String(value).toLowerCase().trim());
+
+  return roles.some(role => [
+    'systemadmin',
+    'system_admin',
+    'platformadmin',
+    'platform_admin'
+  ].includes(role));
+}
+
+function getRequestedSchoolId(req) {
+  return String(
+    req.params?.schoolId ||
+    req.body?.schoolId ||
+    req.query?.schoolId ||
+    req.headers?.['x-school-id'] ||
+    req.headers?.['x-school-code'] ||
+    req.headers?.['x-schoolid'] ||
+    ''
+  ).trim();
+}
+
+async function resolveCurrentSchool(req) {
+  const user = req.user || {};
+  const identifiers = getUserSchoolIdentifiers(user);
+  const requestedId = getRequestedSchoolId(req);
+  const platformAdmin = isPlatformAdmin(user);
+  const schoolIdentifier = requestedId || identifiers[0] || '';
+
+  if (!schoolIdentifier) return null;
+
+  const query = {
+    status: 'active',
+    isDeleted: { $ne: true }
+  };
+
+  if (mongoose.Types.ObjectId.isValid(schoolIdentifier)) {
+    query._id = schoolIdentifier;
+  } else {
+    query.schoolId = schoolIdentifier;
+  }
+
+  const school = await School.findOne(query).lean();
+  if (!school) return null;
+
+  if (!platformAdmin) {
+    const belongs = identifiers.some(identifier =>
+      identifier === String(school._id) ||
+      identifier === String(school.schoolId)
+    );
+
+    if (!belongs) {
+      const error = new Error('You are not authorized to access this school.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  return school;
+}
+
+async function resolveStudentSchoolId(req, student) {
+  const user = req.user || {};
+  const identifiers = getUserSchoolIdentifiers(user);
+
+  // Prefer the student's own tenant when studentAuth already resolved it.
+  const studentSchool = student?.schoolId;
+  if (studentSchool) return String(studentSchool);
+
+  const school = await resolveCurrentSchool(req);
+  return school ? String(school._id) : null;
+}
+
+function schoolFilter(schoolId, extra = {}) {
+  return { ...extra, schoolId };
+}
+
+function classStudentFilter(schoolId, classId) {
+  return schoolFilter(schoolId, { class: classId });
+}
 
 /* ============================================
    STUDENT ENDPOINTS - View Own Fees
@@ -26,6 +131,10 @@ router.get('/me', studentAuth, async (req, res) => {
     }
 
     const fees = Array.isArray(student.fees) ? student.fees : [];
+
+    // Student fee data is already attached to the authenticated student.
+    // Resolve the tenant to prevent cross-school student access when available.
+    await resolveStudentSchoolId(req, student);
 
     let paid = 0, due = 0, total = 0, waived = 0, partial = 0;
     let breakdown = [];
@@ -108,7 +217,12 @@ router.get('/class/:classId/me', studentAuth, async (req, res) => {
       });
     }
 
-    const studentsInClass = await Student.find({ class: classId });
+    const schoolId = await resolveStudentSchoolId(req, req.student);
+    if (!schoolId) {
+      return res.status(401).json({ success: false, error: 'No active school is associated with this account.' });
+    }
+
+    const studentsInClass = await Student.find(classStudentFilter(schoolId, classId));
     
     if (!studentsInClass.length) {
       return res.status(404).json({ 
@@ -160,7 +274,12 @@ router.get('/class/:classId/me', studentAuth, async (req, res) => {
  */
 router.get('/meta/classes', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const classes = await Student.distinct('class');
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    const classes = await Student.distinct('class', schoolFilter(schoolId));
 
     res.json({
       success: true,
@@ -193,9 +312,15 @@ router.get('/search/student', authMiddleware, adminAuth, async (req, res) => {
       });
     }
 
-    const searchRegex = new RegExp(query, 'i');
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    const searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
     const students = await Student.find({
+      ...schoolFilter(schoolId),
       $or: [
         { firstname: searchRegex },
         { surname: searchRegex },
@@ -250,7 +375,12 @@ router.get('/stats/all', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { classId, term, session } = req.query;
 
-    let matchStage = {};
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    let matchStage = schoolFilter(schoolId);
     if (classId) matchStage.class = classId;
 
     const students = await Student.find(matchStage);
@@ -339,7 +469,12 @@ router.post('/export', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { classId, term, session, status } = req.body;
 
-    let query = {};
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    let query = schoolFilter(schoolId);
     if (classId) query.class = classId;
 
     const students = await Student.find(query)
@@ -424,15 +559,20 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
       });
     }
 
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+
     // Try to find students by classId (handle both string and ObjectId)
-    let students = await Student.find({ class: classId });
+    let students = await Student.find(classStudentFilter(schoolId, classId));
 
     // If no students found with direct ID, try to find class by name or other identifiers
     if (!students.length) {
       // Try finding by class name (case-insensitive)
-      students = await Student.find({ 
-        class: new RegExp(`^${classId}$`, 'i') 
-      });
+      const safeClassId = String(classId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      students = await Student.find(classStudentFilter(schoolId, new RegExp(`^${safeClassId}$`, 'i')));
     }
 
     // If still no students, try to find the class first
@@ -440,7 +580,7 @@ router.post('/class-setup', authMiddleware, adminAuth, async (req, res) => {
       try {
         const classRecord = await Class.findById(classId);
         if (classRecord && classRecord.name) {
-          students = await Student.find({ class: classRecord.name });
+          students = await Student.find(classStudentFilter(schoolId, classRecord.name));
         }
       } catch (e) {
         console.log('Class lookup failed:', e.message);
@@ -541,7 +681,12 @@ router.get('/', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { status, classId, term, session, search, limit = 50, skip = 0 } = req.query;
     
-    let query = {};
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    let query = schoolFilter(schoolId);
     if (classId) query.class = classId;
 
     let students = await Student.find(query)
@@ -651,8 +796,14 @@ router.post('/', authMiddleware, adminAuth, async (req, res) => {
       });
     }
 
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+
     // Find all students in the class
-    const students = await Student.find({ class: classId });
+    const students = await Student.find(classStudentFilter(schoolId, classId));
 
     if (!students.length) {
       return res.status(404).json({ 
@@ -736,7 +887,12 @@ router.get('/student/:studentId', authMiddleware, adminAuth, async (req, res) =>
       });
     }
 
-    const student = await Student.findOne({ student_id: studentId })
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    const student = await Student.findOne(schoolFilter(schoolId, { student_id: studentId }))
       .select('student_id firstname surname class fees email');
 
     if (!student) {
@@ -825,7 +981,12 @@ router.put('/student/:studentId/fee/:feeId', authMiddleware, adminAuth, async (r
       });
     }
 
-    const student = await Student.findOne({ student_id: studentId });
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    const student = await Student.findOne(schoolFilter(schoolId, { student_id: studentId }));
 
     if (!student) {
       return res.status(404).json({ 
@@ -923,7 +1084,12 @@ router.delete('/student/:studentId/fee/:feeId', authMiddleware, adminAuth, async
       });
     }
 
-    const student = await Student.findOne({ student_id: studentId });
+    const school = await resolveCurrentSchool(req);
+    if (!school) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
+    }
+    const schoolId = String(school._id);
+    const student = await Student.findOne(schoolFilter(schoolId, { student_id: studentId }));
 
     if (!student) {
       return res.status(404).json({ 
