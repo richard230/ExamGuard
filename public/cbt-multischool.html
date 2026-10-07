@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CBT | Computer Based Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --primary-lighter: #dbeafe;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+      color: var(--gray-700);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ========== HEADER ========== */
+    .cbt-header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      padding: 1rem 0;
+      box-shadow: var(--shadow-md);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .cbt-header-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .cbt-header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .cbt-header-logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .cbt-header-info {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .cbt-header-center {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    .cbt-timer-header {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.6rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 1px;
+    }
+
+    .cbt-timer-header.warning {
+      background: var(--warning);
+      color: white;
+    }
+
+    .cbt-timer-header.danger {
+      background: var(--danger);
+      color: white;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .cbt-header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .cbt-user-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
+      font-size: 0.9rem;
+    }
+
+    /* ========== MAIN LAYOUT ========== */
+    .cbt-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 3fr;
+      gap: 2rem;
+      min-height: calc(100vh - 80px);
+    }
+
+    /* ========== SIDEBAR ========== */
+    .cbt-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .cbt-panel {
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+
+    .cbt-panel-header {
+      background: linear-gradient(135deg, var(--primary-lighter) 0%, #e0e7ff 100%);
+      padding: 1rem;
+      font-weight: 700;
+      color: var(--primary);
+      border-left: 4px solid var(--primary);
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cbt-panel-body {
+      padding: 1.5rem;
+    }
+
+    /* Student Info Card */
+    .cbt-student-card {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .cbt-student-avatar {
+      width: 64px;
+      height: 64px;
+      min-width: 64px;
+      border-radius: 0.75rem;
+      background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .cbt-student-info h3 {
+      font-size: 1.05rem;
+      color: var(--gray-900);
+      margin-bottom: 0.25rem;
+    }
+
+    .cbt-student-info p {
+      font-size: 0.9rem;
+      color: var(--gray-500);
+      margin: 0.2rem 0;
+    }
+
+    /* Status Cards */
+    .cbt-status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .cbt-status-card {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .cbt-status-card:hover {
+      background: var(--gray-100);
+      border-color: var(--primary-light);
+    }
+
+    .cbt-status-card .label {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    .cbt-status-card .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .cbt-status-card.warning .value {
+      color: var(--warning);
+    }
+
+    .cbt-status-card.success .value {
+      color: var(--success);
+    }
+
+    /* Question Navigator */
+    .cbt-nav-header {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--gray-600);
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cbt-nav-legend {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.8rem;
+      margin-top: 0.8rem;
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .cbt-nav-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .cbt-nav-legend-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 0.25rem;
+      border: 2px solid var(--gray-300);
+    }
+
+    .cbt-nav-legend-dot.unanswered {
+      background: white;
+    }
+
+    .cbt-nav-legend-dot.answered {
+      background: var(--success);
+      border-color: var(--success);
+    }
+
+    .cbt-nav-legend-dot.current {
+      background: var(--warning);
+      border-color: var(--warning);
+    }
+
+    .cbt-question-navigator {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .cbt-question-navigator::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .cbt-question-navigator::-webkit-scrollbar-track {
+      background: var(--gray-100);
+      border-radius: 3px;
+    }
+
+    .cbt-question-navigator::-webkit-scrollbar-thumb {
+      background: var(--gray-300);
+      border-radius: 3px;
+    }
+
+    .cbt-question-navigator::-webkit-scrollbar-thumb:hover {
+      background: var(--gray-400);
+    }
+
+    .cbt-nav-btn {
+      aspect-ratio: 1;
+      border: 2px solid var(--gray-300);
+      background: white;
+      border-radius: 0.5rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--gray-600);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cbt-nav-btn:hover {
+      border-color: var(--primary-light);
+      background: var(--primary-lighter);
+    }
+
+    .cbt-nav-btn.answered {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+
+    .cbt-nav-btn.current {
+      background: var(--warning);
+      border-color: var(--warning);
+      color: var(--gray-900);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+
+    /* ========== MAIN CONTENT ========== */
+    .cbt-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Question Area */
+    .cbt-question-panel {
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+
+    .cbt-question-header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      padding: 1.5rem;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .cbt-question-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      opacity: 0.95;
+    }
+
+    .cbt-question-number {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .cbt-question-progress {
+      background: rgba(255, 255, 255, 0.3);
+      height: 4px;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .cbt-question-progress-bar {
+      background: white;
+      height: 100%;
+      transition: width 0.3s ease;
+      border-radius: 2px;
+    }
+
+    .cbt-question-body {
+      padding: 2rem;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .cbt-question-text {
+      font-size: 1.1rem;
+      color: var(--gray-900);
+      line-height: 1.8;
+      margin-bottom: 2rem;
+      font-weight: 500;
+    }
+
+    .cbt-question-text img {
+      max-width: 100%;
+      height: auto;
+      margin: 1.5rem 0;
+      border-radius: 0.5rem;
+      box-shadow: var(--shadow-sm);
+      display: block;
+    }
+
+    /* Options Grid */
+    .cbt-options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+      padding: 2rem;
+      background: var(--gray-50);
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .cbt-option {
+      background: white;
+      border: 2px solid var(--gray-200);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cbt-option::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: transparent;
+      transition: background 0.3s ease;
+    }
+
+    .cbt-option:hover {
+      border-color: var(--primary-light);
+      background: var(--primary-lighter);
+      box-shadow: var(--shadow-sm);
+      transform: translateY(-2px);
+    }
+
+    .cbt-option.selected {
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border-color: var(--success);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    .cbt-option.selected::before {
+      background: var(--success);
+    }
+
+    .cbt-option-label {
+      min-width: 40px;
+      width: 40px;
+      height: 40px;
+      border-radius: 0.5rem;
+      background: var(--gray-100);
+      border: 2px solid var(--gray-300);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--gray-600);
+      font-size: 1rem;
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+
+    .cbt-option:hover .cbt-option-label {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .cbt-option.selected .cbt-option-label {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+
+    .cbt-option-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cbt-option-text {
+      font-size: 1rem;
+      color: var(--gray-700);
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .cbt-option img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 1rem;
+      border-radius: 0.5rem;
+      box-shadow: var(--shadow-sm);
+      display: block;
+    }
+
+    /* ========== CONTROLS ========== */
+    .cbt-controls {
+      display: flex;
+      gap: 1rem;
+      padding: 2rem;
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: var(--shadow-md);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .cbt-btn {
+      padding: 0.75rem 1.75rem;
+      border: none;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+
+    .cbt-btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .cbt-btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .cbt-btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .cbt-btn-secondary {
+      background: var(--gray-100);
+      color: var(--gray-700);
+      border: 1px solid var(--gray-300);
+    }
+
+    .cbt-btn-secondary:hover:not(:disabled) {
+      background: var(--gray-200);
+      border-color: var(--gray-400);
+    }
+
+    .cbt-btn-success {
+      background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+      color: white;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .cbt-btn-success:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .cbt-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ========== RESULTS ========== */
+    .cbt-results-container {
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      max-width: 900px;
+      margin: 2rem auto;
+    }
+
+    .cbt-results-header {
+      background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+      color: white;
+      padding: 3rem 2rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .cbt-results-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .cbt-results-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .cbt-results-subtitle {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .cbt-score-display {
+      padding: 2rem;
+      text-align: center;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .cbt-score-big {
+      display: flex;
+      justify-content: center;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    .cbt-score-value {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .cbt-score-total {
+      font-size: 1.5rem;
+      color: var(--gray-500);
+    }
+
+    .cbt-score-percentage {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      margin-top: 1rem;
+    }
+
+    .cbt-results-body {
+      padding: 2rem;
+    }
+
+    .cbt-result-item {
+      padding: 1.5rem;
+      border: 1px solid var(--gray-200);
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      background: var(--gray-50);
+    }
+
+    .cbt-result-item-number {
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .cbt-result-item-question {
+      margin-bottom: 1rem;
+      color: var(--gray-700);
+      line-height: 1.6;
+    }
+
+    .cbt-result-item-feedback {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .cbt-result-answer {
+      padding: 1rem;
+      border-radius: 0.5rem;
+      background: white;
+    }
+
+    .cbt-result-answer-label {
+      font-weight: 600;
+      color: var(--gray-600);
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .cbt-result-answer-value {
+      color: var(--gray-900);
+      font-weight: 500;
+    }
+
+    .cbt-result-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      text-align: center;
+    }
+
+    .cbt-result-status.correct {
+      background: #ecfdf5;
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    .cbt-result-status.incorrect {
+      background: #fef2f2;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .cbt-results-footer {
+      padding: 2rem;
+      background: var(--gray-50);
+      border-top: 1px solid var(--gray-200);
+      text-align: center;
+    }
+
+    /* ========== LOADERS & EMPTY STATES ========== */
+    .cbt-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 4rem 2rem;
+      text-align: center;
+    }
+
+    .cbt-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--gray-200);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .cbt-loader-text {
+      color: var(--gray-600);
+      font-size: 1rem;
+    }
+
+    .cbt-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 4rem 2rem;
+      text-align: center;
+      background: white;
+      border-radius: 0.75rem;
+      box-shadow: var(--shadow-md);
+    }
+
+    .cbt-empty-icon {
+      font-size: 4rem;
+      color: var(--gray-300);
+    }
+
+    .cbt-empty-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gray-700);
+    }
+
+    .cbt-empty-text {
+      color: var(--gray-500);
+      max-width: 400px;
+    }
+
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 1024px) {
+      .cbt-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .cbt-question-navigator {
+        grid-template-columns: repeat(8, 1fr);
+      }
+
+      .cbt-options-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .cbt-header-container {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .cbt-timer-header {
+        font-size: 0.95rem;
+        padding: 0.5rem 1rem;
+      }
+
+      .cbt-container {
+        padding: 1rem;
+        gap: 1rem;
+      }
+
+      .cbt-question-body {
+        padding: 1.5rem;
+        min-height: auto;
+      }
+
+      .cbt-options-grid {
+        padding: 1.5rem;
+        gap: 1rem;
+      }
+
+      .cbt-controls {
+        padding: 1.5rem;
+        gap: 0.75rem;
+      }
+
+      .cbt-btn {
+        padding: 0.6rem 1.25rem;
+        font-size: 0.9rem;
+      }
+
+      .cbt-question-navigator {
+        grid-template-columns: repeat(6, 1fr);
+      }
+
+      .cbt-status-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .cbt-score-value {
+        font-size: 2.5rem;
+      }
+
+      .cbt-result-item-feedback {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .cbt-header-left {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .cbt-header-logo {
+        font-size: 1.1rem;
+      }
+
+      .cbt-question-navigator {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .cbt-question-text {
+        font-size: 1rem;
+      }
+
+      .cbt-option {
+        gap: 0.75rem;
+        padding: 1rem;
+      }
+
+      .cbt-option-label {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+      }
+
+      .cbt-score-value {
+        font-size: 2rem;
+      }
+
+      .cbt-score-total {
+        font-size: 1.1rem;
+      }
+    }
+
+    /* Print Styles */
+    @media print {
+      .cbt-header,
+      .cbt-sidebar,
+      .cbt-controls {
+        display: none;
+      }
+
+      .cbt-container {
+        grid-template-columns: 1fr;
+        padding: 0;
+      }
+
+      .cbt-question-panel,
+      .cbt-results-container {
+        box-shadow: none;
+        page-break-inside: avoid;
+      }
+    }
+  
+    #schoolHeaderBrand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    #schoolHeaderName {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 768px) {
+      #schoolHeaderName {
+        max-width: 220px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #schoolHeaderName {
+        max-width: 160px;
+      }
+    }
+
+</style>
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="cbt-header">
+    <div class="cbt-header-container">
+      <div class="cbt-header-left">
+        <div class="cbt-header-logo" id="schoolHeaderBrand">
+          <img id="schoolHeaderLogo" alt="" style="display:none;width:34px;height:34px;object-fit:contain;border-radius:8px;vertical-align:middle;margin-right:8px;background:#fff;padding:3px;">
+          <span id="schoolHeaderName">Loading school...</span>
+        </div>
+        <div class="cbt-header-info" id="headerSubject">-</div>
+      </div>
+      
+      <div class="cbt-header-center">
+        <div class="cbt-timer-header" id="cbtTimer">00:00</div>
+      </div>
+
+      <div class="cbt-header-right">
+        <div class="cbt-user-badge" id="userBadge">
+          <i class="fas fa-user-circle"></i>
+          <span id="headerStudentName">Student</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <div class="cbt-container">
+    <!-- SIDEBAR -->
+    <aside class="cbt-sidebar">
+      <!-- Student Card -->
+      <div class="cbt-panel">
+        <div class="cbt-panel-header"><i class="fas fa-user"></i> Student</div>
+        <div class="cbt-panel-body">
+          <div class="cbt-student-card">
+            <div class="cbt-student-avatar">
+              <i class="fas fa-user"></i>
+            </div>
+            <div class="cbt-student-info">
+              <h3 id="studentName">Loading...</h3>
+              <p id="studentClass">Class: -</p>
+              <p id="studentEmail">-</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exam Status -->
+      <div class="cbt-panel">
+        <div class="cbt-panel-header"><i class="fas fa-chart-bar"></i> Status</div>
+        <div class="cbt-panel-body">
+          <div class="cbt-status-grid">
+            <div class="cbt-status-card">
+              <div class="label">Total</div>
+              <div class="value" id="cbtTotalQuestions">-</div>
+            </div>
+            <div class="cbt-status-card success">
+              <div class="label">Answered</div>
+              <div class="value" id="cbtTotalAnswered">0</div>
+            </div>
+            <div class="cbt-status-card warning">
+              <div class="label">Remaining</div>
+              <div class="value" id="cbtTotalLeft">-</div>
+            </div>
+            <div class="cbt-status-card">
+              <div class="label">Progress</div>
+              <div class="value" id="progressPercent">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Question Navigator -->
+      <div class="cbt-panel">
+        <div class="cbt-panel-header"><i class="fas fa-list-ol"></i> Questions</div>
+        <div class="cbt-panel-body">
+          <div class="cbt-nav-header">
+            <span>Navigate to Question</span>
+            <span id="navQCount">0/0</span>
+          </div>
+          <div class="cbt-question-navigator" id="cbtQuestionNav"></div>
+          <div class="cbt-nav-legend">
+            <div class="cbt-nav-legend-item">
+              <div class="cbt-nav-legend-dot unanswered"></div>
+              <span>Unanswered</span>
+            </div>
+            <div class="cbt-nav-legend-item">
+              <div class="cbt-nav-legend-dot answered"></div>
+              <span>Answered</span>
+            </div>
+            <div class="cbt-nav-legend-item">
+              <div class="cbt-nav-legend-dot current"></div>
+              <span>Current</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="cbt-content">
+      <!-- Loader -->
+      <div id="cbtExamLoader" class="cbt-loader">
+        <div class="cbt-spinner"></div>
+        <div class="cbt-loader-text">Loading your exam...</div>
+      </div>
+
+      <!-- Exam Area -->
+      <div id="cbtExamArea" style="display: none;">
+        <!-- Question Panel -->
+        <div class="cbt-question-panel">
+          <div class="cbt-question-header">
+            <div class="cbt-question-meta">
+              <span class="cbt-question-number" id="cbtQuestionNumber">Question 1</span>
+              <span id="cbtTestTitle">-</span>
+            </div>
+            <div class="cbt-question-progress">
+              <div class="cbt-question-progress-bar" id="progressBar"></div>
+            </div>
+          </div>
+
+          <div class="cbt-question-body">
+            <div class="cbt-question-text" id="cbtQuestionText">Loading...</div>
+          </div>
+
+          <div class="cbt-options-grid" id="cbtOptions"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="cbt-controls">
+          <button class="cbt-btn cbt-btn-secondary" id="cbtPrevBtn">
+            <i class="fas fa-chevron-left"></i> Previous
+          </button>
+          <button class="cbt-btn cbt-btn-secondary" id="cbtNextBtn">
+            Next <i class="fas fa-chevron-right"></i>
+          </button>
+          <button class="cbt-btn cbt-btn-success" id="cbtSubmitBtn">
+            <i class="fas fa-paper-plane"></i> Submit Exam
+          </button>
+        </div>
+      </div>
+
+      <!-- Results Area -->
+      <div id="cbtResultArea" style="display: none;"></div>
+
+      <!-- No Exam Area -->
+      <div id="cbtNoExamArea" style="display: none;">
+    <script>
+
+// ================================================================
+// EXAMGUARD MULTI-SCHOOL CBT CONTEXT
+// ================================================================
+
+const API_BASE_URL = "https://goldlincschools.onrender.com";
+
+const SCHOOL_CACHE_KEY = "currentSchoolConfig";
+const SCHOOL_ID_KEY = "schoolId";
+const SCHOOL_SUBDOMAIN_KEY = "schoolSubdomain";
+
+let currentSchool = null;
+let schoolConfigLoaded = false;
+
+let token =
+  localStorage.getItem("student_token") ||
+  localStorage.getItem("studentToken") ||
+  localStorage.getItem("token");
+
+let student = {
+  name: "",
+  class: "",
+  subject: "",
+  avatar: "",
+  _id: "",
+  classId: "",
+  email: ""
+};
+
+let exam = null;
+let startedAt = new Date().toISOString();
+let questions = [];
+let answers = [];
+let currentQ = 0;
+let timerSeconds = 0;
+let timerInterval = null;
+
+// ---------------------------------------------------------------
+// Tenant resolution
+// ---------------------------------------------------------------
+
+function getQueryParam(name) {
+  return new URLSearchParams(window.location.search).get(name) || "";
+}
+
+function getSchoolSubdomain() {
+  const host = window.location.hostname.toLowerCase();
+
+  const match = host.match(
+    /^([a-z0-9-]+)\.examguard\.com\.ng$/
+  );
+
+  if (match && match[1]) {
+    const subdomain = match[1];
+
+    if (!["www", "examguard"].includes(subdomain)) {
+      return subdomain;
+    }
+  }
+
+  return (
+    getQueryParam("subdomain") ||
+    getQueryParam("schoolSubdomain") ||
+    sessionStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
+    localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
+    ""
+  ).trim();
+}
+
+function getResolvedSchoolId() {
+  const id =
+    currentSchool?._id ||
+    currentSchool?.schoolId ||
+    currentSchool?.id ||
+    "";
+
+  if (id) return String(id);
+
+  try {
+    const cached = JSON.parse(
+      localStorage.getItem(SCHOOL_CACHE_KEY) || "null"
+    );
+
+    return String(
+      cached?._id ||
+      cached?.schoolId ||
+      cached?.id ||
+      localStorage.getItem(SCHOOL_ID_KEY) ||
+      ""
+    ).trim();
+  } catch (_) {
+    return String(
+      localStorage.getItem(SCHOOL_ID_KEY) || ""
+    ).trim();
+  }
+}
+
+function getSchoolRequestHeaders() {
+  const schoolId = getResolvedSchoolId();
+  const subdomain = getSchoolSubdomain();
+
+  return {
+    ...(schoolId ? { "X-School-ID": schoolId } : {}),
+    ...(subdomain
+      ? { "X-School-Subdomain": subdomain }
+      : {})
+  };
+}
+
+function resolveMediaUrl(url) {
+  const value = String(url || "").trim();
+
+  if (!value) return "";
+
+  if (/^(https?:|data:|blob:)/i.test(value)) {
+    return value;
+  }
+
+  if (value.startsWith("//")) {
+    return window.location.protocol + value;
+  }
+
+  if (value.startsWith("/")) {
+    return API_BASE_URL + value;
+  }
+
+  return API_BASE_URL + "/" + value;
+}
+
+function schoolInitials(name) {
+  return String(name || "School")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(word => word[0].toUpperCase())
+    .join("") || "SC";
+}
+
+// ---------------------------------------------------------------
+// School branding
+// ---------------------------------------------------------------
+
+function applySchoolConfiguration(school) {
+  if (!school || typeof school !== "object") return;
+
+  currentSchool = school;
+
+  const schoolName =
+    school.schoolName ||
+    school.name ||
+    "School";
+
+  const logoUrl = resolveMediaUrl(
+    school.logoUrl ||
+    school.logo ||
+    school.schoolLogo ||
+    school.branding?.logoUrl ||
+    school.branding?.logo
+  );
+
+  const primary =
+    school.branding?.primaryColor ||
+    school.branding?.primary ||
+    school.primaryColor ||
+    "#1e3a8a";
+
+  const secondary =
+    school.branding?.secondaryColor ||
+    school.branding?.secondary ||
+    school.secondaryColor ||
+    "#3b82f6";
+
+  const accent =
+    school.branding?.accentColor ||
+    school.branding?.accent ||
+    school.accentColor ||
+    "#17c3b2";
+
+  document.documentElement.style.setProperty(
+    "--primary",
+    primary
+  );
+
+  document.documentElement.style.setProperty(
+    "--primary-light",
+    secondary
+  );
+
+  document.documentElement.style.setProperty(
+    "--accent",
+    accent
+  );
+
+  document.documentElement.style.setProperty(
+    "--primary-lighter",
+    school.branding?.primaryLighter ||
+    school.primaryLighter ||
+    "#dbeafe"
+  );
+
+  document.title =
+    "CBT | " + schoolName;
+
+  const headerName =
+    document.getElementById("schoolHeaderName");
+
+  if (headerName) {
+    headerName.textContent = schoolName;
+  }
+
+  const headerLogo =
+    document.getElementById("schoolHeaderLogo");
+
+  if (headerLogo) {
+    if (logoUrl) {
+      headerLogo.src = logoUrl;
+      headerLogo.alt = schoolName + " Logo";
+      headerLogo.style.display = "inline-block";
+
+      headerLogo.onerror = function () {
+        this.onerror = null;
+        this.style.display = "none";
+      };
+    } else {
+      headerLogo.removeAttribute("src");
+      headerLogo.style.display = "none";
+    }
+  }
+
+  try {
+    localStorage.setItem(
+      SCHOOL_CACHE_KEY,
+      JSON.stringify(school)
+    );
+
+    const realSchoolId =
+      school._id ||
+      school.schoolId ||
+      school.id;
+
+    if (realSchoolId) {
+      localStorage.setItem(
+        SCHOOL_ID_KEY,
+        String(realSchoolId)
+      );
+    }
+
+    const subdomain = getSchoolSubdomain();
+
+    if (subdomain) {
+      localStorage.setItem(
+        SCHOOL_SUBDOMAIN_KEY,
+        subdomain
+      );
+
+      sessionStorage.setItem(
+        SCHOOL_SUBDOMAIN_KEY,
+        subdomain
+      );
+    }
+  } catch (_) {}
+}
+
+async function loadSchoolConfiguration() {
+  /*
+   * Show cached branding immediately while the current tenant
+   * configuration is being refreshed.
+   */
+  try {
+    const cached = JSON.parse(
+      localStorage.getItem(SCHOOL_CACHE_KEY) || "null"
+    );
+
+    if (cached) {
+      applySchoolConfiguration(cached);
+    }
+  } catch (_) {}
+
+  const subdomain = getSchoolSubdomain();
+
+  if (!subdomain) {
+    throw new Error(
+      "No school portal was detected. Please open your school's ExamGuard portal."
+    );
+  }
+
+  /*
+   * IMPORTANT:
+   * The URL subdomain identifies the tenant.
+   * The backend returns the real MongoDB schoolId.
+   *
+   * We do NOT use the subdomain as schoolId.
+   */
+  const url =
+    API_BASE_URL +
+    "/api/schools/config?subdomain=" +
+    encodeURIComponent(subdomain);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    },
+    credentials: "include"
+  });
+
+  let data = {};
+
+  try {
+    data = await response.json();
+  } catch (_) {}
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      "Unable to load this school's configuration."
+    );
+  }
+
+  const school =
+    data?.school ||
+    data?.data?.school ||
+    data?.data ||
+    data;
+
+  const schoolId =
+    school?._id ||
+    school?.schoolId ||
+    school?.id;
+
+  if (!school || !schoolId) {
+    throw new Error(
+      "The school configuration returned by the server is invalid."
+    );
+  }
+
+  applySchoolConfiguration(school);
+  schoolConfigLoaded = true;
+
+  return school;
+}
+
+// ---------------------------------------------------------------
+// Student activity
+// ---------------------------------------------------------------
+
+async function logStudentActivity(action, extra = {}) {
+  const payload = {
+    student: student._id,
+    exam: exam?._id,
+    schoolId: getResolvedSchoolId(),
+    action,
+    timestamp: new Date().toISOString(),
+    ...extra
+  };
+
+  try {
+    await fetch(API_BASE_URL + "/api/activity", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getSchoolRequestHeaders(),
+        ...(token
+          ? { "Authorization": "Bearer " + token }
+          : {})
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.warn(
+      "Activity logging failed:",
+      e
+    );
+  }
+}
+
+// ---------------------------------------------------------------
+// Student
+// ---------------------------------------------------------------
+
+async function loadStudent() {
+  try {
+    if (!token) {
+      window.location.href = "cbt-login.html";
+      return;
+    }
+
+    const schoolId = getResolvedSchoolId();
+
+    if (!schoolId) {
+      throw new Error(
+        "School configuration is missing."
+      );
+    }
+
+    const studentRes = await fetch(
+      API_BASE_URL + "/api/student/me",
+      {
+        headers: {
+          ...getSchoolRequestHeaders(),
+          "Authorization":
+            "Bearer " + token
+        },
+        credentials: "include"
+      }
+    );
+
+    if (!studentRes.ok) {
+      throw new Error(
+        "Failed to load student"
+      );
+    }
+
+    const studentJson =
+      await studentRes.json();
+
+    student.name =
+      studentJson.name ||
+      (
+        studentJson.firstname &&
+        studentJson.surname
+          ? studentJson.firstname +
+            " " +
+            studentJson.surname
+          : "Student"
+      );
+
+    student.class =
+      typeof studentJson.class === "object" &&
+      studentJson.class?.name
+        ? studentJson.class.name
+        : typeof studentJson.class === "string"
+          ? studentJson.class
+          : "-";
+
+    student.classId =
+      studentJson.class?._id ||
+      studentJson.class;
+
+    student.email =
+      studentJson.email || "-";
+
+    student.avatar =
+      studentJson.photo_url ||
+      studentJson.photoUrl ||
+      studentJson.profilePicture ||
+      studentJson.profile_picture ||
+      studentJson.avatar ||
+      "";
+
+    student._id =
+      studentJson._id ||
+      studentJson.id ||
+      studentJson.studentId;
+
+    showExamCodePrompt();
+
+  } catch (error) {
+    console.error(
+      "Error loading student:",
+      error
+    );
+
+    showNoExam();
+
+    const noExamText =
+      document.getElementById(
+        "noExamText"
+      );
+
+    if (noExamText) {
+      noExamText.textContent =
+        error.message ||
+        "Unable to load your student account.";
+    }
+  }
+}
+
+// ---------------------------------------------------------------
+// Exam code
+// ---------------------------------------------------------------
+
+function showExamCodePrompt() {
+  document.getElementById(
+    "cbtExamLoader"
+  ).style.display = "none";
+
+  document.getElementById(
+    "cbtNoExamArea"
+  ).style.display = "";
+
+  document.getElementById(
+    "cbtNoExamArea"
+  ).innerHTML = `
+    <div class="cbt-empty-state">
+      <div class="cbt-empty-icon">
+        <i class="fas fa-key"></i>
+      </div>
+
+      <div class="cbt-empty-title">
+        Enter Exam Code
+      </div>
+
+      <div class="cbt-empty-text">
+        Please enter the exam code provided by your teacher.
+      </div>
+
+      <div style="margin-top:20px;display:flex;gap:10px;max-width:500px;width:100%;">
+        <input
+          id="examCodeInput"
+          placeholder="Enter code"
+          autocomplete="off"
+          style="padding:10px;border:1px solid #ccc;border-radius:6px;flex:1;min-width:0;"
+        />
+
+        <button
+          class="cbt-btn cbt-btn-primary"
+          onclick="submitExamCode()"
+        >
+          Start Exam
+        </button>
+      </div>
+
+      <div
+        id="codeError"
+        style="color:red;margin-top:10px;"
+      ></div>
+    </div>
+  `;
+
+  const input =
+    document.getElementById(
+      "examCodeInput"
+    );
+
+  if (input) {
+    input.addEventListener(
+      "keydown",
+      function (event) {
+        if (event.key === "Enter") {
+          submitExamCode();
+        }
+      }
+    );
+  }
+}
+
+window.submitExamCode = async function () {
+  const btn =
+    document.querySelector(
+      "#cbtNoExamArea button"
+    );
+
+  const input =
+    document.getElementById(
+      "examCodeInput"
+    );
+
+  const errorEl =
+    document.getElementById(
+      "codeError"
+    );
+
+  const examCode =
+    input.value.trim().toUpperCase();
+
+  if (!examCode) {
+    errorEl.textContent =
+      "Enter exam code";
+    return;
+  }
+
+  const schoolId =
+    getResolvedSchoolId();
+
+  if (!schoolId) {
+    errorEl.textContent =
+      "School configuration is missing. Please refresh the page.";
+    return;
+  }
+
+  btn.disabled = true;
+
+  btn.innerHTML =
+    '<i class="fas fa-spinner fa-spin"></i> Starting...';
+
+  errorEl.textContent = "";
+
+  try {
+    const res = await fetch(
+      API_BASE_URL +
+        "/api/cbt/auth/code-login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          ...getSchoolRequestHeaders()
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          examCode,
+          classId: student.classId,
+          studentId: student._id,
+          schoolId
+        })
+      }
+    );
+
+    const data =
+      await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        "Invalid code"
+      );
+    }
+
+    /*
+     * Keep the token returned by the CBT code-login endpoint.
+     * The school remains tied to the already-resolved tenant.
+     */
+    token = data.token;
+
+    localStorage.setItem(
+      "student_token",
+      token
+    );
+
+    localStorage.setItem(
+      SCHOOL_ID_KEY,
+      schoolId
+    );
+
+    exam = data.exam;
+
+    questions =
+      Array.isArray(exam.questions)
+        ? exam.questions
+        : [];
+
+    answers =
+      Array(questions.length)
+        .fill(null);
+
+    timerSeconds =
+      (exam.duration || 15) * 60;
+
+    currentQ = 0;
+
+    document.getElementById(
+      "cbtNoExamArea"
+    ).style.display = "none";
+
+    document.getElementById(
+      "cbtExamArea"
+    ).style.display = "";
+
+    document.getElementById(
+      "cbtExamLoader"
+    ).style.display = "none";
+
+    fillStudentSidebar();
+    renderQuestion();
+    startTimer();
+
+    logStudentActivity(
+      "started"
+    );
+
+  } catch (err) {
+    console.error(
+      "Exam code login error:",
+      err
+    );
+
+    errorEl.textContent =
+      err.message ||
+      "Unable to start exam.";
+
+    btn.disabled = false;
+    btn.innerHTML = "Start Exam";
+  }
+};
+
+function showNoExam() {
+  document.getElementById(
+    "cbtExamLoader"
+  ).style.display = "none";
+
+  document.getElementById(
+    "cbtNoExamArea"
+  ).style.display = "";
+}
+
+function fillStudentSidebar() {
+  document.getElementById('studentName').textContent = student.name || 'Student';
+  document.getElementById('studentClass').textContent = "Class: " + (student.class || '-');
+  document.getElementById('studentEmail').textContent = student.email || '-';
+  document.getElementById('headerStudentName').textContent = student.name.split(' ')[0] || 'Student';
+  document.getElementById('headerSubject').textContent = "Subject: " + (exam?.subjectName || exam?.subject?.name || exam?.title || '-');
+  
+  document.getElementById('cbtTotalQuestions').textContent = questions.length;
+  const answered = answers.filter(a => a !== null).length;
+  document.getElementById('cbtTotalAnswered').textContent = answered;
+  document.getElementById('cbtTotalLeft').textContent = questions.length - answered;
+  const progress = questions.length > 0 ? Math.round((answered / questions.length) * 100) : 0;
+  document.getElementById('progressPercent').textContent = progress + '%';
+  document.getElementById('navQCount').textContent = (currentQ + 1) + '/' + questions.length;
+
+  let navHtml = "";
+  for (let i = 0; i < questions.length; i++) {
+    let btnClass = "";
+    if (i === currentQ) btnClass = "current";
+    else if (answers[i] !== null) btnClass = "answered";
+    navHtml += `<button type="button" class="cbt-nav-btn ${btnClass}" onclick="gotoQuestion(${i})" title="Question ${i + 1}">${i + 1}</button>`;
+  }
+  document.getElementById('cbtQuestionNav').innerHTML = navHtml;
+}
+
+function renderQuestion() {
+  const q = questions[currentQ];
+  document.getElementById('cbtTestTitle').textContent = exam?.subjectName || exam?.subject?.name || exam?.title || '-';
+  document.getElementById('cbtQuestionNumber').textContent = `Question ${currentQ + 1} of ${questions.length}`;
+  
+  document.getElementById('cbtQuestionText').innerHTML = 
+    `<div style="overflow-x:auto;max-width:100%;">${q.text}</div>`;
+
+  const progress = ((currentQ + 1) / questions.length) * 100;
+  document.getElementById('progressBar').style.width = progress + '%';
+
+  let optsHtml = "";
+  (q.options || []).forEach((opt, idx) => {
+    let selected = answers[currentQ] === idx ? "selected" : "";
+    let optValue = typeof opt === 'string' ? opt : (opt.value || '');
+    optsHtml += `
+      <div class="cbt-option ${selected}" onclick="selectAnswer(${idx})">
+        <div class="cbt-option-label">${String.fromCharCode(65 + idx)}</div>
+        <div class="cbt-option-content">
+          <div class="cbt-option-text">${optValue}</div>
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('cbtOptions').innerHTML = optsHtml;
+
+  document.getElementById('cbtPrevBtn').disabled = currentQ === 0;
+  document.getElementById('cbtNextBtn').disabled = currentQ === questions.length - 1;
+  document.getElementById('cbtSubmitBtn').disabled = answers.filter(a => a !== null).length !== questions.length;
+
+  fillStudentSidebar();
+}
+
+window.gotoQuestion = function (qIdx) {
+  currentQ = qIdx;
+  renderQuestion();
+  logStudentActivity('navigated', { questionIndex: qIdx });
+};
+
+window.selectAnswer = function (idx) {
+  answers[currentQ] = idx;
+  renderQuestion();
+  logStudentActivity('answered', { questionIndex: currentQ, answer: idx });
+};
+
+document.getElementById('cbtPrevBtn').onclick = function () {
+  if (currentQ > 0) {
+    currentQ--;
+    renderQuestion();
+  }
+};
+
+document.getElementById('cbtNextBtn').onclick = function () {
+  if (currentQ < questions.length - 1) {
+    currentQ++;
+    renderQuestion();
+  }
+};
+
+document.getElementById('cbtSubmitBtn').onclick = async function () {
+  if (!exam || !student) return;
+  if (confirm("Are you sure you want to submit your exam? You cannot change your answers after submission.")) {
+    clearInterval(timerInterval);
+    await submitExam();
+  }
+};
+
+function formatTimer(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+}
+
+function startTimer() {
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    updateTimerDisplay();
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      alert("Time is up! Submitting your exam.");
+      submitExam();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const timerEl = document.getElementById('cbtTimer');
+  timerEl.textContent = formatTimer(timerSeconds);
+  
+  if (timerSeconds <= 60) {
+    timerEl.classList.add('danger');
+  } else if (timerSeconds <= 300) {
+    timerEl.classList.add('warning');
+  }
+}
+
+async function submitExam() {
+  document.getElementById('cbtExamArea').style.display = 'none';
+  document.getElementById('cbtResultArea').style.display = '';
+  document.getElementById('cbtResultArea').innerHTML = '<div class="cbt-loader"><div class="cbt-spinner"></div><div class="cbt-loader-text">Submitting your exam...</div></div>';
+
+  const payload = {
+    exam: exam._id,
+    answers,
+    student: student._id,
+    schoolId: getResolvedSchoolId(),
+    startedAt: startedAt,
+    finishedAt: new Date().toISOString()
+  };
+
+  let result = null;
+  try {
+    const res = await fetch(API_BASE_URL + '/api/result', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getSchoolRequestHeaders(),
+        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      result = await res.json();
+    }
+  } catch (e) {
+    console.error('Submission error:', e);
+  }
+
+  logStudentActivity('submitted', { answers });
+  showResults();
+}
+
+function showResults() {
+  document.getElementById('cbtResultArea').innerHTML = `
+    <div class="cbt-results-container">
+      <div class="cbt-results-header">
+        <div class="cbt-results-icon">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="cbt-results-title">Exam Submitted</div>
+        <div class="cbt-results-subtitle">
+          Thank you, <strong>${student.name}</strong>
+        </div>
+      </div>
+
+      <div class="cbt-results-body" style="text-align:center; padding:20px;">
+        Your responses have been recorded successfully.<br/>
+        You will receive your result from your teacher.
+      </div>
+
+      <div class="cbt-results-footer">
+        <button class="cbt-btn cbt-btn-primary" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Log Out
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function showDetailedResults(results) {
+  let html = '';
+  results.forEach((r, i) => {
+    const isCorrect = r.isCorrect;
+    html += `
+      <div class="cbt-result-item">
+        <div class="cbt-result-item-number">Question ${i + 1}</div>
+        <div class="cbt-result-item-question">${questions[i].text}</div>
+        <div class="cbt-result-item-feedback">
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Your Answer</div>
+            <div class="cbt-result-answer-value">
+              ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
+            </div>
+          </div>
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Correct Answer</div>
+            <div class="cbt-result-answer-value">${typeof r.correctAnswer === 'number' ? String.fromCharCode(65+r.correctAnswer) : '-'}</div>
+          </div>
+        </div>
+        <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
+          <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+          ${isCorrect ? 'Correct' : 'Incorrect'}
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('resultsList').innerHTML = html;
+}
+
+function showLocalResults() {
+  let html = '';
+  questions.forEach((q, i) => {
+    let correctIdx = typeof q.answer === 'number' ? q.answer : 
+      (typeof q.answer === 'string' ? q.options.findIndex(o => o.key === q.answer) : null);
+    const isCorrect = answers[i] === correctIdx;
+    html += `
+      <div class="cbt-result-item">
+        <div class="cbt-result-item-number">Question ${i + 1}</div>
+        <div class="cbt-result-item-question">${q.text}</div>
+        <div class="cbt-result-item-feedback">
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Your Answer</div>
+            <div class="cbt-result-answer-value">
+              ${typeof answers[i] === 'number' ? String.fromCharCode(65+answers[i]) : '<span style="color:#ef4444;">No Answer</span>'}
+            </div>
+          </div>
+          <div class="cbt-result-answer">
+            <div class="cbt-result-answer-label">Correct Answer</div>
+            <div class="cbt-result-answer-value">${typeof correctIdx === 'number' ? String.fromCharCode(65+correctIdx) : '-'}</div>
+          </div>
+        </div>
+        <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
+          <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+          ${isCorrect ? 'Correct' : 'Incorrect'}
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('resultsList').innerHTML = html;
+}
+
+window.logout = function() {
+  localStorage.removeItem('student_token');
+  localStorage.removeItem('studentToken');
+  localStorage.removeItem('token');
+  window.location.href = 'cbt-login.html';
+};
+
+// ================================================================
+// INITIALIZATION
+// ================================================================
+
+(async function initializeCBT() {
+  const loaderText =
+    document.querySelector(".cbt-loader-text");
+
+  try {
+    if (loaderText) {
+      loaderText.textContent =
+        "Loading school portal...";
+    }
+
+    await loadSchoolConfiguration();
+
+    if (!schoolConfigLoaded) {
+      throw new Error(
+        "School configuration could not be verified."
+      );
+    }
+
+    if (loaderText) {
+      loaderText.textContent =
+        "Loading your student account...";
+    }
+
+    await loadStudent();
+
+  } catch (error) {
+    console.error(
+      "CBT initialization failed:",
+      error
+    );
+
+    if (loaderText) {
+      loaderText.textContent =
+        error.message ||
+        "Unable to load this school portal.";
+    }
+
+    const noExamArea =
+      document.getElementById(
+        "cbtNoExamArea"
+      );
+
+    if (noExamArea) {
+      noExamArea.style.display = "";
+      noExamArea.innerHTML = `
+        <div class="cbt-empty-state">
+          <div class="cbt-empty-icon">
+            <i class="fas fa-school"></i>
+          </div>
+          <div class="cbt-empty-title">
+            School Portal Unavailable
+          </div>
+          <div class="cbt-empty-text">
+            ${String(
+              error.message ||
+              "Unable to load the school configuration."
+            ).replace(/</g, "&lt;")}
+          </div>
+          <button
+            class="cbt-btn cbt-btn-primary"
+            onclick="location.reload()"
+          >
+            <i class="fas fa-sync"></i>
+            Try Again
+          </button>
+        </div>
+      `;
+    }
+  }
+})();
+  
+  ' : 'fa-times-circle'}"></i>
+          ${isCorrect ? 'Correct' : 'Incorrect'}
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('resultsList').innerHTML = html;
+}
+
+window.logout = function() {
+  localStorage.removeItem('student_token');
+  localStorage.removeItem('studentToken');
+  localStorage.removeItem('token');
+  window.location.href = '/cbt-login.html';
+};
+
+// ✅ NEW INIT
+loadStudent();
+  </script>
+</body>
+</html>
