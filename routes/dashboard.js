@@ -17,6 +17,13 @@ const {
   LeaveApplication
 } = require('../models/Entities');
 
+/**
+ * Resolve the school attached to the authenticated request.
+ *
+ * The tenant is taken from the authenticated user first. A request/header
+ * value may be supplied by the frontend, but it is only accepted when it
+ * matches the authenticated user's school (except for platform admins).
+ */
 function getUserSchoolIdentifiers(user = {}) {
   const values = [
     user.schoolId,
@@ -80,6 +87,8 @@ async function resolveCurrentSchool(req) {
   const school = await School.findOne(query).lean();
   if (!school) return null;
 
+  // A school-scoped admin must never be able to switch the dashboard to
+  // another tenant by changing X-School-ID/query parameters.
   if (!platformAdmin) {
     const belongs = identifiers.some(identifier =>
       identifier === String(school._id) ||
@@ -96,6 +105,11 @@ async function resolveCurrentSchool(req) {
   return school;
 }
 
+/**
+ * Dashboard records use the MongoDB School _id in their schoolId field.
+ * Keep this helper in one place so the tenant scope cannot accidentally be
+ * omitted from a dashboard query.
+ */
 function schoolFilter(schoolId, extra = {}) {
   return { ...extra, schoolId };
 }
@@ -111,7 +125,7 @@ router.get('/dashboard/summary', authMiddleware, async (req, res) => {
       });
     }
 
-    const schoolId = String(school.schoolId || school._id);
+    const schoolId = String(school._id);
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
