@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Gold and Linc Schools CBT | Computer Based Test</title>
+  <title>CBT | Computer Based Test</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -930,14 +930,42 @@
         page-break-inside: avoid;
       }
     }
-  </style>
+  
+    #schoolHeaderBrand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    #schoolHeaderName {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 768px) {
+      #schoolHeaderName {
+        max-width: 220px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #schoolHeaderName {
+        max-width: 160px;
+      }
+    }
+
+</style>
 </head>
 <body>
   <!-- HEADER -->
   <header class="cbt-header">
     <div class="cbt-header-container">
       <div class="cbt-header-left">
-        <div class="cbt-header-logo">Gold and Linc Schools</div>
+        <div class="cbt-header-logo" id="schoolHeaderBrand">
+          <img id="schoolHeaderLogo" alt="" style="display:none;width:34px;height:34px;object-fit:contain;border-radius:8px;vertical-align:middle;margin-right:8px;background:#fff;padding:3px;">
+          <span id="schoolHeaderName">Loading school...</span>
+        </div>
         <div class="cbt-header-info" id="headerSubject">-</div>
       </div>
       
@@ -1075,23 +1103,36 @@
 
       <!-- No Exam Area -->
       <div id="cbtNoExamArea" style="display: none;">
-        <div class="cbt-empty-state">
-          <div class="cbt-empty-icon"><i class="fas fa-inbox"></i></div>
-          <div class="cbt-empty-title">No Exam Available</div>
-          <div class="cbt-empty-text" id="noExamText">
-            No CBT exam is currently scheduled for you. If you believe this is an error, please contact your teacher.
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
+    <script>
 
-  <script>
-// Backend API URL
-const API_BASE_URL = "https://goldlincschools.onrender.com";
-let token = localStorage.getItem('student_token') || localStorage.getItem('studentToken') || localStorage.getItem('token');
+// ================================================================
+// EXAMGUARD MULTI-SCHOOL CBT CONTEXT
+// ================================================================
 
-let student = { name: '', class: '', subject: '', avatar: '', _id: '', classId: '' };
+const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+
+const SCHOOL_CACHE_KEY = "currentSchoolConfig";
+const SCHOOL_ID_KEY = "schoolId";
+const SCHOOL_SUBDOMAIN_KEY = "schoolSubdomain";
+
+let currentSchool = null;
+let schoolConfigLoaded = false;
+
+let token =
+  localStorage.getItem("student_token") ||
+  localStorage.getItem("studentToken") ||
+  localStorage.getItem("token");
+
+let student = {
+  name: "",
+  class: "",
+  subject: "",
+  avatar: "",
+  _id: "",
+  classId: "",
+  email: ""
+};
+
 let exam = null;
 let startedAt = new Date().toISOString();
 let questions = [];
@@ -1100,158 +1141,665 @@ let currentQ = 0;
 let timerSeconds = 0;
 let timerInterval = null;
 
-// Helper to send student activity
+// ---------------------------------------------------------------
+// Tenant resolution
+// ---------------------------------------------------------------
+
+function getQueryParam(name) {
+  return new URLSearchParams(window.location.search).get(name) || "";
+}
+
+function getSchoolSubdomain() {
+  const host = window.location.hostname.toLowerCase();
+
+  const match = host.match(
+    /^([a-z0-9-]+)\.examguard\.com\.ng$/
+  );
+
+  if (match && match[1]) {
+    const subdomain = match[1];
+
+    if (!["www", "examguard"].includes(subdomain)) {
+      return subdomain;
+    }
+  }
+
+  return (
+    getQueryParam("subdomain") ||
+    getQueryParam("schoolSubdomain") ||
+    sessionStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
+    localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
+    ""
+  ).trim();
+}
+
+function getResolvedSchoolId() {
+  const id =
+    currentSchool?._id ||
+    currentSchool?.schoolId ||
+    currentSchool?.id ||
+    "";
+
+  if (id) return String(id);
+
+  try {
+    const cached = JSON.parse(
+      localStorage.getItem(SCHOOL_CACHE_KEY) || "null"
+    );
+
+    return String(
+      cached?._id ||
+      cached?.schoolId ||
+      cached?.id ||
+      localStorage.getItem(SCHOOL_ID_KEY) ||
+      ""
+    ).trim();
+  } catch (_) {
+    return String(
+      localStorage.getItem(SCHOOL_ID_KEY) || ""
+    ).trim();
+  }
+}
+
+function getSchoolRequestHeaders() {
+  const schoolId = getResolvedSchoolId();
+  const subdomain = getSchoolSubdomain();
+
+  return {
+    ...(schoolId ? { "X-School-ID": schoolId } : {}),
+    ...(subdomain
+      ? { "X-School-Subdomain": subdomain }
+      : {})
+  };
+}
+
+function resolveMediaUrl(url) {
+  const value = String(url || "").trim();
+
+  if (!value) return "";
+
+  if (/^(https?:|data:|blob:)/i.test(value)) {
+    return value;
+  }
+
+  if (value.startsWith("//")) {
+    return window.location.protocol + value;
+  }
+
+  if (value.startsWith("/")) {
+    return API_BASE_URL + value;
+  }
+
+  return API_BASE_URL + "/" + value;
+}
+
+function schoolInitials(name) {
+  return String(name || "School")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(word => word[0].toUpperCase())
+    .join("") || "SC";
+}
+
+// ---------------------------------------------------------------
+// School branding
+// ---------------------------------------------------------------
+
+function applySchoolConfiguration(school) {
+  if (!school || typeof school !== "object") return;
+
+  currentSchool = school;
+
+  const schoolName =
+    school.schoolName ||
+    school.name ||
+    "School";
+
+  const logoUrl = resolveMediaUrl(
+    school.logoUrl ||
+    school.logo ||
+    school.schoolLogo ||
+    school.branding?.logoUrl ||
+    school.branding?.logo
+  );
+
+  const primary =
+    school.branding?.primaryColor ||
+    school.branding?.primary ||
+    school.primaryColor ||
+    "#1e3a8a";
+
+  const secondary =
+    school.branding?.secondaryColor ||
+    school.branding?.secondary ||
+    school.secondaryColor ||
+    "#3b82f6";
+
+  const accent =
+    school.branding?.accentColor ||
+    school.branding?.accent ||
+    school.accentColor ||
+    "#17c3b2";
+
+  document.documentElement.style.setProperty(
+    "--primary",
+    primary
+  );
+
+  document.documentElement.style.setProperty(
+    "--primary-light",
+    secondary
+  );
+
+  document.documentElement.style.setProperty(
+    "--accent",
+    accent
+  );
+
+  document.documentElement.style.setProperty(
+    "--primary-lighter",
+    school.branding?.primaryLighter ||
+    school.primaryLighter ||
+    "#dbeafe"
+  );
+
+  document.title =
+    "CBT | " + schoolName;
+
+  const headerName =
+    document.getElementById("schoolHeaderName");
+
+  if (headerName) {
+    headerName.textContent = schoolName;
+  }
+
+  const headerLogo =
+    document.getElementById("schoolHeaderLogo");
+
+  if (headerLogo) {
+    if (logoUrl) {
+      headerLogo.src = logoUrl;
+      headerLogo.alt = schoolName + " Logo";
+      headerLogo.style.display = "inline-block";
+
+      headerLogo.onerror = function () {
+        this.onerror = null;
+        this.style.display = "none";
+      };
+    } else {
+      headerLogo.removeAttribute("src");
+      headerLogo.style.display = "none";
+    }
+  }
+
+  try {
+    localStorage.setItem(
+      SCHOOL_CACHE_KEY,
+      JSON.stringify(school)
+    );
+
+    const realSchoolId =
+      school._id ||
+      school.schoolId ||
+      school.id;
+
+    if (realSchoolId) {
+      localStorage.setItem(
+        SCHOOL_ID_KEY,
+        String(realSchoolId)
+      );
+    }
+
+    const subdomain = getSchoolSubdomain();
+
+    if (subdomain) {
+      localStorage.setItem(
+        SCHOOL_SUBDOMAIN_KEY,
+        subdomain
+      );
+
+      sessionStorage.setItem(
+        SCHOOL_SUBDOMAIN_KEY,
+        subdomain
+      );
+    }
+  } catch (_) {}
+}
+
+async function loadSchoolConfiguration() {
+  /*
+   * Show cached branding immediately while the current tenant
+   * configuration is being refreshed.
+   */
+  try {
+    const cached = JSON.parse(
+      localStorage.getItem(SCHOOL_CACHE_KEY) || "null"
+    );
+
+    if (cached) {
+      applySchoolConfiguration(cached);
+    }
+  } catch (_) {}
+
+  const subdomain = getSchoolSubdomain();
+
+  if (!subdomain) {
+    throw new Error(
+      "No school portal was detected. Please open your school's ExamGuard portal."
+    );
+  }
+
+  /*
+   * IMPORTANT:
+   * The URL subdomain identifies the tenant.
+   * The backend returns the real MongoDB schoolId.
+   *
+   * We do NOT use the subdomain as schoolId.
+   */
+  const url =
+    API_BASE_URL +
+    "/api/schools/config?subdomain=" +
+    encodeURIComponent(subdomain);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    },
+    credentials: "include"
+  });
+
+  let data = {};
+
+  try {
+    data = await response.json();
+  } catch (_) {}
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      "Unable to load this school's configuration."
+    );
+  }
+
+  const school =
+    data?.school ||
+    data?.data?.school ||
+    data?.data ||
+    data;
+
+  const schoolId =
+    school?._id ||
+    school?.schoolId ||
+    school?.id;
+
+  if (!school || !schoolId) {
+    throw new Error(
+      "The school configuration returned by the server is invalid."
+    );
+  }
+
+  applySchoolConfiguration(school);
+  schoolConfigLoaded = true;
+
+  return school;
+}
+
+// ---------------------------------------------------------------
+// Student activity
+// ---------------------------------------------------------------
+
 async function logStudentActivity(action, extra = {}) {
   const payload = {
     student: student._id,
     exam: exam?._id,
-    action: action,
+    schoolId: getResolvedSchoolId(),
+    action,
     timestamp: new Date().toISOString(),
     ...extra
   };
 
   try {
-    await fetch(API_BASE_URL + '/api/activity', {
-      method: 'POST',
+    await fetch(API_BASE_URL + "/api/activity", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        "Content-Type": "application/json",
+        ...getSchoolRequestHeaders(),
+        ...(token
+          ? { "Authorization": "Bearer " + token }
+          : {})
       },
       body: JSON.stringify(payload)
     });
   } catch (e) {
-    console.warn('Activity logging failed:', e);
+    console.warn(
+      "Activity logging failed:",
+      e
+    );
   }
 }
 
-/* =========================
-   NEW: LOAD STUDENT ONLY
-========================= */
+// ---------------------------------------------------------------
+// Student
+// ---------------------------------------------------------------
+
 async function loadStudent() {
   try {
-    let studentRes = await fetch(API_BASE_URL + '/api/student/me', {
-      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-    });
+    if (!token) {
+      window.location.href = "cbt-login.html";
+      return;
+    }
 
-    if (!studentRes.ok) throw new Error('Failed to load student');
+    const schoolId = getResolvedSchoolId();
 
-    const studentJson = await studentRes.json();
+    if (!schoolId) {
+      throw new Error(
+        "School configuration is missing."
+      );
+    }
 
-    student.name = studentJson.name || 
-      ((studentJson.firstname && studentJson.surname) ? studentJson.firstname + " " + studentJson.surname : "Student");
+    const studentRes = await fetch(
+      API_BASE_URL + "/api/student/me",
+      {
+        headers: {
+          ...getSchoolRequestHeaders(),
+          "Authorization":
+            "Bearer " + token
+        },
+        credentials: "include"
+      }
+    );
 
-    student.class = (typeof studentJson.class === 'object' && studentJson.class?.name) ? 
-      studentJson.class.name : (typeof studentJson.class === 'string' ? studentJson.class : '-');
+    if (!studentRes.ok) {
+      throw new Error(
+        "Failed to load student"
+      );
+    }
 
-    student.classId = studentJson.class?._id || studentJson.class;
-    student.email = studentJson.email || '-';
-    student.avatar = studentJson.photo_url || '';
-    student._id = studentJson._id;
+    const studentJson =
+      await studentRes.json();
+
+    student.name =
+      studentJson.name ||
+      (
+        studentJson.firstname &&
+        studentJson.surname
+          ? studentJson.firstname +
+            " " +
+            studentJson.surname
+          : "Student"
+      );
+
+    student.class =
+      typeof studentJson.class === "object" &&
+      studentJson.class?.name
+        ? studentJson.class.name
+        : typeof studentJson.class === "string"
+          ? studentJson.class
+          : "-";
+
+    student.classId =
+      studentJson.class?._id ||
+      studentJson.class;
+
+    student.email =
+      studentJson.email || "-";
+
+    student.avatar =
+      studentJson.photo_url ||
+      studentJson.photoUrl ||
+      studentJson.profilePicture ||
+      studentJson.profile_picture ||
+      studentJson.avatar ||
+      "";
+
+    student._id =
+      studentJson._id ||
+      studentJson.id ||
+      studentJson.studentId;
 
     showExamCodePrompt();
 
   } catch (error) {
-    console.error('Error loading student:', error);
+    console.error(
+      "Error loading student:",
+      error
+    );
+
     showNoExam();
+
+    const noExamText =
+      document.getElementById(
+        "noExamText"
+      );
+
+    if (noExamText) {
+      noExamText.textContent =
+        error.message ||
+        "Unable to load your student account.";
+    }
   }
 }
 
-/* =========================
-   NEW: EXAM CODE UI
-========================= */
+// ---------------------------------------------------------------
+// Exam code
+// ---------------------------------------------------------------
+
 function showExamCodePrompt() {
-  document.getElementById('cbtExamLoader').style.display = 'none';
-  document.getElementById('cbtNoExamArea').style.display = '';
+  document.getElementById(
+    "cbtExamLoader"
+  ).style.display = "none";
 
-  document.getElementById('cbtNoExamArea').innerHTML = `
+  document.getElementById(
+    "cbtNoExamArea"
+  ).style.display = "";
+
+  document.getElementById(
+    "cbtNoExamArea"
+  ).innerHTML = `
     <div class="cbt-empty-state">
-      <div class="cbt-empty-icon"><i class="fas fa-key"></i></div>
-      <div class="cbt-empty-title">Enter Exam Code</div>
-      <div class="cbt-empty-text">Please enter the exam code provided by your teacher.</div>
+      <div class="cbt-empty-icon">
+        <i class="fas fa-key"></i>
+      </div>
 
-      <div style="margin-top:20px; display:flex; gap:10px;">
-        <input id="examCodeInput" placeholder="Enter code"
-          style="padding:10px; border:1px solid #ccc; border-radius:6px;" />
+      <div class="cbt-empty-title">
+        Enter Exam Code
+      </div>
 
-        <button class="cbt-btn cbt-btn-primary" onclick="submitExamCode()">
+      <div class="cbt-empty-text">
+        Please enter the exam code provided by your teacher.
+      </div>
+
+      <div style="margin-top:20px;display:flex;gap:10px;max-width:500px;width:100%;">
+        <input
+          id="examCodeInput"
+          placeholder="Enter code"
+          autocomplete="off"
+          style="padding:10px;border:1px solid #ccc;border-radius:6px;flex:1;min-width:0;"
+        />
+
+        <button
+          class="cbt-btn cbt-btn-primary"
+          onclick="submitExamCode()"
+        >
           Start Exam
         </button>
       </div>
 
-      <div id="codeError" style="color:red; margin-top:10px;"></div>
+      <div
+        id="codeError"
+        style="color:red;margin-top:10px;"
+      ></div>
     </div>
   `;
+
+  const input =
+    document.getElementById(
+      "examCodeInput"
+    );
+
+  if (input) {
+    input.addEventListener(
+      "keydown",
+      function (event) {
+        if (event.key === "Enter") {
+          submitExamCode();
+        }
+      }
+    );
+  }
 }
 
-/* =========================
-   NEW: SUBMIT CODE
-========================= */
 window.submitExamCode = async function () {
-  const btn = document.querySelector('#cbtNoExamArea button');
-  const input = document.getElementById('examCodeInput');
-  const errorEl = document.getElementById('codeError');
+  const btn =
+    document.querySelector(
+      "#cbtNoExamArea button"
+    );
 
-  const examCode = input.value.trim().toUpperCase();
+  const input =
+    document.getElementById(
+      "examCodeInput"
+    );
+
+  const errorEl =
+    document.getElementById(
+      "codeError"
+    );
+
+  const examCode =
+    input.value.trim().toUpperCase();
 
   if (!examCode) {
-    errorEl.textContent = 'Enter exam code';
+    errorEl.textContent =
+      "Enter exam code";
     return;
   }
 
-  // ✅ spinner ON
+  const schoolId =
+    getResolvedSchoolId();
+
+  if (!schoolId) {
+    errorEl.textContent =
+      "School configuration is missing. Please refresh the page.";
+    return;
+  }
+
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
-  errorEl.textContent = '';
+
+  btn.innerHTML =
+    '<i class="fas fa-spinner fa-spin"></i> Starting...';
+
+  errorEl.textContent = "";
 
   try {
-    const res = await fetch(API_BASE_URL + '/api/cbt/auth/code-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        examCode,
-        classId: student.classId,
-        studentId: student._id
-      })
-    });
+    const res = await fetch(
+      API_BASE_URL +
+        "/api/cbt/auth/code-login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          ...getSchoolRequestHeaders()
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          examCode,
+          classId: student.classId,
+          studentId: student._id,
+          schoolId
+        })
+      }
+    );
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Invalid code');
+    const data =
+      await res.json();
 
+    if (!res.ok) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        "Invalid code"
+      );
+    }
+
+    /*
+     * Keep the token returned by the CBT code-login endpoint.
+     * The school remains tied to the already-resolved tenant.
+     */
     token = data.token;
-    localStorage.setItem('student_token', token);
+
+    localStorage.setItem(
+      "student_token",
+      token
+    );
+
+    localStorage.setItem(
+      SCHOOL_ID_KEY,
+      schoolId
+    );
 
     exam = data.exam;
-    questions = Array.isArray(exam.questions) ? exam.questions : [];
-    answers = Array(questions.length).fill(null);
-    timerSeconds = (exam.duration || 15) * 60;
+
+    questions =
+      Array.isArray(exam.questions)
+        ? exam.questions
+        : [];
+
+    answers =
+      Array(questions.length)
+        .fill(null);
+
+    timerSeconds =
+      (exam.duration || 15) * 60;
+
     currentQ = 0;
 
-    document.getElementById('cbtNoExamArea').style.display = 'none';
-    document.getElementById('cbtExamArea').style.display = '';
-    document.getElementById('cbtExamLoader').style.display = 'none';
+    document.getElementById(
+      "cbtNoExamArea"
+    ).style.display = "none";
+
+    document.getElementById(
+      "cbtExamArea"
+    ).style.display = "";
+
+    document.getElementById(
+      "cbtExamLoader"
+    ).style.display = "none";
 
     fillStudentSidebar();
     renderQuestion();
     startTimer();
-    logStudentActivity('started');
+
+    logStudentActivity(
+      "started"
+    );
 
   } catch (err) {
-    errorEl.textContent = err.message;
+    console.error(
+      "Exam code login error:",
+      err
+    );
 
-    // ❗ restore button
+    errorEl.textContent =
+      err.message ||
+      "Unable to start exam.";
+
     btn.disabled = false;
-    btn.innerHTML = 'Start Exam';
+    btn.innerHTML = "Start Exam";
   }
 };
 
-/* =========================
-   OLD FUNCTION (DISABLED)
-========================= */
-// function fetchStudentAndExam() {}  // intentionally removed
-
 function showNoExam() {
-  document.getElementById('cbtExamLoader').style.display = 'none';
-  document.getElementById('cbtNoExamArea').style.display = '';
+  document.getElementById(
+    "cbtExamLoader"
+  ).style.display = "none";
+
+  document.getElementById(
+    "cbtNoExamArea"
+  ).style.display = "";
 }
 
 function fillStudentSidebar() {
@@ -1385,6 +1933,7 @@ async function submitExam() {
     exam: exam._id,
     answers,
     student: student._id,
+    schoolId: getResolvedSchoolId(),
     startedAt: startedAt,
     finishedAt: new Date().toISOString()
   };
@@ -1395,8 +1944,10 @@ async function submitExam() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getSchoolRequestHeaders(),
         ...(token ? { 'Authorization': 'Bearer ' + token } : {})
       },
+      credentials: 'include',
       body: JSON.stringify(payload)
     });
     if (res.ok) {
@@ -1491,6 +2042,97 @@ function showLocalResults() {
         </div>
         <div class="cbt-result-status ${isCorrect ? 'correct' : 'incorrect'}">
           <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+          ${isCorrect ? 'Correct' : 'Incorrect'}
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('resultsList').innerHTML = html;
+}
+
+window.logout = function() {
+  localStorage.removeItem('student_token');
+  localStorage.removeItem('studentToken');
+  localStorage.removeItem('token');
+  window.location.href = 'cbt-login.html';
+};
+
+// ================================================================
+// INITIALIZATION
+// ================================================================
+
+(async function initializeCBT() {
+  const loaderText =
+    document.querySelector(".cbt-loader-text");
+
+  try {
+    if (loaderText) {
+      loaderText.textContent =
+        "Loading school portal...";
+    }
+
+    await loadSchoolConfiguration();
+
+    if (!schoolConfigLoaded) {
+      throw new Error(
+        "School configuration could not be verified."
+      );
+    }
+
+    if (loaderText) {
+      loaderText.textContent =
+        "Loading your student account...";
+    }
+
+    await loadStudent();
+
+  } catch (error) {
+    console.error(
+      "CBT initialization failed:",
+      error
+    );
+
+    if (loaderText) {
+      loaderText.textContent =
+        error.message ||
+        "Unable to load this school portal.";
+    }
+
+    const noExamArea =
+      document.getElementById(
+        "cbtNoExamArea"
+      );
+
+    if (noExamArea) {
+      noExamArea.style.display = "";
+      noExamArea.innerHTML = `
+        <div class="cbt-empty-state">
+          <div class="cbt-empty-icon">
+            <i class="fas fa-school"></i>
+          </div>
+          <div class="cbt-empty-title">
+            School Portal Unavailable
+          </div>
+          <div class="cbt-empty-text">
+            ${String(
+              error.message ||
+              "Unable to load the school configuration."
+            ).replace(/</g, "&lt;")}
+          </div>
+          <button
+            class="cbt-btn cbt-btn-primary"
+            onclick="location.reload()"
+          >
+            <i class="fas fa-sync"></i>
+            Try Again
+          </button>
+        </div>
+      `;
+    }
+  }
+})();
+  
+  ' : 'fa-times-circle'}"></i>
           ${isCorrect ? 'Correct' : 'Incorrect'}
         </div>
       </div>
