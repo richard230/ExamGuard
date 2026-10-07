@@ -11,33 +11,96 @@ const questionSchema = new mongoose.Schema({
   score: { type: Number, default: 1 }
 }, { _id: false });
 
-// ✅ UPDATED: CBTExam Model with Exam Code
+// CBT Exam Model
 const examSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  class: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
-  subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
-  duration: { type: Number, required: true },
-  questions: { type: [questionSchema], required: true },
-  scheduledFor: { type: Date },
-  status: { type: String, enum: ['Draft', 'Scheduled', 'Active', 'Completed', 'Stopped'], default: 'Draft' },
-  teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Staff' },
-  
-  // ✅ NEW: Exam Code Fields
-  examCode: { 
-    type: String, 
-    unique: true, 
-    sparse: true,
-    index: true // Add index for faster lookups
+  // Multi-school / tenant owner
+  schoolId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'School',
+    required: true,
+    index: true
   },
-  codeGeneratedAt: { type: Date },
-  codeExpiresAt: { type: Date }, // Optional: for code expiration
-  isCodeActive: { type: Boolean, default: true },
-  
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-}, { timestamps: true });
 
-// ✅ Unique constraint on examCode
-examSchema.index({ examCode: 1 }, { unique: true, sparse: true });
+  title: {
+    type: String,
+    required: true
+  },
+
+  class: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    required: true
+  },
+
+  subject: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subject',
+    required: true
+  },
+
+  duration: {
+    type: Number,
+    required: true
+  },
+
+  questions: {
+    type: [questionSchema],
+    required: true
+  },
+
+  scheduledFor: {
+    type: Date
+  },
+
+  status: {
+    type: String,
+    enum: ['Draft', 'Scheduled', 'Active', 'Completed', 'Stopped'],
+    default: 'Draft'
+  },
+
+  teacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Staff'
+  },
+
+  // Exam Code Fields
+  examCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true
+  },
+
+  codeGeneratedAt: {
+    type: Date
+  },
+
+  codeExpiresAt: {
+    type: Date
+  },
+
+  isCodeActive: {
+    type: Boolean,
+    default: true
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true
+});
+
+// School-scoped indexes
+examSchema.index({ schoolId: 1, class: 1 });
+examSchema.index({ schoolId: 1, subject: 1 });
+examSchema.index({ schoolId: 1, status: 1 });
+examSchema.index({ schoolId: 1, examCode: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Exam', examSchema);
