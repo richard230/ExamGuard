@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { authMiddleware } = require('./auth');
 const adminAuth = require('../middleware/adminAuth');
+const School = require('../models/School');
 const AdmissionCohort = require('../models/AdmissionCohort');
 const AdmissionApplication = require('../models/AdmissionApplication');
 const AdmissionSetup = require('../models/AdmissionSetup');
@@ -9,12 +11,124 @@ const Session = require('../models/Session');
 const Class = require('../models/Class');
 const Arm = require('../models/Arm');
 
+/**
+ * Resolve the current authenticated school.
+ * School-scoped admins can only access their own tenant.
+ * Platform admins may explicitly select a school.
+ */
+function getUserSchoolIdentifiers(user = {}) {
+  const values = [
+    user.schoolId,
+    user.schoolKey,
+    user.schoolCode,
+    typeof user.school === 'string' ? user.school : null,
+    user.school?.schoolId,
+    user.school?._id
+  ]
+    .filter(Boolean)
+    .map(value => String(value).trim());
+
+  return [...new Set(values)];
+}
+
+function isPlatformAdmin(user = {}) {
+  const roles = [user.role, user.userType, user.accountType, user.type]
+    .filter(Boolean)
+    .map(value => String(value).toLowerCase().trim());
+
+  return roles.some(role => [
+    'systemadmin',
+    'system_admin',
+    'platformadmin',
+    'platform_admin'
+  ].includes(role));
+}
+
+function getRequestedSchoolId(req) {
+  return String(
+    req.params?.schoolId ||
+    req.body?.schoolId ||
+    req.query?.schoolId ||
+    req.headers?.['x-school-id'] ||
+    req.headers?.['x-school-code'] ||
+    req.headers?.['x-schoolid'] ||
+    ''
+  ).trim();
+}
+
+async function resolveCurrentSchool(req) {
+  const user = req.user || {};
+  const identifiers = getUserSchoolIdentifiers(user);
+  const requestedId = getRequestedSchoolId(req);
+  const platformAdmin = isPlatformAdmin(user);
+  const schoolIdentifier = requestedId || identifiers[0] || '';
+
+  if (!schoolIdentifier) return null;
+
+  const query = {
+    status: 'active',
+    isDeleted: { $ne: true }
+  };
+
+  if (mongoose.Types.ObjectId.isValid(schoolIdentifier)) {
+    query._id = schoolIdentifier;
+  } else {
+    query.schoolId = schoolIdentifier;
+  }
+
+  const school = await School.findOne(query).lean();
+  if (!school) return null;
+
+  if (!platformAdmin) {
+    const belongs = identifiers.some(identifier =>
+      identifier === String(school._id) ||
+      identifier === String(school.schoolId)
+    );
+
+    if (!belongs) {
+      const error = new Error('You are not authorized to access this school.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  return school;
+}
+
+function schoolFilter(schoolId, extra = {}) {
+  return { ...extra, schoolId };
+}
+
+async function requireSchool(req, res) {
+  const school = await resolveCurrentSchool(req);
+
+  if (!school) {
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized: No active school is associated with this account.'
+    });
+    return null;
+  }
+
+  return school;
+}
+
+
+
+// ==================== MULTI-SCHOOL / TENANT SCOPE ====================
+// Every authenticated admin endpoint resolves the current school first.
+// All cohort, application, setup and statistics queries are then restricted
+// to that school. Public applications inherit their school from the cohort.
 // ==================== COHORT ENDPOINTS ====================
 
 // GET all cohorts
 router.get('/cohorts', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const cohorts = await AdmissionCohort.find()
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const cohorts = await AdmissionCohort.find(schoolFilter(schoolId))
       .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name')
@@ -29,7 +143,11 @@ router.get('/cohorts', authMiddleware, adminAuth, async (req, res) => {
 // GET single cohort
 router.get('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const cohort = await AdmissionCohort.findById(req.params.id)
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: req.params.id }))
       .populate('session')
       .populate('class')
       .populate('arm')
@@ -48,6 +166,10 @@ router.get('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
 // CREATE new cohort
 router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
     const { session, term, class: classId, arm, startDate, endDate, applicationFee, description, capacity } = req.body;
 
     // Validation
@@ -57,6 +179,7 @@ router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
 
     // Check if cohort already exists for this session/term/class/arm
     const exists = await AdmissionCohort.findOne({
+      schoolId,
       session,
       term,
       class: classId,
@@ -68,6 +191,7 @@ router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
     }
 
     const cohort = new AdmissionCohort({
+      schoolId,
       session,
       term,
       class: classId,
@@ -94,9 +218,13 @@ router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
 // UPDATE cohort
 router.put('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
     const { session, term, class: classId, arm, startDate, endDate, applicationFee, description, capacity } = req.body;
 
-    const cohort = await AdmissionCohort.findById(req.params.id);
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!cohort) {
       return res.status(404).json({ error: 'Cohort not found' });
     }
@@ -131,18 +259,22 @@ router.put('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
 // DELETE cohort
 router.delete('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const cohort = await AdmissionCohort.findById(req.params.id);
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!cohort) {
       return res.status(404).json({ error: 'Cohort not found' });
     }
 
     // Check if cohort has applications
-    const applicationCount = await AdmissionApplication.countDocuments({ cohort: req.params.id });
+    const applicationCount = await AdmissionApplication.countDocuments(schoolFilter(schoolId, { cohort: req.params.id }));
     if (applicationCount > 0) {
       return res.status(400).json({ error: 'Cannot delete cohort with existing applications' });
     }
 
-    await AdmissionCohort.findByIdAndDelete(req.params.id);
+    await AdmissionCohort.findOneAndDelete(schoolFilter(schoolId, { _id: req.params.id }));
     res.json({ message: 'Cohort deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -152,7 +284,11 @@ router.delete('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
 // PAUSE cohort
 router.put('/cohorts/:id/pause', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const cohort = await AdmissionCohort.findById(req.params.id);
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!cohort) {
       return res.status(404).json({ error: 'Cohort not found' });
     }
@@ -169,7 +305,11 @@ router.put('/cohorts/:id/pause', authMiddleware, adminAuth, async (req, res) => 
 // RESUME cohort
 router.put('/cohorts/:id/resume', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const cohort = await AdmissionCohort.findById(req.params.id);
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!cohort) {
       return res.status(404).json({ error: 'Cohort not found' });
     }
@@ -190,7 +330,11 @@ router.put('/cohorts/:id/resume', authMiddleware, adminAuth, async (req, res) =>
 // CLOSE cohort
 router.put('/cohorts/:id/close', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const cohort = await AdmissionCohort.findById(req.params.id);
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!cohort) {
       return res.status(404).json({ error: 'Cohort not found' });
     }
@@ -209,8 +353,12 @@ router.put('/cohorts/:id/close', authMiddleware, adminAuth, async (req, res) => 
 // GET all applications
 router.get('/applications', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
     const { cohort, status } = req.query;
-    let query = {};
+    let query = schoolFilter(schoolId);
 
     if (cohort) query.cohort = cohort;
     if (status) query.status = status;
@@ -232,7 +380,11 @@ router.get('/applications', authMiddleware, adminAuth, async (req, res) => {
 // GET single application
 router.get('/application/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const application = await AdmissionApplication.findById(req.params.id)
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const application = await AdmissionApplication.findOne(schoolFilter(schoolId, { _id: req.params.id }))
       .populate('cohort')
       .populate('session', 'name')
       .populate('class', 'name')
@@ -287,12 +439,16 @@ router.post('/application', async (req, res) => {
     }
 
     // Check if applicant already applied for this cohort
-    const exists = await AdmissionApplication.findOne({ email, cohort });
+    const applicationSchoolId = String(cohortData.schoolId || '');
+    const exists = await AdmissionApplication.findOne(
+      schoolFilter(applicationSchoolId, { email, cohort })
+    );
     if (exists) {
       return res.status(400).json({ error: 'You have already applied for this cohort' });
     }
 
     const application = new AdmissionApplication({
+      schoolId: applicationSchoolId,
       cohort,
       session: cohortData.session,
       term: cohortData.term,
@@ -330,13 +486,17 @@ router.post('/application', async (req, res) => {
 // UPDATE application status
 router.put('/application/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
     const { status, notes } = req.body;
 
     if (!status || !['Pending', 'Approved', 'Rejected', 'Enrolled'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const application = await AdmissionApplication.findById(req.params.id);
+    const application = await AdmissionApplication.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!application) {
       return res.status(404).json({ error: 'Application not found' });
     }
@@ -358,18 +518,18 @@ router.put('/application/:id', authMiddleware, adminAuth, async (req, res) => {
 // DELETE application
 router.delete('/application/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const application = await AdmissionApplication.findById(req.params.id);
+    const application = await AdmissionApplication.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!application) {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    const cohort = await AdmissionCohort.findById(application.cohort);
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: application.cohort }));
     if (cohort && cohort.applicantCount > 0) {
       cohort.applicantCount -= 1;
       await cohort.save();
     }
 
-    await AdmissionApplication.findByIdAndDelete(req.params.id);
+    await AdmissionApplication.findOneAndDelete(schoolFilter(schoolId, { _id: req.params.id }));
     res.json({ message: 'Application deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -381,6 +541,10 @@ router.delete('/application/:id', authMiddleware, adminAuth, async (req, res) =>
 // CREATE setup
 router.post('/setup', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
     const { session, term, classId, armId, startDate, endDate, applicationFee } = req.body;
 
     if (!session || !term || !classId || !armId || !startDate || !endDate) {
@@ -388,6 +552,7 @@ router.post('/setup', authMiddleware, adminAuth, async (req, res) => {
     }
 
     const setup = new AdmissionSetup({
+      schoolId,
       session,
       term,
       class: classId,
@@ -412,7 +577,11 @@ router.post('/setup', authMiddleware, adminAuth, async (req, res) => {
 // GET all setups
 router.get('/setups', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const setups = await AdmissionSetup.find()
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const setups = await AdmissionSetup.find(schoolFilter(schoolId))
       .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name')
@@ -429,12 +598,16 @@ router.get('/setups', authMiddleware, adminAuth, async (req, res) => {
 // GET admission statistics
 router.get('/stats', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const totalApplications = await AdmissionApplication.countDocuments();
-    const pendingApplications = await AdmissionApplication.countDocuments({ status: 'Pending' });
-    const approvedApplications = await AdmissionApplication.countDocuments({ status: 'Approved' });
-    const rejectedApplications = await AdmissionApplication.countDocuments({ status: 'Rejected' });
-    const activeCohorts = await AdmissionCohort.countDocuments({ status: 'active' });
-    const pausedCohorts = await AdmissionCohort.countDocuments({ status: 'paused' });
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const totalApplications = await AdmissionApplication.countDocuments(schoolFilter(schoolId));
+    const pendingApplications = await AdmissionApplication.countDocuments(schoolFilter(schoolId, { status: 'Pending' }));
+    const approvedApplications = await AdmissionApplication.countDocuments(schoolFilter(schoolId, { status: 'Approved' }));
+    const rejectedApplications = await AdmissionApplication.countDocuments(schoolFilter(schoolId, { status: 'Rejected' }));
+    const activeCohorts = await AdmissionCohort.countDocuments(schoolFilter(schoolId, { status: 'active' }));
+    const pausedCohorts = await AdmissionCohort.countDocuments(schoolFilter(schoolId, { status: 'paused' }));
 
     res.json({
       totalApplications,
@@ -452,24 +625,30 @@ router.get('/stats', authMiddleware, adminAuth, async (req, res) => {
 // GET cohort statistics
 router.get('/cohorts/:id/stats', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const cohort = await AdmissionCohort.findById(req.params.id);
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+
+    const cohort = await AdmissionCohort.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!cohort) {
       return res.status(404).json({ error: 'Cohort not found' });
     }
 
-    const totalApplications = await AdmissionApplication.countDocuments({ cohort: req.params.id });
-    const pendingApplications = await AdmissionApplication.countDocuments({ 
-      cohort: req.params.id, 
-      status: 'Pending' 
-    });
-    const approvedApplications = await AdmissionApplication.countDocuments({ 
-      cohort: req.params.id, 
-      status: 'Approved' 
-    });
-    const rejectedApplications = await AdmissionApplication.countDocuments({ 
-      cohort: req.params.id, 
-      status: 'Rejected' 
-    });
+    const totalApplications = await AdmissionApplication.countDocuments(
+      schoolFilter(schoolId, { cohort: req.params.id })
+    );
+    const pendingApplications = await AdmissionApplication.countDocuments(schoolFilter(schoolId, {
+      cohort: req.params.id,
+      status: 'Pending'
+    }));
+    const approvedApplications = await AdmissionApplication.countDocuments(schoolFilter(schoolId, {
+      cohort: req.params.id,
+      status: 'Approved'
+    }));
+    const rejectedApplications = await AdmissionApplication.countDocuments(schoolFilter(schoolId, {
+      cohort: req.params.id,
+      status: 'Rejected'
+    }));
 
     res.json({
       cohort: cohort.name,
