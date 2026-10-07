@@ -1,595 +1,928 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
   <meta charset="UTF-8">
   <title id="pageTitle">CBT Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Google Fonts & Font Awesome -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Montserrat:wght@800&display=swap" rel="stylesheet">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  
+  <!-- Flowbite & Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              primary: 'var(--primary)',
+              secondary: 'var(--secondary)',
+              accent: 'var(--accent)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            heading: ['Montserrat', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
   <style>
     :root {
       --primary: #1847a6;
+      --secondary: #0284c7;
       --accent: #17c3b2;
       --error: #e74c3c;
-      --radius: 18px;
-      --shadow: 0 4px 24px color-mix(in srgb, var(--primary) 10%, transparent);
-      --bg: linear-gradient(120deg, #e6eefe 0%, #b2c6e6 100%);
-      --glass-bg: rgba(255,255,255,0.92);
-      --glass-border: color-mix(in srgb, var(--primary) 7%, transparent);
     }
-    html, body {
+
+    /* Fallback logo styling when image is missing/broken */
+    .logo.logo-fallback::before {
+      content: attr(data-initials);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
       height: 100%;
-      margin: 0;
-      font-family: 'Inter', Arial, sans-serif;
-      background: var(--bg);
-      color: #1a2b4b;
-      min-height: 100vh;
+      color: var(--primary);
+      background: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 1px;
     }
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+
+    .logo.logo-fallback img {
+      display: none !important;
     }
-    .cbt-login-main {
-      box-shadow: var(--shadow);
-      border-radius: var(--radius);
-      display: flex;
-      background: var(--glass-bg);
-      border: 1.5px solid var(--glass-border);
-      overflow: hidden;
-      max-width: 840px;
-      width: 100%;
-      margin: 0 auto;
-    }
+
+    /* Dynamic CSS Variables Background Gradient for Left Panel */
     .cbt-login-side {
-      background: linear-gradient(135deg, var(--primary) 75%, var(--accent) 100%);
-      color: #fff;
-      flex: 1.2;
-      min-width: 260px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      padding: 40px 24px 30px 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 60%, var(--accent) 100%);
     }
-    .cbt-login-side .logo {
-      width: 84px;
-      height: 84px;
-      border-radius: 15px;
-      background: #fff;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+
+    /* Dynamic primary button styles */
+    .btn-brand-primary {
+      background-color: var(--primary);
+      transition: all 0.2s ease-in-out;
     }
-    .cbt-login-side h1 {
-      font-family: 'Montserrat', sans-serif;
-      font-weight: 800;
-      font-size: 1.35rem;
-      margin-bottom: 16px;
-      letter-spacing: 1.2px;
-      text-shadow: 0 2px 8px rgba(10,50,150,0.10);
-      text-align: center;
+    .btn-brand-primary:hover:not(:disabled) {
+      filter: brightness(0.9);
+      box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
     }
-    .cbt-login-side .subtitle {
-      font-size: 1.08rem;
-      font-weight: 500;
-      opacity: 0.93;
-      margin-bottom: 18px;
-      text-align: center;
-    }
-    .cbt-login-side .fa-laptop-code {
-      font-size: 2.1rem;
-      opacity: 0.82;
-      margin-bottom: 20px;
-      margin-top: 6px;
-      color: #fff;
-    }
-    .cbt-login-side .info-row {
-      font-size: 1.05rem;
-      opacity: 0.97;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      justify-content: center;
-    }
-    .cbt-login-side .socials {
-      margin-top: 20px;
-      display: flex;
-      gap: 13px;
-      justify-content: center;
-    }
-    .cbt-login-side .socials a {
-      color: #fff;
-      font-size: 1.22rem;
-      opacity: 0.85;
-      border-radius: 100px;
-      padding: 2px 5px;
-      transition: color .14s, opacity .15s;
-    }
-    .cbt-login-side .socials a:hover {
-      opacity: 1;
-      color: var(--accent);
-      background: rgba(255,255,255,0.15);
-    }
-    .cbt-login-form-section {
-      flex: 1.5;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: transparent;
-    }
-    .cbt-login-card {
-      background: #fff;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      border: 1.5px solid var(--glass-border);
-      padding: 36px 32px 28px 32px;
-      max-width: 370px;
-      width: 100%;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-    }
-    .cbt-login-card .icon {
-      font-size: 2.3rem;
+    
+    .text-brand-primary {
       color: var(--primary);
-      margin-bottom: 8px;
-      text-align: center;
-      width: 100%;
-      opacity: 0.95;
-    }
-    .cbt-login-card h2 {
-      font-family: 'Montserrat', sans-serif;
-      font-weight: 800;
-      font-size: 1.23rem;
-      letter-spacing: 0.5px;
-      margin-bottom: 19px;
-      color: #1a2b4b;
-      text-align: center;
-    }
-    .cbt-login-card label {
-      font-size: 1.06rem;
-      font-weight: 600;
-      color: var(--primary);
-      margin-bottom: 2px;
-      margin-top: 10px;
-      display: block;
-    }
-    .cbt-login-card input[type="text"], .cbt-login-card input[type="password"] {
-      width: 100%;
-      font-size: 1.09rem;
-      border-radius: 9px;
-      border: 1.2px solid #dbe2ee;
-      padding: 12px 12px;
-      background: #f7f9fc;
-      margin-bottom: 14px;
-      margin-top: 2px;
-      box-sizing: border-box;
-      transition: border .15s;
-    }
-    .cbt-login-card input:focus {
-      outline: none;
-      border-color: var(--primary);
-      background: #f1f5fd;
-    }
-    .cbt-login-card .input-group {
-      position: relative;
-      width: 100%;
-    }
-    .cbt-login-card .toggle-pw {
-      position: absolute;
-      right: 11px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      color: #a3b7ce;
-      font-size: 1.13rem;
-      cursor: pointer;
-      padding: 2px 6px;
-      z-index: 2;
-      outline: none;
-    }
-    .cbt-login-card .form-check {
-      margin-bottom: 18px;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 1.01rem;
-      width: 100%;
-    }
-    .cbt-login-card .form-check-input[type="checkbox"] {
-      width: 17px;
-      height: 17px;
-      border-radius: 4px;
-    }
-    .cbt-login-card .btn-primary {
-      padding: 12px 0;
-      background: var(--primary);
-      border-radius: 9px;
-      border: none;
-      font-size: 1.11rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      color: #fff;
-      margin-bottom: 13px;
-      margin-top: 6px;
-      width: 100%;
-      box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 11%, transparent);
-      transition: background .18s, box-shadow .18s;
-      cursor: pointer;
-    }
-    .cbt-login-card .btn-primary:active, .cbt-login-card .btn-primary:focus { background: #174e8b; }
-    .cbt-login-card .row-links {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 13px;
-      font-size: 1.01rem;
-      gap: 12px;
-      width: 100%;
-    }
-    .cbt-login-card .row-links a {
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 500;
-      opacity: 0.93;
-      transition: opacity .15s;
-    }
-    .cbt-login-card .row-links a:hover { opacity: 1; text-decoration: underline; }
-    .cbt-login-card #cbt-spinner {
-      display: none;
-      text-align: center;
-      margin-top: 10px;
-      width: 100%;
-    }
-    .cbt-login-card .error-msg {
-      background: #fff4f4;
-      color: var(--error);
-      border: 1.2px solid #f9caca;
-      border-radius: 5px;
-      padding: 7px 11px;
-      margin-bottom: 10px;
-      font-size: 0.97rem;
-      display: none;
-    }
-    @media (max-width: 900px) {
-      .cbt-login-main {
-        flex-direction: column;
-        max-width: 97vw;
-        margin: 0 7px;
-      }
-      .cbt-login-side {
-        min-width: 0;
-        padding: 35px 7vw 20px 7vw;
-        border-radius: 0 0 var(--radius) var(--radius);
-      }
-      .cbt-login-form-section {
-        padding: 0 7vw 20px 7vw;
-      }
-      .cbt-login-card {
-        padding: 28px 7vw 20px 7vw;
-        max-width: 100vw;
-        border-radius: var(--radius);
-      }
-    }
-    @media (max-width: 600px) {
-      .cbt-login-side {
-        padding: 24px 2vw 15px 2vw;
-      }
-      .cbt-login-card {
-        padding: 18px 3vw 15px 3vw;
-        border-radius: 16px;
-      }
-    }
-    @media (max-width: 440px) {
-      .cbt-login-side { padding: 10px 1vw 8px 1vw; }
-      .cbt-login-card { padding: 7px 1vw 8px 1vw; }
-      .cbt-login-card h2 { font-size: 0.95rem; }
     }
   </style>
 </head>
-<body>
-  <div class="cbt-login-main">
-    <!-- Side Panel -->
-    <div class="cbt-login-side">
-      <div class="logo">
-        <img id="schoolLogo" src="" alt="School Logo" style="width:100%;height:100%;object-fit:contain;">
+<body class="h-full font-sans antialiased bg-slate-900/5 min-h-screen flex items-center justify-center p-3 sm:p-6 lg:p-8">
+
+  <!-- Main Grid Card Container -->
+  <main class="cbt-login-main w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col md:flex-row my-auto">
+    
+    <!-- LEFT SIDE: SCHOOL BRANDING & INFO -->
+    <div class="cbt-login-side relative flex-1 text-white p-8 sm:p-10 lg:p-12 flex flex-col justify-between items-center text-center overflow-hidden">
+      <!-- Ambient Decorative Circles -->
+      <div class="absolute -top-12 -left-12 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-black/10 rounded-full blur-2xl pointer-events-none"></div>
+
+      <!-- Top Branding Content -->
+      <div class="relative z-10 w-full flex flex-col items-center">
+        <!-- Logo Container -->
+        <div class="logo w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-2 flex items-center justify-center shadow-lg border border-white/20 mb-6 transition-transform hover:scale-105">
+          <img id="schoolLogo" src="" alt="School Logo" class="w-full h-full object-contain">
+        </div>
+
+        <!-- School Name -->
+        <h1 id="schoolName" class="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight leading-snug mb-2 drop-shadow-sm">
+          School CBT Portal
+        </h1>
+
+        <!-- Subtitle / Motto -->
+        <div class="subtitle text-sm sm:text-base font-medium text-white/90 max-w-xs mb-6">
+          CBT Student Login
+        </div>
+
+        <!-- Laptop CBT Icon Badge -->
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-white shadow-inner mb-6">
+          <i class="fa-solid fa-laptop-code text-xl"></i>
+        </div>
       </div>
-      <h1 id="schoolName">School CBT Portal</h1>
-      <div class="subtitle">CBT Student Login</div>
-      <div><i class="fa fa-laptop-code"></i></div>
-      <div class="info-row" id="schoolEmailRow" style="display:none;">
-        <i class="fa fa-envelope"></i>
-        <span id="schoolEmail"></span>
-      </div>
-      <div class="info-row" id="schoolPhoneRow" style="display:none;">
-        <i class="fa fa-phone"></i>
-        <span id="schoolPhone"></span>
-      </div>
-      <div class="socials">
-        <a href="https://facebook.com" target="_blank" title="Facebook"><i class="fab fa-facebook-square"></i></a>
-        <a href="https://twitter.com" target="_blank" title="Twitter"><i class="fab fa-twitter"></i></a>
-        <a href="https://instagram.com" target="_blank" title="Instagram"><i class="fab fa-instagram"></i></a>
+
+      <!-- Contact Info & Socials -->
+      <div class="relative z-10 w-full mt-4 space-y-3">
+        <!-- Email Row -->
+        <div class="info-row text-xs sm:text-sm text-white/95 flex items-center justify-center gap-2 bg-white/10 backdrop-blur-sm py-2 px-4 rounded-full border border-white/10" id="schoolEmailRow" style="display:none;">
+          <i class="fa-solid fa-envelope text-white/80"></i>
+          <span id="schoolEmail" class="truncate"></span>
+        </div>
+
+        <!-- Phone Row -->
+        <div class="info-row text-xs sm:text-sm text-white/95 flex items-center justify-center gap-2 bg-white/10 backdrop-blur-sm py-2 px-4 rounded-full border border-white/10" id="schoolPhoneRow" style="display:none;">
+          <i class="fa-solid fa-phone text-white/80"></i>
+          <span id="schoolPhone"></span>
+        </div>
+
+        <!-- Social Media Links -->
+        <div class="socials flex items-center justify-center gap-3 pt-4">
+          <a href="https://facebook.com" target="_blank" title="Facebook" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/25 border border-white/20 flex items-center justify-center text-white text-base transition-all duration-200">
+            <i class="fab fa-facebook-square"></i>
+          </a>
+          <a href="https://twitter.com" target="_blank" title="Twitter" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/25 border border-white/20 flex items-center justify-center text-white text-base transition-all duration-200">
+            <i class="fab fa-twitter"></i>
+          </a>
+          <a href="https://instagram.com" target="_blank" title="Instagram" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/25 border border-white/20 flex items-center justify-center text-white text-base transition-all duration-200">
+            <i class="fab fa-instagram"></i>
+          </a>
+        </div>
       </div>
     </div>
-    <!-- Login Form Card -->
-    <div class="cbt-login-form-section">
-      <div class="cbt-login-card">
-        <div class="icon">
-          <i class="fa fa-user-graduate"></i>
+
+    <!-- RIGHT SIDE: LOGIN FORM -->
+    <div class="cbt-login-form-section flex-1 bg-white p-8 sm:p-10 lg:p-12 flex items-center justify-center">
+      <div class="cbt-login-card w-full max-w-sm mx-auto">
+        
+        <!-- Header Icon & Title -->
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-50 text-brand-primary mb-3">
+            <i class="fa-solid fa-user-graduate text-2xl"></i>
+          </div>
+          <h2 class="font-heading font-extrabold text-2xl text-slate-900 tracking-tight">CBT Portal Login</h2>
+          <p class="text-xs text-slate-500 mt-1">Please enter your credentials to access your exam</p>
         </div>
-        <h2>CBT Portal Login</h2>
-        <form id="cbtLoginForm" autocomplete="on">
-          <div class="error-msg" id="cbtErrorMsg"></div>
-          <label for="student-id">E-Mail or Reg. No.</label>
-          <input type="text" id="student-id" name="student-id" autocomplete="username" placeholder="Enter your email or registration number" required>
-          <div class="input-group mb-2">
-            <label for="student-password">Password / Access Code</label>
-            <input type="password" id="student-password" name="student-password" autocomplete="current-password" placeholder="Enter your password" required>
-            <button type="button" class="toggle-pw" tabindex="-1" onclick="togglePw()"><i class="fa fa-eye"></i></button>
+
+        <!-- Login Form -->
+        <form id="cbtLoginForm" autocomplete="on" class="space-y-5">
+          
+          <!-- Dynamic Error Alert Box -->
+          <div class="error-msg p-3.5 text-xs sm:text-sm text-red-800 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2.5" id="cbtErrorMsg" style="display:none;" role="alert">
+            <i class="fa-solid fa-circle-exclamation text-red-500 text-base mt-0.5 shrink-0"></i>
+            <span class="flex-1"></span>
           </div>
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" id="keepLoggedIn">
-            <label class="form-check-label" for="keepLoggedIn">
-              Keep me logged on
-            </label>
+
+          <!-- Student ID / Email Field -->
+          <div>
+            <label for="student-id" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-700">E-Mail or Reg. No.</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                <i class="fa-solid fa-id-card text-sm"></i>
+              </div>
+              <input type="text" id="student-id" name="student-id" autocomplete="username" placeholder="Enter your email or registration number" required 
+                class="bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-3 transition-colors placeholder:text-slate-400">
+            </div>
           </div>
-          <button type="submit" class="btn-primary">LOGIN TO CBT</button>
-          <div id="cbt-spinner">
-            <i class="fa fa-spinner fa-spin" style="font-size: 1.4rem; color: var(--primary);"></i>
+
+          <!-- Password Field -->
+          <div>
+            <label for="student-password" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-700">Password / Access Code</label>
+            <div class="input-group relative">
+              <div class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                <i class="fa-solid fa-lock text-sm"></i>
+              </div>
+              <input type="password" id="student-password" name="student-password" autocomplete="current-password" placeholder="Enter your password" required 
+                class="bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-10 p-3 transition-colors placeholder:text-slate-400">
+              <button type="button" class="toggle-pw absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors" tabindex="-1" onclick="togglePw()">
+                <i class="fa-solid fa-eye text-sm"></i>
+              </button>
+            </div>
           </div>
-          <div class="row-links">
-            <a href="#">Forgot Password?</a>
-            <a href="#">Need Help?</a>
+
+          <!-- Checkbox Row -->
+          <div class="flex items-center justify-between pt-1">
+            <div class="form-check flex items-center">
+              <input id="keepLoggedIn" type="checkbox" class="form-check-input w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 focus:ring-2">
+              <label for="keepLoggedIn" class="form-check-label ml-2 text-xs sm:text-sm font-medium text-slate-600 cursor-pointer">Keep me logged on</label>
+            </div>
           </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-primary btn-brand-primary w-full text-white font-semibold rounded-xl text-sm px-5 py-3.5 text-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+            LOGIN TO CBT
+          </button>
+
+          <!-- Loading Spinner -->
+          <div id="cbt-spinner" class="py-2 text-center" style="display:none;">
+            <div role="status" class="inline-flex items-center gap-2 text-sm text-slate-600">
+              <svg aria-hidden="true" class="w-5 h-5 text-slate-200 animate-spin fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+              </svg>
+              <span class="font-medium">Authenticating...</span>
+            </div>
+          </div>
+
+          <!-- Bottom Utility Links -->
+          <div class="row-links flex items-center justify-between text-xs font-medium text-slate-500 pt-2">
+            <a href="#" class="hover:text-blue-600 transition-colors hover:underline">Forgot Password?</a>
+            <a href="#" class="hover:text-blue-600 transition-colors hover:underline">Need Help?</a>
+          </div>
+
         </form>
       </div>
     </div>
-  </div>
+  </main>
+
+  <!-- Flowbite JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
+  <!-- EXACT INTEGRATION SCRIPT MAINTAINED -->
   <script>
+    /*
+     * ============================================================
+     * EXAMGUARD MULTI-SCHOOL / TENANT CONFIGURATION
+     * ============================================================
+     *
+     * Every school uses the same frontend files.
+     *
+     * Example:
+     *   https://goldlinc-schools-manuh.examguard.com.ng/cbt-login.html
+     *
+     * The hostname identifies the tenant. We then ask the backend
+     * for the real school record and use its MongoDB schoolId for
+     * authentication and subsequent pages.
+     */
+
     const API_BASE_URL = "https://examguard-8rxe.onrender.com";
+    const SCHOOL_CACHE_KEY = "currentSchoolConfig";
+    const SCHOOL_ID_KEY = "schoolId";
+    const SCHOOL_SUBDOMAIN_KEY = "schoolSubdomain";
+    const STUDENT_TOKEN_KEY = "student_token";
+
+    let currentSchool = null;
+    let schoolConfigLoaded = false;
 
     // ------------------------------------------------------------
-    // Multi-school / tenant configuration
+    // Helpers
     // ------------------------------------------------------------
-    const SCHOOL_CACHE_KEY = 'currentSchoolConfig';
-    let currentSchool = null;
 
     function getQueryParam(name) {
-      return new URLSearchParams(window.location.search).get(name) || '';
+      return new URLSearchParams(window.location.search).get(name) || "";
     }
 
-    function getTenantIdentifier() {
-      const params = [
-        getQueryParam('schoolId'),
-        getQueryParam('schoolCode'),
-        getQueryParam('school'),
-        localStorage.getItem('schoolId'),
-        localStorage.getItem('schoolCode'),
-        localStorage.getItem('schoolKey')
-      ];
+    function clean(value) {
+      return String(value ?? "").trim();
+    }
 
-      for (const value of params) {
-        if (value && value.trim()) return value.trim();
-      }
-
-      // Support school subdomains, e.g. goldlinc.examguard.com.ng
+    /*
+     * Resolve the tenant from the URL first.
+     *
+     * Preferred production format:
+     *   <school-subdomain>.examguard.com.ng
+     *
+     * Query/localStorage are retained only as fallbacks so that an
+     * already-open school portal does not suddenly lose its tenant.
+     */
+    function getSchoolSubdomain() {
       const host = window.location.hostname.toLowerCase();
-      const baseHosts = ['examguard.com.ng', 'www.examguard.com.ng'];
-      if (!baseHosts.includes(host)) {
-        const parts = host.split('.');
-        if (parts.length > 2) return parts[0];
+
+      const examGuardMatch = host.match(
+        /^([a-z0-9-]+)\.examguard\.com\.ng$/
+      );
+
+      if (examGuardMatch && examGuardMatch[1]) {
+        const subdomain = examGuardMatch[1];
+
+        // Do not treat the main site as a school tenant.
+        if (!["www", "examguard"].includes(subdomain)) {
+          return subdomain;
+        }
       }
 
-      return '';
+      // Local/development or fallback access.
+      return clean(
+        getQueryParam("subdomain") ||
+        getQueryParam("schoolSubdomain") ||
+        sessionStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
+        localStorage.getItem(SCHOOL_SUBDOMAIN_KEY)
+      );
+    }
+
+    /*
+     * Only use a schoolId after it has come from a trusted backend
+     * school configuration or an existing authenticated school flow.
+     *
+     * We deliberately DO NOT convert the subdomain into schoolId.
+     */
+    function getCachedSchoolId() {
+      try {
+        const cached = JSON.parse(
+          localStorage.getItem(SCHOOL_CACHE_KEY) || "null"
+        );
+
+        return clean(
+          cached?._id ||
+          cached?.schoolId ||
+          cached?.id
+        );
+      } catch (_) {
+        return clean(localStorage.getItem(SCHOOL_ID_KEY));
+      }
     }
 
     function resolveMediaUrl(url) {
-      if (!url) return '';
-      const value = String(url).trim();
-      if (!value) return '';
-      if (/^(https?:|data:|blob:)/i.test(value)) return value;
-      if (value.startsWith('/')) return API_BASE_URL + value;
-      return API_BASE_URL + '/' + value;
+      const value = clean(url);
+      if (!value) return "";
+
+      if (/^(https?:|data:|blob:)/i.test(value)) {
+        return value;
+      }
+
+      if (value.startsWith("//")) {
+        return window.location.protocol + value;
+      }
+
+      if (value.startsWith("/")) {
+        return API_BASE_URL + value;
+      }
+
+      return API_BASE_URL + "/" + value;
     }
 
     function schoolInitials(name) {
-      return String(name || 'School')
+      return String(name || "School")
         .split(/\s+/)
         .filter(Boolean)
         .slice(0, 2)
         .map(word => word[0].toUpperCase())
-        .join('') || 'SC';
+        .join("") || "SC";
     }
 
+    function setCssColor(variable, value, fallback) {
+      const color = clean(value) || fallback;
+      document.documentElement.style.setProperty(variable, color);
+    }
+
+    // ------------------------------------------------------------
+    // Apply school configuration
+    // ------------------------------------------------------------
+
     function applySchoolBranding(school) {
-      if (!school) return;
+      if (!school || typeof school !== "object") return;
+
       currentSchool = school;
 
-      const name = school.schoolName || school.name || 'School';
+      const name =
+        clean(school.schoolName) ||
+        clean(school.name) ||
+        "School";
+
       const logo = resolveMediaUrl(
         school.logoUrl ||
         school.logo ||
-        school.branding?.logo ||
-        school.branding?.logoUrl
+        school.schoolLogo ||
+        school.branding?.logoUrl ||
+        school.branding?.logo
       );
 
-      const primary = school.branding?.primaryColor ||
+      const primary =
+        school.branding?.primaryColor ||
         school.branding?.primary ||
-        school.primaryColor || '#1847a6';
-      const accent = school.branding?.accentColor ||
+        school.primaryColor ||
+        "#1847a6";
+
+      const secondary =
+        school.branding?.secondaryColor ||
+        school.branding?.secondary ||
+        school.secondaryColor ||
+        "#0284c7";
+
+      const accent =
+        school.branding?.accentColor ||
         school.branding?.accent ||
-        school.accentColor || '#17c3b2';
+        school.accentColor ||
+        "#17c3b2";
 
-      document.documentElement.style.setProperty('--primary', primary);
-      document.documentElement.style.setProperty('--accent', accent);
+      setCssColor("--primary", primary, "#1847a6");
+      setCssColor("--secondary", secondary, "#0284c7");
+      setCssColor("--accent", accent, "#17c3b2");
 
-      document.title = 'CBT Login | ' + name;
-      document.getElementById('schoolName').textContent = name;
+      document.title = "CBT Login | " + name;
 
-      const logoEl = document.getElementById('schoolLogo');
-      if (logo) {
-        logoEl.src = logo;
-        logoEl.style.display = 'block';
-        logoEl.onerror = () => {
-          logoEl.style.display = 'none';
-        };
-      } else {
-        logoEl.removeAttribute('src');
-        logoEl.style.display = 'none';
+      const schoolNameEl = document.getElementById("schoolName");
+      if (schoolNameEl) {
+        schoolNameEl.textContent = name;
       }
 
-      const email = school.email || school.contactEmail || school.contact?.email || '';
-      const phone = school.phone || school.phoneNumber || school.contactPhone || school.contact?.phone || '';
+      const logoEl = document.getElementById("schoolLogo");
 
-      const emailRow = document.getElementById('schoolEmailRow');
-      const phoneRow = document.getElementById('schoolPhoneRow');
+      if (logoEl) {
+        logoEl.onerror = function () {
+          this.onerror = null;
+          this.style.display = "none";
+          this.parentElement.classList.add("logo-fallback");
+          this.parentElement.setAttribute(
+            "data-initials",
+            schoolInitials(name)
+          );
+        };
 
-      document.getElementById('schoolEmail').textContent = email;
-      document.getElementById('schoolPhone').textContent = phone;
-      emailRow.style.display = email ? 'flex' : 'none';
-      phoneRow.style.display = phone ? 'flex' : 'none';
+        if (logo) {
+          logoEl.src = logo;
+          logoEl.alt = name + " Logo";
+          logoEl.style.display = "block";
+          logoEl.parentElement.classList.remove("logo-fallback");
+        } else {
+          logoEl.removeAttribute("src");
+          logoEl.style.display = "none";
+          logoEl.parentElement.classList.add("logo-fallback");
+          logoEl.parentElement.setAttribute(
+            "data-initials",
+            schoolInitials(name)
+          );
+        }
+      }
 
-      const motto = school.motto || school.tagline || school.branding?.motto || '';
-      const subtitle = document.querySelector('.cbt-login-side .subtitle');
-      subtitle.textContent = motto ? motto : 'CBT Student Login';
+      const email =
+        clean(school.email) ||
+        clean(school.contactEmail) ||
+        clean(school.contact?.email);
 
-      // Keep a safe copy for subsequent portal pages.
+      const phone =
+        clean(school.phone) ||
+        clean(school.phoneNumber) ||
+        clean(school.contactPhone) ||
+        clean(school.contact?.phone);
+
+      const emailRow = document.getElementById("schoolEmailRow");
+      const phoneRow = document.getElementById("schoolPhoneRow");
+
+      if (emailRow) {
+        emailRow.style.display = email ? "flex" : "none";
+      }
+
+      if (phoneRow) {
+        phoneRow.style.display = phone ? "flex" : "none";
+      }
+
+      const emailEl = document.getElementById("schoolEmail");
+      const phoneEl = document.getElementById("schoolPhone");
+
+      if (emailEl) emailEl.textContent = email;
+      if (phoneEl) phoneEl.textContent = phone;
+
+      const motto =
+        clean(school.motto) ||
+        clean(school.tagline) ||
+        clean(school.branding?.motto);
+
+      const subtitle = document.querySelector(
+        ".cbt-login-side .subtitle"
+      );
+
+      if (subtitle) {
+        subtitle.textContent = motto || "CBT Student Login";
+      }
+
+      // Persist the actual backend school record.
       try {
-        localStorage.setItem(SCHOOL_CACHE_KEY, JSON.stringify(school));
-        if (school._id) localStorage.setItem('schoolId', school._id);
-        if (school.schoolId) localStorage.setItem('schoolCode', school.schoolId);
+        localStorage.setItem(
+          SCHOOL_CACHE_KEY,
+          JSON.stringify(school)
+        );
+
+        const realSchoolId = clean(
+          school._id ||
+          school.schoolId ||
+          school.id
+        );
+
+        if (realSchoolId) {
+          localStorage.setItem(SCHOOL_ID_KEY, realSchoolId);
+        }
+
+        const subdomain = getSchoolSubdomain();
+
+        if (subdomain) {
+          localStorage.setItem(
+            SCHOOL_SUBDOMAIN_KEY,
+            subdomain
+          );
+          sessionStorage.setItem(
+            SCHOOL_SUBDOMAIN_KEY,
+            subdomain
+          );
+        }
       } catch (_) {}
+    }
+
+    // ------------------------------------------------------------
+    // Backend school configuration
+    // ------------------------------------------------------------
+
+    async function fetchSchoolConfiguration() {
+      const subdomain = getSchoolSubdomain();
+
+      if (!subdomain) {
+        throw new Error(
+          "No school portal was detected. Please open your school's ExamGuard portal."
+        );
+      }
+
+      /*
+       * IMPORTANT:
+       * The backend receives the subdomain and returns the actual
+       * school document. The frontend does not invent school IDs.
+       */
+      const url =
+        API_BASE_URL +
+        "/api/schools/config?subdomain=" +
+        encodeURIComponent(subdomain);
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json"
+        },
+        credentials: "include"
+      });
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch (_) {}
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+          data?.error ||
+          "Unable to load this school's configuration."
+        );
+      }
+
+      const school =
+        data?.school ||
+        data?.data?.school ||
+        data?.data ||
+        data;
+
+      if (
+        !school ||
+        typeof school !== "object" ||
+        !(
+          school._id ||
+          school.schoolId ||
+          school.id ||
+          school.schoolName ||
+          school.name
+        )
+      ) {
+        throw new Error(
+          "The school configuration returned by the server is invalid."
+        );
+      }
+
+      return school;
     }
 
     async function loadSchoolConfiguration() {
-      // Render cached configuration immediately for a fast repeat visit.
+      // Show cached branding immediately while the current
+      // tenant configuration is being fetched.
       try {
-        const cached = JSON.parse(localStorage.getItem(SCHOOL_CACHE_KEY) || 'null');
-        if (cached) applySchoolBranding(cached);
+        const cached = JSON.parse(
+          localStorage.getItem(SCHOOL_CACHE_KEY) || "null"
+        );
+
+        if (cached) {
+          applySchoolBranding(cached);
+        }
       } catch (_) {}
 
-      const identifier = getTenantIdentifier();
-      const params = new URLSearchParams();
-      if (identifier) {
-        if (/^[a-f0-9]{24}$/i.test(identifier)) params.set('schoolId', identifier);
-        else params.set('schoolCode', identifier);
+      const subdomain = getSchoolSubdomain();
+
+      if (!subdomain) {
+        showSchoolConfigurationError(
+          "This is not a valid school portal URL. Please open your school's ExamGuard portal."
+        );
+        return false;
       }
 
       try {
-        const response = await fetch(API_BASE_URL + '/api/schools/homepage' + (params.toString() ? '?' + params.toString() : ''), {
-          headers: identifier ? { 'X-School-ID': identifier, 'X-School-Code': identifier } : {}
-        });
+        const school = await fetchSchoolConfiguration();
 
-        if (!response.ok) throw new Error('Unable to load school configuration');
-        const data = await response.json();
-        const school = data.school || data.data || data;
+        applySchoolBranding(school);
+        schoolConfigLoaded = true;
 
-        if (school && (school._id || school.schoolId || school.schoolName || school.name)) {
-          applySchoolBranding(school);
-        }
+        hideSchoolConfigurationError();
+        return true;
       } catch (error) {
-        // Cached branding remains visible if the network request fails.
-        console.warn('School configuration could not be loaded:', error);
-      }
-    }
+        console.error(
+          "School configuration error:",
+          error
+        );
 
-    // Password toggle
-    function togglePw() {
-      const pwInput = document.getElementById('student-password');
-      const pwToggle = document.querySelector('.toggle-pw i');
-      if (pwInput.type === "password") {
-        pwInput.type = "text";
-        pwToggle.classList.remove('fa-eye');
-        pwToggle.classList.add('fa-eye-slash');
-      } else {
-        pwInput.type = "password";
-        pwToggle.classList.remove('fa-eye-slash');
-        pwToggle.classList.add('fa-eye');
-      }
-    }
-
-    // Login logic
-    document.addEventListener('DOMContentLoaded', function() {
-      loadSchoolConfiguration();
-      const loginForm = document.getElementById('cbtLoginForm');
-      const errorMsg = document.getElementById('cbtErrorMsg');
-      const spinner = document.getElementById('cbt-spinner');
-      const submitBtn = loginForm.querySelector('button[type="submit"]');
-
-      loginForm.addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        errorMsg.style.display = 'none';
-        spinner.style.display = 'none';
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
-
-        const loginVal = document.getElementById('student-id').value.trim();
-        const password = document.getElementById('student-password').value.trim();
-
-        if (!loginVal || !password) {
-          errorMsg.innerText = 'Please fill in all fields.';
-          errorMsg.style.display = 'block';
-          return;
-        }
-
-        const isEmail = loginVal.includes('@');
-        const tenantId = getTenantIdentifier();
-        const body = isEmail
-          ? { email: loginVal, password, ...(tenantId ? { schoolId: tenantId } : {}) }
-          : { regNo: loginVal, password, ...(tenantId ? { schoolId: tenantId } : {}) };
-
-        spinner.style.display = 'block';
-        submitBtn.disabled = true;
-        submitBtn.style.opacity = '0.6';
+        /*
+         * A cached configuration is acceptable only if it belongs
+         * to the same tenant subdomain. Otherwise do not allow the
+         * user to accidentally log into another school's portal.
+         */
+        let cachedIsSameTenant = false;
 
         try {
-          const res = await fetch(API_BASE_URL + '/api/auth/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(tenantId ? { 'X-School-ID': tenantId, 'X-School-Code': tenantId } : {})
-            },
-            body: JSON.stringify(body),
-          });
+          const cached = JSON.parse(
+            localStorage.getItem(SCHOOL_CACHE_KEY) || "null"
+          );
 
-          let data = {};
-          try {
-            data = await res.json();
-          } catch (err) {
-            errorMsg.innerText = 'Server error: Invalid response.';
-            errorMsg.style.display = 'block';
+          const cachedSubdomain = clean(
+            cached?.subdomain ||
+            cached?.portalSubdomain ||
+            cached?.tenantSubdomain
+          );
+
+          cachedIsSameTenant =
+            !cachedSubdomain ||
+            cachedSubdomain.toLowerCase() ===
+              subdomain.toLowerCase();
+        } catch (_) {}
+
+        if (!cachedIsSameTenant) {
+          currentSchool = null;
+          schoolConfigLoaded = false;
+        }
+
+        showSchoolConfigurationError(
+          error.message ||
+          "Unable to load this school's configuration."
+        );
+
+        return false;
+      }
+    }
+
+    function showSchoolConfigurationError(message) {
+      const errorMsg =
+        document.getElementById("cbtErrorMsg");
+
+      if (!errorMsg) return;
+
+      const textSpan = errorMsg.querySelector("span") || errorMsg;
+      textSpan.textContent = message;
+      errorMsg.style.display = "flex";
+    }
+
+    function hideSchoolConfigurationError() {
+      const errorMsg =
+        document.getElementById("cbtErrorMsg");
+
+      if (!errorMsg) return;
+
+      const textSpan = errorMsg.querySelector("span") || errorMsg;
+      textSpan.textContent = "";
+      errorMsg.style.display = "none";
+    }
+
+    // ------------------------------------------------------------
+    // Password toggle
+    // ------------------------------------------------------------
+
+    function togglePw() {
+      const pwInput =
+        document.getElementById("student-password");
+
+      const pwToggle =
+        document.querySelector(".toggle-pw i");
+
+      if (pwInput.type === "password") {
+        pwInput.type = "text";
+
+        pwToggle.classList.remove("fa-eye");
+        pwToggle.classList.add("fa-eye-slash");
+      } else {
+        pwInput.type = "password";
+
+        pwToggle.classList.remove("fa-eye-slash");
+        pwToggle.classList.add("fa-eye");
+      }
+    }
+
+    // ------------------------------------------------------------
+    // CBT Login
+    // ------------------------------------------------------------
+
+    document.addEventListener("DOMContentLoaded", async function () {
+      const loginForm =
+        document.getElementById("cbtLoginForm");
+
+      const errorMsg =
+        document.getElementById("cbtErrorMsg");
+
+      const spinner =
+        document.getElementById("cbt-spinner");
+
+      const submitBtn =
+        loginForm.querySelector(
+          'button[type="submit"]'
+        );
+
+      /*
+       * Disable login until the tenant has been resolved.
+       * This prevents a student from accidentally authenticating
+       * against the wrong school.
+       */
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = "0.6";
+
+      const configLoaded =
+        await loadSchoolConfiguration();
+
+      submitBtn.disabled = !configLoaded;
+      submitBtn.style.opacity =
+        configLoaded ? "1" : "0.6";
+
+      if (!configLoaded) {
+        return;
+      }
+
+      loginForm.addEventListener(
+        "submit",
+        async function (e) {
+          e.preventDefault();
+
+          errorMsg.style.display = "none";
+          const textSpan = errorMsg.querySelector("span") || errorMsg;
+          textSpan.textContent = "";
+
+          const loginVal =
+            document
+              .getElementById("student-id")
+              .value.trim();
+
+          const password =
+            document
+              .getElementById("student-password")
+              .value.trim();
+
+          if (!loginVal || !password) {
+            textSpan.textContent =
+              "Please fill in all fields.";
+
+            errorMsg.style.display = "flex";
             return;
           }
 
-          if (res.ok && data?.token) {
-            // Store token and student info for CBT page
-            localStorage.setItem('student_token', data.token);
-            localStorage.setItem('studentId', data.studentId || '');
-            localStorage.setItem('studentClass', data.class || '');
-            // ✅ Redirect to CBT page where code modal will be shown
-            window.location.href = 'cbt.html';
-          } else {
-            errorMsg.innerText = data?.error || 'Invalid login credentials';
-            errorMsg.style.display = 'block';
+          /*
+           * The critical multi-school rule:
+           * ALWAYS use the schoolId returned by the backend
+           * configuration. Never send the subdomain as schoolId.
+           */
+          const schoolId = clean(
+            currentSchool?._id ||
+            currentSchool?.schoolId ||
+            currentSchool?.id ||
+            getCachedSchoolId()
+          );
+
+          const schoolSubdomain =
+            getSchoolSubdomain();
+
+          if (!schoolId) {
+            textSpan.textContent =
+              "School configuration is incomplete. Please refresh the page.";
+
+            errorMsg.style.display = "flex";
+            return;
           }
-        } catch (err) {
-          errorMsg.innerText = 'Network or server error';
-          errorMsg.style.display = 'block';
-        } finally {
-          spinner.style.display = 'none';
-          submitBtn.disabled = false;
-          submitBtn.style.opacity = '1';
+
+          const isEmail =
+            loginVal.includes("@");
+
+          const body = isEmail
+            ? {
+                email: loginVal,
+                password,
+                schoolId
+              }
+            : {
+                regNo: loginVal,
+                password,
+                schoolId
+              };
+
+          spinner.style.display = "block";
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = "0.6";
+
+          try {
+            const res = await fetch(
+              API_BASE_URL +
+                "/api/auth/login",
+              {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                  "Accept":
+                    "application/json",
+                  "X-School-ID":
+                    schoolId,
+                  ...(schoolSubdomain
+                    ? {
+                        "X-School-Subdomain":
+                          schoolSubdomain
+                      }
+                    : {})
+                },
+                body: JSON.stringify(body)
+              }
+            );
+
+            let data = {};
+
+            try {
+              data = await res.json();
+            } catch (_) {
+              data = {};
+            }
+
+            if (res.ok && data?.token) {
+              /*
+               * Save only tenant-scoped information needed by the
+               * CBT pages. Other pages can reuse currentSchoolConfig.
+               */
+              localStorage.setItem(
+                STUDENT_TOKEN_KEY,
+                data.token
+              );
+
+              localStorage.setItem(
+                SCHOOL_ID_KEY,
+                schoolId
+              );
+
+              if (schoolSubdomain) {
+                localStorage.setItem(
+                  SCHOOL_SUBDOMAIN_KEY,
+                  schoolSubdomain
+                );
+              }
+
+              if (data.studentId) {
+                localStorage.setItem(
+                  "studentId",
+                  data.studentId
+                );
+              }
+
+              if (data.class) {
+                localStorage.setItem(
+                  "studentClass",
+                  data.class
+                );
+              }
+
+              /*
+               * Keep the complete school config available to cbt.html.
+               * This means cbt.html can immediately render the same
+               * school branding before making its own refresh request.
+               */
+              if (currentSchool) {
+                localStorage.setItem(
+                  SCHOOL_CACHE_KEY,
+                  JSON.stringify(currentSchool)
+                );
+              }
+
+              window.location.href =
+                "cbt.html";
+            } else {
+              textSpan.textContent =
+                data?.error ||
+                data?.message ||
+                "Invalid login credentials";
+
+              errorMsg.style.display =
+                "flex";
+            }
+          } catch (err) {
+            console.error(
+              "CBT login error:",
+              err
+            );
+
+            textSpan.textContent =
+              "Network or server error. Please check your connection and try again.";
+
+            errorMsg.style.display =
+              "flex";
+          } finally {
+            spinner.style.display = "none";
+
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = "1";
+          }
         }
-      });
+      );
     });
   </script>
 </body>
