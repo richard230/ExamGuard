@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin Profile — Admin Portal</title>
+
+  <!-- Tailwind + fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif']
+          },
+          colors: {
+            brand: {
+              500: '#4f46e5',
+              600: '#4338ca'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root { --panel: #ffffff; --muted: #94a3b8; }
+    .profile-avatar-ring { box-shadow: 0 0 0 6px rgba(79,70,229,0.06); }
+    .skeleton { position: relative; overflow: hidden; background: #e2e8f0; color: transparent; pointer-events: none; }
+    .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent); animation: shimmer 1.2s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+    /* small helpers */
+    :root { --school-primary:#4f46e5; --school-secondary:#4338ca; --school-accent:#f59e0b; }
+    .nav-link-active { background: rgba(255,255,255,0.09); color: var(--school-accent); font-weight: 700; box-shadow: inset 3px 0 0 var(--school-accent); }
+    .brand-bg { background: var(--school-primary) !important; }
+    .brand-text { color: var(--school-primary) !important; }
+    .brand-border { border-color: var(--school-primary) !important; }
+    .surface-card { border-radius: 1.25rem; box-shadow: 0 8px 30px rgba(15,23,42,.045); }
+    input:focus, textarea:focus { border-color: var(--school-primary) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--school-primary) 13%, transparent); }
+    @media (max-width: 640px) { #main { padding: 1rem .85rem 6rem; } }
+    .bg-indigo-600 { background-color: var(--school-primary) !important; }
+    .hover\:bg-indigo-700:hover { background-color: var(--school-secondary) !important; }
+    .text-indigo-600, .text-indigo-700, .text-indigo-900 { color: var(--school-primary) !important; }
+    .border-indigo-600 { border-color: var(--school-primary) !important; }
+  </style>
+</head>
+<body class="h-full font-sans antialiased text-slate-800 bg-slate-50">
+
+  <!-- PAGE SPINNER -->
+  <div id="pageSpinnerOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50">
+    <div class="p-5 bg-white rounded-2xl shadow-xl flex flex-col items-center gap-3">
+      <div class="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+      <span class="text-sm font-semibold text-slate-600">Loading...</span>
+    </div>
+  </div>
+
+  <!-- ERROR MODAL -->
+  <div id="errorModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="max-w-md w-full rounded-2xl bg-white p-6 shadow-2xl">
+      <div class="text-center">
+        <div id="errorIcon" class="mb-2 text-4xl">⚠️</div>
+        <h3 id="errorTitle" class="text-lg font-bold text-slate-900">Oops</h3>
+        <p id="errorMessage" class="mt-2 text-sm text-slate-600">Something went wrong.</p>
+        <div class="mt-5 flex justify-center gap-3">
+          <button id="errorOk" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white">OK</button>
+          <button id="errorDismiss" class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div id="sidebarOverlay" class="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm hidden lg:hidden"></div>
+
+  <div class="min-h-screen flex flex-col lg:flex-row">
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="fixed top-0 left-0 z-40 w-72 h-screen transform -translate-x-full lg:translate-x-0 transition-transform bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white">
+      <div class="p-5 border-b border-slate-800/80 flex items-center gap-3.5">
+        <img id="schoolLogo" src="mainlogo.png" alt="Logo" class="w-10 h-10 rounded-xl object-cover ring-2 ring-amber-400/30 bg-white p-0.5">
+        <div class="overflow-hidden">
+          <h1 id="schoolBrandName" class="font-extrabold text-base text-amber-300 leading-tight truncate">School</h1>
+          <span class="text-xs font-medium text-indigo-300">Admin Portal</span>
+        </div>
+      </div>
+
+      <div class="px-5 pt-3 pb-1">
+        <div id="sidebarSchoolId" class="text-[11px] font-mono text-indigo-300/80 bg-slate-800/60 px-2.5 py-1 rounded-lg border border-indigo-500/10 truncate"></div>
+      </div>
+
+      <nav class="flex-1 px-3 py-4 space-y-1" aria-label="Primary">
+        <a href="admin.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-amber-300 bg-white/10 shadow-inner">
+          <span class="text-lg">🏠</span><span>Dashboard</span>
+        </a>
+        <a href="admission.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+          <span class="text-lg">🎓</span><span>Admission</span>
+        </a>
+        <a href="admin-cbt.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+          <span class="text-lg">💻</span><span>CBT</span>
+        </a>
+        <a href="results.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+          <span class="text-lg">📄</span><span>Results</span>
+        </a>
+        <a href="people.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+          <span class="text-lg">👥</span><span>People</span>
+        </a>
+        <a href="settings.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white transition-all">
+          <span class="text-lg">⚙️</span><span>Settings</span>
+        </a>
+        <a href="admin-profile.html" class="nav-link flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-amber-300 nav-link-active">
+          <span class="text-lg">🧑‍💼</span><span>My profile</span>
+        </a>
+      </nav>
+
+      <div class="p-4 border-t border-slate-800/80">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-amber-300 font-bold text-sm">👤</div>
+          <div class="overflow-hidden">
+            <p class="text-xs text-slate-400 font-medium">Signed in as</p>
+            <p id="adminName" class="text-sm font-semibold text-slate-100 truncate">Admin</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="flex-1 lg:ml-72 flex flex-col min-w-0">
+      <header class="sticky top-0 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button id="hamburgerBtn" class="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <h2 id="pageTitle" class="text-lg lg:text-xl font-extrabold text-indigo-900 tracking-tight">My profile</h2>
+            <p id="pageSub" class="text-xs text-slate-500">Manage your admin account and security</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 lg:gap-3">
+          <div id="serverStatus" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> —
+          </div>
+
+          <button id="logoutBtnTop" class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition" title="Sign out">🔒</button>
+        </div>
+      </header>
+
+      <main id="main" class="flex-1 p-6 lg:p-8">
+        <div class="grid gap-6 lg:grid-cols-3">
+          <!-- PROFILE CARD -->
+          <section class="rounded-2xl p-6 bg-white border border-slate-200 shadow-sm lg:sticky lg:top-24">
+            <div class="flex flex-col items-center gap-4 text-center">
+              <div class="relative h-28 w-28 rounded-2xl overflow-hidden bg-slate-100 profile-avatar-ring">
+                <img id="adminAvatar" class="hidden h-full w-full object-cover" src="" alt="Admin avatar" />
+                <div id="adminAvatarFallback" class="h-full w-full flex items-center justify-center text-2xl font-extrabold text-white" style="background:var(--tw-color-brand-500,#4f46e5)">AD</div>
+              </div>
+
+              <div>
+                <h3 id="adminFullName" class="text-xl font-extrabold text-slate-900">Administrator</h3>
+                <p id="adminEmail" class="text-sm text-slate-500">admin@example.com</p>
+                <p id="adminRole" class="text-xs text-slate-400 mt-1">Role: Superadmin</p>
+              </div>
+
+              <div class="w-full">
+                <label class="text-xs font-semibold text-slate-500 block mb-2">Change photo</label>
+                <div class="flex gap-2">
+                  <label class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+                    <i class="fa fa-upload"></i> Upload
+                    <input id="photoInput" type="file" accept="image/*" class="hidden" />
+                  </label>
+                  <button id="removePhoto" class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm">Remove</button>
+                </div>
+              </div>
+
+              <div class="w-full flex gap-2 mt-3">
+                <button id="editProfileBtn" class="flex-1 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-white font-bold">Edit profile</button>
+                <button id="openPasswordBtn" class="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-slate-700">Change password</button>
+              </div>
+
+              <div class="w-full text-xs text-slate-500 mt-3">
+                <p><strong class="text-slate-700">School:</strong> <span id="adminSchool">—</span></p>
+                <p class="mt-1"><strong class="text-slate-700">School ID:</strong> <span id="adminSchoolId">—</span></p>
+              </div>
+            </div>
+          </section>
+
+          <!-- PROFILE FORM & SESSIONS -->
+          <section class="rounded-2xl p-6 bg-white border border-slate-200 shadow-sm lg:col-span-2">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-extrabold text-slate-900">Account details</h3>
+                <p class="text-xs text-slate-500">Update contact details and public profile</p>
+              </div>
+              <div class="text-xs text-slate-400">Last updated • <span id="profileUpdatedAt">—</span></div>
+            </div>
+
+            <form id="profileForm" class="space-y-4">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label class="block">
+                  <span class="text-[11px] font-bold text-slate-600">Full name</span>
+                  <input id="inputName" type="text" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-50" />
+                </label>
+
+                <label class="block">
+                  <span class="text-[11px] font-bold text-slate-600">Email</span>
+                  <input id="inputEmail" type="email" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-50" />
+                </label>
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label class="block">
+                  <span class="text-[11px] font-bold text-slate-600">Phone</span>
+                  <input id="inputPhone" type="tel" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-50" />
+                </label>
+
+                <label class="block">
+                  <span class="text-[11px] font-bold text-slate-600">Display name</span>
+                  <input id="inputDisplayName" type="text" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-50" />
+                </label>
+              </div>
+
+              <label class="block">
+                <span class="text-[11px] font-bold text-slate-600">About / Bio</span>
+                <textarea id="inputBio" rows="4" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-indigo-50" placeholder="A short description about you"></textarea>
+              </label>
+
+              <div class="flex items-center gap-3">
+                <button id="saveProfileBtn" type="submit" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white">Save changes</button>
+                <button id="cancelEditBtn" type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold">Cancel</button>
+                <div id="saveStatus" class="text-sm text-slate-500 ml-2"></div>
+              </div>
+            </form>
+
+            <hr class="my-6">
+
+            <div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-sm font-extrabold text-slate-900">Active sessions</h4>
+                  <p class="text-xs text-slate-500">Sign out other devices you no longer use</p>
+                </div>
+                <div>
+                  <button id="signOutOthers" class="rounded-xl border border-rose-500 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-600">Sign out other sessions</button>
+                </div>
+              </div>
+
+              <div id="sessionsList" class="mt-4 grid gap-3">
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">Loading sessions…</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <!-- BOTTOM NAV (mobile) -->
+      <div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 shadow-2xl md:hidden">
+        <div class="grid h-16 max-w-lg grid-cols-5 mx-auto relative">
+          <a href="admin.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-indigo-600">
+            <i class="fa fa-house text-lg"></i><span class="text-[10px] mt-1 font-medium">Home</span>
+          </a>
+          <a href="admission.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-slate-500 hover:text-indigo-600">
+            <i class="fa fa-graduation-cap text-lg"></i><span class="text-[10px] mt-1 font-medium">Admission</span>
+          </a>
+
+          <div class="relative flex items-center justify-center">
+            <button id="adminBottomMenuBtn" type="button" class="absolute -top-6 inline-flex items-center justify-center w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg border-4 border-white">
+              <i class="fa fa-plus text-lg"></i>
+            </button>
+          </div>
+
+          <a href="finance.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-slate-500 hover:text-indigo-600">
+            <i class="fa fa-wallet text-lg"></i><span class="text-[10px] mt-1 font-medium">Finance</span>
+          </a>
+          <a href="people.html" class="inline-flex flex-col items-center justify-center px-2 hover:bg-slate-50 text-slate-500 hover:text-indigo-600">
+            <i class="fa fa-users text-lg"></i><span class="text-[10px] mt-1 font-medium">People</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- mobile bottom drawer -->
+      <div id="adminBottomDrawer" class="fixed inset-0 z-[60] hidden">
+        <div id="adminBottomDrawerBackdrop" class="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"></div>
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-5 pb-7">
+          <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-300"></div>
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-extrabold text-slate-900">Admin Menu</h3>
+              <p class="text-xs text-slate-500">Quick access</p>
+            </div>
+            <button id="closeAdminBottomDrawer" class="inline-flex items-center justify-center rounded-xl bg-slate-100 p-2 text-slate-600">Close</button>
+          </div>
+
+          <div class="grid grid-cols-4 gap-3">
+            <a href="more.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-globe text-lg text-indigo-600"></i><span class="text-[10px]">Multi</span></a>
+            <a href="academics.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-book-open text-lg text-indigo-600"></i><span class="text-[10px]">Academics</span></a>
+            <a href="admin-cbt.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-laptop text-lg text-indigo-600"></i><span class="text-[10px]">CBT</span></a>
+            <a href="results.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-file-invoice text-lg text-indigo-600"></i><span class="text-[10px]">Results</span></a>
+            <a href="adminfees.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-credit-card text-lg text-indigo-600"></i><span class="text-[10px]">Fees</span></a>
+            <a href="adminpayment.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-indigo-50 text-indigo-700"><i class="fa fa-money-bill-transfer text-lg text-indigo-600"></i><span class="text-[10px]">Payments</span></a>
+            <a href="attendance.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-calendar-check text-lg text-indigo-600"></i><span class="text-[10px]">Attendance</span></a>
+            <a href="settings.html" class="flex flex-col items-center gap-2 p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-700"><i class="fa fa-gear text-lg text-indigo-600"></i><span class="text-[10px]">Settings</span></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASSWORD MODAL -->
+  <div id="passwordModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="max-w-md w-full rounded-2xl bg-white p-5 shadow-2xl">
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="text-lg font-extrabold text-slate-900">Change password</h3>
+          <p class="text-xs text-slate-500">Use a strong password to secure your account</p>
+        </div>
+        <button id="closePasswordModal" class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200">✕</button>
+      </div>
+
+      <form id="passwordForm" class="mt-4 space-y-3">
+        <label class="block">
+          <span class="text-[11px] font-bold text-slate-600">Current password</span>
+          <input id="currentPassword" type="password" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-bold text-slate-600">New password</span>
+          <input id="newPassword" type="password" minlength="6" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-bold text-slate-600">Confirm new password</span>
+          <input id="confirmPassword" type="password" minlength="6" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+        </label>
+
+        <div class="flex justify-end gap-2 pt-1">
+          <button id="cancelPasswordBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold">Cancel</button>
+          <button id="submitPasswordBtn" type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white">Update password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Backend configuration
+    const API_ROOT = window.API_BASE_URL || 'https://examguard-8rxe.onrender.com';
+    const API_API = `${API_ROOT}/api`;
+    const SCHOOL_CACHE_KEY = 'currentSchoolConfig';
+    const SCHOOL_ID_KEY = 'schoolId';
+    const SCHOOL_SUBDOMAIN_KEY = 'schoolSubdomain';
+    let currentSchoolConfig = null;
+
+    function getSchoolSubdomain() {
+      const host = window.location.hostname.toLowerCase();
+      const match = host.match(/^([a-z0-9-]+)\.examguard\.com\.ng$/);
+      if (match && !['www', 'examguard'].includes(match[1])) return match[1];
+      return localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) || '';
+    }
+
+    function extractSchool(payload) {
+      const candidates = [payload?.school, payload?.data?.school, payload?.data, payload?.config, payload];
+      return candidates.find(item => item && typeof item === 'object' && (item._id || item.schoolId || item.id) && (item.schoolName || item.name || item.subdomain || item.branding)) || null;
+    }
+
+    function schoolIdOf(school = currentSchoolConfig) {
+      if (!school) return '';
+      const id = school._id || school.schoolId || school.id || '';
+      return typeof id === 'object' ? (id.$oid || String(id)) : String(id);
+    }
+
+    function mediaUrl(value) {
+      if (!value) return '';
+      if (typeof value === 'object') value = value.url || value.secure_url || value.publicUrl || value.path || '';
+      if (!value) return '';
+      if (/^(https?:|data:|blob:)/i.test(value)) return value;
+      return `${API_ROOT.replace(/\/$/, '')}/${String(value).replace(/^\//, '')}`;
+    }
+
+    function applySchoolConfig(school) {
+      currentSchoolConfig = school;
+      const name = school.schoolName || school.name || school.branding?.schoolName || 'School';
+      const logo = mediaUrl(school.logoUrl || school.logo || school.schoolLogo || school.branding?.logoUrl || school.branding?.logo);
+      const primary = school.primaryColor || school.branding?.primaryColor || school.branding?.primary || '#4f46e5';
+      const secondary = school.secondaryColor || school.branding?.secondaryColor || school.branding?.secondary || '#4338ca';
+      const accent = school.accentColor || school.branding?.accentColor || school.branding?.accent || '#f59e0b';
+      document.documentElement.style.setProperty('--school-primary', primary);
+      document.documentElement.style.setProperty('--school-secondary', secondary);
+      document.documentElement.style.setProperty('--school-accent', accent);
+      document.title = `My Profile | ${name}`;
+      $('schoolBrandName').textContent = name;
+      $('sidebarSchoolId').textContent = `School ID: ${schoolIdOf(school)}`;
+      if (logo) { $('schoolLogo').src = logo; $('schoolLogo').classList.remove('hidden'); }
+      else { $('schoolLogo').classList.add('hidden'); }
+      $('serverStatus').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> School connected';
+      $('serverStatus').classList.remove('hidden');
+      localStorage.setItem(SCHOOL_CACHE_KEY, JSON.stringify(school));
+      localStorage.setItem(SCHOOL_ID_KEY, schoolIdOf(school));
+      const subdomain = school.subdomain || getSchoolSubdomain();
+      if (subdomain) localStorage.setItem(SCHOOL_SUBDOMAIN_KEY, subdomain);
+    }
+
+    async function loadSchoolConfig() {
+      const subdomain = getSchoolSubdomain();
+      let cached = null;
+      try { cached = JSON.parse(localStorage.getItem(SCHOOL_CACHE_KEY) || 'null'); } catch (_) {}
+      // Only trust a cached config when it belongs to this tenant.
+      if (cached && (!subdomain || !cached.subdomain || cached.subdomain === subdomain)) applySchoolConfig(cached);
+      if (!subdomain) {
+        if (cached && schoolIdOf(cached)) return true;
+        showError('School portal not identified', 'Open this page using your school’s ExamGuard subdomain so the correct school branding and ID can be loaded.');
+        return false;
+      }
+      try {
+        const response = await fetch(`${API_API}/schools/config?subdomain=${encodeURIComponent(subdomain)}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error(`School configuration request failed (${response.status})`);
+        const payload = await response.json();
+        const school = extractSchool(payload);
+        if (!school || !schoolIdOf(school)) throw new Error('The server response did not include a valid school record and school ID.');
+        const returnedSubdomain = school.subdomain || school.schoolSubdomain || subdomain;
+        if (returnedSubdomain !== subdomain) throw new Error('The returned school configuration does not match this portal.');
+        school.subdomain = returnedSubdomain;
+        applySchoolConfig(school);
+        return true;
+      } catch (error) {
+        console.error('School configuration error:', error);
+        if (cached && schoolIdOf(cached) && (!cached.subdomain || cached.subdomain === subdomain)) {
+          applySchoolConfig(cached);
+          return true;
+        }
+        showError('Unable to load school configuration', `${error.message} Please refresh or contact your school administrator.`);
+        return false;
+      }
+    }
+
+    // tokens to clear on logout
+    const TOKEN_KEYS = ['token', 'adminToken', 'authToken', 'student_token', 'studentToken'];
+
+    // DOM helpers
+    const $ = id => document.getElementById(id);
+
+    // error modal helpers
+    function showError(title, message) {
+      $('errorTitle').textContent = title || 'Error';
+      $('errorMessage').textContent = message || 'An error occurred';
+      $('errorModal').classList.remove('hidden');
+    }
+    $('errorOk')?.addEventListener('click', () => $('errorModal').classList.add('hidden'));
+    $('errorDismiss')?.addEventListener('click', () => $('errorModal').classList.add('hidden'));
+
+    function getToken() {
+      return localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('authToken') || '';
+    }
+
+    function authHeaders(extra = {}) {
+      const headers = { Accept: 'application/json', ...extra };
+      const token = getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const schoolId = schoolIdOf();
+      const subdomain = getSchoolSubdomain();
+      if (schoolId) headers['X-School-ID'] = schoolId;
+      if (subdomain) headers['X-School-Subdomain'] = subdomain;
+      return headers;
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+    }
+
+    // Toggle sidebar (mobile)
+    const sidebar = $('sidebar');
+    const sidebarOverlay = $('sidebarOverlay');
+    const hamburgerBtn = $('hamburgerBtn');
+    hamburgerBtn?.addEventListener('click', () => {
+      sidebar?.classList.toggle('-translate-x-full');
+      sidebarOverlay?.classList.toggle('hidden');
+    });
+    sidebarOverlay?.addEventListener('click', () => {
+      sidebar?.classList.add('-translate-x-full');
+      sidebarOverlay?.classList.add('hidden');
+    });
+
+    // Bottom drawer
+    $('adminBottomMenuBtn')?.addEventListener('click', () => $('adminBottomDrawer').classList.remove('hidden'));
+    $('closeAdminBottomDrawer')?.addEventListener('click', () => $('adminBottomDrawer').classList.add('hidden'));
+    $('adminBottomDrawerBackdrop')?.addEventListener('click', () => $('adminBottomDrawer').classList.add('hidden'));
+
+    // Page spinner
+    function showSpinner(show = true) {
+      const s = $('pageSpinnerOverlay');
+      if (!s) return;
+      s.classList.toggle('hidden', !show);
+    }
+
+    // ====== Profile load/update/session API wiring ======
+    async function loadAdminProfile() {
+      showSpinner(true);
+      const token = getToken();
+      if (!token) {
+        showSpinner(false);
+        return showError('Authentication Required', 'No auth token found. Please sign in.');
+      }
+
+      try {
+        const res = await fetch(`${API_API}/auth/me`, {
+          method: 'GET',
+          headers: authHeaders()
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          showSpinner(false);
+          return showError('Failed to load profile', text || `HTTP ${res.status}`);
+        }
+
+        const payload = await res.json();
+        const user = payload.user || payload.data || payload;
+
+        populateProfile(user);
+        loadSessions();
+      } catch (err) {
+        console.error(err);
+        showError('Network error', err.message || String(err));
+      } finally {
+        showSpinner(false);
+      }
+    }
+
+    function populateProfile(user) {
+      if (!user) return;
+
+      const name = user.name || user.fullName || user.full_name || '';
+      const email = user.email || user.username || '';
+      const phone = user.phone || user.phoneNumber || user.phone_number || '';
+      const role = Array.isArray(user.role) ? user.role.join(', ') : (user.role || 'admin');
+      const school = (currentSchoolConfig && (currentSchoolConfig.schoolName || currentSchoolConfig.name)) || (user.school && (user.school.schoolName || user.school.name)) || user.schoolName || '';
+      const schoolId = schoolIdOf() || (user.school && (user.school._id || user.school.schoolId || user.school.code || user.school.schoolCode)) || user.schoolId || '';
+
+      $('adminFullName').textContent = name || 'Administrator';
+      $('adminEmail').textContent = email || '—';
+      $('adminRole').textContent = `Role: ${role}`;
+      $('adminSchool').textContent = school || '—';
+      $('adminSchoolId').textContent = schoolId || '—';
+      $('sidebarSchoolId').textContent = schoolId ? `School ID: ${schoolId}` : 'School ID unavailable';
+      $('adminName').textContent = name || 'Admin';
+
+      // inputs
+      $('inputName').value = name || '';
+      $('inputEmail').value = email || '';
+      $('inputPhone').value = phone || '';
+      $('inputDisplayName').value = user.displayName || user.username || '';
+      $('inputBio').value = user.bio || user.about || '';
+
+      // avatar
+      const avatar = firstMedia(user.avatar, user.photo, user.photoUrl, user.profile_pic, user.profilePicture, user.image, user.imageUrl);
+      setAvatarFromUrl(avatar);
+
+      if (user.updatedAt) {
+        $('profileUpdatedAt').textContent = new Date(user.updatedAt).toLocaleString();
+      } else {
+        $('profileUpdatedAt').textContent = '—';
+      }
+    }
+
+    function firstMedia(...vals) {
+      for (const v of vals) {
+        if (!v) continue;
+        if (typeof v === 'string' && v.trim()) return v.trim();
+        if (typeof v === 'object') {
+          if (v.url) return v.url;
+          if (v.secure_url) return v.secure_url;
+          if (v.publicUrl) return v.publicUrl;
+        }
+      }
+      return '';
+    }
+
+    function setAvatarFromUrl(url) {
+      const img = $('adminAvatar');
+      const fallback = $('adminAvatarFallback');
+      if (!img || !fallback) return;
+      if (url) {
+        img.src = url;
+        img.classList.remove('hidden');
+        fallback.classList.add('hidden');
+      } else {
+        img.classList.add('hidden');
+        fallback.classList.remove('hidden');
+      }
+    }
+
+    // Save profile (PATCH /api/auth/me)
+    $('profileForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        name: $('inputName').value.trim(),
+        email: $('inputEmail').value.trim(),
+        phone: $('inputPhone').value.trim(),
+        displayName: $('inputDisplayName').value.trim(),
+        bio: $('inputBio').value.trim()
+      };
+
+      $('saveStatus').textContent = 'Saving...';
+      try {
+        const res = await fetch(`${API_API}/auth/me`, {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          $('saveStatus').textContent = '';
+          return showError('Update failed', txt || `HTTP ${res.status}`);
+        }
+
+        const body = await res.json().catch(() => null);
+        $('saveStatus').textContent = 'Saved ✓';
+        setTimeout(() => $('saveStatus').textContent = '', 2400);
+        const updatedUser = (body && (body.user || body.data)) || body;
+        if (updatedUser) populateProfile(updatedUser);
+      } catch (err) {
+        console.error(err);
+        $('saveStatus').textContent = '';
+        showError('Network error', err.message || String(err));
+      }
+    });
+
+    $('cancelEditBtn')?.addEventListener('click', () => loadAdminProfile());
+    $('editProfileBtn')?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+    // Photo upload preview + upload endpoint
+    $('photoInput')?.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        setAvatarFromUrl(dataUrl);
+
+        // Try sending to server endpoint (if available)
+        try {
+          await fetch(`${API_API}/auth/me/avatar`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ photoBase64: dataUrl })
+          });
+        } catch (err) {
+          console.warn('avatar upload failed', err);
+        }
+      };
+      reader.readAsDataURL(f);
+    });
+
+    $('removePhoto')?.addEventListener('click', async () => {
+      setAvatarFromUrl('');
+      try {
+        await fetch(`${API_API}/auth/me/avatar`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+      } catch (err) {
+        console.warn('avatar remove failed', err);
+      }
+    });
+
+    // Password change (POST /api/auth/change-password)
+    $('openPasswordBtn')?.addEventListener('click', () => $('passwordModal').classList.remove('hidden'));
+    $('closePasswordModal')?.addEventListener('click', () => $('passwordModal').classList.add('hidden'));
+    $('cancelPasswordBtn')?.addEventListener('click', () => $('passwordModal').classList.add('hidden'));
+
+    $('passwordForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const current = $('currentPassword').value;
+      const nw = $('newPassword').value;
+      const conf = $('confirmPassword').value;
+      if (nw !== conf) return showError('Validation', 'Passwords do not match.');
+
+      try {
+        const res = await fetch(`${API_API}/auth/change-password`, {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ currentPassword: current, newPassword: nw })
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          return showError('Password change failed', txt || `HTTP ${res.status}`);
+        }
+
+        $('passwordModal').classList.add('hidden');
+        $('passwordForm').reset();
+        alert('Password updated. You may need to sign in again.');
+      } catch (err) {
+        showError('Network error', err.message || String(err));
+      }
+    });
+
+    // Sessions: GET /api/auth/sessions, DELETE /api/auth/sessions/:id, DELETE /api/auth/sessions (all)
+    async function loadSessions() {
+      try {
+        const res = await fetch(`${API_API}/auth/sessions`, {
+          method: 'GET',
+          headers: authHeaders()
+        });
+        if (!res.ok) {
+          // not fatal
+          $('sessionsList').innerHTML = '<div class="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">Unable to fetch sessions</div>';
+          return;
+        }
+        const body = await res.json();
+        const sessions = body.sessions || body.data || [];
+        renderSessions(sessions);
+      } catch (err) {
+        console.warn('loadSessions', err);
+        $('sessionsList').innerHTML = '<div class="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">Unable to fetch sessions</div>';
+      }
+    }
+
+    function renderSessions(sessions) {
+      const list = $('sessionsList');
+      if (!list) return;
+      if (!sessions || sessions.length === 0) {
+        list.innerHTML = '<div class="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">No active sessions</div>';
+        return;
+      }
+
+      list.innerHTML = sessions.map(s => {
+        const device = escapeHtml(s.device || s.userAgent || 'Unknown device');
+        const ip = escapeHtml(s.ip || s.ipAddress || '—');
+        const last = escapeHtml(s.lastSeenAt || s.lastActive || s.createdAt ? new Date(s.lastSeenAt || s.lastActive || s.createdAt).toLocaleString() : '—');
+        const current = s.current ? '<span class="text-xs font-bold text-emerald-600">This device</span>' : '';
+        const id = escapeHtml(s.id || s.sessionId || s.token || '');
+        return `<div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-3">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-slate-800 truncate">${device}</div>
+            <div class="text-xs text-slate-500">IP: ${ip} • ${last}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            ${current}
+            ${s.current ? '' : `<button data-session="${id}" class="signout-session rounded-xl border border-rose-100 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Sign out</button>`}
+          </div>
+        </div>`;
+      }).join('');
+
+      // attach handlers
+      list.querySelectorAll('.signout-session').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const sessionId = btn.dataset.session;
+          if (!sessionId) return;
+          if (!confirm('Sign out this session?')) return;
+          try {
+            const res = await fetch(`${API_API}/auth/sessions/${encodeURIComponent(sessionId)}`, {
+              method: 'DELETE',
+              headers: authHeaders()
+            });
+            if (!res.ok) {
+              const txt = await res.text().catch(() => '');
+              return showError('Failed', txt || `HTTP ${res.status}`);
+            }
+            // remove the card
+            btn.closest('div')?.remove();
+          } catch (err) {
+            showError('Network error', err.message || String(err));
+          }
+        });
+      });
+    }
+
+    $('signOutOthers')?.addEventListener('click', async () => {
+      if (!confirm('Sign out all other sessions?')) return;
+      try {
+        const res = await fetch(`${API_API}/auth/sessions`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          return showError('Failed', txt || `HTTP ${res.status}`);
+        }
+        alert('Other sessions signed out');
+        loadSessions();
+      } catch (err) {
+        showError('Network error', err.message || String(err));
+      }
+    });
+
+    // Logout
+    function logout() {
+      for (const k of TOKEN_KEYS) localStorage.removeItem(k);
+      // redirect to login
+      window.location.href = 'login.html';
+    }
+    $('logoutBtnTop')?.addEventListener('click', () => {
+      if (confirm('Sign out from this device?')) logout();
+    });
+
+    // page actions
+    $('backBtn')?.addEventListener('click', () => window.location.href = 'admin.html');
+
+    // Resolve tenant first so profile requests are always scoped to the correct school.
+    document.addEventListener('DOMContentLoaded', async () => {
+      const schoolReady = await loadSchoolConfig();
+      if (!schoolReady) return;
+      await loadAdminProfile();
+    });
+  </script>
+</body>
+</html>
