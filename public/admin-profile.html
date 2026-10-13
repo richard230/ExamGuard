@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Profile | Admin Portal</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+  <style>
+    .profile-avatar-ring {
+      box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.08);
+    }
+
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      background: #e2e8f0;
+      color: transparent;
+      pointer-events: none;
+    }
+
+    .skeleton::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+      animation: shimmer 1.2s infinite;
+    }
+
+    @keyframes shimmer {
+      100% {
+        transform: translateX(100%);
+      }
+    }
+  </style>
+</head>
+<body class="h-full font-sans antialiased text-slate-800 bg-slate-50">
+
+  <!-- Error modal -->
+  <div id="errorModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="max-w-md w-full rounded-2xl bg-white p-6 shadow-2xl">
+      <div class="text-center">
+        <div id="errorIcon" class="mb-2 text-4xl">⚠️</div>
+        <h3 id="errorTitle" class="text-lg font-bold text-slate-900">Oops</h3>
+        <p id="errorMessage" class="mt-2 text-sm text-slate-600">Something went wrong.</p>
+        <div class="mt-5 flex justify-center gap-3">
+          <button id="errorOk" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white">OK</button>
+          <button id="errorDismiss" class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-md">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+      <div class="flex items-center gap-3">
+        <button id="backBtn" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" title="Back to dashboard">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div>
+          <h1 class="text-lg font-extrabold text-slate-900">Admin profile</h1>
+          <p class="text-xs text-slate-500">Manage your account, security, and sessions</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span id="lastSeen" class="hidden text-xs text-slate-500">
+          Last active • <span id="lastSeenTime">—</span>
+        </span>
+        <button id="logoutBtnTop" type="button" class="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100">
+          Sign out
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+    <div class="grid gap-6 lg:grid-cols-3">
+      <!-- Profile summary -->
+      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
+        <div class="flex flex-col items-center gap-4 text-center">
+          <div class="relative h-28 w-28 overflow-hidden rounded-2xl bg-slate-100 profile-avatar-ring">
+            <img id="adminAvatar" src="" alt="Admin avatar" class="hidden h-full w-full object-cover">
+            <div id="adminAvatarFallback" class="flex h-full w-full items-center justify-center text-2xl font-extrabold text-white" style="background:#4f46e5;">
+              AD
+            </div>
+          </div>
+
+          <div>
+            <h2 id="adminFullName" class="text-xl font-extrabold text-slate-900">Administrator</h2>
+            <p id="adminEmail" class="text-sm text-slate-500">admin@example.com</p>
+            <p id="adminRole" class="mt-1 text-xs text-slate-400">Role: Superadmin</p>
+          </div>
+
+          <div class="w-full">
+            <label class="mb-2 block text-left text-xs font-semibold text-slate-500">Change photo</label>
+            <div class="flex gap-2">
+              <label class="flex-1 cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <span class="inline-flex items-center justify-center gap-2">
+                  <i class="fa fa-upload"></i> Upload
+                </span>
+                <input id="photoInput" type="file" accept="image/*" class="hidden">
+              </label>
+              <button id="removePhoto" type="button" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+                Remove
+              </button>
+            </div>
+          </div>
+
+          <div class="flex w-full gap-2">
+            <button id="editProfileBtn" type="button" class="flex-1 rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:opacity-95">
+              Edit profile
+            </button>
+            <button id="changePasswordBtn" type="button" class="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
+              Change password
+            </button>
+          </div>
+
+          <div class="w-full rounded-xl bg-slate-50 p-3 text-left text-xs text-slate-500">
+            <p class="font-medium">
+              <span class="font-bold text-slate-700">School:</span>
+              <span id="adminSchool" class="ml-1">—</span>
+            </p>
+            <p class="mt-1">
+              <span class="font-bold text-slate-700">School ID:</span>
+              <span id="adminSchoolId" class="ml-1">—</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Profile form and sessions -->
+      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900">Account details</h3>
+            <p class="text-xs text-slate-500">Update your admin profile and contact information</p>
+          </div>
+          <div class="hidden rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700 sm:inline-block">
+            Verified
+          </div>
+        </div>
+
+        <form id="profileForm" class="space-y-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label class="block">
+              <span class="text-[11px] font-bold text-slate-600">Full name</span>
+              <input id="inputName" type="text" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50">
+            </label>
+
+            <label class="block">
+              <span class="text-[11px] font-bold text-slate-600">Email</span>
+              <input id="inputEmail" type="email" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50">
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label class="block">
+              <span class="text-[11px] font-bold text-slate-600">Phone</span>
+              <input id="inputPhone" type="tel" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50">
+            </label>
+
+            <label class="block">
+              <span class="text-[11px] font-bold text-slate-600">Display name</span>
+              <input id="inputDisplayName" type="text" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50">
+            </label>
+          </div>
+
+          <label class="block">
+            <span class="text-[11px] font-bold text-slate-600">About / Bio</span>
+            <textarea id="inputBio" rows="4" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50" placeholder="Tell people a little about yourself"></textarea>
+          </label>
+
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            <button id="saveProfileBtn" type="submit" class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
+              Save changes
+            </button>
+            <button id="cancelEditBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+            <div id="saveStatus" class="text-sm text-slate-500"></div>
+          </div>
+        </form>
+
+        <hr class="my-6 border-slate-200">
+
+        <div>
+          <h4 class="text-sm font-extrabold text-slate-800">Active sessions</h4>
+          <p class="text-xs text-slate-500">Review logged-in devices and sign out sessions you no longer trust.</p>
+          <div id="sessionsList" class="mt-4 grid gap-3"></div>
+          <div class="mt-4">
+            <button id="signOutOthers" type="button" class="rounded-xl border border-rose-500 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-100">
+              Sign out other sessions
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Password modal -->
+  <div id="passwordModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="max-w-md w-full rounded-2xl bg-white p-5 shadow-2xl">
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="text-lg font-extrabold text-slate-900">Change password</h3>
+          <p class="text-xs text-slate-500">Keep your account protected with a strong password.</p>
+        </div>
+        <button id="closePasswordModal" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="passwordForm" class="mt-4 space-y-3">
+        <label class="block">
+          <span class="text-[11px] font-bold text-slate-600">Current password</span>
+          <input id="currentPassword" type="password" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50">
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-bold text-slate-600">New password</span>
+          <input id="newPassword" type="password" minlength="6" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50">
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-bold text-slate-600">Confirm new password</span>
+          <input id="confirmPassword" type="password" minlength="6" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50">
+        </label>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button id="cancelPasswordBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            Cancel
+          </button>
+          <button id="submitPasswordBtn" type="submit" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700">
+            Update password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_ROOT = window.API_BASE_URL || 'https://examguard-8rxe.onrender.com';
+    const API_API = `${API_ROOT}/api`;
+
+    const TOKEN_KEYS = ['token', 'adminToken', 'authToken', 'student_token', 'studentToken'];
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function showError(title, message) {
+      const modal = $('errorModal');
+      const titleEl = $('errorTitle');
+      const msgEl = $('errorMessage');
+
+      if (titleEl) titleEl.textContent = title || 'Error';
+      if (msgEl) msgEl.textContent = message || 'Something went wrong.';
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    $('errorOk')?.addEventListener('click', () => {
+      $('errorModal').classList.add('hidden');
+    });
+
+    $('errorDismiss')?.addEventListener('click', () => {
+      $('errorModal').classList.add('hidden');
+    });
+
+    function getToken() {
+      return localStorage.getItem('token') ||
+        localStorage.getItem('adminToken') ||
+        localStorage.getItem('authToken') ||
+        '';
+    }
+
+    function authHeaders(extra = {}) {
+      const headers = { Accept: 'application/json', ...extra };
+      const token = getToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      return headers;
+    }
+
+    function firstMedia(...values) {
+      for (const value of values) {
+        if (!value) continue;
+        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (typeof value === 'object') {
+          if (value.url) return value.url;
+          if (value.secure_url) return value.secure_url;
+          if (value.publicUrl) return value.publicUrl;
+        }
+      }
+      return '';
+    }
+
+    function setAvatarFromUrl(url) {
+      const img = $('adminAvatar');
+      const fallback = $('adminAvatarFallback');
+
+      if (!img || !fallback) return;
+
+      if (url) {
+        img.src = url;
+        img.classList.remove('hidden');
+        fallback.classList.add('hidden');
+      } else {
+        img.classList.add('hidden');
+        fallback.classList.remove('hidden');
+        fallback.textContent = 'AD';
+      }
+    }
+
+    function updateUIWithUser(user) {
+      if (!user) return;
+
+      const name = user.name || user.fullName || user.full_name || 'Administrator';
+      const email = user.email || user.username || '';
+      const phone = user.phone || user.phoneNumber || user.phone_number || '';
+      const role = Array.isArray(user.role) ? user.role.join(', ') : (user.role || 'admin');
+      const schoolName = (user.school && (user.school.schoolName || user.school.name)) || user.schoolName || '';
+      const schoolId = (user.school && (user.school.schoolId || user.school.code || user.school.schoolCode)) || user.schoolId || '';
+
+      $('adminFullName').textContent = name;
+      $('adminEmail').textContent = email || '—';
+      $('adminRole').textContent = `Role: ${role}`;
+      $('adminSchool').textContent = schoolName || '—';
+      $('adminSchoolId').textContent = schoolId || '—';
+
+      $('inputName').value = name;
+      $('inputEmail').value = email;
+      $('inputPhone').value = phone;
+      $('inputDisplayName').value = user.displayName || user.username || '';
+      $('inputBio').value = user.bio || user.about || '';
+
+      const avatar = firstMedia(
+        user.avatar,
+        user.photo,
+        user.photoUrl,
+        user.profile_pic,
+        user.profilePicture,
+        user.image,
+        user.imageUrl
+      );
+
+      setAvatarFromUrl(avatar);
+
+      if (user.lastSeenAt) {
+        $('lastSeenTime').textContent = new Date(user.lastSeenAt).toLocaleString();
+        $('lastSeen').classList.remove('hidden');
+      }
+    }
+
+    async function loadAdminProfile() {
+      const token = getToken();
+      if (!token) {
+        showError('Authentication Required', 'No auth token found. Please sign in.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_API}/auth/me`, {
+          method: 'GET',
+          headers: authHeaders()
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          showError('Failed to load profile', text || `HTTP ${res.status}`);
+          return;
+        }
+
+        const raw = await res.json();
+        const user = raw.user || raw.data || raw;
+
+        updateUIWithUser(user);
+        loadSessions();
+      } catch (err) {
+        console.error(err);
+        showError('Network error', err.message || String(err));
+      }
+    }
+
+    $('profileForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        name: $('inputName').value.trim(),
+        email: $('inputEmail').value.trim(),
+        phone: $('inputPhone').value.trim(),
+        displayName: $('inputDisplayName').value.trim(),
+        bio: $('inputBio').value.trim()
+      };
+
+      $('saveStatus').textContent = 'Saving...';
+
+      try {
+        const res = await fetch(`${API_API}/auth/me`, {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const body = await res.text();
+          $('saveStatus').textContent = '';
+          showError('Update failed', body || `HTTP ${res.status}`);
+          return;
+        }
+
+        const response = await res.json();
+        const data = response.user || response.data || response;
+
+        $('saveStatus').textContent = 'Saved ✓';
+        setTimeout(() => {
+          $('saveStatus').textContent = '';
+        }, 2500);
+
+        updateUIWithUser(data);
+      } catch (err) {
+        console.error(err);
+        $('saveStatus').textContent = '';
+        showError('Network error', err.message || String(err));
+      }
+    });
+
+    $('photoInput')?.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = async function () {
+        const dataUrl = reader.result;
+        setAvatarFromUrl(dataUrl);
+
+        try {
+          const res = await fetch(`${API_API}/auth/me/avatar`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ photoBase64: dataUrl })
+          });
+
+          if (!res.ok) {
+            console.warn('Avatar upload returned', res.status);
+          }
+        } catch (err) {
+          console.warn('Avatar upload failed', err);
+        }
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    $('removePhoto')?.addEventListener('click', async () => {
+      setAvatarFromUrl('');
+      try {
+        await fetch(`${API_API}/auth/me/avatar`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+      } catch (err) {
+        console.warn('remove photo failed', err);
+      }
+    });
+
+    $('changePasswordBtn')?.addEventListener('click', () => {
+      $('passwordModal').classList.remove('hidden');
+    });
+
+    $('closePasswordModal')?.addEventListener('click', () => {
+      $('passwordModal').classList.add('hidden');
+    });
+
+    $('cancelPasswordBtn')?.addEventListener('click', () => {
+      $('passwordModal').classList.add('hidden');
+    });
+
+    $('passwordForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const currentPassword = $('currentPassword').value;
+      const newPassword = $('newPassword').value;
+      const confirmPassword = $('confirmPassword').value;
+
+      if (newPassword !== confirmPassword) {
+        showError('Validation', 'New password and confirmation do not match.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_API}/auth/change-password`, {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            currentPassword,
+            newPassword
+          })
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          showError('Password change failed', text || `HTTP ${res.status}`);
+          return;
+        }
+
+        $('passwordModal').classList.add('hidden');
+        $('passwordForm').reset();
+        alert('Password updated successfully.');
+      } catch (err) {
+        showError('Network error', err.message || String(err));
+      }
+    });
+
+    async function loadSessions() {
+      try {
+        const res = await fetch(`${API_API}/auth/sessions`, {
+          method: 'GET',
+          headers: authHeaders()
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const sessions = data.sessions || data.data || [];
+
+        renderSessions(sessions);
+      } catch (err) {
+        console.warn('loadSessions failed:', err);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, (char) => {
+        const mapping = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        };
+        return mapping[char] || char;
+      });
+    }
+
+    function renderSessions(sessions) {
+      const el = $('sessionsList');
+      if (!el) return;
+
+      if (!sessions || !sessions.length) {
+        el.innerHTML = '<div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">No active sessions found.</div>';
+        return;
+      }
+
+      el.innerHTML = sessions.map((session) => {
+        const device = session.device || session.userAgent || 'Unknown device';
+        const ip = session.ip || session.ipAddress || '—';
+        const lastSeen = session.lastSeenAt || session.lastActive || session.createdAt || '';
+        const currentLabel = session.current ? '<span class=\"text-xs font-bold text-emerald-600\">This device</span>' : '';
+        const sessionId = session.id || session.sessionId || session.token || '';
+
+        return `
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-slate-800">${escapeHtml(device)}</div>
+              <div class="text-xs text-slate-500">
+                ${escapeHtml(ip)} • ${escapeHtml(lastSeen ? new Date(lastSeen).toLocaleString() : '—')}
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              ${currentLabel}
+              ${session.current ? '' : `<button type="button" data-session-id="${escapeHtml(sessionId)}" class="signout-session rounded-xl border border-rose-100 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-rose-100">Sign out</button>`}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      el.querySelectorAll('.signout-session').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const sessionId = btn.dataset.sessionId;
+          if (!sessionId) return;
+
+          try {
+            const res = await fetch(`${API_API}/auth/sessions/${encodeURIComponent(sessionId)}`, {
+              method: 'DELETE',
+              headers: authHeaders()
+            });
+
+            if (!res.ok) {
+              const text = await res.text();
+              showError('Session removal failed', text || `HTTP ${res.status}`);
+              return;
+            }
+
+            btn.closest('div').remove();
+          } catch (err) {
+            showError('Network error', err.message || String(err));
+          }
+        });
+      });
+    }
+
+    $('signOutOthers')?.addEventListener('click', async () => {
+      if (!confirm('Sign out all other active sessions?')) return;
+
+      try {
+        const res = await fetch(`${API_API}/auth/sessions`, {
+          method: 'DELETE',
+          headers: authHeaders()
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          showError('Session removal failed', text || `HTTP ${res.status}`);
+          return;
+        }
+
+        alert('Other sessions signed out successfully.');
+        loadSessions();
+      } catch (err) {
+        showError('Network error', err.message || String(err));
+      }
+    });
+
+    function logout() {
+      for (const key of TOKEN_KEYS) {
+        localStorage.removeItem(key);
+      }
+      window.location.href = 'login.html';
+    }
+
+    $('logoutBtnTop')?.addEventListener('click', logout);
+
+    $('backBtn')?.addEventListener('click', () => {
+      window.location.href = 'admin.html';
+    });
+
+    $('cancelEditBtn')?.addEventListener('click', () => {
+      loadAdminProfile();
+    });
+
+    $('editProfileBtn')?.addEventListener('click', () => {
+      document.querySelector('main').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAdminProfile();
+    });
+  </script>
+</body>
+</html>
