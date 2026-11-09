@@ -189,6 +189,37 @@ const StudentSchema = new mongoose.Schema(
       required: true
     },
 
+    // Scratch Card Management
+scratchCardUsage: {
+  type: Number,
+  default: 0,
+  min: 0,
+  max: 5
+},
+
+scratchCardHistory: [{
+  cardCode: {
+    type: String,
+    required: true
+  },
+  usedCount: {
+    type: Number,
+    default: 0
+  },
+  assignedAt: {
+    type: Date,
+    default: Date.now
+  },
+  exhaustedAt: {
+    type: Date,
+    default: null
+  },
+  status: {
+    type: String,
+    enum: ['active', 'exhausted', 'replaced'],
+    default: 'active'
+  }
+}],
     // Multi-School Tenancy
     schoolId: {
       type: mongoose.Schema.Types.ObjectId,
