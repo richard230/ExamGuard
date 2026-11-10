@@ -39,7 +39,9 @@ function normalizeSchoolConfig(raw) {
 
 function getTenantSubdomain() {
   const saved = localStorage.getItem(SCHOOL_SUBDOMAIN_KEY);
-  if (saved && String(saved).trim()) return String(saved).trim().toLowerCase();
+  if (saved && String(saved).trim()) {
+    return String(saved).trim().toLowerCase();
+  }
 
   const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
   const baseDomain = 'goldlincschools.com.ng';
@@ -48,7 +50,9 @@ function getTenantSubdomain() {
 
   if (host.endsWith(`.${baseDomain}`)) {
     const subdomain = host.slice(0, -(baseDomain.length + 1));
-    if (subdomain && !subdomain.includes('.')) return subdomain.toLowerCase();
+    if (subdomain && !subdomain.includes('.')) {
+      return subdomain.toLowerCase();
+    }
   }
 
   const querySchool = new URLSearchParams(window.location.search).get('school');
@@ -77,9 +81,11 @@ function writeCachedSchoolConfig(school) {
       .trim()
       .toLowerCase();
 
-    if (subdomain) localStorage.setItem(SCHOOL_SUBDOMAIN_KEY, subdomain);
+    if (subdomain) {
+      localStorage.setItem(SCHOOL_SUBDOMAIN_KEY, subdomain);
+    }
   } catch (error) {
-    console.warn('Unable to cache school config:', error);
+    console.warn('Unable to cache school configuration:', error);
   }
 }
 
@@ -121,17 +127,14 @@ function setImageIfPresent(element, source, fallback) {
 
 function getReportSchoolContext() {
   const reportData = loadReportData() || {};
-  const savedSubdomain = localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) || '';
-  const savedSchoolId = localStorage.getItem(SCHOOL_ID_KEY) || '';
-
   const subdomain =
-    savedSubdomain ||
+    localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
     reportData.schoolSubdomain ||
     reportData.subdomain ||
     getTenantSubdomain();
 
   const schoolId =
-    savedSchoolId ||
+    localStorage.getItem(SCHOOL_ID_KEY) ||
     localStorage.getItem('schoolCode') ||
     reportData.schoolId ||
     reportData.schoolCode ||
@@ -151,7 +154,11 @@ function getReportSchoolContext() {
 
 function getSchoolAddress(school) {
   const schoolInfo = school.school || {};
-  const location = school.location || school.addressInfo || schoolInfo.location || {};
+  const location =
+    school.location ||
+    school.addressInfo ||
+    schoolInfo.location ||
+    {};
 
   const parts = [
     firstConfigValue(
@@ -215,6 +222,55 @@ function getSchoolContact(school) {
   ].filter(Boolean).join(' | ');
 }
 
+function setImportantStyle(element, property, value) {
+  if (element && value) {
+    element.style.setProperty(property, value, 'important');
+  }
+}
+
+function applyReportBrandColors(primary, secondary, accent) {
+  const root = document.documentElement;
+
+  if (primary) root.style.setProperty('--school-primary', primary);
+  if (secondary) root.style.setProperty('--school-secondary', secondary);
+  if (accent) root.style.setProperty('--school-accent', accent);
+
+  document.querySelectorAll('#resultsTable thead th, .box h4').forEach(element => {
+    setImportantStyle(element, 'background-color', primary);
+    setImportantStyle(element, 'background', primary);
+  });
+
+  document.querySelectorAll('.report-header').forEach(element => {
+    setImportantStyle(element, 'border-bottom-color', primary);
+  });
+
+  document.querySelectorAll(
+    '.school-name, .profile-stats .term-label, .stat-value, .pass-fail-value, .profile-table th'
+  ).forEach(element => {
+    setImportantStyle(element, 'color', primary);
+  });
+
+  document.querySelectorAll('.school-location, .school-contact').forEach(element => {
+    setImportantStyle(element, 'color', secondary);
+  });
+
+  document.querySelectorAll('.motto').forEach(element => {
+    setImportantStyle(element, 'color', accent);
+  });
+
+  document.querySelectorAll('.profile-table th').forEach(element => {
+    if (primary) {
+      setImportantStyle(element, 'background-color', `color-mix(in srgb, ${primary} 10%, white)`);
+    }
+  });
+
+  document.querySelectorAll('.profile-section, .profile-stats').forEach(element => {
+    if (primary) {
+      setImportantStyle(element, 'border-color', `color-mix(in srgb, ${primary} 20%, white)`);
+    }
+  });
+}
+
 function applySchoolConfig(school) {
   if (!school) return;
 
@@ -222,6 +278,7 @@ function applySchoolConfig(school) {
   const branding = school.branding || {};
   const academic = school.academicConfig || school.academic || {};
   const colors = branding.colors || {};
+
   const logo = firstConfigValue(
     branding.logo,
     branding.logoUrl,
@@ -234,11 +291,13 @@ function applySchoolConfig(school) {
     schoolInfo.logo,
     schoolInfo.logoUrl
   );
+
   const watermark = firstConfigValue(
     branding.watermark,
     school.watermark,
     logo
   );
+
   const stamp = firstConfigValue(
     branding.schoolStamp,
     school.schoolStamp,
@@ -262,6 +321,7 @@ function applySchoolConfig(school) {
       schoolInfo.schoolName
     )
   );
+
   setTextIfPresent('.school-location', getSchoolAddress(school));
   setTextIfPresent('.school-contact', getSchoolContact(school));
 
@@ -296,6 +356,7 @@ function applySchoolConfig(school) {
     school.primaryColor,
     schoolInfo.primaryColor
   );
+
   const secondary = firstConfigValue(
     branding.secondaryColor,
     branding.secondary,
@@ -303,6 +364,7 @@ function applySchoolConfig(school) {
     school.secondaryColor,
     schoolInfo.secondaryColor
   );
+
   const accent = firstConfigValue(
     branding.accentColor,
     branding.accent,
@@ -311,15 +373,7 @@ function applySchoolConfig(school) {
     schoolInfo.accentColor
   );
 
-  if (primary) {
-    document.documentElement.style.setProperty('--school-primary', primary);
-  }
-  if (secondary) {
-    document.documentElement.style.setProperty('--school-secondary', secondary);
-  }
-  if (accent) {
-    document.documentElement.style.setProperty('--school-accent', accent);
-  }
+  applyReportBrandColors(primary, secondary, accent);
 
   const reportSettings = school.reportSettings || school.reportConfig || {};
   const principal = school.principal || school.principalInfo || {};
@@ -370,12 +424,7 @@ function getConfiguredGradeFromPercentage(percentage) {
 
   if (Array.isArray(scale)) {
     entries = scale.map(item => ({
-      grade: firstConfigValue(
-        item.grade,
-        item.name,
-        item.label,
-        item.code
-      ),
+      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
       min: Number(firstConfigValue(
         item.minScore,
         item.minimum,
@@ -436,12 +485,7 @@ function renderConfiguredGradeScale() {
 
   if (Array.isArray(scale)) {
     entries = scale.map(item => ({
-      grade: firstConfigValue(
-        item.grade,
-        item.name,
-        item.label,
-        item.code
-      ),
+      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
       min: firstConfigValue(
         item.minScore,
         item.minimum,
@@ -565,7 +609,8 @@ async function fetchCurrentSchoolConfig() {
 
       if (!response.ok) {
         console.warn(
-          `School config fetch failed (${response.status}) for ${url}`
+          `School config request failed (${response.status}):`,
+          url
         );
         continue;
       }
@@ -826,7 +871,6 @@ Verify: https://verification.examguard.com.ng/verify
   if (!container || !qrData || typeof QRCode === 'undefined') return;
 
   container.innerHTML = '';
-
   new QRCode(container, {
     text: qrData,
     width: 70,
@@ -917,16 +961,11 @@ function populateReport() {
   }
 
   let totalScore = 0;
-  let highestScore = 0;
-  let lowestScore = Infinity;
   let passCount = 0;
   let failCount = 0;
 
   results.forEach(result => {
-    const score = parseInt(result.total, 10) || 0;
-    totalScore += score;
-    if (score > highestScore) highestScore = score;
-    if (score < lowestScore) lowestScore = score;
+    totalScore += parseInt(result.total, 10) || 0;
 
     if (isPassingGrade(result.grade)) {
       passCount++;
@@ -935,12 +974,11 @@ function populateReport() {
     }
   });
 
-  if (lowestScore === Infinity) lowestScore = 0;
-
   const totalObtainable = results.length * 100;
   const percentage = totalObtainable > 0
     ? ((totalScore / totalObtainable) * 100).toFixed(2)
     : 0;
+
   const attendancePercentage =
     calculateAttendancePercentage(attendance);
   const academicStatus =
@@ -1096,23 +1134,21 @@ function populateReport() {
   document.getElementById('timesAbsent').textContent =
     attendance.timesAbsent || '-';
 
-  const teacherRemarkValue =
+  const teacherRemark =
     extractRemark(data, 'teacherComment') ||
     extractRemark(data, 'teacherRemark') ||
     extractRemark(skillsReport, 'teacherRemark') ||
     'No remark';
 
-  const principalRemarkValue =
+  const principalRemark =
     extractRemark(data, 'principalComment') ||
     extractRemark(data, 'principalRemark') ||
     extractRemark(skillsReport, 'principalComment') ||
     extractRemark(skillsReport, 'comment') ||
     'No remark';
 
-  document.getElementById('teacherRemark').textContent =
-    teacherRemarkValue;
-  document.getElementById('principalRemark').textContent =
-    principalRemarkValue;
+  document.getElementById('teacherRemark').textContent = teacherRemark;
+  document.getElementById('principalRemark').textContent = principalRemark;
 
   document.getElementById('teacherName').textContent =
     data.teacherName || 'Teacher';
