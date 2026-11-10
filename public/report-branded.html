@@ -1,0 +1,1262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Student Performance Report</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    /* A4 portrait with tight margins */
+    @page { size: A4 portrait; margin: 2.5mm; }
+    html,body {
+      height: 297mm;
+      width: 210mm;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      box-sizing: border-box;
+      font-family: "Arial", "Helvetica", sans-serif;
+      background: #fff;
+      color: #000;
+      font-size: 9.2px;
+      line-height: 1.03;
+    }
+
+    .sheet {
+      width: 210mm;
+      min-height: calc(300mm - 12mm);
+      margin: 6mm;
+      padding: 6px;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .watermark-img {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 65%;
+      max-width: 580px;
+      min-width: 240px;
+      opacity: 0.08;
+      filter: blur(1.7px);
+      transform: translate(-50%, -50%) scale(1.1);
+      pointer-events: none;
+      user-select: none;
+      z-index: 0;
+    }
+
+    .report-header {
+      border-bottom: 2px solid #557199;
+      padding: 8px 0 10px;
+      display: grid;
+      grid-template-columns: 70px 1fr 70px;
+      align-items: start;
+      gap: 4px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+
+    .report-header img {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+    }
+
+    /* Signature Image Styles */
+    .sig-image {
+      width: 45px;
+      height: auto;
+      max-height: 28px;
+      object-fit: contain;
+      margin-bottom: 2px;
+      opacity: 0.9;
+    }
+
+    .sig-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      align-items: flex-start;
+    }
+
+    .school-name {
+      font-family: 'Georgia', serif;
+      font-weight: 900;
+      font-size: 28px;
+      color: #072043;
+      line-height: 1.05;
+    }
+
+    .school-location {
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 4px;
+      color: #2e4961;
+    }
+
+    .school-contact {
+      font-size: 11px;
+      color: #2e4961;
+      margin-top: 4px;
+    }
+
+    .motto {
+      font-style: italic;
+      font-size: 12px;
+      color: #7a772a;
+      margin-top: 4px;
+    }
+
+    .report-title {
+      text-align: center;
+      font-weight: 700;
+      font-size: 12px;
+      margin: 6px 0;
+    }
+
+    /* Content area */
+    .content {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+      min-height: 380px;
+    }
+
+    .main {
+      flex: 1 1 auto;
+      border: 1.5px solid #000;
+      padding: 10px;
+      box-sizing: border-box;
+      font-size: 9px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .side {
+      width: 230px;
+      display: grid;
+      grid-template-rows: auto auto auto auto;
+      grid-auto-rows: 1fr;
+      gap: 6px;
+      box-sizing: border-box;
+    }
+
+    /* Results table with dynamic sizing */
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      flex-shrink: 0;
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .results-table th, .results-table td {
+      border: 1px solid #000;
+      padding: 3px 2px;
+      vertical-align: middle;
+    }
+
+    .results-table thead th {
+      background: #7b9e34;
+      color: #fff;
+      font-weight: 700;
+      text-align: center;
+      padding: 3px 2px;
+      font-size: 13px;
+      line-height: 1.1;
+    }
+
+    .results-table thead th:first-child {
+      text-align: left;
+      padding-left: 6px;
+    }
+
+    .results-table tbody td {
+      padding: 3px 2px;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 500;
+    }
+
+    .results-table tbody tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+
+    /* Dynamic font sizing based on number of rows */
+    .results-table.subjects-5 { font-size: 35px; }
+    .results-table.subjects-5 th, 
+    .results-table.subjects-5 td { padding: 18px 9px; }
+
+    .results-table.subjects-6-8 { font-size: 35px; }
+    .results-table.subjects-6-8 th, 
+    .results-table.subjects-6-8 td { padding: 14px 7px; }
+
+    .results-table.subjects-9-11 { font-size: 23px; }
+    .results-table.subjects-9-11 th, 
+    .results-table.subjects-9-11 td { padding: 12px 5px; }
+    .results-table.subjects-12 { font-size: 23px; }
+    .results-table.subjects-12 th, 
+    .results-table.subjects-12 td { padding: 10px 4px; }
+    .results-table.subjects-13-plus { font-size: 26px; }
+    .results-table.subjects-13-plus th, 
+    .results-table.subjects-13-plus td { padding: 8.5px 4.7px; }
+
+    .tc { text-align: center; }
+    .tr { text-align: right; }
+
+    /* Results wrapper for dynamic sizing */
+    .results-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      margin-bottom: 0;
+      gap: 2px;
+    }
+
+    /* Pass/Fail Summary */
+    .pass-fail-summary {
+      display: flex;
+      gap: 6px;
+      font-size: 8.5px;
+      flex-wrap: wrap;
+      padding: 2px 0;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .pass-fail-item {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 4px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 1px;
+      font-size: 8px;
+    }
+
+    .pass-fail-label {
+      font-weight: 700;
+      color: #333;
+    }
+
+    .pass-fail-value {
+      font-weight: 700;
+      color: #1f375e;
+    }
+
+    .pass-status {
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 1px;
+      font-size: 8px;
+    }
+
+    .pass-status.passed {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .pass-status.promoted {
+      background: #cce5ff;
+      color: #004085;
+      border: 1px solid #b8daff;
+    }
+
+    .pass-status.failed {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    /* Performance summary */
+    .perf-inline {
+      margin: 1px 0 0 0;
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+      width: 100%;
+      box-sizing: border-box;
+      flex: 0 0 auto;
+      gap: 4px;
+    }
+
+    .perf-inline .summary {
+      flex: 1;
+      border: 1px solid #000;
+      padding: 4px;
+      font-size: 8.5px;
+      box-sizing: border-box;
+      background: #e9f0d6;
+      line-height: 1.1;
+    }
+
+    .perf-inline .summary table {
+      font-size: 8.5px;
+      line-height: 1;
+    }
+
+    .perf-inline .summary td {
+      padding: 1.5px 2px;
+    }
+
+    .perf-inline .analysis {
+      width: 180px;
+      border: 1px solid #000;
+      padding: 4px;
+      font-size: 8px;
+      box-sizing: border-box;
+      background: #e9f0d6;
+      line-height: 1.1;
+    }
+
+    .perf-inline .analysis table {
+      font-size: 7.5px;
+      line-height: 1;
+    }
+
+    .perf-inline .analysis td {
+      padding: 1px 1px;
+    }
+
+    /* Side boxes */
+    .box {
+      border: 1px solid #222;
+      padding: 4px;
+      background: #e9f0d6;
+      box-sizing: border-box;
+      font-size: 8px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .box h4 {
+      margin: 0 0 4px 0;
+      font-size: 9px;
+      background: #7e9f3a;
+      color: #fff;
+      padding: 2px 4px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .box-content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .aff-table, .psych-table, .att-table, .grade-scale {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+      flex: 1;
+    }
+
+    .aff-table td, .aff-table th, .psych-table td, .psych-table th,
+    .att-table td, .att-table th, .grade-scale td, .grade-scale th {
+      border: 1px solid #000;
+      padding: 2px 1px;
+    }
+
+    .aff-table th, .psych-table th, .att-table th, .grade-scale th {
+      background: #f0f0f0;
+      font-weight: 700;
+      padding: 2px 1px;
+    }
+
+    /* Profile section */
+    .profile-section {
+      display: grid;
+      grid-template-columns: 1fr 180px 1fr;
+      align-items: center;
+      gap: 3px;
+      padding: 14px;
+      margin: 10px 0;
+      background: #fafdff;
+      border: 3px solid #dde6ef;
+      border-weight: bold;
+      border-radius: 10px;
+    }
+
+    .profile-left table {
+      width: 100%;
+      font-size: 10px;
+      border-collapse: collapse;
+    }
+
+    .profile-left tr td {
+      padding: 4px 0;
+    }
+
+    .profile-left tr td:first-child {
+      font-weight: 700;
+      color: #3f5473;
+      width: 100px;
+    }
+
+    .profile-photo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .profile-photo img {
+      width: 112px;
+      height: 112px;
+      border-radius: 15px;
+      border: 2.5px solid #d9ddea;
+      box-shadow: 0 2.5px 18px rgba(46, 50, 80, 0.13);
+      object-fit: cover;
+      background: #f0f2f6;
+    }
+
+    .profile-stats {
+      background: #f6fafe;
+      border: 1px solid #e2e8f6;
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+
+    .profile-stats .term-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #23548a;
+      text-align: center;
+      padding-bottom: 6px;
+      letter-spacing: 0.1em;
+    }
+
+    .profile-stats .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card {
+      background: #fff;
+      border: 1.2px solid #dde8f3;
+      border-radius: 6px;
+      padding: 8px 4px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 15px;
+      color: #1f375e;
+      font-weight: 900;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: #888;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Bottom remarks and signatures */
+    .bottom {
+      margin-top: 1px;
+      display: flex;
+      gap: 4px;
+      align-items: flex-start;
+      position: relative;
+    }
+
+    .remarks {
+      flex: 1;
+      border: 1.5px solid #000;
+      padding: 4px;
+      font-size: 8px;
+      box-sizing: border-box;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .remarks-grid {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .remark-card {
+      flex: 1;
+      border: 1px solid #e3e6e8;
+      padding: 6px;
+      border-radius: 3px;
+      background: #ffffff;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+      box-sizing: border-box;
+      min-height: 60px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .remark-title {
+      font-weight: 700;
+      font-size: 9px;
+      color: #0f2a37;
+      margin-bottom: 3px;
+    }
+
+    .remark-text {
+      background: #fbfbfb;
+      border: 1px solid #f0f0f0;
+      padding: 4px;
+      border-radius: 2px;
+      color: #111;
+      line-height: 1.2;
+      flex: 1;
+      font-size: 8px;
+      word-break: break-word;
+      white-space: pre-wrap;
+      overflow: hidden;
+    }
+
+    .signature-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 8px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      width: 100%;
+    }
+
+    .signature-block {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .sign-line {
+      width: 180px;
+      border-top: 1px solid #111;
+      height: 1px;
+    }
+
+    .sign-name {
+      font-size: 8px;
+      margin-top: 1px;
+      color: #222;
+      font-weight: 700;
+    }
+
+    .sign-role {
+      font-size: 7.5px;
+      color: #666;
+    }
+
+    .next-term {
+      text-align: right;
+      font-size: 8px;
+      color: #111;
+      min-width: 140px;
+    }
+
+    .next-term .nt-label {
+      color: #666;
+      font-size: 7.5px;
+    }
+
+    .next-term .nt-date {
+      font-weight: 700;
+      margin-top: 2px;
+      font-size: 9px;
+    }
+
+    .footer {
+      margin-top: 1px;
+      font-size: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #bbb;
+      padding-top: 2px;
+    }
+
+    .no-break { page-break-inside: avoid; }
+
+    /* Seal and Stamp Styles */
+    .seal-image {
+      display: block;
+      margin: 8px auto 0 auto;
+      width: 60px;
+      height: 60px;
+      opacity: 0.95;
+    }
+
+    .stamp-image {
+      position: absolute;
+      right: 50px;
+      bottom: 5px;
+      width: 80px;
+      height: auto;
+      opacity: 0.85;
+      transform: rotate(-18deg);
+      z-index: 11;
+      pointer-events: none;
+    }
+/* neat tabulated look */
+.profile-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  border: 1.5px solid #000;
+  background: #fff;
+}
+
+.profile-table th,
+.profile-table td {
+  border: 1px solid #000;
+  padding: 5px 6px;
+}
+
+.profile-table th {
+  text-align: left;
+  width: 110px;
+  background: #eef3fa;
+  font-weight: 700;
+  color: #1f375e;
+}
+
+.profile-table td {
+  font-weight: 600;
+  text-align: center;
+}
+
+/* optional polish */
+.profile-table tr:nth-child(even) td {
+  background: #fafafa;
+}
+    /* shift divider left */
+.profile-table th {
+  width: 90px; /* ↓ from 110px */
+}
+
+/* create space between line and value */
+.profile-table td {
+  padding-left: 12px; /* key fix */
+}
+
+/* optional: more breathing room */
+.profile-table th,
+.profile-table td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+    .qr-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.qr-code canvas {
+  width: 70px;
+  height: 70px;
+  border: 1px solid #ccc;
+  padding: 2px;
+  background: #fff;
+}
+
+.qr-info {
+  font-size: 7.5px;
+  line-height: 1.2;
+  max-width: 160px;
+}
+
+.qr-title {
+  font-weight: 700;
+  font-size: 8px;
+  margin-bottom: 2px;
+}
+
+.qr-link {
+  font-weight: 700;
+  color: #1f375e;
+  word-break: break-all;
+}
+    /* ensure parent is anchor */
+.remarks {
+  position: relative;
+}
+
+/* align QR with seal baseline */
+.qr-section {
+  position: absolute;
+  bottom: 5px;   /* SAME as stamp/seal baseline */
+  left: 20px;     /* adjust horizontal position */
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  gap: 10px;
+  margin: 0; /* remove flow spacing */
+}
+
+/* keep seal centered */
+.seal-image {
+  display: block;
+  margin: 0 auto;
+  width: 60px;
+  height: 60px;
+}
+.profile-table td {
+  padding: 6px 20px; /* ↑ increase left & right spacing */
+}
+    .profile-table td {
+  padding-left: 30px;
+}
+
+.profile-table th {
+  padding-left: 10px;
+}
+/* stamp already positioned absolute (keep it) */
+    @media print {
+      .profile-section { box-shadow: none; border: 1px solid #bbb; }
+      body { background: #fff; }
+    }
+
+    table.small td, table.small th {
+      padding: 2px 1px;
+      font-size: 9px;
+    }
+    /* Improve results-table readability without changing cell padding or line height */
+#resultsTable tbody td {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  line-height: 9px !important;
+}
+
+#resultsTable thead th {
+  font-weight: 700 !important;
+}
+    /* Apply configured school branding colors to the report */
+.school-name {
+  color: var(--school-primary, #072043);
+}
+
+.school-location,
+.school-contact {
+  color: var(--school-secondary, #2e4961);
+}
+
+.motto {
+  color: var(--school-accent, #7a772a);
+}
+
+.report-header {
+  border-bottom-color: var(--school-secondary, #557199);
+}
+
+#resultsTable thead th,
+.box h4 {
+  background-color: var(--school-primary, #7b9e34);
+}
+
+.profile-table th,
+.profile-stats .term-label,
+.stat-value,
+.pass-fail-value {
+  color: var(--school-primary, #1f375e);
+}
+    .report-header {
+  border-bottom-color: var(--school-primary, #557199) !important;
+}
+
+.school-name,
+.profile-stats .term-label,
+.stat-value,
+.pass-fail-value {
+  color: var(--school-primary, #1f375e) !important;
+}
+
+.school-location,
+.school-contact {
+  color: var(--school-secondary, #2e4961) !important;
+}
+
+.motto {
+  color: var(--school-accent, #7a772a) !important;
+}
+
+#resultsTable thead th,
+.box h4 {
+  background-color: var(--school-primary, #7b9e34) !important;
+}
+
+    /* GoldLinc / tenant branding: all report surfaces inherit these tokens. */
+    :root {
+      --school-primary: #1E3A8A;
+      --school-secondary: #F59E0B;
+      --school-accent: #10B981;
+      --school-primary-soft: #EEF2FF;
+      --school-primary-pale: #F7F8FF;
+      --school-secondary-soft: #FFF7E6;
+      --school-border: #CBD5E1;
+      --school-ink: #172554;
+    }
+
+    .report-header {
+      border-bottom: 2px solid var(--school-primary) !important;
+    }
+    .school-name { color: var(--school-primary) !important; }
+    .school-location, .school-contact { color: #475569 !important; }
+    .motto { color: var(--school-secondary) !important; }
+
+    #resultsTable {
+      border-color: var(--school-primary);
+    }
+    #resultsTable th, #resultsTable td {
+      border-color: #B8C5DA !important;
+    }
+    #resultsTable thead th {
+      background: var(--school-primary) !important;
+      color: #fff !important;
+    }
+    #resultsTable tbody tr {
+      background: #fff;
+    }
+    #resultsTable tbody tr:nth-child(even) {
+      background: var(--school-primary-pale) !important;
+    }
+    #resultsTable tbody td {
+      color: #1E293B;
+    }
+    #resultsTable tbody td:nth-child(5),
+    #resultsTable tbody td:nth-child(6) {
+      background: var(--school-primary-soft);
+      color: var(--school-primary);
+      font-weight: 800 !important;
+    }
+    #resultsTable tbody tr:nth-child(even) td:nth-child(5),
+    #resultsTable tbody tr:nth-child(even) td:nth-child(6) {
+      background: #E5EAFE;
+    }
+
+    .box, .perf-inline .summary, .perf-inline .analysis {
+      background: var(--school-primary-soft) !important;
+      border-color: var(--school-primary) !important;
+    }
+    .box h4 {
+      background: var(--school-primary) !important;
+      color: #fff !important;
+    }
+    .aff-table th, .psych-table th, .att-table th, .grade-scale th {
+      background: #E8EDF8 !important;
+      color: var(--school-primary);
+    }
+    .profile-section {
+      background: #F8FAFF !important;
+      border-color: #D7DFF0 !important;
+    }
+    .profile-table th {
+      background: #E8EDF8 !important;
+      color: var(--school-primary) !important;
+    }
+    .profile-table tr:nth-child(even) td { background: #F8FAFF; }
+    .profile-stats {
+      background: var(--school-primary-soft) !important;
+      border-color: #D7DFF0 !important;
+    }
+    .profile-stats .term-label, .stat-value, .pass-fail-value {
+      color: var(--school-primary) !important;
+    }
+    .stat-card {
+      border-color: #D7DFF0 !important;
+    }
+    .pass-fail-item {
+      background: #F1F5F9 !important;
+      border-color: #D6DFEA !important;
+    }
+    .pass-status.passed {
+      background: #E8F7F1 !important;
+      color: #087A55 !important;
+      border-color: #A7E3CB !important;
+    }
+    .pass-status.promoted {
+      background: var(--school-primary-soft) !important;
+      color: var(--school-primary) !important;
+      border-color: #C7D2FE !important;
+    }
+    .pass-status.failed {
+      background: #FFF1F2 !important;
+      color: #9F1239 !important;
+      border-color: #FECDD3 !important;
+    }
+    .remark-title { color: var(--school-primary) !important; }
+    .remark-card { border-color: #D7DFF0 !important; }
+    .remark-text { background: #FAFBFF !important; border-color: #E2E8F0 !important; }
+    .qr-link { color: var(--school-primary) !important; }
+    .footer { border-top-color: #CBD5E1 !important; }
+
+  </style>
+</head>
+<body>
+  <div class="sheet no-break">
+    <img src="mainlogo.png" alt="Watermark" class="watermark-img"/>
+
+    <!-- Header -->
+    <div class="report-header">
+      <div style="display:flex; justify-content:flex-start; align-items:flex-start;">
+        <img src="arm.jpg" alt="School Logo Left">
+      </div>
+
+      <div style="text-align:center; padding-top:2px;">
+        <div class="school-name">GOLD AND LINC SCHOOLS, ILESA</div>
+        <div class="school-location">Behind Irenitemi Hotel, Testing Ground Area, Osogbo Road, Ilesa, Osun State</div>
+        <div class="school-contact">Email: goldlincschools@gmail.com | Phone: 08034430941</div>
+        <div class="motto">Motto: <strong>“For A Solid Begining.”</strong></div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; align-items:flex-start;">
+        <img src="mainlogo.png" alt="School Logo Right">
+      </div>
+    </div>
+
+    <div class="report-title" id="reportTitleEl">STUDENT'S PERFORMANCE REPORT</div>
+
+    <!-- Student Profile Section -->
+  <!-- profile section -->
+<div class="profile-section no-break">
+  <div class="profile-left">
+    <table class="profile-table">
+      <tr>
+        <th>Full Name</th>
+        <td id="profileName"> -</td>
+      </tr>
+      <tr>
+        <th>Admission No</th>
+        <td id="profileAdmNo"> -</td>
+      </tr>
+      <tr>
+        <th>Class</th>
+        <td id="profileClass"> -</td>
+      </tr>
+      <tr>
+        <th>Session</th>
+        <td id="profileSession"> -</td>
+      </tr>
+      <tr>
+        <th>D.O.B.</th>
+        <td id="profileDOB"> -</td>
+      </tr>
+      <tr>
+        <th>Age</th>
+        <td id="profileAge"> -</td>
+      </tr>
+      <tr>
+        <th>Sex</th>
+        <td id="profileSex"> -</td>
+      </tr>
+    </table>
+  </div>
+
+      <div class="profile-photo">
+        <img id="profilePhoto" src="avatar.jpg" alt="Student photo">
+      </div>
+      <div class="profile-stats">
+        <div class="term-label" id="termLabelProfile">TERM</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="overallPercentage">0%</div>
+            <div class="stat-label">Overall %</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="overallGrade">-</div>
+            <div class="stat-label">Grade</div>
+          </div>
+          <!-- ✅ ATTENDANCE RATE -->
+          <div class="stat-card">
+            <div class="stat-value" id="attendanceRate">0%</div>
+            <div class="stat-label">Attendance Rate</div>
+          </div>
+          <!-- ✅ ACADEMIC STATUS -->
+          <div class="stat-card">
+            <div class="stat-value" id="academicStatus">-</div>
+            <div class="stat-label" style="font-size: 9px;">Academic Status</div>
+          </div>
+        </div>
+        <table style="width:100%; font-size:10px; border-collapse:collapse;">
+          <tr>
+            <td style="font-weight:700; color:#27608a; width:50px;">Email:</td>
+            <td id="profileEmail">-</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Main Content - EQUAL HEIGHT LAYOUT -->
+    <div class="content no-break">
+      <div class="main no-break">
+        <!-- Results wrapper for dynamic sizing -->
+        <div class="results-wrapper no-break">
+          <!-- Results Table -->
+          <table class="results-table small no-break" id="resultsTable" aria-label="Results table">
+            <thead>
+              <tr>
+                <th style="width:40%;">Subject</th>
+                <th style="width:8%;">CA1</th>
+                <th style="width:8%;">CA2</th>
+                
+                <th style="width:8%;">Exam</th>
+                <th style="width:8%;">Total</th>
+                <th style="width:8%;">Grade</th>
+                <th style="width:12%;">Remark</th>
+                
+              </tr>
+            </thead>
+            <tbody id="resultsTableBody">
+              <tr>
+                <td colspan="9" style="text-align:center; padding:10px;">Loading results...</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pass/Fail Summary -->
+          <div class="pass-fail-summary no-break">
+            <div class="pass-fail-item">
+              <span class="pass-fail-label">Total Passed:</span>
+              <span class="pass-fail-value" id="totalPassed">0</span>
+            </div>
+            <div class="pass-fail-item">
+              <span class="pass-fail-label">Total Failed:</span>
+              <span class="pass-fail-value" id="totalFailed">0</span>
+            </div>
+            <div class="pass-fail-item">
+              <span class="pass-status" id="overallStatus">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Summary - FILLS REMAINING SPACE -->
+        <div class="perf-inline no-break" aria-label="Performance Summary">
+          <div class="summary">
+            <div style="font-weight:700; margin-bottom:3px; font-size:9px;">PERFORMANCE SUMMARY</div>
+            <table style="width:100%; border-collapse:collapse;">
+              <tr>
+                <td>Total Obtained:</td>
+                <td class="tr" style="font-weight:700;" id="totalObtained">0</td>
+              </tr>
+              <tr>
+                <td>Total Obtainable:</td>
+                <td class="tr" id="totalObtainable">0</td>
+              </tr>
+              <tr>
+                <td>Total Subjects:</td>
+                <td class="tr" id="totalSubjectsPerf">0</td>
+              </tr>
+              <tr>
+                <td>%TAGE:</td>
+                <td class="tr" style="font-weight:700;" id="percentagePerf">0%</td>
+              </tr>
+              <tr>
+                <td>GRADE:</td>
+                <td class="tr" style="font-weight:700;" id="gradePerf">-</td>
+              </tr>
+              <tr>
+                <td>Position:</td>
+                <td class="tr" id="positionPerf">-</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="analysis">
+            <div style="font-weight:700; margin-bottom:2px; font-size:8.5px;">Grade Analysis</div>
+            <table style="width:100%; border-collapse:collapse;" id="gradeAnalysisTable">
+              <tr id="gradeCountsRow"></tr>
+              <tr id="gradeValuesRow"></tr>
+            </table>
+
+            <div style="margin-top:3px; font-size:7.5px; line-height:1.2;">
+              <strong>Rating Indices</strong>
+              <div style="margin-top:2px; font-size:6.5px; line-height:1.2;">
+                1-Excellent<br>2-High level<br>3-Acceptable<br>4-Minimal<br>5-No regard
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side Column - EQUAL HEIGHT BOXES -->
+      <div class="side no-break">
+        <!-- Affective Domain -->
+        <div class="box no-break">
+          <h4>AFFECTIVE DOMAIN</h4>
+          <div class="box-content">
+            <table class="aff-table" id="affectiveTable" aria-label="Affective domain">
+              <tr style="background:#f0f0f0">
+                <th style="text-align:left">Attributes</th>
+                <th class="tc">5</th>
+                <th class="tc">4</th>
+                <th class="tc">3</th>
+                <th class="tc">2</th>
+                <th class="tc">1</th>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Psychomotor Skills -->
+        <div class="box no-break">
+          <h4>PSYCHOMOTOR - SKILL</h4>
+          <div class="box-content">
+            <table class="psych-table" id="psychomotorTable" aria-label="Psychomotor skills">
+              <tr style="background:#f0f0f0">
+                <th style="text-align:left">Skill</th>
+                <th class="tc">5</th>
+                <th class="tc">4</th>
+                <th class="tc">3</th>
+                <th class="tc">2</th>
+                <th class="tc">1</th>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Attendance -->
+        <div class="box no-break">
+          <h4>ATTENDANCE SUMMARY</h4>
+          <div class="box-content">
+            <table class="att-table" id="attendanceTable">
+              <tr>
+                <th style="text-align:left;">Times School Opened</th>
+                <td class="tr" id="schoolOpened">-</td>
+              </tr>
+              <tr>
+                <th style="text-align:left;">No. of Times Present</th>
+                <td class="tr" id="timesPresent">-</td>
+              </tr>
+              <tr>
+                <th style="text-align:left;">No. of Times Absent</th>
+                <td class="tr" id="timesAbsent">-</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Grade Scale -->
+        <div class="box no-break">
+          <h4>GRADE SCALE</h4>
+          <div class="box-content">
+            <table class="grade-scale" id="gradeScaleTable">
+              <tr>
+                <td style="font-weight:700;">A1</td>
+                <td>85-100%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">B2</td>
+                <td>75-84.9%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">B3</td>
+                <td>70-74.9%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">C4</td>
+                <td>65-69.9%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">C5</td>
+                <td>60-64.9%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">C6</td>
+                <td>50-59.9%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">D7</td>
+                <td>45-49.9%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">E8</td>
+                <td>40-44.9%</td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;">F9</td>
+                <td>0-39.9%</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Remarks & Signatures -->
+    <div class="bottom no-break" style="margin-top:1px;">
+      <div class="remarks no-break" role="region" aria-label="Remarks and signatures">
+        <div class="remarks-grid" role="group" aria-label="Teacher and principal remarks">
+          <div class="remark-card">
+            <div class="remark-title">Class Teacher's Remark</div>
+            <div class="remark-text" id="teacherRemark">-</div>
+          </div>
+          <div class="remark-card">
+            <div class="remark-title">Principal's Remark</div>
+            <div class="remark-text" id="principalRemark">-</div>
+          </div>
+        </div>
+
+        <!-- Updated Signature Section with Static Fallback -->
+        <div class="signature-row" role="group" aria-label="Signatures and next term">
+          <div class="signature-block">
+            <div class="sig-wrapper">
+              <!-- Teacher Signature - Shows fetched image if available, otherwise shows seal.jpg -->
+              <img id="teacherSigImage" src="https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely-image.svg" alt="Teacher signature" class="sig-image">
+              <div class="sign-line"></div>
+              <div class="sign-name" id="teacherName">Ughojo Deborah</div>
+              <div class="sign-role">Class Teacher</div>
+            </div>
+            <div class="sig-wrapper">
+              <!-- Principal Signature - Shows fetched image if available, otherwise shows seal.jpg -->
+              <img id="principalSigImage" src="https://signaturely.com/wp-content/uploads/2020/04/downward-angle-signaturely.svg" alt="Principal signature" class="sig-image">
+              <div class="sign-line"></div>
+              <div class="sign-name" id="principalName">Richard O. Timothy</div>
+              <div class="sign-role">Principal</div>
+            </div>
+          </div>
+          <div class="next-term" aria-label="Next term information">
+            <div class="nt-label">Next Term Begins</div>
+            <div class="nt-date" id="nextTermDate">-</div>
+            <div style="margin-top:2px;" class="nt-label">Date Issued: <span id="dateIssued">-</span></div>
+          </div>
+        </div>
+<div class="qr-section">
+  <div class="qr-code">
+    <div id="qrCode"></div>
+  </div>
+  <div class="qr-info">
+    <div class="qr-title">Result Verification</div>
+    <div class="qr-text">
+      Scan the QR code or visit:<br>
+      <span class="qr-link">https://verification.examguard.com.ng/verify</span><br><br>
+      <b>Note to Student: </b>Kindly attach your scratch card to this report
+    </div>
+  </div>
+</div>
+        <!-- Seal at the bottom, inside remarks -->
+        <img src="seal.jpg" alt="Official Seal" class="seal-image" />
+
+        <!-- Stamp image -->
+        <img src="https://res.cloudinary.com/da7o22rnq/image/upload/v1780722733/editor-uploads/ai8dycqggveamtncwmzn.png" alt="Official Stamp" class="stamp-image" />
+      </div>
+    </div>
+
+    <div class="footer no-break">
+      <div>Powered by ExamGuard Schools Solutions</div>
+      <div style="font-size:8px;">Student Performance Report</div>
+    </div>
+  </div>
+
+ <script src="report.js?v=school-branding-2"></script>
+</body>
+</html>
