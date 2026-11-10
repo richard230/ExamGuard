@@ -235,39 +235,38 @@ function applyReportBrandColors(primary, secondary, accent) {
   if (secondary) root.style.setProperty('--school-secondary', secondary);
   if (accent) root.style.setProperty('--school-accent', accent);
 
+  const tint = primary
+    ? `color-mix(in srgb, ${primary} 10%, white)`
+    : '#e9f0d6';
+
   document.querySelectorAll('#resultsTable thead th, .box h4').forEach(element => {
-    setImportantStyle(element, 'background-color', primary);
-    setImportantStyle(element, 'background', primary);
+    element.style.setProperty('background-color', primary || '#7b9e34', 'important');
+  });
+
+  document.querySelectorAll('.box, .perf-inline .summary, .perf-inline .analysis').forEach(element => {
+    element.style.setProperty('background-color', tint, 'important');
   });
 
   document.querySelectorAll('.report-header').forEach(element => {
-    setImportantStyle(element, 'border-bottom-color', primary);
+    if (primary) element.style.setProperty('border-bottom-color', primary, 'important');
   });
 
   document.querySelectorAll(
     '.school-name, .profile-stats .term-label, .stat-value, .pass-fail-value, .profile-table th'
   ).forEach(element => {
-    setImportantStyle(element, 'color', primary);
+    if (primary) element.style.setProperty('color', primary, 'important');
   });
 
   document.querySelectorAll('.school-location, .school-contact').forEach(element => {
-    setImportantStyle(element, 'color', secondary);
+    if (secondary) element.style.setProperty('color', secondary, 'important');
   });
 
   document.querySelectorAll('.motto').forEach(element => {
-    setImportantStyle(element, 'color', accent);
+    if (accent) element.style.setProperty('color', accent, 'important');
   });
 
   document.querySelectorAll('.profile-table th').forEach(element => {
-    if (primary) {
-      setImportantStyle(element, 'background-color', `color-mix(in srgb, ${primary} 10%, white)`);
-    }
-  });
-
-  document.querySelectorAll('.profile-section, .profile-stats').forEach(element => {
-    if (primary) {
-      setImportantStyle(element, 'border-color', `color-mix(in srgb, ${primary} 20%, white)`);
-    }
+    element.style.setProperty('background-color', tint, 'important');
   });
 }
 
