@@ -591,32 +591,98 @@ router.get('/dashboard/student/:studentId', async (req, res) => {
 });
 
 // 8. GET /dashboard/all
-router.get('/dashboard/all', async (req, res) => {
+router.get('/dashboard/all', apiKeyAuth, async (req, res) => {
   try {
-    const schoolId = getAuthSchoolId(req);
-    if (!schoolId) return res.status(401).json({ error: 'Unauthorized: Missing school context' });
+    const school = req.school || req.apiKey?.school;
+    const schoolId = school?._id || req.apiKey?.school;
+
+    if (!schoolId) {
+      return res.status(401).json({
+        success: false,
+        error: 'API key is not associated with a school.'
+      });
+    }
 
     const query = { schoolId, status: 'Published' };
+
     if (req.query.session) {
-      const sess = await Session.findOne({ schoolId, name: req.query.session });
-      if (sess) query.session = sess._id;
+      const session = await Session.findOne({
+        schoolId,
+        name: req.query.session
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          error: 'Session not found for this school.',
+          requestedSession: req.query.session
+        });
+      }
+
+      query.session = session._id;
     }
+
     if (req.query.term) {
-      const term = await Term.findOne({ schoolId, name: req.query.term });
-      if (term) query.term = term._id;
+      const termQuery = {
+        schoolId,
+        name: req.query.term
+      };
+
+      // If a session is also specified, resolve the term within that session.
+      if (query.session) {
+        termQuery.session = query.session;
+      }
+
+      const term = await Term.findOne(termQuery);
+
+      if (!term) {
+        return res.status(404).json({
+          error: 'Term not found for this school and selected session.',
+          requestedTerm: req.query.term
+        });
+      }
+
+      query.term = term._id;
     }
+
     if (req.query.student_id) {
-      const student = await Student.findOne({ schoolId, student_id: req.query.student_id });
-      if (student) query.student = student._id;
+      const student = await Student.findOne({
+        schoolId,
+        student_id: req.query.student_id
+      });
+
+      if (!student) {
+        return res.json([]);
+      }
+
+      query.student = student._id;
     }
+
     if (req.query.class) {
-      const klass = await Class.findOne({ schoolId, name: req.query.class });
-      if (klass) query.class = klass._id;
+      const classItem = await Class.findOne({
+        schoolId,
+        name: req.query.class
+      });
+
+      if (!classItem) {
+        return res.json([]);
+      }
+
+      query.class = classItem._id;
     }
+
     if (req.query.subject) {
-      const subject = await Subject.findOne({ schoolId, name: req.query.subject });
-      if (subject) query.subject = subject._id;
+      const subject = await Subject.findOne({
+        schoolId,
+        name: req.query.subject
+      });
+
+      if (!subject) {
+        return res.json([]);
+      }
+
+      query.subject = subject._id;
     }
+
     const results = await Result.find(query)
       .populate('student')
       .populate('class')
@@ -624,18 +690,29 @@ router.get('/dashboard/all', async (req, res) => {
       .populate('term')
       .populate('subject')
       .sort({ _id: -1 });
-    if (!results.length) {
+
+    if (results.length === 0) {
       return res.json([]);
     }
+
     const studentMap = {};
+
     results.forEach(result => {
-      const studentId = result.student?._id.toString();
+      const studentId = result.student?._id?.toString();
       if (!studentId) return;
-      const key = `${studentId}-${result.class?._id}-${result.session?._id}-${result.term?._id}`;
+
+      const key = [
+        studentId,
+        result.class?._id,
+        result.session?._id,
+        result.term?._id
+      ].join('-');
+
       if (!studentMap[key]) {
         studentMap[key] = {
           studentId,
-          studentName: result.student?.name || `${result.student?.surname || ''} ${result.student?.firstname || ''}`.trim(),
+          studentName: result.student?.name ||
+            `${result.student?.surname || ''} ${result.student?.firstname || ''}`.trim(),
           regNo: result.student?.regNo,
           classLevel: result.class?.name,
           academicYear: result.session?.name,
@@ -645,46 +722,80 @@ router.get('/dashboard/all', async (req, res) => {
           termId: result.term?._id,
           subjects: [],
           totalScore: 0,
-          grade: '',
-          remarks: '',
           status: result.status,
           resultIds: [],
           skills: {
-            punctuality: '-', obedience: '-', honesty: '-', cleanliness: '-', initiative: '-', cooperation: '-'
+            punctuality: '-',
+            obedience: '-',
+            honesty: '-',
+            cleanliness: '-',
+            initiative: '-',
+            cooperation: '-'
           },
-          attendance: { present: '-', absent: '-', rate: 0 },
-          teacherComment: { comment: 'No comment on record', teacherName: 'Unknown' },
-          principalRemark: { remark: 'No remark on record', principalName: 'Unknown' },
+          attendance: {
+            present: '-',
+            absent: '-',
+            rate: 0
+          },
+          teacherComment: {
+            comment: 'No comment on record',
+            teacherName: 'Unknown'
+          },
+          principalRemark: {
+            remark: 'No remark on record',
+            principalName: 'Unknown'
+          },
           studentPosition: 0,
           classSize: 0
         };
       }
+
       const total = calculateResultTotal(result);
       const { grade, remark } = getGradeAndRemark(total);
-      const subjectPosition = result.subject_position || result.subject_position_num || '-';
+      const subjectPosition =
+        result.subject_position ||
+        result.subject_position_num ||
+        '-';
+
       studentMap[key].subjects.push({
         name: result.subject?.name,
         ca1_score: result.ca1_score || 0,
         ca2_score: result.ca2_score || 0,
         midterm_score: result.midterm_score || 0,
         exam_score: result.exam_score || 0,
-        total: total,
-        grade: grade,
+        total,
+        grade,
         remarks: remark,
         position: subjectPosition
       });
+
       studentMap[key].totalScore += total;
       studentMap[key].resultIds.push(result._id.toString());
-      if (result.skills && Object.keys(result.skills).length > 0) studentMap[key].skills = result.skills;
-      if (result.attendance && Object.keys(result.attendance).length > 0) studentMap[key].attendance = result.attendance;
-      if (result.teacherComment && Object.keys(result.teacherComment).length > 0) studentMap[key].teacherComment = result.teacherComment;
-      if (result.principalRemark && Object.keys(result.principalRemark).length > 0) studentMap[key].principalRemark = result.principalRemark;
-      if (result.studentPosition) studentMap[key].studentPosition = result.studentPosition;
+
+      if (result.skills && Object.keys(result.skills).length > 0) {
+        studentMap[key].skills = result.skills;
+      }
+      if (result.attendance && Object.keys(result.attendance).length > 0) {
+        studentMap[key].attendance = result.attendance;
+      }
+      if (result.teacherComment && Object.keys(result.teacherComment).length > 0) {
+        studentMap[key].teacherComment = result.teacherComment;
+      }
+      if (result.principalRemark && Object.keys(result.principalRemark).length > 0) {
+        studentMap[key].principalRemark = result.principalRemark;
+      }
+      if (result.studentPosition) {
+        studentMap[key].studentPosition = result.studentPosition;
+      }
     });
+
     const transformedResults = Object.values(studentMap).map(student => {
       const numSubjects = student.subjects.length;
-      const avgScore = numSubjects > 0 ? student.totalScore / numSubjects : 0;
-      const { grade, remark } = getGradeAndRemark(avgScore);
+      const averageScore = numSubjects > 0
+        ? student.totalScore / numSubjects
+        : 0;
+      const { grade, remark } = getGradeAndRemark(averageScore);
+
       return {
         id: student.resultIds[0],
         allResultIds: student.resultIds,
@@ -697,10 +808,10 @@ router.get('/dashboard/all', async (req, res) => {
         classId: student.classId,
         sessionId: student.sessionId,
         termId: student.termId,
-        totalScore: numSubjects > 0 ? (student.totalScore / numSubjects).toFixed(2) : '0.00',
+        totalScore: averageScore.toFixed(2),
         totalSubjectScore: student.totalScore.toFixed(2),
-        numSubjects: numSubjects,
-        grade: grade,
+        numSubjects,
+        grade,
         remarks: remark,
         status: student.status,
         skills: student.skills,
@@ -712,12 +823,15 @@ router.get('/dashboard/all', async (req, res) => {
         subjects: student.subjects
       };
     });
-    res.json(transformedResults);
+
+    return res.json(transformedResults);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('GET /dashboard/all error:', err);
+    return res.status(500).json({
+      error: 'Failed to fetch results.'
+    });
   }
 });
-
 // 9. GET /check
 // Public result lookup, but always tenant-scoped through a resolved School record.
 // A scratch-card use is committed only after a published report has been built.
