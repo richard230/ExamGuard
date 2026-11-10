@@ -151,33 +151,32 @@ function getReportSchoolContext() {
 
 function getSchoolAddress(school) {
   const schoolInfo = school.school || {};
-  const location =
-    school.location ||
-    school.addressInfo ||
-    schoolInfo.location ||
-    {};
-  const contact = school.contact || school.contactInfo || {};
-
-  const addressLine = firstConfigValue(
-    location.fullAddress,
-    school.fullAddress,
-    location.address,
-    location.streetAddress,
-    location.addressLine1,
-    location.street,
-    school.address,
-    school.schoolAddress,
-    contact.address
-  );
+  const location = school.location || school.addressInfo || schoolInfo.location || {};
 
   const parts = [
-    addressLine,
-    location.addressLine2,
-    location.city,
-    location.state,
-    location.postalCode,
-    location.zipCode,
-    location.country
+    firstConfigValue(
+      location.fullAddress,
+      school.fullAddress,
+      location.address,
+      location.streetAddress,
+      location.addressLine1,
+      location.street,
+      school.address,
+      school.schoolAddress,
+      schoolInfo.address,
+      schoolInfo.schoolAddress
+    ),
+    firstConfigValue(location.addressLine2, school.addressLine2),
+    firstConfigValue(location.city, school.city, schoolInfo.city),
+    firstConfigValue(location.state, school.state, schoolInfo.state),
+    firstConfigValue(
+      location.postalCode,
+      location.zipCode,
+      school.postalCode,
+      school.zipCode,
+      schoolInfo.postalCode
+    ),
+    firstConfigValue(location.country, school.country, schoolInfo.country)
   ]
     .filter(value => value !== undefined && value !== null)
     .map(value => String(value).trim())
