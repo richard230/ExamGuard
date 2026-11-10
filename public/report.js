@@ -999,11 +999,11 @@ function generateQRCode(student, session, term) {
   }
 
   new QRCode(container, {
-  text: verificationUrl.toString(),
-  width: 96,
-  height: 96,
-  correctLevel: QRCode.CorrectLevel.M
-});
+    text: verificationUrl.toString(),
+    width: 180,
+    height: 180,
+    correctLevel: QRCode.CorrectLevel.L
+  });
 }
 
 function setSignatureImages(data) {
