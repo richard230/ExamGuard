@@ -1,8 +1,3 @@
-/* ==========================================================
-   MULTI-SCHOOL REPORT CONFIGURATION
-   Loads the school associated with the current report and keeps
-   the page tenant-safe.
-   ========================================================== */
 const API_ROOT = String(
   window.API_BASE_URL ||
   window.BACKEND_URL ||
@@ -26,10 +21,10 @@ function normalizeSchoolConfig(raw) {
     raw
   ];
 
-  return candidates.find(item => {
-    if (!item || typeof item !== 'object') return false;
-
-    return (
+  return candidates.find(item =>
+    item &&
+    typeof item === 'object' &&
+    (
       item._id ||
       item.id ||
       item.schoolId ||
@@ -38,8 +33,8 @@ function normalizeSchoolConfig(raw) {
       item.schoolName ||
       item.name ||
       item.branding
-    );
-  }) || null;
+    )
+  ) || null;
 }
 
 function getTenantSubdomain() {
@@ -50,31 +45,21 @@ function getTenantSubdomain() {
   const baseDomain = 'goldlincschools.com.ng';
 
   if (host === baseDomain) return '';
+
   if (host.endsWith(`.${baseDomain}`)) {
     const subdomain = host.slice(0, -(baseDomain.length + 1));
     if (subdomain && !subdomain.includes('.')) return subdomain.toLowerCase();
   }
 
-  if (host === 'localhost' || host === '127.0.0.1') {
-    const query = new URLSearchParams(window.location.search);
-    const school = query.get('school');
-    return school ? school.trim().toLowerCase() : '';
-  }
-
-  const query = new URLSearchParams(window.location.search);
-  const school = query.get('school');
-  if (school) return school.trim().toLowerCase();
-
-  return '';
+  const querySchool = new URLSearchParams(window.location.search).get('school');
+  return querySchool ? querySchool.trim().toLowerCase() : '';
 }
 
 function readCachedSchoolConfig() {
   try {
     const raw = localStorage.getItem(SCHOOL_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return normalizeSchoolConfig(parsed);
-  } catch (e) {
+    return raw ? normalizeSchoolConfig(JSON.parse(raw)) : null;
+  } catch {
     return null;
   }
 }
@@ -82,75 +67,81 @@ function readCachedSchoolConfig() {
 function writeCachedSchoolConfig(school) {
   try {
     if (!school) return;
+
     localStorage.setItem(SCHOOL_CACHE_KEY, JSON.stringify(school));
+
     const id = school._id || school.schoolId || school.id;
     if (id) localStorage.setItem(SCHOOL_ID_KEY, String(id));
-    const subdomain = String(school.subdomain || getTenantSubdomain() || '').trim().toLowerCase();
+
+    const subdomain = String(school.subdomain || getTenantSubdomain() || '')
+      .trim()
+      .toLowerCase();
+
     if (subdomain) localStorage.setItem(SCHOOL_SUBDOMAIN_KEY, subdomain);
-  } catch (e) {
-    console.warn('Unable to cache school config:', e);
+  } catch (error) {
+    console.warn('Unable to cache school config:', error);
   }
 }
 
 function firstConfigValue(...values) {
   return values.find(value =>
-    value !== undefined && value !== null && String(value).trim() !== ''
+    value !== undefined &&
+    value !== null &&
+    String(value).trim() !== ''
   );
 }
 
 function setTextIfPresent(selector, value) {
   const element = document.querySelector(selector);
-  if (element && value !== undefined && value !== null && String(value).trim()) {
+  if (
+    element &&
+    value !== undefined &&
+    value !== null &&
+    String(value).trim()
+  ) {
     element.textContent = String(value);
   }
 }
 
 function setImageIfPresent(element, source, fallback) {
   if (!element) return;
-  const value = firstConfigValue(source, fallback);
-  if (value) {
-    element.src = value;
-    element.onerror = () => {
-      if (fallback && element.src !== fallback) element.src = fallback;
-      else element.style.display = 'none';
-    };
-  }
-}
-const colors = branding.colors || {};
 
-const primary = firstConfigValue(
-  branding.primaryColor, branding.primary, colors.primary, school.primaryColor
-);
-const secondary = firstConfigValue(
-  branding.secondaryColor, branding.secondary, colors.secondary, school.secondaryColor
-);
-const accent = firstConfigValue(
-  branding.accentColor, branding.accent, colors.accent, school.accentColor
-);
+  const value = firstConfigValue(source, fallback);
+  if (!value) return;
+
+  element.src = value;
+  element.onerror = () => {
+    if (fallback && element.src !== fallback) {
+      element.src = fallback;
+    } else {
+      element.style.display = 'none';
+    }
+  };
+}
+
 function getReportSchoolContext() {
   const reportData = loadReportData() || {};
   const savedSubdomain = localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) || '';
   const savedSchoolId = localStorage.getItem(SCHOOL_ID_KEY) || '';
 
-  const subdomain = (
+  const subdomain =
     savedSubdomain ||
     reportData.schoolSubdomain ||
     reportData.subdomain ||
-    getTenantSubdomain()
-  );
+    getTenantSubdomain();
 
-  const schoolId = (
+  const schoolId =
     savedSchoolId ||
     localStorage.getItem('schoolCode') ||
-    localStorage.getItem('schoolId') ||
     reportData.schoolId ||
     reportData.schoolCode ||
     reportData.school?.id ||
     reportData.school?._id ||
-    ''
-  );
+    reportData.school?.schoolId ||
+    '';
 
-  const token = localStorage.getItem('token') ||
+  const token =
+    localStorage.getItem('token') ||
     localStorage.getItem('authToken') ||
     localStorage.getItem('accessToken') ||
     '';
@@ -192,22 +183,33 @@ function getSchoolAddress(school) {
     .map(value => String(value).trim())
     .filter(Boolean);
 
-  // Avoid repeating city/state/country when they already appear in the address.
   const uniqueParts = [];
   for (const part of parts) {
-    const alreadyIncluded = uniqueParts.some(existing =>
+    if (!uniqueParts.some(existing =>
       existing.toLowerCase() === part.toLowerCase()
-    );
-    if (!alreadyIncluded) uniqueParts.push(part);
+    )) {
+      uniqueParts.push(part);
+    }
   }
 
   return uniqueParts.join(', ');
 }
 
 function getSchoolContact(school) {
-  const contact = school.contact || school.contactInfo || {};
+  const schoolInfo = school.school || {};
+  const contact =
+    school.contact ||
+    school.contactInfo ||
+    schoolInfo.contact ||
+    {};
+
   const email = firstConfigValue(school.email, contact.email);
-  const phone = firstConfigValue(school.phone, contact.phone, contact.mobile);
+  const phone = firstConfigValue(
+    school.phone,
+    contact.phone,
+    contact.mobile
+  );
+
   return [
     email ? `Email: ${email}` : '',
     phone ? `Phone: ${phone}` : ''
@@ -217,15 +219,21 @@ function getSchoolContact(school) {
 function applySchoolConfig(school) {
   if (!school) return;
 
+  const schoolInfo = school.school || {};
   const branding = school.branding || {};
   const academic = school.academicConfig || school.academic || {};
-  const contact = school.contact || school.contactInfo || {};
+  const colors = branding.colors || {};
   const logo = firstConfigValue(
     branding.logo,
     branding.logoUrl,
+    branding.logos?.main,
+    branding.logos?.light,
+    branding.logos?.dark,
     school.logo,
     school.logoUrl,
-    school.schoolLogo
+    school.schoolLogo,
+    schoolInfo.logo,
+    schoolInfo.logoUrl
   );
   const watermark = firstConfigValue(
     branding.watermark,
@@ -245,50 +253,74 @@ function applySchoolConfig(school) {
     setImageIfPresent(headerImages[1], logo, 'mainlogo.png');
   }
 
-  setTextIfPresent('.school-name', firstConfigValue(
-    school.schoolName,
-    school.name,
-    school.institutionName
-  ));
+  setTextIfPresent(
+    '.school-name',
+    firstConfigValue(
+      school.schoolName,
+      school.name,
+      school.institutionName,
+      schoolInfo.name,
+      schoolInfo.schoolName
+    )
+  );
   setTextIfPresent('.school-location', getSchoolAddress(school));
   setTextIfPresent('.school-contact', getSchoolContact(school));
 
   const motto = firstConfigValue(
     school.motto,
     school.tagline,
-    school.schoolMotto
+    school.schoolMotto,
+    schoolInfo.motto
   );
   const mottoElement = document.querySelector('.motto');
   if (mottoElement && motto) mottoElement.textContent = `Motto: ${motto}`;
 
   const watermarkImage = document.querySelector('.watermark-img');
-  if (watermarkImage && watermark) setImageIfPresent(watermarkImage, watermark);
+  if (watermarkImage && watermark) {
+    setImageIfPresent(watermarkImage, watermark);
+  }
 
   const sealImage = document.querySelector('.seal-image');
-  if (sealImage && stamp) setImageIfPresent(sealImage, stamp, 'seal.jpg');
+  if (sealImage && stamp) {
+    setImageIfPresent(sealImage, stamp, 'seal.jpg');
+  }
 
   const stampImage = document.querySelector('.stamp-image');
-  if (stampImage && stamp) setImageIfPresent(stampImage, stamp);
+  if (stampImage && stamp) {
+    setImageIfPresent(stampImage, stamp);
+  }
 
   const primary = firstConfigValue(
     branding.primaryColor,
     branding.primary,
-    school.primaryColor
+    colors.primary,
+    school.primaryColor,
+    schoolInfo.primaryColor
   );
   const secondary = firstConfigValue(
     branding.secondaryColor,
     branding.secondary,
-    school.secondaryColor
+    colors.secondary,
+    school.secondaryColor,
+    schoolInfo.secondaryColor
   );
   const accent = firstConfigValue(
     branding.accentColor,
     branding.accent,
-    school.accentColor
+    colors.accent,
+    school.accentColor,
+    schoolInfo.accentColor
   );
 
-  if (primary) document.documentElement.style.setProperty('--school-primary', primary);
-  if (secondary) document.documentElement.style.setProperty('--school-secondary', secondary);
-  if (accent) document.documentElement.style.setProperty('--school-accent', accent);
+  if (primary) {
+    document.documentElement.style.setProperty('--school-primary', primary);
+  }
+  if (secondary) {
+    document.documentElement.style.setProperty('--school-secondary', secondary);
+  }
+  if (accent) {
+    document.documentElement.style.setProperty('--school-accent', accent);
+  }
 
   const reportSettings = school.reportSettings || school.reportConfig || {};
   const principal = school.principal || school.principalInfo || {};
@@ -299,8 +331,14 @@ function applySchoolConfig(school) {
   window.currentSchoolPrincipal = principal;
 
   window.currentSchoolDefaults = {
-    session: firstConfigValue(academic.currentSession, school.currentSession),
-    term: firstConfigValue(academic.currentTerm, school.currentTerm),
+    session: firstConfigValue(
+      academic.currentSession,
+      school.currentSession
+    ),
+    term: firstConfigValue(
+      academic.currentTerm,
+      school.currentTerm
+    ),
     nextTermDate: firstConfigValue(
       academic.nextTermBeginDate,
       academic.nextTermDate,
@@ -333,17 +371,49 @@ function getConfiguredGradeFromPercentage(percentage) {
 
   if (Array.isArray(scale)) {
     entries = scale.map(item => ({
-      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
-      min: Number(firstConfigValue(item.minScore, item.minimum, item.min, item.from, item.lowerBound)),
-      max: Number(firstConfigValue(item.maxScore, item.maximum, item.max, item.to, item.upperBound))
+      grade: firstConfigValue(
+        item.grade,
+        item.name,
+        item.label,
+        item.code
+      ),
+      min: Number(firstConfigValue(
+        item.minScore,
+        item.minimum,
+        item.min,
+        item.from,
+        item.lowerBound
+      )),
+      max: Number(firstConfigValue(
+        item.maxScore,
+        item.maximum,
+        item.max,
+        item.to,
+        item.upperBound
+      ))
     }));
   } else if (typeof scale === 'object') {
     entries = Object.entries(scale).map(([grade, value]) => {
-      if (typeof value === 'number') return { grade, min: value, max: 100 };
+      if (typeof value === 'number') {
+        return { grade, min: value, max: 100 };
+      }
+
       return {
         grade,
-        min: Number(firstConfigValue(value?.minScore, value?.minimum, value?.min, value?.from, value?.lowerBound)),
-        max: Number(firstConfigValue(value?.maxScore, value?.maximum, value?.max, value?.to, value?.upperBound))
+        min: Number(firstConfigValue(
+          value?.minScore,
+          value?.minimum,
+          value?.min,
+          value?.from,
+          value?.lowerBound
+        )),
+        max: Number(firstConfigValue(
+          value?.maxScore,
+          value?.maximum,
+          value?.max,
+          value?.to,
+          value?.upperBound
+        ))
       };
     });
   }
@@ -364,19 +434,49 @@ function renderConfiguredGradeScale() {
   if (!table || !scale) return;
 
   let entries = [];
+
   if (Array.isArray(scale)) {
     entries = scale.map(item => ({
-      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
-      min: firstConfigValue(item.minScore, item.minimum, item.min, item.from, item.lowerBound),
-      max: firstConfigValue(item.maxScore, item.maximum, item.max, item.to, item.upperBound),
-      remark: firstConfigValue(item.remark, item.remarks, item.description)
+      grade: firstConfigValue(
+        item.grade,
+        item.name,
+        item.label,
+        item.code
+      ),
+      min: firstConfigValue(
+        item.minScore,
+        item.minimum,
+        item.min,
+        item.from,
+        item.lowerBound
+      ),
+      max: firstConfigValue(
+        item.maxScore,
+        item.maximum,
+        item.max,
+        item.to,
+        item.upperBound
+      )
     }));
   } else if (typeof scale === 'object') {
     entries = Object.entries(scale).map(([grade, value]) => ({
       grade,
-      min: typeof value === 'number' ? value : firstConfigValue(value?.minScore, value?.minimum, value?.min, value?.from),
-      max: typeof value === 'number' ? 100 : firstConfigValue(value?.maxScore, value?.maximum, value?.max, value?.to),
-      remark: typeof value === 'object' ? firstConfigValue(value?.remark, value?.remarks, value?.description) : ''
+      min: typeof value === 'number'
+        ? value
+        : firstConfigValue(
+          value?.minScore,
+          value?.minimum,
+          value?.min,
+          value?.from
+        ),
+      max: typeof value === 'number'
+        ? 100
+        : firstConfigValue(
+          value?.maxScore,
+          value?.maximum,
+          value?.max,
+          value?.to
+        )
     }));
   }
 
@@ -385,10 +485,11 @@ function renderConfiguredGradeScale() {
   table.innerHTML = entries.map(item => {
     const range = item.min !== undefined && item.max !== undefined
       ? `${item.min}-${item.max}%`
-      : (item.min !== undefined ? `${item.min}% and above` : '-');
+      : item.min !== undefined
+        ? `${item.min}% and above`
+        : '-';
 
-    const grade = String(item.grade || '-');
-    return `<tr><td style="font-weight:700;">${grade}</td><td>${range}</td></tr>`;
+    return `<tr><td style="font-weight:700;">${String(item.grade || '-')}</td><td>${range}</td></tr>`;
   }).join('');
 }
 
@@ -403,23 +504,26 @@ function clearStaticSchoolBranding() {
   if (contact) contact.textContent = '';
   if (motto) motto.textContent = '';
 
-  document.querySelectorAll('.report-header img, .watermark-img, .seal-image, .stamp-image')
-    .forEach(img => {
-      img.removeAttribute('src');
-      img.style.display = 'none';
-    });
+  document.querySelectorAll(
+    '.report-header img, .watermark-img, .seal-image, .stamp-image'
+  ).forEach(img => {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+  });
 }
 
 async function fetchCurrentSchoolConfig() {
   const context = getReportSchoolContext();
-
   const cached = readCachedSchoolConfig();
+
   if (cached && !context.subdomain && !context.schoolId) {
     return cached;
   }
 
   const headers = { Accept: 'application/json' };
-  if (context.token) headers.Authorization = `Bearer ${context.token}`;
+  if (context.token) {
+    headers.Authorization = `Bearer ${context.token}`;
+  }
 
   const attempts = [];
   const seenUrls = new Set();
@@ -436,12 +540,15 @@ async function fetchCurrentSchoolConfig() {
     );
   }
 
-  const possibleReportSchool = context.reportData?.school || null;
-  if (possibleReportSchool && (possibleReportSchool._id || possibleReportSchool.id || possibleReportSchool.schoolId)) {
+  const reportSchool = context.reportData?.school;
+  const reportSchoolId =
+    reportSchool?._id ||
+    reportSchool?.id ||
+    reportSchool?.schoolId;
+
+  if (reportSchoolId) {
     attempts.push(
-      `${API_ROOT}/api/schools/config?schoolId=${encodeURIComponent(
-        possibleReportSchool._id || possibleReportSchool.id || possibleReportSchool.schoolId
-      )}`
+      `${API_ROOT}/api/schools/config?schoolId=${encodeURIComponent(reportSchoolId)}`
     );
   }
 
@@ -458,7 +565,9 @@ async function fetchCurrentSchoolConfig() {
       });
 
       if (!response.ok) {
-        console.warn(`School config fetch failed (${response.status}) for ${url}`);
+        console.warn(
+          `School config fetch failed (${response.status}) for ${url}`
+        );
         continue;
       }
 
@@ -470,7 +579,7 @@ async function fetchCurrentSchoolConfig() {
         continue;
       }
 
-            const expectedIds = [
+      const expectedIds = [
         context.reportData?.schoolId,
         context.reportData?.schoolCode,
         context.reportData?.school?._id,
@@ -478,7 +587,11 @@ async function fetchCurrentSchoolConfig() {
         context.reportData?.school?.schoolId,
         context.schoolId
       ]
-        .filter(value => value !== undefined && value !== null && String(value).trim())
+        .filter(value =>
+          value !== undefined &&
+          value !== null &&
+          String(value).trim()
+        )
         .map(value => String(value).trim());
 
       const returnedIds = [
@@ -489,7 +602,11 @@ async function fetchCurrentSchoolConfig() {
         school.id,
         school._id
       ]
-        .filter(value => value !== undefined && value !== null && String(value).trim())
+        .filter(value =>
+          value !== undefined &&
+          value !== null &&
+          String(value).trim()
+        )
         .map(value => String(value).trim());
 
       if (
@@ -505,6 +622,7 @@ async function fetchCurrentSchoolConfig() {
         });
         continue;
       }
+
       writeCachedSchoolConfig(school);
       return school;
     } catch (error) {
@@ -512,11 +630,7 @@ async function fetchCurrentSchoolConfig() {
     }
   }
 
-  if (cached) {
-    return cached;
-  }
-
-  return null;
+  return cached || null;
 }
 
 async function initializeReport() {
@@ -535,26 +649,37 @@ async function initializeReport() {
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
+
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch (error) {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
     return dateStr;
   }
 }
 
 function calculateAge(dobStr) {
   if (!dobStr) return '-';
+
   try {
     const today = new Date();
     const birthDate = new Date(dobStr);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
+
     return age;
-  } catch (error) {
+  } catch {
     return '-';
   }
 }
@@ -563,11 +688,16 @@ function getGradeDistribution(results) {
   const grades = ['A', 'B', 'C', 'D', 'E', 'F'];
   const distribution = {};
 
-  grades.forEach(grade => distribution[grade] = 0);
+  grades.forEach(grade => {
+    distribution[grade] = 0;
+  });
 
-  results.forEach(r => {
-    if (r.grade && Object.prototype.hasOwnProperty.call(distribution, r.grade)) {
-      distribution[r.grade]++;
+  results.forEach(result => {
+    if (
+      result.grade &&
+      Object.prototype.hasOwnProperty.call(distribution, result.grade)
+    ) {
+      distribution[result.grade]++;
     }
   });
 
@@ -575,8 +705,7 @@ function getGradeDistribution(results) {
 }
 
 function isPassingGrade(grade) {
-  const passingGrades = ['A', 'B', 'C', 'D'];
-  return passingGrades.includes(grade);
+  return ['A', 'B', 'C', 'D'].includes(grade);
 }
 
 function determineAcademicStatus(percentage, failCount) {
@@ -589,7 +718,11 @@ function determineAcademicStatus(percentage, failCount) {
 }
 
 function calculateAttendancePercentage(attendance) {
-  if (!attendance || !attendance.timesPresent || !attendance.schoolOpened) {
+  if (
+    !attendance ||
+    !attendance.timesPresent ||
+    !attendance.schoolOpened
+  ) {
     return 0;
   }
 
@@ -604,23 +737,22 @@ function calculateGradeFromPercentage(percentage) {
   const pct = parseFloat(percentage);
 
   if (pct >= 85) return 'A1';
-  else if (pct >= 75) return 'B2';
-  else if (pct >= 70) return 'B3';
-  else if (pct >= 65) return 'C4';
-  else if (pct >= 60) return 'C5';
-  else if (pct >= 50) return 'C6';
-  else if (pct >= 45) return 'D7';
-  else if (pct >= 40) return 'E8';
-  else return 'F9';
+  if (pct >= 75) return 'B2';
+  if (pct >= 70) return 'B3';
+  if (pct >= 65) return 'C4';
+  if (pct >= 60) return 'C5';
+  if (pct >= 50) return 'C6';
+  if (pct >= 45) return 'D7';
+  if (pct >= 40) return 'E8';
+  return 'F9';
 }
 
 function extractRemark(data, fieldPath) {
   if (!data || !fieldPath) return '-';
 
-  const paths = fieldPath.split('.');
   let value = data;
 
-  for (const path of paths) {
+  for (const path of fieldPath.split('.')) {
     if (value && typeof value === 'object') {
       value = value[path];
     } else {
@@ -647,27 +779,27 @@ function loadReportData() {
 
     if (!reportDataStr) {
       const fallbackStr = localStorage.getItem('lastReportData');
-      if (fallbackStr) {
-        const data = JSON.parse(fallbackStr);
-        return data;
-      }
-      return null;
+      return fallbackStr ? JSON.parse(fallbackStr) : null;
     }
 
-    const data = JSON.parse(reportDataStr);
-    return data;
+    return JSON.parse(reportDataStr);
   } catch (error) {
-    console.error('❌ Error loading report data:', error);
+    console.error('Error loading report data:', error);
     return null;
   }
 }
 
 function applyDynamicFontSizing(resultCount) {
   const table = document.getElementById('resultsTable');
-
   if (!table) return;
 
-  table.classList.remove('subjects-5', 'subjects-6-8', 'subjects-9-11', 'subjects-12', 'subjects-13-plus');
+  table.classList.remove(
+    'subjects-5',
+    'subjects-6-8',
+    'subjects-9-11',
+    'subjects-12',
+    'subjects-13-plus'
+  );
 
   if (resultCount <= 5) {
     table.classList.add('subjects-5');
@@ -692,8 +824,7 @@ Verify: https://verification.examguard.com.ng/verify
   `.trim();
 
   const container = document.getElementById('qrCode');
-
-  if (!container || !qrData) return;
+  if (!container || !qrData || typeof QRCode === 'undefined') return;
 
   container.innerHTML = '';
 
@@ -706,60 +837,84 @@ Verify: https://verification.examguard.com.ng/verify
 
 function setSignatureImages(data) {
   const teacherSigImg = document.getElementById('teacherSigImage');
-  if (data.teacherSignatureBase64) {
-    teacherSigImg.src = 'data:image/jpeg;base64,' + data.teacherSignatureBase64;
-  } else {
-    teacherSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely-image.svg';
+  if (teacherSigImg) {
+    teacherSigImg.src = data.teacherSignatureBase64
+      ? `data:image/jpeg;base64,${data.teacherSignatureBase64}`
+      : 'https://signaturely.com/wp-content/uploads/2020/04/downward-angle-signaturely.svg';
   }
 
   const principalSigImg = document.getElementById('principalSigImage');
-  if (data.principalSignatureBase64) {
-    principalSigImg.src = 'data:image/jpeg;base64,' + data.principalSignatureBase64;
-  } else if (data.principalSignatureUrl) {
-    principalSigImg.src = data.principalSignatureUrl;
-  } else {
-    principalSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/downward-angle-signaturely.svg';
+  if (principalSigImg) {
+    if (data.principalSignatureBase64) {
+      principalSigImg.src =
+        `data:image/jpeg;base64,${data.principalSignatureBase64}`;
+    } else if (data.principalSignatureUrl) {
+      principalSigImg.src = data.principalSignatureUrl;
+    } else {
+      principalSigImg.src =
+        'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely.svg';
+    }
   }
 }
 
 function populateReport() {
   const data = loadReportData();
+
   if (!data) {
     const tbody = document.getElementById('resultsTableBody');
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:10px; color:red;">Error: No data available</td></tr>';
+      tbody.innerHTML =
+        '<tr><td colspan="9" style="text-align:center; padding:10px; color:red;">Error: No data available</td></tr>';
     }
     return;
   }
 
-  const results = data.results || [];
+  const results = Array.isArray(data.results) ? data.results : [];
   const student = data.student || {};
   const skills = data.skills || {};
   const attendance = data.attendance || {};
   const skillsReport = data.skillsReport || {};
-
   const schoolDefaults = window.currentSchoolDefaults || {};
-  const reportSession = firstConfigValue(data.session, schoolDefaults.session, '-');
-  const term = firstConfigValue(data.term, schoolDefaults.term, '');
+
+  const reportSession = firstConfigValue(
+    data.session,
+    schoolDefaults.session,
+    '-'
+  );
+  const term = firstConfigValue(
+    data.term,
+    schoolDefaults.term,
+    ''
+  );
 
   applyDynamicFontSizing(results.length);
 
-  document.getElementById('profileName').textContent = student.name || '-';
-  document.getElementById('profileAdmNo').textContent = student.regNo || '-';
-  document.getElementById('profileClass').textContent = student.class?.name || student.class || '-';
-  document.getElementById('profileSession').textContent = reportSession;
-  document.getElementById('profileDOB').textContent = formatDate(student.DOB);
-  document.getElementById('profileAge').textContent = calculateAge(student.DOB);
-  document.getElementById('profileSex').textContent = student.gender || '-';
-  document.getElementById('profileEmail').textContent = student.email || '-';
+  document.getElementById('profileName').textContent =
+    student.name || '-';
+  document.getElementById('profileAdmNo').textContent =
+    student.regNo || '-';
+  document.getElementById('profileClass').textContent =
+    student.class?.name || student.class || '-';
+  document.getElementById('profileSession').textContent =
+    reportSession;
+  document.getElementById('profileDOB').textContent =
+    formatDate(student.DOB);
+  document.getElementById('profileAge').textContent =
+    calculateAge(student.DOB);
+  document.getElementById('profileSex').textContent =
+    student.gender || '-';
+  document.getElementById('profileEmail').textContent =
+    student.email || '-';
 
   const photoEl = document.getElementById('profilePhoto');
-  if (student.photoBase64) {
-    photoEl.src = student.photoBase64.startsWith('data:')
-      ? student.photoBase64
-      : `data:image/jpeg;base64,${student.photoBase64}`;
-  } else {
-    photoEl.src = 'avatar.jpg';
+  if (photoEl) {
+    if (student.photoBase64) {
+      photoEl.src = student.photoBase64.startsWith('data:')
+        ? student.photoBase64
+        : `data:image/jpeg;base64,${student.photoBase64}`;
+    } else {
+      photoEl.src = 'avatar.jpg';
+    }
   }
 
   let totalScore = 0;
@@ -768,13 +923,13 @@ function populateReport() {
   let passCount = 0;
   let failCount = 0;
 
-  results.forEach(r => {
-    const score = parseInt(r.total, 10) || 0;
+  results.forEach(result => {
+    const score = parseInt(result.total, 10) || 0;
     totalScore += score;
     if (score > highestScore) highestScore = score;
     if (score < lowestScore) lowestScore = score;
 
-    if (isPassingGrade(r.grade)) {
+    if (isPassingGrade(result.grade)) {
       passCount++;
     } else {
       failCount++;
@@ -784,28 +939,34 @@ function populateReport() {
   if (lowestScore === Infinity) lowestScore = 0;
 
   const totalObtainable = results.length * 100;
-  const percentage = totalObtainable > 0 ? ((totalScore / totalObtainable) * 100).toFixed(2) : 0;
+  const percentage = totalObtainable > 0
+    ? ((totalScore / totalObtainable) * 100).toFixed(2)
+    : 0;
+  const attendancePercentage =
+    calculateAttendancePercentage(attendance);
+  const academicStatus =
+    determineAcademicStatus(percentage, failCount);
+  const overallGrade =
+    getConfiguredGradeFromPercentage(percentage);
 
-  const attendancePercentage = calculateAttendancePercentage(attendance);
-  const academicStatus = determineAcademicStatus(percentage, failCount);
-  const overallGrade = getConfiguredGradeFromPercentage(percentage);
-
-  document.getElementById('reportTitleEl').textContent = `${term || 'TERM'} STUDENT'S PERFORMANCE REPORT`;
-  document.getElementById('termLabelProfile').textContent = term || 'TERM';
+  document.getElementById('reportTitleEl').textContent =
+    `${term || 'TERM'} STUDENT'S PERFORMANCE REPORT`;
+  document.getElementById('termLabelProfile').textContent =
+    term || 'TERM';
 
   const tbody = document.getElementById('resultsTableBody');
   tbody.innerHTML = '';
 
-  results.forEach(r => {
+  results.forEach(result => {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td style="text-align:left;">${r.subject || '-'}</td>
-      <td class="tc">${r.ca1_score || '-'}</td>
-      <td class="tc">${r.ca2_score || '-'}</td>
-      <td class="tc">${r.exam_score || '-'}</td>
-      <td class="tc" style="font-weight:700;">${r.total || 0}</td>
-      <td class="tc" style="font-weight:700;">${r.grade || '-'}</td>
-      <td class="tc">${r.remarks || '-'}</td>
+      <td style="text-align:left;">${result.subject || '-'}</td>
+      <td class="tc">${result.ca1_score || '-'}</td>
+      <td class="tc">${result.ca2_score || '-'}</td>
+      <td class="tc">${result.exam_score || '-'}</td>
+      <td class="tc" style="font-weight:700;">${result.total || 0}</td>
+      <td class="tc" style="font-weight:700;">${result.grade || '-'}</td>
+      <td class="tc">${result.remarks || '-'}</td>
     `;
     tbody.appendChild(row);
   });
@@ -813,55 +974,62 @@ function populateReport() {
   document.getElementById('totalPassed').textContent = passCount;
   document.getElementById('totalFailed').textContent = failCount;
 
-  let statusElement = document.getElementById('overallStatus');
-  let statusText = '';
-  let statusClass = '';
+  let statusText;
+  let statusClass;
 
   if (failCount > 0) {
     statusText = 'FAILED';
     statusClass = 'failed';
   } else if (term && term.toUpperCase().includes('TERM 3') && student.class) {
-    const classNameLower = (student.class?.name || student.class || '').toLowerCase();
-    const isBeforeSS3 = !classNameLower.includes('ss3') && !classNameLower.includes('form 3');
+    const classNameLower =
+      (student.class?.name || student.class || '').toLowerCase();
+    const isBeforeSS3 =
+      !classNameLower.includes('ss3') &&
+      !classNameLower.includes('form 3');
 
-    if (isBeforeSS3) {
-      statusText = 'PROMOTED';
-      statusClass = 'promoted';
-    } else {
-      statusText = 'PASSED';
-      statusClass = 'passed';
-    }
+    statusText = isBeforeSS3 ? 'PROMOTED' : 'PASSED';
+    statusClass = isBeforeSS3 ? 'promoted' : 'passed';
   } else {
     statusText = 'PASSED';
     statusClass = 'passed';
   }
 
+  const statusElement = document.getElementById('overallStatus');
   statusElement.textContent = statusText;
   statusElement.className = `pass-status ${statusClass}`;
 
-  document.getElementById('overallPercentage').textContent = percentage + '%';
-  document.getElementById('overallGrade').textContent = overallGrade;
-  document.getElementById('attendanceRate').textContent = attendancePercentage + '%';
-  document.getElementById('academicStatus').textContent = academicStatus;
+  document.getElementById('overallPercentage').textContent =
+    `${percentage}%`;
+  document.getElementById('overallGrade').textContent =
+    overallGrade;
+  document.getElementById('attendanceRate').textContent =
+    `${attendancePercentage}%`;
+  document.getElementById('academicStatus').textContent =
+    academicStatus;
 
-  document.getElementById('totalObtained').textContent = totalScore.toFixed(1);
-  document.getElementById('totalObtainable').textContent = totalObtainable;
-  document.getElementById('totalSubjectsPerf').textContent = results.length;
-  document.getElementById('percentagePerf').textContent = percentage + '%';
-  document.getElementById('gradePerf').textContent = overallGrade;
-
-  const position = data.studentPosition ? `${data.studentPosition}` : '-';
-  document.getElementById('positionPerf').textContent = position;
+  document.getElementById('totalObtained').textContent =
+    totalScore.toFixed(1);
+  document.getElementById('totalObtainable').textContent =
+    totalObtainable;
+  document.getElementById('totalSubjectsPerf').textContent =
+    results.length;
+  document.getElementById('percentagePerf').textContent =
+    `${percentage}%`;
+  document.getElementById('gradePerf').textContent =
+    overallGrade;
+  document.getElementById('positionPerf').textContent =
+    data.studentPosition ? `${data.studentPosition}` : '-';
 
   const distribution = getGradeDistribution(results);
   const grades = ['A', 'B', 'C', 'D', 'E', 'F'];
-
   let gradeCountsRow = '<tr>';
   let gradeValuesRow = '<tr>';
 
   grades.forEach(grade => {
-    gradeCountsRow += `<td class="tc" style="border:1px solid #000; font-weight:700; padding:1px;">${grade}</td>`;
-    gradeValuesRow += `<td class="tc" style="border:1px solid #000; padding:1px;">${distribution[grade]}</td>`;
+    gradeCountsRow +=
+      `<td class="tc" style="border:1px solid #000; font-weight:700; padding:1px;">${grade}</td>`;
+    gradeValuesRow +=
+      `<td class="tc" style="border:1px solid #000; padding:1px;">${distribution[grade]}</td>`;
   });
 
   gradeCountsRow += '</tr>';
@@ -872,18 +1040,18 @@ function populateReport() {
 
   const affectiveTable = document.getElementById('affectiveTable');
   const affectiveMap = {
-    'attentiveness': 'Attentiveness',
-    'honesty': 'Honesty',
-    'neatness': 'Neatness',
-    'politeness': 'Politeness',
-    'punctuality': 'Punctuality / Assembly',
-    'selfControl': 'Self Control / Calmness'
+    attentiveness: 'Attentiveness',
+    honesty: 'Honesty',
+    neatness: 'Neatness',
+    politeness: 'Politeness',
+    punctuality: 'Punctuality / Assembly',
+    selfControl: 'Self Control / Calmness'
   };
 
   for (const [key, label] of Object.entries(affectiveMap)) {
-    const value = skills[key] || 0;
-
+    const value = Number(skills[key]) || 0;
     const row = document.createElement('tr');
+
     row.innerHTML = `
       <td style="text-align:left;">${label}</td>
       <td class="tc">${value === 5 ? '✓' : ''}</td>
@@ -892,22 +1060,24 @@ function populateReport() {
       <td class="tc">${value === 2 ? '✓' : ''}</td>
       <td class="tc">${value === 1 ? '✓' : ''}</td>
     `;
+
     affectiveTable.appendChild(row);
   }
 
-  const psychomotorTable = document.getElementById('psychomotorTable');
+  const psychomotorTable =
+    document.getElementById('psychomotorTable');
   const psychomotorMap = {
-    'handling': 'Handling Of Tools',
-    'drawing': 'Drawing / Painting',
-    'handwriting': 'Handwriting',
-    'speaking': 'Public Speaking',
-    'fluency': 'Speech Fluency'
+    handling: 'Handling Of Tools',
+    drawing: 'Drawing / Painting',
+    handwriting: 'Handwriting',
+    speaking: 'Public Speaking',
+    fluency: 'Speech Fluency'
   };
 
   for (const [key, label] of Object.entries(psychomotorMap)) {
-    const value = skills[key] || 0;
-
+    const value = Number(skills[key]) || 0;
     const row = document.createElement('tr');
+
     row.innerHTML = `
       <td style="text-align:left;">${label}</td>
       <td class="tc">${value === 5 ? '✓' : ''}</td>
@@ -916,45 +1086,64 @@ function populateReport() {
       <td class="tc">${value === 2 ? '✓' : ''}</td>
       <td class="tc">${value === 1 ? '✓' : ''}</td>
     `;
+
     psychomotorTable.appendChild(row);
   }
 
-  console.log('📍 Processing Attendance:', attendance);
-  document.getElementById('schoolOpened').textContent = attendance.schoolOpened || '-';
-  document.getElementById('timesPresent').textContent = attendance.timesPresent || '-';
-  document.getElementById('timesAbsent').textContent = attendance.timesAbsent || '-';
+  document.getElementById('schoolOpened').textContent =
+    attendance.schoolOpened || '-';
+  document.getElementById('timesPresent').textContent =
+    attendance.timesPresent || '-';
+  document.getElementById('timesAbsent').textContent =
+    attendance.timesAbsent || '-';
 
-  console.log('💬 Processing remarks...');
-
-  let teacherRemarkValue = extractRemark(data, 'teacherComment') ||
+  const teacherRemarkValue =
+    extractRemark(data, 'teacherComment') ||
     extractRemark(data, 'teacherRemark') ||
     extractRemark(skillsReport, 'teacherRemark') ||
     'No remark';
 
-  let principalRemarkValue = extractRemark(data, 'principalComment') ||
+  const principalRemarkValue =
+    extractRemark(data, 'principalComment') ||
     extractRemark(data, 'principalRemark') ||
     extractRemark(skillsReport, 'principalComment') ||
     extractRemark(skillsReport, 'comment') ||
     'No remark';
 
-  document.getElementById('teacherRemark').textContent = teacherRemarkValue;
-  document.getElementById('principalRemark').textContent = principalRemarkValue;
+  document.getElementById('teacherRemark').textContent =
+    teacherRemarkValue;
+  document.getElementById('principalRemark').textContent =
+    principalRemarkValue;
 
-  document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
-  document.getElementById('principalName').textContent = data.principalName || schoolDefaults.principalName || 'Principal';
+  document.getElementById('teacherName').textContent =
+    data.teacherName || 'Teacher';
+  document.getElementById('principalName').textContent =
+    data.principalName ||
+    schoolDefaults.principalName ||
+    'Principal';
 
-  setSignatureImages({ ...data, principalSignatureUrl: data.principalSignatureUrl || schoolDefaults.principalSignature });
+  setSignatureImages({
+    ...data,
+    principalSignatureUrl:
+      data.principalSignatureUrl ||
+      schoolDefaults.principalSignature
+  });
 
   try {
     generateQRCode(student, reportSession);
   } catch (error) {
-    console.warn('⚠️ QR code generation failed:', error);
+    console.warn('QR code generation failed:', error);
   }
 
-  document.getElementById('nextTermDate').textContent = formatDate(firstConfigValue(data.nextTermDate, schoolDefaults.nextTermDate)) || '-';
-  document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
+  document.getElementById('nextTermDate').textContent =
+    formatDate(firstConfigValue(
+      data.nextTermDate,
+      schoolDefaults.nextTermDate
+    ));
 
-  console.log('✅ Report population completed successfully!');
+  document.getElementById('dateIssued').textContent =
+    formatDate(data.dateIssued) ||
+    formatDate(new Date().toISOString());
 }
 
 document.addEventListener('DOMContentLoaded', initializeReport);
@@ -967,5 +1156,6 @@ window.addEventListener('load', () => {
       setTimeout(waitForReport, 100);
     }
   };
+
   waitForReport();
 });
