@@ -149,15 +149,49 @@ function getReportSchoolContext() {
 }
 
 function getSchoolAddress(school) {
+  const schoolInfo = school.school || {};
+  const location =
+    school.location ||
+    school.addressInfo ||
+    schoolInfo.location ||
+    {};
   const contact = school.contact || school.contactInfo || {};
-  const location = school.location || school.addressInfo || {};
-  return firstConfigValue(
+
+  const addressLine = firstConfigValue(
+    location.fullAddress,
+    school.fullAddress,
+    location.address,
+    location.streetAddress,
+    location.addressLine1,
+    location.street,
     school.address,
     school.schoolAddress,
-    contact.address,
-    location.fullAddress,
-    [location.street, location.city, location.state].filter(Boolean).join(', ')
+    contact.address
   );
+
+  const parts = [
+    addressLine,
+    location.addressLine2,
+    location.city,
+    location.state,
+    location.postalCode,
+    location.zipCode,
+    location.country
+  ]
+    .filter(value => value !== undefined && value !== null)
+    .map(value => String(value).trim())
+    .filter(Boolean);
+
+  // Avoid repeating city/state/country when they already appear in the address.
+  const uniqueParts = [];
+  for (const part of parts) {
+    const alreadyIncluded = uniqueParts.some(existing =>
+      existing.toLowerCase() === part.toLowerCase()
+    );
+    if (!alreadyIncluded) uniqueParts.push(part);
+  }
+
+  return uniqueParts.join(', ');
 }
 
 function getSchoolContact(school) {
