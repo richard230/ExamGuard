@@ -179,6 +179,16 @@ document.getElementById('drawerLogout')?.addEventListener('click',()=>{localStor
 function getToken(){return localStorage.getItem('student_token')||localStorage.getItem('studentToken')||localStorage.getItem('token')||localStorage.getItem('authToken')||'';}
 function getTenantSubdomain(){const saved=localStorage.getItem('schoolSubdomain');if(saved)return saved.toLowerCase();const host=location.hostname.toLowerCase();for(const base of BASE_DOMAINS){const suffix='.'+base.toLowerCase();if(host.endsWith(suffix)){const sub=host.slice(0,-suffix.length);if(sub&&!sub.includes('.'))return sub;}}return '';}
 function authHeaders(extra={}){const h={Accept:'application/json',...extra};const token=getToken();if(token)h.Authorization='Bearer '+token;if(publicSchoolId)h['X-School-Code']=publicSchoolId;return h;}
+function getSchoolLookupValue(){
+  const profileSchool = lastStudentProfile?.school || (lastStudentProfile?.schoolId && typeof lastStudentProfile.schoolId === 'object' ? lastStudentProfile.schoolId : null);
+  const profileSchoolId = typeof lastStudentProfile?.schoolId === 'string'
+    ? lastStudentProfile.schoolId
+    : String(profileSchool?._id || profileSchool?.id || '');
+  return String(
+    profileSchoolId || currentSchool?._id || currentSchool?.id ||
+    currentSchool?.schoolId || publicSchoolId || currentSchool?.subdomain || getTenantSubdomain() || ''
+  ).trim();
+}
 function schoolInitials(name='School'){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'SP';}
 function resolveMediaUrl(value){
   if(!value)return '';
@@ -1011,7 +1021,15 @@ async function autofillRegNoAndAffix() {
   }
 }
 
-autofillRegNoAndAffix().then(()=>loadSchoolConfig(lastStudentProfile));
+autofillRegNoAndAffix().then(async()=>{
+  await loadSchoolConfig(lastStudentProfile);
+  const schoolReady = !!getSchoolLookupValue();
+  const button = document.getElementById('submitBtn');
+  if (button && !schoolReady) {
+    button.disabled = true;
+    showError('Unable to identify your school portal. Please sign in through your school portal and try again.');
+  }
+});
 
 // ============================================
 // Local Storage for Previously Viewed Results
@@ -1019,28 +1037,52 @@ autofillRegNoAndAffix().then(()=>loadSchoolConfig(lastStudentProfile));
 function getViewedResults() {
   let arr = [];
   try {
-    arr = JSON.parse(localStorage.getItem("viewedResults")) || [];
+    arr = JSON.parse(localStorage.getItem('viewedResults')) || [];
   } catch (e) {
     console.error('Error parsing viewed results:', e);
   }
-  return arr;
+
+  // Older versions stored the scratch-card code here. Remove it from the
+  // persisted history and never write it back.
+  const safeEntries = Array.isArray(arr) ? arr.map(entry => {
+    const { scratchCard, ...safeEntry } = entry || {};
+    return safeEntry;
+  }) : [];
+  try { localStorage.setItem('viewedResults', JSON.stringify(safeEntries)); } catch (e) {}
+  return safeEntries;
+}
+
+function makeViewedResultCacheKey(entry) {
+  return encodeURIComponent([
+    entry.regNo || '', entry.class || '', entry.session || '', entry.term || ''
+  ].join('|'));
 }
 
 function saveViewedResult(entry) {
+  const safeEntry = {
+    regNo: entry.regNo,
+    class: entry.class,
+    session: entry.session,
+    term: entry.term,
+    cacheKey: entry.cacheKey || makeViewedResultCacheKey(entry),
+    viewedAt: new Date().toISOString()
+  };
   let arr = getViewedResults();
   arr = arr.filter(x => !(
-    x.regNo === entry.regNo && x.session === entry.session && x.term === entry.term && x.class === entry.class
+    x.regNo === safeEntry.regNo && x.session === safeEntry.session &&
+    x.term === safeEntry.term && x.class === safeEntry.class
   ));
-  arr.unshift(entry);
+  arr.unshift(safeEntry);
   if (arr.length > 6) arr = arr.slice(0, 6);
-  localStorage.setItem("viewedResults", JSON.stringify(arr));
+  localStorage.setItem('viewedResults', JSON.stringify(arr));
 }
 
 function renderPreviousResults() {
   const arr = getViewedResults();
-  const el = document.getElementById("previousResultsList");
+  const el = document.getElementById('previousResultsList');
+  if (!el) return;
   if (!arr.length) {
-    el.innerHTML = `<div style="color:var(--muted); padding: 12px; text-align: center; grid-column: 1/-1;">No previously viewed results.</div>`;
+    el.innerHTML = `<div style="color:var(--muted); padding:12px; text-align:center; grid-column:1/-1;">No previously viewed results.</div>`;
     return;
   }
   el.innerHTML = arr.map((r, i) => `
@@ -1048,23 +1090,41 @@ function renderPreviousResults() {
       <div class="previous-result-title">${r.regNo}</div>
       <div class="previous-result-meta">${r.class} • ${r.session} • ${r.term}</div>
     </div>
-  `).join("");
+  `).join('');
 }
 
 async function viewPreviousResult(index) {
-  const arr = getViewedResults();
-  const r = arr[index];
-  if (!r) return;
+  const entry = getViewedResults()[index];
+  if (!entry) return;
 
-  // Fill the form
-  document.getElementById('regNoInput').value = r.regNo;
-  document.getElementById('scratchCardInput').value = r.scratchCard || '';
-  document.getElementById('classInput').value = r.class;
-  document.getElementById('sessionInput').value = r.session;
-  document.getElementById('termInput').value = r.term;
+  const cacheKey = entry.cacheKey || makeViewedResultCacheKey(entry);
+  let cached = null;
+  try {
+    cached = JSON.parse(sessionStorage.getItem('viewedResultCache:' + cacheKey) || 'null');
+  } catch (error) {
+    console.warn('Could not read cached report:', error);
+  }
 
-  // Trigger search
-  handleResultSearch(new Event('submit'));
+  if (!cached?.data) {
+    showError('This report is no longer cached in this browser session. Please check it again using your current scratch card.');
+    return;
+  }
+
+  document.getElementById('regNoInput').value = entry.regNo || '';
+  document.getElementById('classInput').value = entry.class || '';
+  document.getElementById('sessionInput').value = entry.session || '';
+  document.getElementById('termInput').value = entry.term || '';
+
+  currentResultData = {
+    ...cached.data,
+    session: cached.session || entry.session,
+    term: cached.term || entry.term,
+    className: cached.className || entry.class
+  };
+  setResultsLoading(false);
+  displayResults(cached.data, entry.class, entry.session, entry.term);
+  showSuccess('Previously viewed result reopened. No scratch-card use was consumed.');
+  document.getElementById('resultsDisplaySection')?.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ============================================
@@ -1094,92 +1154,81 @@ function formatDate(dateStr) {
 // ============================================
 async function handleResultSearch(event) {
   event.preventDefault();
-  
-  if (isLoadingResults) return;
-  isLoadingResults = true;
-  setResultsLoading(true);
-  clearMessages();
+  if (isLoadingResults) return false;
 
   const submitBtn = document.getElementById('submitBtn');
   const originalBtnText = submitBtn.innerHTML;
+  const regNo = document.getElementById('regNoInput').value.trim();
+  const scratchCardInput = document.getElementById('scratchCardInput');
+  const scratchCard = scratchCardInput.value.trim();
+  const className = document.getElementById('classInput').value.trim();
+  const session = document.getElementById('sessionInput').value.trim();
+  const term = document.getElementById('termInput').value.trim();
+  const schoolLookup = getSchoolLookupValue();
+
+  if (!regNo || !scratchCard || !className || !session || !term || !schoolLookup) {
+    showError('Please ensure your school, registration number, scratch card, class, session and term are available.');
+    return false;
+  }
+
+  isLoadingResults = true;
+  setResultsLoading(true);
+  clearMessages();
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<span class="spinner-small"></span> Loading...';
 
   try {
-    const regNo = document.getElementById('regNoInput').value.trim();
-    const scratchCard = document.getElementById('scratchCardInput').value.trim();
-    const className = document.getElementById('classInput').value.trim();
-    const session = document.getElementById('sessionInput').value.trim();
-    const term = document.getElementById('termInput').value.trim();
-
-    // Validate all fields
-    if (!regNo || !scratchCard || !className || !session || !term) {
-      showError('Please fill all required fields.');
-      isLoadingResults = false;
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalBtnText;
-      return;
-    }
-
-    // Build API URL with proper encoding. Try the selected session first,
-    // then equivalent backend/legacy representations of that SAME session.
-    // For each session representation, also try equivalent term spellings.
     const classCandidates = getCompatibleClassCandidates(className);
     const sessionCandidates = getCompatibleSessionCandidates(session);
+    const termCandidates = getCompatibleTermCandidates(term);
     let data = null;
-    let response = null;
     let resolvedSession = session;
     let resolvedTerm = term;
     let lastErrorMessage = '';
 
+    // One successful call must end the entire candidate search. Otherwise a
+    // single click could consume several scratch-card uses.
+    searchCandidates:
     for (const candidateClass of classCandidates) {
       for (const candidateSession of sessionCandidates) {
-        const termCandidates = getCompatibleTermCandidates(term);
-
         for (const candidateTerm of termCandidates) {
-        const url = new URL(API_BASE_URL + '/api/results/check');
-        url.searchParams.append('regNo', regNo);
-        url.searchParams.append('scratchCard', scratchCard);
-        url.searchParams.append('class', candidateClass);
-        url.searchParams.append('session', candidateSession);
-        url.searchParams.append('term', candidateTerm);
+          const url = new URL(API_BASE_URL + '/api/results/check');
+          url.searchParams.set('regNo', regNo);
+          url.searchParams.set('scratchCard', scratchCard);
+          url.searchParams.set('class', candidateClass);
+          url.searchParams.set('session', candidateSession);
+          url.searchParams.set('term', candidateTerm);
+          url.searchParams.set('schoolId', schoolLookup);
 
-        try {
-          response = await fetchWithTimeout(url.toString(), { headers: authHeaders() });
-          const candidateData = await response.json();
+          try {
+            const response = await fetchWithTimeout(url.toString(), {
+              method: 'GET',
+              headers: authHeaders(),
+              cache: 'no-store'
+            });
+            const candidateData = await response.json();
+            const candidateResults = Array.isArray(candidateData?.results)
+              ? candidateData.results : [];
 
-          const candidateResults = Array.isArray(candidateData?.results)
-            ? candidateData.results
-            : [];
-          const hasUsableResult = response.ok && candidateResults.length > 0;
-
-          if (hasUsableResult) {
-            data = candidateData;
-            resolvedSession = candidateSession;
-            resolvedTerm = candidateTerm;
-            break;
+            if (response.ok && candidateResults.length > 0) {
+              data = candidateData;
+              resolvedSession = candidateSession;
+              resolvedTerm = candidateTerm;
+              break searchCandidates;
+            }
+            lastErrorMessage = candidateData?.error || candidateData?.message || lastErrorMessage;
+          } catch (candidateError) {
+            lastErrorMessage = candidateError?.message || lastErrorMessage;
           }
-
-          lastErrorMessage = candidateData?.error || candidateData?.message || '';
-        } catch (candidateError) {
-          lastErrorMessage = candidateError?.message || lastErrorMessage;
-        }
         }
       }
-
-      if (data) break;
     }
 
     if (!data) {
       showError(lastErrorMessage || 'Failed to retrieve results. Please try again.');
-      isLoadingResults = false;
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalBtnText;
-      return;
+      return false;
     }
 
-    // Store current result for download - COMPLETE DATA with the actual
-    // term that returned the result.
     const resolvedSessionDisplay = getSessionValue(findBackendSession(resolvedSession)) || resolvedSession;
     const resolvedTermDisplay = getTermValue(findBackendTerm(resolvedTerm)) || resolvedTerm;
     const resolvedClassDisplay = getClassValue(findBackendClass(className)) || className;
@@ -1191,25 +1240,52 @@ async function handleResultSearch(event) {
       className: resolvedClassDisplay
     };
 
-    // Save to viewed results
-    saveViewedResult({
+    // Cache the report only in sessionStorage for local reopening. Never cache
+    // the scratch-card code or the replacement card in browser storage.
+    const cacheKey = makeViewedResultCacheKey({
       regNo,
-      scratchCard,
       class: resolvedClassDisplay,
       session: resolvedSessionDisplay,
       term: resolvedTermDisplay
     });
+    const cacheData = { ...data };
+    delete cacheData.scratchCardInfo;
+    try {
+      sessionStorage.setItem('viewedResultCache:' + cacheKey, JSON.stringify({
+        data: cacheData,
+        className: resolvedClassDisplay,
+        session: resolvedSessionDisplay,
+        term: resolvedTermDisplay
+      }));
+    } catch (cacheError) {
+      console.warn('Result could not be cached for local reopening:', cacheError);
+    }
 
-    // Display results
+    saveViewedResult({
+      regNo,
+      class: resolvedClassDisplay,
+      session: resolvedSessionDisplay,
+      term: resolvedTermDisplay,
+      cacheKey
+    });
+
     setResultsLoading(false);
     displayResults(data, resolvedClassDisplay, resolvedSessionDisplay, resolvedTermDisplay);
-    showSuccess('Results loaded successfully!');
 
-    // Scroll to results
+    const cardInfo = data.scratchCardInfo || {};
+    if (cardInfo.cardReplaced && cardInfo.newScratchCard) {
+      scratchCardInput.value = cardInfo.newScratchCard;
+      scratchCardInput.type = 'text';
+      showSuccess('This was the fifth successful use. Your old card is now exhausted. Your new scratch card is: ' + cardInfo.newScratchCard + '. Save this code safely for your next result check.');
+    } else {
+      showSuccess('Results loaded successfully. Scratch-card uses remaining: ' +
+        (Number.isFinite(Number(cardInfo.usesRemaining)) ? cardInfo.usesRemaining : '—') + '.');
+    }
+
     setTimeout(() => {
-      document.getElementById('resultsDisplaySection').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('resultsDisplaySection')?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
-
+    return true;
   } catch (error) {
     console.error('Error fetching results:', error);
     if (error.name === 'AbortError') {
@@ -1217,8 +1293,9 @@ async function handleResultSearch(event) {
     } else {
       showError('Network error. Please try again.');
     }
+    return false;
   } finally {
-    if (isLoadingResults) setResultsLoading(false);
+    setResultsLoading(false);
     isLoadingResults = false;
     submitBtn.disabled = false;
     submitBtn.innerHTML = originalBtnText;
