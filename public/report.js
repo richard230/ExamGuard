@@ -460,25 +460,41 @@ async function fetchCurrentSchoolConfig() {
         continue;
       }
 
-      const expectedSchoolId =
-        context.reportData?.schoolId ||
-        context.reportData?.school?._id ||
-        context.reportData?.school?.id ||
-        context.reportData?.school?.schoolId ||
-        context.schoolId;
+            const expectedIds = [
+        context.reportData?.schoolId,
+        context.reportData?.schoolCode,
+        context.reportData?.school?._id,
+        context.reportData?.school?.id,
+        context.reportData?.school?.schoolId,
+        context.schoolId
+      ]
+        .filter(value => value !== undefined && value !== null && String(value).trim())
+        .map(value => String(value).trim());
 
-      const returnedSchoolId = school._id || school.id || school.schoolId;
+      const returnedIds = [
+        school.schoolId,
+        school.publicSchoolId,
+        school.schoolCode,
+        school.code,
+        school.id,
+        school._id
+      ]
+        .filter(value => value !== undefined && value !== null && String(value).trim())
+        .map(value => String(value).trim());
 
-      if (expectedSchoolId && returnedSchoolId && String(expectedSchoolId) !== String(returnedSchoolId)) {
+      if (
+        expectedIds.length &&
+        returnedIds.length &&
+        !expectedIds.some(expectedId => returnedIds.includes(expectedId))
+      ) {
         console.warn('Returned school config does not match report context:', {
-          expectedSchoolId,
-          returnedSchoolId,
+          expectedIds,
+          returnedIds,
           subdomain: context.subdomain,
           url
         });
         continue;
       }
-
       writeCachedSchoolConfig(school);
       return school;
     } catch (error) {
