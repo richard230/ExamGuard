@@ -1,9 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const router = express.Router();
 const apiKeyAuth = require('../middleware/apiKeyAuth');
 const Result = require('../models/Result');
 const Student = require('../models/Student');
+const School = require('../models/School');
 const Session = require('../models/Session');
 const Term = require('../models/Term');
 const Class = require('../models/Class');
@@ -716,7 +718,9 @@ router.get('/dashboard/all', async (req, res) => {
   }
 });
 
-// 9. GET /check (Public route - Resolves schoolId dynamically via Student)
+// 9. GET /check
+// Public result lookup, but always tenant-scoped through a resolved School record.
+// A scratch-card use is committed only after a published report has been built.
 router.get('/check', async (req, res) => {
   try {
     const {
@@ -726,82 +730,87 @@ router.get('/check', async (req, res) => {
       session: sessionRef,
       term: termRef
     } = req.query;
-    if (!regNo || !scratchCard || !classRef || !sessionRef || !termRef) {
+
+    const schoolLookup = String(
+      req.query.schoolId ||
+      req.query.school ||
+      req.query.subdomain ||
+      req.get('X-School-Code') ||
+      ''
+    ).trim();
+
+    if (!regNo || !scratchCard || !classRef || !sessionRef || !termRef || !schoolLookup) {
       return res.status(400).json({
-        error: 'Missing required parameters.'
+        error: 'Missing required parameters. School, registration number, scratch card, class, session and term are required.'
       });
     }
+
+    // Resolve the supplied public school ID, Mongo ID, or subdomain to one
+    // canonical School document. Never search students globally by regNo.
+    const schoolConditions = [
+      { schoolId: schoolLookup.toUpperCase() },
+      { subdomain: schoolLookup.toLowerCase() },
+      { customDomain: schoolLookup.toLowerCase() }
+    ];
+    if (mongoose.Types.ObjectId.isValid(schoolLookup)) {
+      schoolConditions.unshift({ _id: new mongoose.Types.ObjectId(schoolLookup) });
+    }
+
+    const school = await School.findOne({
+      $or: schoolConditions,
+      status: 'active',
+      isDeleted: false
+    }).select('_id schoolId subdomain customDomain status');
+
+    if (!school) {
+      return res.status(404).json({ error: 'School not found or is not active.' });
+    }
+
+    const schoolId = school._id;
+    const registrationNumber = String(regNo).trim();
     const student = await Student.findOne({
+      schoolId,
       $or: [
-        { regNo: String(regNo).trim() },
-        { student_id: String(regNo).trim() }
+        { regNo: registrationNumber },
+        { student_id: registrationNumber }
       ]
     });
+
     if (!student) {
-      return res.status(404).json({
-        error: 'Student not found.'
-      });
+      return res.status(404).json({ error: 'Student not found in the selected school.' });
     }
-    const schoolId = student.schoolId;
-    if (!schoolId) {
-      return res.status(404).json({
-        error: 'School context for student not found.'
-      });
+
+    const storedCard = String(student.scratchCard || '').trim();
+    const suppliedCard = String(scratchCard).trim();
+    if (!storedCard || suppliedCard.toUpperCase() !== storedCard.toUpperCase()) {
+      return res.status(401).json({ error: 'Invalid scratch card.' });
     }
-    const storedCard = String(student.scratchCard || 'ABCD')
-      .trim()
-      .toUpperCase();
-    const suppliedCard = String(scratchCard)
-      .trim()
-      .toUpperCase();
-    if (suppliedCard !== storedCard) {
-      return res.status(401).json({
-        error: 'Invalid scratch card'
-      });
-    }
+
     let classObj = null;
     if (mongoose.Types.ObjectId.isValid(String(classRef))) {
-      classObj = await Class.findOne({
-        _id: classRef,
-        schoolId
-      });
+      classObj = await Class.findOne({ _id: classRef, schoolId });
     }
     if (!classObj) {
-      classObj = await Class.findOne({
-        schoolId,
-        name: String(classRef).trim()
-      });
+      classObj = await Class.findOne({ schoolId, name: String(classRef).trim() });
     }
     if (!classObj) {
-      return res.status(404).json({
-        error: 'Result unavailable for selected session and term.'
-      });
+      return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
     }
+
     let sessionObj = null;
     if (mongoose.Types.ObjectId.isValid(String(sessionRef))) {
-      sessionObj = await Session.findOne({
-        _id: sessionRef,
-        schoolId
-      });
+      sessionObj = await Session.findOne({ _id: sessionRef, schoolId });
     }
     if (!sessionObj) {
-      sessionObj = await Session.findOne({
-        schoolId,
-        name: String(sessionRef).trim()
-      });
+      sessionObj = await Session.findOne({ schoolId, name: String(sessionRef).trim() });
     }
     if (!sessionObj) {
-      return res.status(404).json({
-        error: 'Result unavailable for selected session and term.'
-      });
+      return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
     }
+
     let termObj = null;
     if (mongoose.Types.ObjectId.isValid(String(termRef))) {
-      termObj = await Term.findOne({
-        _id: termRef,
-        schoolId,
-        session: sessionObj._id
-      });
+      termObj = await Term.findOne({ _id: termRef, schoolId, session: sessionObj._id });
     }
     if (!termObj) {
       termObj = await Term.findOne({
@@ -810,19 +819,13 @@ router.get('/check', async (req, res) => {
         session: sessionObj._id
       });
     }
-    if (!termObj) {
-      if (mongoose.Types.ObjectId.isValid(String(termRef))) {
-        termObj = await Term.findOne({
-          _id: termRef,
-          schoolId
-        });
-      }
+    if (!termObj && mongoose.Types.ObjectId.isValid(String(termRef))) {
+      termObj = await Term.findOne({ _id: termRef, schoolId });
     }
     if (!termObj) {
-      return res.status(404).json({
-        error: 'Result unavailable for selected session and term.'
-      });
+      return res.status(404).json({ error: 'Result unavailable for selected session and term.' });
     }
+
     const resultQuery = {
       schoolId,
       student: student._id,
@@ -831,28 +834,17 @@ router.get('/check', async (req, res) => {
       term: termObj._id,
       status: 'Published'
     };
-    console.log('========== CHECK RESULT ==========');
-    console.log('Reg No:', regNo);
-    console.log('School:', schoolId.toString());
-    console.log('Student:', student._id.toString());
-    console.log('Class:', classObj._id.toString(), classObj.name);
-    console.log('Session:', sessionObj._id.toString(), sessionObj.name);
-    console.log('Term:', termObj._id.toString(), termObj.name);
-    console.log('Result query:', resultQuery);
+
     const results = await Result.find(resultQuery)
       .populate('subject')
       .sort({ _id: 1 });
-    console.log('Published results found:', results.length);
-    console.log(
-      'Result IDs:',
-      results.map(result => result._id.toString())
-    );
-    console.log('=================================');
+
     if (!results.length) {
       return res.status(404).json({
         error: 'Result unavailable for selected session and term.'
       });
     }
+
     const sessionSettings = await getSessionSettings(schoolId);
     const reportData = await buildReportData(
       student,
@@ -863,15 +855,91 @@ router.get('/check', async (req, res) => {
       sessionSettings,
       schoolId
     );
-    res.json(reportData);
+
+    // Generate a replacement code in advance. The conditional update below
+    // applies it only when this request atomically claims the fifth use.
+    let usageUpdate = null;
+    let replacementCode = '';
+    const nextUsageExpression = {
+      $add: [{ $ifNull: ['$scratchCardUsage', 0] }, 1]
+    };
+    const reachesLimitExpression = { $gte: [nextUsageExpression, 5] };
+
+    for (let attempt = 0; attempt < 4 && !usageUpdate; attempt++) {
+      replacementCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+      try {
+        const updateResult = await Student.collection.findOneAndUpdate(
+          {
+            _id: student._id,
+            schoolId,
+            scratchCard: storedCard,
+            $expr: { $lt: [{ $ifNull: ['$scratchCardUsage', 0] }, 5] }
+          },
+          [
+            {
+              $set: {
+                scratchCardUsage: {
+                  $cond: [reachesLimitExpression, 0, nextUsageExpression]
+                },
+                scratchCard: {
+                  $cond: [reachesLimitExpression, { $literal: replacementCode }, '$scratchCard']
+                },
+                scratchCardHistory: {
+                  $cond: [
+                    reachesLimitExpression,
+                    {
+                      $concatArrays: [
+                        { $ifNull: ['$scratchCardHistory', []] },
+                        [{
+                          cardCode: '$scratchCard',
+                          usedCount: 5,
+                          assignedAt: { $ifNull: ['$scratchCardAssignedAt', null] },
+                          exhaustedAt: '$$NOW',
+                          status: 'exhausted'
+                        }]
+                      ]
+                    },
+                    { $ifNull: ['$scratchCardHistory', []] }
+                  ]
+                }
+              }
+            }
+          ],
+          { returnDocument: 'after' }
+        );
+
+        usageUpdate = updateResult && Object.prototype.hasOwnProperty.call(updateResult, 'value')
+          ? updateResult.value
+          : updateResult;
+      } catch (updateError) {
+        // A duplicate key is extraordinarily unlikely, but retry with a new
+        // cryptographically random code if the school's unique card index hits.
+        if (updateError && updateError.code === 11000) continue;
+        throw updateError;
+      }
+    }
+
+    if (!usageUpdate) {
+      return res.status(409).json({
+        error: 'This scratch card has already reached its usage limit or has been replaced. Please use your current card.'
+      });
+    }
+
+    const cardWasReplaced = String(usageUpdate.scratchCard || '') !== storedCard;
+    const usedCount = Number(usageUpdate.scratchCardUsage || 0);
+    reportData.scratchCardInfo = {
+      cardReplaced: cardWasReplaced,
+      usedCount: cardWasReplaced ? 5 : usedCount,
+      usesRemaining: cardWasReplaced ? 5 : Math.max(0, 5 - usedCount),
+      ...(cardWasReplaced ? { newScratchCard: usageUpdate.scratchCard } : {})
+    };
+
+    return res.json(reportData);
   } catch (err) {
     console.error('CHECK RESULT ERROR:', err);
-    res.status(500).json({
-      error: err.message
-    });
+    return res.status(500).json({ error: 'Unable to retrieve this result right now.' });
   }
 });
-
 
 // 10. GET /student/:studentId/report
 router.get('/student/:studentId/report', async (req, res) => {
