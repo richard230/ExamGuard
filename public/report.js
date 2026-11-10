@@ -1,15 +1,488 @@
-// Helper: Format date
+/* ==========================================================
+   MULTI-SCHOOL REPORT CONFIGURATION
+   Loads the school associated with the current report and keeps
+   the page tenant-safe.
+   ========================================================== */
+const API_ROOT = String(
+  window.API_BASE_URL ||
+  window.BACKEND_URL ||
+  localStorage.getItem('BACKEND_URL') ||
+  localStorage.getItem('API_BASE_URL') ||
+  'https://examguard-8rxe.onrender.com'
+).replace(/\/+$/, '');
+
+const SCHOOL_CACHE_KEY = 'currentSchoolConfig';
+const SCHOOL_ID_KEY = 'schoolId';
+const SCHOOL_SUBDOMAIN_KEY = 'schoolSubdomain';
+
+function normalizeSchoolConfig(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const candidates = [
+    raw.school,
+    raw.data?.school,
+    raw.data,
+    raw.config,
+    raw
+  ];
+
+  return candidates.find(item => {
+    if (!item || typeof item !== 'object') return false;
+
+    return (
+      item._id ||
+      item.id ||
+      item.schoolId ||
+      item.schoolCode ||
+      item.subdomain ||
+      item.schoolName ||
+      item.name ||
+      item.branding
+    );
+  }) || null;
+}
+
+function getTenantSubdomain() {
+  const saved = localStorage.getItem(SCHOOL_SUBDOMAIN_KEY);
+  if (saved && String(saved).trim()) return String(saved).trim().toLowerCase();
+
+  const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
+  const baseDomain = 'goldlincschools.com.ng';
+
+  if (host === baseDomain) return '';
+  if (host.endsWith(`.${baseDomain}`)) {
+    const subdomain = host.slice(0, -(baseDomain.length + 1));
+    if (subdomain && !subdomain.includes('.')) return subdomain.toLowerCase();
+  }
+
+  if (host === 'localhost' || host === '127.0.0.1') {
+    const query = new URLSearchParams(window.location.search);
+    const school = query.get('school');
+    return school ? school.trim().toLowerCase() : '';
+  }
+
+  const query = new URLSearchParams(window.location.search);
+  const school = query.get('school');
+  if (school) return school.trim().toLowerCase();
+
+  return '';
+}
+
+function readCachedSchoolConfig() {
+  try {
+    const raw = localStorage.getItem(SCHOOL_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return normalizeSchoolConfig(parsed);
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeCachedSchoolConfig(school) {
+  try {
+    if (!school) return;
+    localStorage.setItem(SCHOOL_CACHE_KEY, JSON.stringify(school));
+    const id = school._id || school.schoolId || school.id;
+    if (id) localStorage.setItem(SCHOOL_ID_KEY, String(id));
+    const subdomain = String(school.subdomain || getTenantSubdomain() || '').trim().toLowerCase();
+    if (subdomain) localStorage.setItem(SCHOOL_SUBDOMAIN_KEY, subdomain);
+  } catch (e) {
+    console.warn('Unable to cache school config:', e);
+  }
+}
+
+function firstConfigValue(...values) {
+  return values.find(value =>
+    value !== undefined && value !== null && String(value).trim() !== ''
+  );
+}
+
+function setTextIfPresent(selector, value) {
+  const element = document.querySelector(selector);
+  if (element && value !== undefined && value !== null && String(value).trim()) {
+    element.textContent = String(value);
+  }
+}
+
+function setImageIfPresent(element, source, fallback) {
+  if (!element) return;
+  const value = firstConfigValue(source, fallback);
+  if (value) {
+    element.src = value;
+    element.onerror = () => {
+      if (fallback && element.src !== fallback) element.src = fallback;
+      else element.style.display = 'none';
+    };
+  }
+}
+
+function getReportSchoolContext() {
+  const reportData = loadReportData() || {};
+  const savedSubdomain = localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) || '';
+  const savedSchoolId = localStorage.getItem(SCHOOL_ID_KEY) || '';
+
+  const subdomain = (
+    savedSubdomain ||
+    reportData.schoolSubdomain ||
+    reportData.subdomain ||
+    getTenantSubdomain()
+  );
+
+  const schoolId = (
+    savedSchoolId ||
+    localStorage.getItem('schoolCode') ||
+    localStorage.getItem('schoolId') ||
+    reportData.schoolId ||
+    reportData.schoolCode ||
+    reportData.school?.id ||
+    reportData.school?._id ||
+    ''
+  );
+
+  const token = localStorage.getItem('token') ||
+    localStorage.getItem('authToken') ||
+    localStorage.getItem('accessToken') ||
+    '';
+
+  return { subdomain, schoolId, token, reportData };
+}
+
+function getSchoolAddress(school) {
+  const contact = school.contact || school.contactInfo || {};
+  const location = school.location || school.addressInfo || {};
+  return firstConfigValue(
+    school.address,
+    school.schoolAddress,
+    contact.address,
+    location.fullAddress,
+    [location.street, location.city, location.state].filter(Boolean).join(', ')
+  );
+}
+
+function getSchoolContact(school) {
+  const contact = school.contact || school.contactInfo || {};
+  const email = firstConfigValue(school.email, contact.email);
+  const phone = firstConfigValue(school.phone, contact.phone, contact.mobile);
+  return [
+    email ? `Email: ${email}` : '',
+    phone ? `Phone: ${phone}` : ''
+  ].filter(Boolean).join(' | ');
+}
+
+function applySchoolConfig(school) {
+  if (!school) return;
+
+  const branding = school.branding || {};
+  const academic = school.academicConfig || school.academic || {};
+  const contact = school.contact || school.contactInfo || {};
+  const logo = firstConfigValue(
+    branding.logo,
+    branding.logoUrl,
+    school.logo,
+    school.logoUrl,
+    school.schoolLogo
+  );
+  const watermark = firstConfigValue(
+    branding.watermark,
+    school.watermark,
+    logo
+  );
+  const stamp = firstConfigValue(
+    branding.schoolStamp,
+    school.schoolStamp,
+    school.stamp
+  );
+
+  const header = document.querySelector('.report-header');
+  if (header) {
+    const headerImages = header.querySelectorAll('img');
+    setImageIfPresent(headerImages[0], logo, 'arm.jpg');
+    setImageIfPresent(headerImages[1], logo, 'mainlogo.png');
+  }
+
+  setTextIfPresent('.school-name', firstConfigValue(
+    school.schoolName,
+    school.name,
+    school.institutionName
+  ));
+  setTextIfPresent('.school-location', getSchoolAddress(school));
+  setTextIfPresent('.school-contact', getSchoolContact(school));
+
+  const motto = firstConfigValue(
+    school.motto,
+    school.tagline,
+    school.schoolMotto
+  );
+  const mottoElement = document.querySelector('.motto');
+  if (mottoElement && motto) mottoElement.textContent = `Motto: ${motto}`;
+
+  const watermarkImage = document.querySelector('.watermark-img');
+  if (watermarkImage && watermark) setImageIfPresent(watermarkImage, watermark);
+
+  const sealImage = document.querySelector('.seal-image');
+  if (sealImage && stamp) setImageIfPresent(sealImage, stamp, 'seal.jpg');
+
+  const stampImage = document.querySelector('.stamp-image');
+  if (stampImage && stamp) setImageIfPresent(stampImage, stamp);
+
+  const primary = firstConfigValue(
+    branding.primaryColor,
+    branding.primary,
+    school.primaryColor
+  );
+  const secondary = firstConfigValue(
+    branding.secondaryColor,
+    branding.secondary,
+    school.secondaryColor
+  );
+  const accent = firstConfigValue(
+    branding.accentColor,
+    branding.accent,
+    school.accentColor
+  );
+
+  if (primary) document.documentElement.style.setProperty('--school-primary', primary);
+  if (secondary) document.documentElement.style.setProperty('--school-secondary', secondary);
+  if (accent) document.documentElement.style.setProperty('--school-accent', accent);
+
+  const reportSettings = school.reportSettings || school.reportConfig || {};
+  const principal = school.principal || school.principalInfo || {};
+
+  window.currentSchoolConfig = school;
+  window.currentSchoolAcademicConfig = academic;
+  window.currentSchoolReportSettings = reportSettings;
+  window.currentSchoolPrincipal = principal;
+
+  window.currentSchoolDefaults = {
+    session: firstConfigValue(academic.currentSession, school.currentSession),
+    term: firstConfigValue(academic.currentTerm, school.currentTerm),
+    nextTermDate: firstConfigValue(
+      academic.nextTermBeginDate,
+      academic.nextTermDate,
+      school.nextTermBeginDate,
+      school.nextTermDate
+    ),
+    principalName: firstConfigValue(
+      principal.name,
+      principal.fullName,
+      school.principalName,
+      reportSettings.principalName
+    ),
+    principalSignature: firstConfigValue(
+      principal.signature,
+      principal.signatureUrl,
+      branding.principalSignature,
+      reportSettings.principalSignature
+    )
+  };
+
+  writeCachedSchoolConfig(school);
+}
+
+function getConfiguredGradeFromPercentage(percentage) {
+  const scale = window.currentSchoolAcademicConfig?.gradingScale;
+  if (!scale) return calculateGradeFromPercentage(percentage);
+
+  const pct = Number(percentage);
+  let entries = [];
+
+  if (Array.isArray(scale)) {
+    entries = scale.map(item => ({
+      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
+      min: Number(firstConfigValue(item.minScore, item.minimum, item.min, item.from, item.lowerBound)),
+      max: Number(firstConfigValue(item.maxScore, item.maximum, item.max, item.to, item.upperBound))
+    }));
+  } else if (typeof scale === 'object') {
+    entries = Object.entries(scale).map(([grade, value]) => {
+      if (typeof value === 'number') return { grade, min: value, max: 100 };
+      return {
+        grade,
+        min: Number(firstConfigValue(value?.minScore, value?.minimum, value?.min, value?.from, value?.lowerBound)),
+        max: Number(firstConfigValue(value?.maxScore, value?.maximum, value?.max, value?.to, value?.upperBound))
+      };
+    });
+  }
+
+  const match = entries.find(item =>
+    item.grade &&
+    Number.isFinite(item.min) &&
+    pct >= item.min &&
+    (!Number.isFinite(item.max) || pct <= item.max)
+  );
+
+  return match?.grade || calculateGradeFromPercentage(percentage);
+}
+
+function renderConfiguredGradeScale() {
+  const scale = window.currentSchoolAcademicConfig?.gradingScale;
+  const table = document.getElementById('gradeScaleTable');
+  if (!table || !scale) return;
+
+  let entries = [];
+  if (Array.isArray(scale)) {
+    entries = scale.map(item => ({
+      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
+      min: firstConfigValue(item.minScore, item.minimum, item.min, item.from, item.lowerBound),
+      max: firstConfigValue(item.maxScore, item.maximum, item.max, item.to, item.upperBound),
+      remark: firstConfigValue(item.remark, item.remarks, item.description)
+    }));
+  } else if (typeof scale === 'object') {
+    entries = Object.entries(scale).map(([grade, value]) => ({
+      grade,
+      min: typeof value === 'number' ? value : firstConfigValue(value?.minScore, value?.minimum, value?.min, value?.from),
+      max: typeof value === 'number' ? 100 : firstConfigValue(value?.maxScore, value?.maximum, value?.max, value?.to),
+      remark: typeof value === 'object' ? firstConfigValue(value?.remark, value?.remarks, value?.description) : ''
+    }));
+  }
+
+  if (!entries.length) return;
+
+  table.innerHTML = entries.map(item => {
+    const range = item.min !== undefined && item.max !== undefined
+      ? `${item.min}-${item.max}%`
+      : (item.min !== undefined ? `${item.min}% and above` : '-');
+
+    const grade = String(item.grade || '-');
+    return `<tr><td style="font-weight:700;">${grade}</td><td>${range}</td></tr>`;
+  }).join('');
+}
+
+function clearStaticSchoolBranding() {
+  const name = document.querySelector('.school-name');
+  const location = document.querySelector('.school-location');
+  const contact = document.querySelector('.school-contact');
+  const motto = document.querySelector('.motto');
+
+  if (name) name.textContent = 'School name unavailable';
+  if (location) location.textContent = '';
+  if (contact) contact.textContent = '';
+  if (motto) motto.textContent = '';
+
+  document.querySelectorAll('.report-header img, .watermark-img, .seal-image, .stamp-image')
+    .forEach(img => {
+      img.removeAttribute('src');
+      img.style.display = 'none';
+    });
+}
+
+async function fetchCurrentSchoolConfig() {
+  const context = getReportSchoolContext();
+
+  const cached = readCachedSchoolConfig();
+  if (cached && !context.subdomain && !context.schoolId) {
+    return cached;
+  }
+
+  const headers = { Accept: 'application/json' };
+  if (context.token) headers.Authorization = `Bearer ${context.token}`;
+
+  const attempts = [];
+  const seenUrls = new Set();
+
+  if (context.schoolId) {
+    attempts.push(
+      `${API_ROOT}/api/schools/config?schoolId=${encodeURIComponent(context.schoolId)}`
+    );
+  }
+
+  if (context.subdomain) {
+    attempts.push(
+      `${API_ROOT}/api/schools/config?subdomain=${encodeURIComponent(context.subdomain)}`
+    );
+  }
+
+  const possibleReportSchool = context.reportData?.school || null;
+  if (possibleReportSchool && (possibleReportSchool._id || possibleReportSchool.id || possibleReportSchool.schoolId)) {
+    attempts.push(
+      `${API_ROOT}/api/schools/config?schoolId=${encodeURIComponent(
+        possibleReportSchool._id || possibleReportSchool.id || possibleReportSchool.schoolId
+      )}`
+    );
+  }
+
+  for (const url of attempts) {
+    if (!url || seenUrls.has(url)) continue;
+    seenUrls.add(url);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        console.warn(`School config fetch failed (${response.status}) for ${url}`);
+        continue;
+      }
+
+      const payload = await response.json();
+      const school = normalizeSchoolConfig(payload);
+
+      if (!school) {
+        console.warn('School config response was empty:', payload);
+        continue;
+      }
+
+      const expectedSchoolId =
+        context.reportData?.schoolId ||
+        context.reportData?.school?._id ||
+        context.reportData?.school?.id ||
+        context.reportData?.school?.schoolId ||
+        context.schoolId;
+
+      const returnedSchoolId = school._id || school.id || school.schoolId;
+
+      if (expectedSchoolId && returnedSchoolId && String(expectedSchoolId) !== String(returnedSchoolId)) {
+        console.warn('Returned school config does not match report context:', {
+          expectedSchoolId,
+          returnedSchoolId,
+          subdomain: context.subdomain,
+          url
+        });
+        continue;
+      }
+
+      writeCachedSchoolConfig(school);
+      return school;
+    } catch (error) {
+      console.warn('School configuration could not be loaded:', error);
+    }
+  }
+
+  if (cached) {
+    return cached;
+  }
+
+  return null;
+}
+
+async function initializeReport() {
+  const school = await fetchCurrentSchoolConfig();
+
+  if (school) {
+    applySchoolConfig(school);
+    renderConfiguredGradeScale();
+  } else {
+    clearStaticSchoolBranding();
+  }
+
+  populateReport();
+  window.reportPopulationComplete = true;
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '-';
   try {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch (e) {
+  } catch (error) {
     return dateStr;
   }
 }
 
-// Helper: Calculate age from DOB
 function calculateAge(dobStr) {
   if (!dobStr) return '-';
   try {
@@ -21,20 +494,19 @@ function calculateAge(dobStr) {
       age--;
     }
     return age;
-  } catch (e) {
+  } catch (error) {
     return '-';
   }
 }
 
-// Get grade distribution
 function getGradeDistribution(results) {
   const grades = ['A', 'B', 'C', 'D', 'E', 'F'];
   const distribution = {};
-  
+
   grades.forEach(grade => distribution[grade] = 0);
-  
+
   results.forEach(r => {
-    if (r.grade && distribution.hasOwnProperty(r.grade)) {
+    if (r.grade && Object.prototype.hasOwnProperty.call(distribution, r.grade)) {
       distribution[r.grade]++;
     }
   });
@@ -42,46 +514,35 @@ function getGradeDistribution(results) {
   return distribution;
 }
 
-// Check if grade is passing
 function isPassingGrade(grade) {
   const passingGrades = ['A', 'B', 'C', 'D'];
   return passingGrades.includes(grade);
 }
 
-// ✅ NEW: Determine academic status based on percentage and failures
 function determineAcademicStatus(percentage, failCount) {
-  if (failCount > 0) {
-    return 'At Risk';
-  } else if (percentage >= 85) {
-    return 'Honors';
-  } else if (percentage >= 75) {
-    return 'Excellent';
-  } else if (percentage >= 65) {
-    return 'Good';
-  } else if (percentage >= 50) {
-    return 'Satisfactory';
-  } else {
-    return 'Needs Support';
-  }
+  if (failCount > 0) return 'At Risk';
+  if (percentage >= 85) return 'Honors';
+  if (percentage >= 75) return 'Excellent';
+  if (percentage >= 65) return 'Good';
+  if (percentage >= 50) return 'Satisfactory';
+  return 'Needs Support';
 }
 
-// ✅ NEW: Calculate attendance percentage
 function calculateAttendancePercentage(attendance) {
   if (!attendance || !attendance.timesPresent || !attendance.schoolOpened) {
     return 0;
   }
-  
-  const present = parseInt(attendance.timesPresent) || 0;
-  const total = parseInt(attendance.schoolOpened) || 0;
-  
+
+  const present = parseInt(attendance.timesPresent, 10) || 0;
+  const total = parseInt(attendance.schoolOpened, 10) || 0;
+
   if (total === 0) return 0;
   return ((present / total) * 100).toFixed(1);
 }
 
-// ✅ NEW: Calculate overall grade based on percentage using grade scale
 function calculateGradeFromPercentage(percentage) {
   const pct = parseFloat(percentage);
-  
+
   if (pct >= 85) return 'A1';
   else if (pct >= 75) return 'B2';
   else if (pct >= 70) return 'B3';
@@ -93,11 +554,12 @@ function calculateGradeFromPercentage(percentage) {
   else return 'F9';
 }
 
-// ✅ NEW: Safely extract remark from various possible sources
 function extractRemark(data, fieldPath) {
+  if (!data || !fieldPath) return '-';
+
   const paths = fieldPath.split('.');
   let value = data;
-  
+
   for (const path of paths) {
     if (value && typeof value === 'object') {
       value = value[path];
@@ -105,243 +567,34 @@ function extractRemark(data, fieldPath) {
       return '-';
     }
   }
-  
-  // Check if it's an object (means we got [Object Object])
+
   if (typeof value === 'object' && value !== null) {
-    console.warn('⚠️ Got object instead of string:', value);
-    
-    // Try to extract text or content field
     if (value.text) return String(value.text).trim();
     if (value.content) return String(value.content).trim();
     if (value.remark) return String(value.remark).trim();
     if (value.comment) return String(value.comment).trim();
     if (value.value) return String(value.value).trim();
-    
-    // If all else fails, convert to string and trim
     return String(value).trim();
   }
-  
-  // If it's a string, return it
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-  
-  // If it's empty or undefined
+
+  if (typeof value === 'string') return value.trim();
   return value ? String(value).trim() : '-';
 }
 
-
-// ============================================
-// CURRENT SCHOOL CONFIGURATION (MULTI-SCHOOL)
-// ============================================
-let currentSchoolConfig = null;
-
-function getReportApiBase() {
-  return String(window.BACKEND_URL || 'https://examguard-8rxe.onrender.com').replace(/\/+$/, '');
-}
-
-function getStoredReportSchoolIdentity(reportData = {}) {
-  const stored = (key) => {
-    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
-  };
-
-  const hostname = window.location.hostname || '';
-  const hostParts = hostname.split('.');
-  const hostSubdomain = hostParts.length > 2 &&
-    !['www', 'verification', 'localhost'].includes(hostParts[0])
-      ? hostParts[0] : '';
-
-  return {
-    subdomain: stored('schoolSubdomain') ||
-      reportData.schoolSubdomain || reportData.school?.subdomain || hostSubdomain,
-    schoolCode: stored('schoolCode') || stored('schoolId') ||
-      reportData.schoolCode || reportData.schoolId || reportData.school?.schoolId || ''
-  };
-}
-
-function getReportAuthToken() {
-  try {
-    return localStorage.getItem('token') ||
-      localStorage.getItem('authToken') ||
-      sessionStorage.getItem('token') ||
-      sessionStorage.getItem('authToken') || '';
-  } catch (e) {
-    return '';
-  }
-}
-
-async function fetchCurrentSchoolConfig(reportData = {}) {
-  const identity = getStoredReportSchoolIdentity(reportData);
-  const params = new URLSearchParams();
-
-  if (identity.subdomain) params.set('subdomain', identity.subdomain);
-  else if (identity.schoolCode) params.set('schoolId', identity.schoolCode);
-  else {
-    console.warn('School identity was not found; report will use its existing fallback content.');
-    return null;
-  }
-
-  const headers = { Accept: 'application/json' };
-  const token = getReportAuthToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  if (identity.schoolCode) headers['X-School-Code'] = identity.schoolCode;
-
-  try {
-    const response = await fetch(`${getReportApiBase()}/api/schools/config?${params.toString()}`, {
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      throw new Error(`School configuration request failed (${response.status})`);
-    }
-
-    const payload = await response.json();
-    const school = payload?.data?.school || payload?.school || payload?.data || null;
-
-    if (!school || typeof school !== 'object') {
-      throw new Error('The school configuration response did not contain school data.');
-    }
-
-    // Keep tenant identity attached to the config so it cannot be confused with another school.
-    const returnedSchoolId = school.schoolId || school.id || school._id || '';
-    if (identity.schoolCode && returnedSchoolId &&
-        String(identity.schoolCode).toLowerCase() !== String(returnedSchoolId).toLowerCase()) {
-      throw new Error('The returned school configuration does not match this report.');
-    }
-
-    currentSchoolConfig = school;
-    console.log('Current school configuration loaded:', school.schoolName || school.name || 'School');
-    return school;
-  } catch (error) {
-    console.warn('Unable to load current school configuration. Existing report data will remain available.', error);
-    return null;
-  }
-}
-
-function setImageIfAvailable(element, source) {
-  if (!element || typeof source !== 'string' || !source.trim()) return;
-  element.src = source.trim();
-}
-
-function applyCurrentSchoolConfig(school, reportData = {}) {
-  if (!school) return;
-
-  const branding = school.branding || {};
-  const contact = school.contact || {};
-  const location = school.location || {};
-  const academic = school.academicConfig || {};
-  const principal = school.principal || school.principalInfo || {};
-
-  const schoolName = school.schoolName || school.name || school.displayName;
-  const address = [
-    location.address || school.address || contact.address,
-    location.city || school.city,
-    location.state || school.state,
-    location.country || school.country
-  ].filter(Boolean).join(', ');
-
-  const email = contact.email || school.email;
-  const phone = contact.phone || school.phone;
-  const motto = school.motto || school.tagline || branding.motto;
-
-  const nameEl = document.querySelector('.school-name');
-  const locationEl = document.querySelector('.school-location');
-  const contactEl = document.querySelector('.school-contact');
-  const mottoEl = document.querySelector('.motto');
-
-  if (nameEl && schoolName) nameEl.textContent = schoolName;
-  if (locationEl && address) locationEl.textContent = address;
-
-  if (contactEl && (email || phone)) {
-    contactEl.textContent = [
-      email ? `Email: ${email}` : '',
-      phone ? `Phone: ${phone}` : ''
-    ].filter(Boolean).join(' | ');
-  }
-
-  if (mottoEl && motto) {
-    mottoEl.textContent = '';
-    mottoEl.appendChild(document.createTextNode('Motto: '));
-    const strong = document.createElement('strong');
-    strong.textContent = `“${motto}”`;
-    mottoEl.appendChild(strong);
-  }
-
-  const logo = branding.logo || branding.lightLogo || branding.darkLogo || school.logo;
-  const watermark = branding.watermark || logo;
-  const stamp = branding.schoolStamp || branding.stamp || school.schoolStamp;
-
-  const headerImages = document.querySelectorAll('.report-header img');
-  if (logo) headerImages.forEach(img => setImageIfAvailable(img, logo));
-  setImageIfAvailable(document.querySelector('.watermark-img'), watermark);
-  setImageIfAvailable(document.querySelector('.seal-image'), branding.schoolStamp || branding.seal || stamp);
-  setImageIfAvailable(document.querySelector('.stamp-image'), stamp);
-
-  // Apply configured school colours without changing the report layout.
-  const primary = branding.primaryColor || branding.primary || school.primaryColor;
-  const secondary = branding.secondaryColor || branding.secondary || school.secondaryColor;
-  if (primary) {
-    document.querySelectorAll('.report-header, .report-title').forEach(el => {
-      el.style.borderColor = primary;
-    });
-    document.querySelectorAll('.results-table thead th, .box h4').forEach(el => {
-      el.style.backgroundColor = primary;
-    });
-  }
-  if (secondary) {
-    document.querySelectorAll('.school-name, .school-location, .school-contact').forEach(el => {
-      el.style.color = secondary;
-    });
-  }
-
-  // Use school-configured leadership details only when the report payload has no value.
-  const configuredPrincipalName = principal.name || principal.fullName ||
-    school.principalName || school.headTeacherName;
-  const principalNameEl = document.getElementById('principalName');
-  if (principalNameEl && !reportData.principalName && configuredPrincipalName) {
-    principalNameEl.textContent = configuredPrincipalName;
-  }
-
-  const nextTermDate = academic.nextTermBeginDate || academic.nextTermDate ||
-    school.nextTermBeginDate;
-  const nextTermEl = document.getElementById('nextTermDate');
-  if (nextTermEl && !reportData.nextTermDate && nextTermDate) {
-    nextTermEl.textContent = formatDate(nextTermDate);
-  }
-}
-
-// Load report data from sessionStorage
 function loadReportData() {
   try {
     const reportDataStr = sessionStorage.getItem('reportData');
-    console.log('🔍 SessionStorage data retrieved:', reportDataStr ? 'YES (length: ' + reportDataStr.length + ')' : 'NO');
-    
+
     if (!reportDataStr) {
-      // Try fallback from localStorage
       const fallbackStr = localStorage.getItem('lastReportData');
       if (fallbackStr) {
-        console.log('⚠️ Using fallback from localStorage');
         const data = JSON.parse(fallbackStr);
-        console.log('✅ Fallback data loaded:', data);
         return data;
       }
-      console.error('❌ No report data found in sessionStorage or localStorage');
       return null;
     }
 
     const data = JSON.parse(reportDataStr);
-    console.log('✅ Parsed data:', {
-      hasStudent: !!data.student,
-      hasResults: !!data.results,
-      hasSkills: !!data.skills,
-      hasAttendance: !!data.attendance,
-      skillsKeys: data.skills ? Object.keys(data.skills) : [],
-      attendanceKeys: data.attendance ? Object.keys(data.attendance) : [],
-      hasTeacherRemark: !!data.teacherComment || !!data.teacherRemark,
-      hasPrincipalRemark: !!data.principalComment || !!data.principalRemark
-    });
     return data;
   } catch (error) {
     console.error('❌ Error loading report data:', error);
@@ -349,11 +602,13 @@ function loadReportData() {
   }
 }
 
-// Apply dynamic font sizing based on number of subjects
 function applyDynamicFontSizing(resultCount) {
   const table = document.getElementById('resultsTable');
+
+  if (!table) return;
+
   table.classList.remove('subjects-5', 'subjects-6-8', 'subjects-9-11', 'subjects-12', 'subjects-13-plus');
-  
+
   if (resultCount <= 5) {
     table.classList.add('subjects-5');
   } else if (resultCount <= 8) {
@@ -376,11 +631,11 @@ Session: ${session || ''}
 Verify: https://verification.examguard.com.ng/verify
   `.trim();
 
-  const container = document.getElementById("qrCode");
+  const container = document.getElementById('qrCode');
 
   if (!container || !qrData) return;
 
-  container.innerHTML = ""; // clear previous
+  container.innerHTML = '';
 
   new QRCode(container, {
     text: qrData,
@@ -389,62 +644,50 @@ Verify: https://verification.examguard.com.ng/verify
   });
 }
 
-// Set signature images with fallback to static seal
 function setSignatureImages(data) {
-  // Teacher signature
   const teacherSigImg = document.getElementById('teacherSigImage');
   if (data.teacherSignatureBase64) {
     teacherSigImg.src = 'data:image/jpeg;base64,' + data.teacherSignatureBase64;
   } else {
-    // Keep default seal.jpg for fallback
-    teacherSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/downward-angle-signaturely.svg';
+    teacherSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely-image.svg';
   }
 
-  // Principal signature
   const principalSigImg = document.getElementById('principalSigImage');
   if (data.principalSignatureBase64) {
     principalSigImg.src = 'data:image/jpeg;base64,' + data.principalSignatureBase64;
+  } else if (data.principalSignatureUrl) {
+    principalSigImg.src = data.principalSignatureUrl;
   } else {
-    // Keep default seal.jpg for fallback
-    principalSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely.svg';
+    principalSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/downward-angle-signaturely.svg';
   }
 }
 
-// Populate report
 function populateReport() {
   const data = loadReportData();
   if (!data) {
-    document.getElementById('resultsTableBody').innerHTML = '<tr><td colspan="9" style="text-align:center; padding:10px; color:red;">Error: No data available</td></tr>';
+    const tbody = document.getElementById('resultsTableBody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:10px; color:red;">Error: No data available</td></tr>';
+    }
     return;
   }
 
   const results = data.results || [];
   const student = data.student || {};
-  
-  // ✅ CRITICAL FIX: Extract skills from the TOP LEVEL data object
   const skills = data.skills || {};
   const attendance = data.attendance || {};
   const skillsReport = data.skillsReport || {};
-  
-  const term = data.term || currentSchoolConfig?.academicConfig?.currentTerm || '';
 
-  console.log('📊 Populating report with:');
-  console.log('   - Results:', results.length, 'subjects');
-  console.log('   - Student:', student.name || 'Unknown');
-  console.log('   - Skills object:', skills);
-  console.log('   - Attendance:', attendance);
-  console.log('   - SkillsReport:', skillsReport);
-  console.log('   - Teacher comment:', data.teacherComment);
-  console.log('   - Principal comment:', data.principalComment);
+  const schoolDefaults = window.currentSchoolDefaults || {};
+  const reportSession = firstConfigValue(data.session, schoolDefaults.session, '-');
+  const term = firstConfigValue(data.term, schoolDefaults.term, '');
 
-  // Apply dynamic sizing based on number of results
   applyDynamicFontSizing(results.length);
 
-  // Populate profile
   document.getElementById('profileName').textContent = student.name || '-';
   document.getElementById('profileAdmNo').textContent = student.regNo || '-';
   document.getElementById('profileClass').textContent = student.class?.name || student.class || '-';
-  document.getElementById('profileSession').textContent = data.session || currentSchoolConfig?.academicConfig?.currentSession || '-';
+  document.getElementById('profileSession').textContent = reportSession;
   document.getElementById('profileDOB').textContent = formatDate(student.DOB);
   document.getElementById('profileAge').textContent = calculateAge(student.DOB);
   document.getElementById('profileSex').textContent = student.gender || '-';
@@ -459,17 +702,18 @@ function populateReport() {
     photoEl.src = 'avatar.jpg';
   }
 
-  // Calculate statistics
-  let totalScore = 0, highestScore = 0, lowestScore = Infinity;
-  let passCount = 0, failCount = 0;
+  let totalScore = 0;
+  let highestScore = 0;
+  let lowestScore = Infinity;
+  let passCount = 0;
+  let failCount = 0;
 
   results.forEach(r => {
-    const score = parseInt(r.total) || 0;
+    const score = parseInt(r.total, 10) || 0;
     totalScore += score;
     if (score > highestScore) highestScore = score;
     if (score < lowestScore) lowestScore = score;
 
-    // Count pass/fail
     if (isPassingGrade(r.grade)) {
       passCount++;
     } else {
@@ -482,28 +726,13 @@ function populateReport() {
   const totalObtainable = results.length * 100;
   const percentage = totalObtainable > 0 ? ((totalScore / totalObtainable) * 100).toFixed(2) : 0;
 
-  // ✅ Calculate Attendance Rate
   const attendancePercentage = calculateAttendancePercentage(attendance);
-  
-  // ✅ Determine Academic Status
   const academicStatus = determineAcademicStatus(percentage, failCount);
+  const overallGrade = getConfiguredGradeFromPercentage(percentage);
 
-  // ✅ Calculate overall grade based on percentage
-  const overallGrade = calculateGradeFromPercentage(percentage);
-
-  console.log('📊 Calculated values:');
-  console.log('   - Percentage:', percentage);
-  console.log('   - Overall Grade:', overallGrade);
-  console.log('   - Attendance Rate:', attendancePercentage);
-  console.log('   - Academic Status:', academicStatus);
-  console.log('   - Pass Count:', passCount);
-  console.log('   - Fail Count:', failCount);
-
-  // Populate term info
   document.getElementById('reportTitleEl').textContent = `${term || 'TERM'} STUDENT'S PERFORMANCE REPORT`;
   document.getElementById('termLabelProfile').textContent = term || 'TERM';
 
-  // Populate results table
   const tbody = document.getElementById('resultsTableBody');
   tbody.innerHTML = '';
 
@@ -521,11 +750,9 @@ function populateReport() {
     tbody.appendChild(row);
   });
 
-  // Populate pass/fail summary
   document.getElementById('totalPassed').textContent = passCount;
   document.getElementById('totalFailed').textContent = failCount;
 
-  // Determine overall status
   let statusElement = document.getElementById('overallStatus');
   let statusText = '';
   let statusClass = '';
@@ -534,10 +761,9 @@ function populateReport() {
     statusText = 'FAILED';
     statusClass = 'failed';
   } else if (term && term.toUpperCase().includes('TERM 3') && student.class) {
-    // Check if it's term 3 and below SS3
     const classNameLower = (student.class?.name || student.class || '').toLowerCase();
     const isBeforeSS3 = !classNameLower.includes('ss3') && !classNameLower.includes('form 3');
-    
+
     if (isBeforeSS3) {
       statusText = 'PROMOTED';
       statusClass = 'promoted';
@@ -553,46 +779,37 @@ function populateReport() {
   statusElement.textContent = statusText;
   statusElement.className = `pass-status ${statusClass}`;
 
-  // ✅ Populate NEW profile stats with calculated grade
   document.getElementById('overallPercentage').textContent = percentage + '%';
   document.getElementById('overallGrade').textContent = overallGrade;
   document.getElementById('attendanceRate').textContent = attendancePercentage + '%';
   document.getElementById('academicStatus').textContent = academicStatus;
 
-  // Populate performance summary
   document.getElementById('totalObtained').textContent = totalScore.toFixed(1);
   document.getElementById('totalObtainable').textContent = totalObtainable;
   document.getElementById('totalSubjectsPerf').textContent = results.length;
   document.getElementById('percentagePerf').textContent = percentage + '%';
-
-  // Get overall grade (using calculated grade)
   document.getElementById('gradePerf').textContent = overallGrade;
 
-  // Position (kept for compatibility)
-  const position = data.studentPosition ? `${data.studentPosition}` : `-`;
+  const position = data.studentPosition ? `${data.studentPosition}` : '-';
   document.getElementById('positionPerf').textContent = position;
 
-  // Grade analysis
   const distribution = getGradeDistribution(results);
   const grades = ['A', 'B', 'C', 'D', 'E', 'F'];
-  
+
   let gradeCountsRow = '<tr>';
   let gradeValuesRow = '<tr>';
-  
+
   grades.forEach(grade => {
     gradeCountsRow += `<td class="tc" style="border:1px solid #000; font-weight:700; padding:1px;">${grade}</td>`;
     gradeValuesRow += `<td class="tc" style="border:1px solid #000; padding:1px;">${distribution[grade]}</td>`;
   });
-  
+
   gradeCountsRow += '</tr>';
   gradeValuesRow += '</tr>';
-  
+
   document.getElementById('gradeCountsRow').innerHTML = gradeCountsRow;
   document.getElementById('gradeValuesRow').innerHTML = gradeValuesRow;
 
-  // ============================================
-  // ✅ POPULATE AFFECTIVE DOMAIN SKILLS
-  // ============================================
   const affectiveTable = document.getElementById('affectiveTable');
   const affectiveMap = {
     'attentiveness': 'Attentiveness',
@@ -603,12 +820,9 @@ function populateReport() {
     'selfControl': 'Self Control / Calmness'
   };
 
-  console.log('📝 Processing Affective Skills:', affectiveMap);
-  
   for (const [key, label] of Object.entries(affectiveMap)) {
     const value = skills[key] || 0;
-    console.log(`   - ${key}: ${value}`);
-    
+
     const row = document.createElement('tr');
     row.innerHTML = `
       <td style="text-align:left;">${label}</td>
@@ -621,9 +835,6 @@ function populateReport() {
     affectiveTable.appendChild(row);
   }
 
-  // ============================================
-  // ✅ POPULATE PSYCHOMOTOR SKILLS
-  // ============================================
   const psychomotorTable = document.getElementById('psychomotorTable');
   const psychomotorMap = {
     'handling': 'Handling Of Tools',
@@ -633,12 +844,9 @@ function populateReport() {
     'fluency': 'Speech Fluency'
   };
 
-  console.log('💪 Processing Psychomotor Skills:', psychomotorMap);
-  
   for (const [key, label] of Object.entries(psychomotorMap)) {
     const value = skills[key] || 0;
-    console.log(`   - ${key}: ${value}`);
-    
+
     const row = document.createElement('tr');
     row.innerHTML = `
       <td style="text-align:left;">${label}</td>
@@ -651,68 +859,53 @@ function populateReport() {
     psychomotorTable.appendChild(row);
   }
 
-  // ============================================
-  // ✅ POPULATE ATTENDANCE
-  // ============================================
   console.log('📍 Processing Attendance:', attendance);
   document.getElementById('schoolOpened').textContent = attendance.schoolOpened || '-';
   document.getElementById('timesPresent').textContent = attendance.timesPresent || '-';
   document.getElementById('timesAbsent').textContent = attendance.timesAbsent || '-';
 
-  // ============================================
-  // ✅ POPULATE REMARKS (WITH FIX FOR [Object Object])
-  // ============================================
   console.log('💬 Processing remarks...');
-  
-  // Try multiple paths for teacher remark
+
   let teacherRemarkValue = extractRemark(data, 'teacherComment') ||
-                           extractRemark(data, 'teacherRemark') ||
-                           extractRemark(skillsReport, 'teacherRemark') ||
-                           'No remark';
-  
-  // Try multiple paths for principal remark
+    extractRemark(data, 'teacherRemark') ||
+    extractRemark(skillsReport, 'teacherRemark') ||
+    'No remark';
+
   let principalRemarkValue = extractRemark(data, 'principalComment') ||
-                             extractRemark(data, 'principalRemark') ||
-                             extractRemark(skillsReport, 'principalComment') ||
-                             extractRemark(skillsReport, 'comment') ||
-                             'No remark';
-  
-  console.log('✅ Teacher Remark:', teacherRemarkValue);
-  console.log('✅ Principal Remark:', principalRemarkValue);
-  
+    extractRemark(data, 'principalRemark') ||
+    extractRemark(skillsReport, 'principalComment') ||
+    extractRemark(skillsReport, 'comment') ||
+    'No remark';
+
   document.getElementById('teacherRemark').textContent = teacherRemarkValue;
   document.getElementById('principalRemark').textContent = principalRemarkValue;
-  
-  // Set names
+
   document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
-  document.getElementById('principalName').textContent = data.principalName || currentSchoolConfig?.principal?.name || currentSchoolConfig?.principalName || 'Principal';
-  
-  // Set signature images with fallback to static seal.jpg
-  setSignatureImages(data);
-  
-  // Generate QR code
+  document.getElementById('principalName').textContent = data.principalName || schoolDefaults.principalName || 'Principal';
+
+  setSignatureImages({ ...data, principalSignatureUrl: data.principalSignatureUrl || schoolDefaults.principalSignature });
+
   try {
-    generateQRCode(student, data.session);
-  } catch (e) {
-    console.warn('⚠️ QR code generation failed:', e);
+    generateQRCode(student, reportSession);
+  } catch (error) {
+    console.warn('⚠️ QR code generation failed:', error);
   }
 
-  // Dates
-  document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate || currentSchoolConfig?.academicConfig?.nextTermBeginDate || currentSchoolConfig?.academicConfig?.nextTermDate) || '-';
+  document.getElementById('nextTermDate').textContent = formatDate(firstConfigValue(data.nextTermDate, schoolDefaults.nextTermDate)) || '-';
   document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
 
   console.log('✅ Report population completed successfully!');
 }
 
-// Initialize after loading the active school's configuration.
-// Printing waits until the configuration and report have both been applied.
-document.addEventListener('DOMContentLoaded', async () => {
-  const reportData = loadReportData();
-  await fetchCurrentSchoolConfig(reportData || {});
-  applyCurrentSchoolConfig(currentSchoolConfig, reportData || {});
-  populateReport();
+document.addEventListener('DOMContentLoaded', initializeReport);
 
-  window.setTimeout(() => {
-    window.print();
-  }, 700);
+window.addEventListener('load', () => {
+  const waitForReport = () => {
+    if (window.reportPopulationComplete) {
+      setTimeout(() => window.print(), 500);
+    } else {
+      setTimeout(waitForReport, 100);
+    }
+  };
+  waitForReport();
 });
