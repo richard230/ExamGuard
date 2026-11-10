@@ -230,43 +230,82 @@ function setImportantStyle(element, property, value) {
 
 function applyReportBrandColors(primary, secondary, accent) {
   const root = document.documentElement;
+  const brandPrimary = primary || '#1E3A8A';
+  const brandSecondary = secondary || '#F59E0B';
+  const brandAccent = accent || '#10B981';
 
-  if (primary) root.style.setProperty('--school-primary', primary);
-  if (secondary) root.style.setProperty('--school-secondary', secondary);
-  if (accent) root.style.setProperty('--school-accent', accent);
+  root.style.setProperty('--school-primary', brandPrimary);
+  root.style.setProperty('--school-secondary', brandSecondary);
+  root.style.setProperty('--school-accent', brandAccent);
 
-  const tint = primary
-    ? `color-mix(in srgb, ${primary} 10%, white)`
-    : '#e9f0d6';
+  // Keep result backgrounds subtle so marks remain easy to read in print.
+  root.style.setProperty(
+    '--school-primary-soft',
+    `color-mix(in srgb, ${brandPrimary} 9%, white)`
+  );
+  root.style.setProperty(
+    '--school-primary-pale',
+    `color-mix(in srgb, ${brandPrimary} 3.5%, white)`
+  );
+  root.style.setProperty(
+    '--school-secondary-soft',
+    `color-mix(in srgb, ${brandSecondary} 12%, white)`
+  );
 
-  document.querySelectorAll('#resultsTable thead th, .box h4').forEach(element => {
-    element.style.setProperty('background-color', primary || '#7b9e34', 'important');
-  });
-
-  document.querySelectorAll('.box, .perf-inline .summary, .perf-inline .analysis').forEach(element => {
-    element.style.setProperty('background-color', tint, 'important');
-  });
-
-  document.querySelectorAll('.report-header').forEach(element => {
-    if (primary) element.style.setProperty('border-bottom-color', primary, 'important');
+  document.querySelectorAll(
+    '#resultsTable thead th, .box h4'
+  ).forEach(element => {
+    element.style.setProperty('background-color', brandPrimary, 'important');
+    element.style.setProperty('color', '#ffffff', 'important');
   });
 
   document.querySelectorAll(
-    '.school-name, .profile-stats .term-label, .stat-value, .pass-fail-value, .profile-table th'
+    '.box, .perf-inline .summary, .perf-inline .analysis, .profile-stats'
   ).forEach(element => {
-    if (primary) element.style.setProperty('color', primary, 'important');
+    element.style.setProperty(
+      'background-color',
+      `color-mix(in srgb, ${brandPrimary} 9%, white)`,
+      'important'
+    );
   });
 
-  document.querySelectorAll('.school-location, .school-contact').forEach(element => {
-    if (secondary) element.style.setProperty('color', secondary, 'important');
+  document.querySelectorAll(
+    '.report-header'
+  ).forEach(element => {
+    element.style.setProperty('border-bottom-color', brandPrimary, 'important');
+  });
+
+  document.querySelectorAll(
+    '.school-name, .profile-stats .term-label, .stat-value, .pass-fail-value, .profile-table th, .remark-title, .qr-link'
+  ).forEach(element => {
+    element.style.setProperty('color', brandPrimary, 'important');
+  });
+
+  document.querySelectorAll(
+    '.school-location, .school-contact'
+  ).forEach(element => {
+    element.style.setProperty('color', '#475569', 'important');
   });
 
   document.querySelectorAll('.motto').forEach(element => {
-    if (accent) element.style.setProperty('color', accent, 'important');
+    element.style.setProperty('color', brandSecondary, 'important');
   });
 
   document.querySelectorAll('.profile-table th').forEach(element => {
-    element.style.setProperty('background-color', tint, 'important');
+    element.style.setProperty(
+      'background-color',
+      `color-mix(in srgb, ${brandPrimary} 10%, white)`,
+      'important'
+    );
+  });
+
+  // Results rows/cells are styled through CSS variables, not fixed green values.
+  document.querySelectorAll('#resultsTable tbody tr:nth-child(even)').forEach(row => {
+    row.style.setProperty(
+      'background-color',
+      `color-mix(in srgb, ${brandPrimary} 3.5%, white)`,
+      'important'
+    );
   });
 }
 
@@ -1011,8 +1050,8 @@ function populateReport() {
       <td class="tc">${result.ca1_score || '-'}</td>
       <td class="tc">${result.ca2_score || '-'}</td>
       <td class="tc">${result.exam_score || '-'}</td>
-      <td class="tc" style="font-weight:700;">${result.total || 0}</td>
-      <td class="tc" style="font-weight:700;">${result.grade || '-'}</td>
+      <td class="tc result-total">${result.total || 0}</td>
+      <td class="tc result-grade">${result.grade || '-'}</td>
       <td class="tc">${result.remarks || '-'}</td>
     `;
     tbody.appendChild(row);
