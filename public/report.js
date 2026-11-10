@@ -116,7 +116,17 @@ function setImageIfPresent(element, source, fallback) {
     };
   }
 }
+const colors = branding.colors || {};
 
+const primary = firstConfigValue(
+  branding.primaryColor, branding.primary, colors.primary, school.primaryColor
+);
+const secondary = firstConfigValue(
+  branding.secondaryColor, branding.secondary, colors.secondary, school.secondaryColor
+);
+const accent = firstConfigValue(
+  branding.accentColor, branding.accent, colors.accent, school.accentColor
+);
 function getReportSchoolContext() {
   const reportData = loadReportData() || {};
   const savedSubdomain = localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) || '';
