@@ -961,7 +961,7 @@ function applyDynamicFontSizing(resultCount) {
   }
 }
 
-function generateQRCode(student, session) {
+function generateQRCode(student, session, term) {
   const container = document.getElementById('qrCode');
   if (!container) return;
 
@@ -972,17 +972,31 @@ function generateQRCode(student, session) {
     return;
   }
 
+  const schoolConfig = window.currentSchoolConfig || {};
+  const school = schoolConfig.school || schoolConfig;
+
   const verificationUrl = new URL(
     'https://verification.examguard.com.ng/verify'
   );
 
-  if (student?.regNo) {
-    verificationUrl.searchParams.set('regNo', student.regNo);
-  }
+  const params = {
+    regNo: student?.regNo,
+    session,
+    term,
+    schoolName: school.schoolName || school.name || school.institutionName,
+    schoolId:
+      school.schoolId ||
+      school.publicSchoolId ||
+      school.schoolCode ||
+      school.id ||
+      school._id
+  };
 
-  if (session) {
-    verificationUrl.searchParams.set('session', session);
-  }
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim()) {
+      verificationUrl.searchParams.set(key, String(value).trim());
+    }
+  });
 
   new QRCode(container, {
     text: verificationUrl.toString(),
@@ -1279,7 +1293,7 @@ function populateReport() {
   });
 
   try {
-    generateQRCode(student, reportSession);
+    generateQRCode(student, reportSession, term);
   } catch (error) {
     console.warn('QR code generation failed:', error);
   }
