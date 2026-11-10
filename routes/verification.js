@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Result = require('../models/Result');
 const Student = require('../models/Student');
@@ -171,7 +172,7 @@ function calculateSubjectPosition(universalUpload, studentId, subjectName) {
   } catch (err) {
     console.error('    ❌ Error calculating subject position:', err.message);
     console.error(err.stack);
-    // Always return a valid position, never '-'
+    // Always return a valid position, never returns '-'
     return ordinalSuffix(1);
   }
 }
@@ -265,6 +266,85 @@ function calculateClassPosition(universalUpload, studentId) {
 // ============ ROUTES ============
 
 /**
+ * GET /api/res/public-academics?schoolId=...
+ *
+ * Public, read-only endpoint for loading the session and term options
+ * needed by the public verification form.
+ */
+router.get('/public-academics', async (req, res) => {
+  try {
+    const requestedSchoolId = String(req.query.schoolId || '').trim();
+
+    if (!requestedSchoolId) {
+      return res.status(400).json({
+        success: false,
+        error: 'schoolId is required.'
+      });
+    }
+
+    const schoolQuery = {
+      status: 'active',
+      isDeleted: { $ne: true }
+    };
+
+    if (mongoose.Types.ObjectId.isValid(requestedSchoolId)) {
+      schoolQuery._id = requestedSchoolId;
+    } else {
+      schoolQuery.schoolId = requestedSchoolId;
+    }
+
+    const school = await School.findOne(schoolQuery)
+      .select('_id schoolId schoolName')
+      .lean();
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'School not found or inactive.'
+      });
+    }
+
+    const [schoolSessions, schoolTerms] = await Promise.all([
+      Session.find({ schoolId: school._id })
+        .select('_id name')
+        .sort({ createdAt: -1 })
+        .lean(),
+
+      Term.find({ schoolId: school._id })
+        .select('_id name session')
+        .sort({ createdAt: -1 })
+        .lean()
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        school: {
+          _id: school._id,
+          schoolId: school.schoolId,
+          name: school.schoolName
+        },
+        sessions: schoolSessions.map(session => ({
+          _id: session._id,
+          name: session.name
+        })),
+        terms: schoolTerms.map(term => ({
+          _id: term._id,
+          name: term.name,
+          sessionId: String(term.session)
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('[PUBLIC ACADEMICS ERROR]', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load public academic options.'
+    });
+  }
+});
+
+/**
  * POST /api/res/verify-student-report
  * Verify a student's report by matching registration number, scratch card, and academic context
  */
@@ -322,22 +402,23 @@ router.post('/verify-student-report', async (req, res) => {
       });
     }
     console.log('✓ Student:', student.firstname, student.surname);
-// ============ STEP 3: VERIFY SCRATCH CARD ============
-console.log('Step 3: Verifying scratch card against student record...');
 
-// Normalize the input scratch card
-const normalizedInputCard = scratchCard.trim().toUpperCase();
-const normalizedStudentCard = student.scratchCard.trim().toUpperCase();
+    // ============ STEP 3: VERIFY SCRATCH CARD ============
+    console.log('Step 3: Verifying scratch card against student record...');
 
-if (normalizedInputCard !== normalizedStudentCard) {
-  return res.status(401).json({
-    success: false,
-    verified: false,
-    message: 'Invalid scratch card code for this student'
-  });
-}
+    // Normalize the input scratch card
+    const normalizedInputCard = scratchCard.trim().toUpperCase();
+    const normalizedStudentCard = student.scratchCard.trim().toUpperCase();
 
-console.log('✓ Scratch card verified');
+    if (normalizedInputCard !== normalizedStudentCard) {
+      return res.status(401).json({
+        success: false,
+        verified: false,
+        message: 'Invalid scratch card code for this student'
+      });
+    }
+
+    console.log('✓ Scratch card verified');
 
     // ============ STEP 4: GET TERM DETAILS ============
     console.log('Step 4: Fetching term details...');
