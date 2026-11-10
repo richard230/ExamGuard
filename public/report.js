@@ -127,21 +127,29 @@ function setImageIfPresent(element, source, fallback) {
 
 function getReportSchoolContext() {
   const reportData = loadReportData() || {};
-  const subdomain =
-    localStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
-    reportData.schoolSubdomain ||
-    reportData.subdomain ||
-    getTenantSubdomain();
 
-  const schoolId =
-    localStorage.getItem(SCHOOL_ID_KEY) ||
-    localStorage.getItem('schoolCode') ||
-    reportData.schoolId ||
-    reportData.schoolCode ||
-    reportData.school?.id ||
-    reportData.school?._id ||
-    reportData.school?.schoolId ||
-    '';
+  // The report's own school identity and the active tenant URL are authoritative.
+  // Old localStorage values are only fallbacks, never allowed to override them.
+  const reportSchool = reportData.school || {};
+  const tenantSubdomain = getTenantSubdomain();
+
+  const subdomain = firstConfigValue(
+    reportData.schoolSubdomain,
+    reportData.subdomain,
+    reportSchool.subdomain,
+    tenantSubdomain,
+    localStorage.getItem(SCHOOL_SUBDOMAIN_KEY)
+  ) || '';
+
+  const schoolId = firstConfigValue(
+    reportData.schoolId,
+    reportData.schoolCode,
+    reportSchool.id,
+    reportSchool._id,
+    reportSchool.schoolId,
+    localStorage.getItem(SCHOOL_ID_KEY),
+    localStorage.getItem('schoolCode')
+  ) || '';
 
   const token =
     localStorage.getItem('token') ||
@@ -345,8 +353,12 @@ function applySchoolConfig(school) {
   const header = document.querySelector('.report-header');
   if (header) {
     const headerImages = header.querySelectorAll('img');
-    setImageIfPresent(headerImages[0], logo, 'arm.jpg');
-    setImageIfPresent(headerImages[1], logo, 'mainlogo.png');
+    setImageIfPresent(headerImages[0], logo);
+    setImageIfPresent(headerImages[1], logo);
+    headerImages.forEach(image => {
+      if (logo) image.style.display = '';
+      else image.style.display = 'none';
+    });
   }
 
   setTextIfPresent(
@@ -359,6 +371,8 @@ function applySchoolConfig(school) {
       schoolInfo.schoolName
     )
   );
+
+  document.querySelectorAll('.school-brand-loading').forEach(element => element.classList.remove('school-brand-loading'));
 
   setTextIfPresent('.school-location', getSchoolAddress(school));
   setTextIfPresent('.school-contact', getSchoolContact(school));
@@ -580,10 +594,13 @@ function clearStaticSchoolBranding() {
   const contact = document.querySelector('.school-contact');
   const motto = document.querySelector('.motto');
 
-  if (name) name.textContent = 'School name unavailable';
-  if (location) location.textContent = '';
-  if (contact) contact.textContent = '';
-  if (motto) motto.textContent = '';
+  if (name) {
+    name.classList.remove('school-brand-loading');
+    name.textContent = 'School details unavailable';
+  }
+  if (location) { location.classList.remove('school-brand-loading'); location.textContent = ''; }
+  if (contact) { contact.classList.remove('school-brand-loading'); contact.textContent = ''; }
+  if (motto) { motto.classList.remove('school-brand-loading'); motto.textContent = ''; }
 
   document.querySelectorAll(
     '.report-header img, .watermark-img, .seal-image, .stamp-image'
@@ -593,13 +610,50 @@ function clearStaticSchoolBranding() {
   });
 }
 
+function cachedSchoolMatchesContext(school, context) {
+  if (!school || !context) return false;
+
+  const expectedIds = [
+    context.reportData?.schoolId,
+    context.reportData?.schoolCode,
+    context.reportData?.school?._id,
+    context.reportData?.school?.id,
+    context.reportData?.school?.schoolId,
+    context.schoolId
+  ].filter(value => value !== undefined && value !== null && String(value).trim())
+   .map(value => String(value).trim());
+
+  const returnedIds = [
+    school.schoolId,
+    school.publicSchoolId,
+    school.schoolCode,
+    school.code,
+    school.id,
+    school._id
+  ].filter(value => value !== undefined && value !== null && String(value).trim())
+   .map(value => String(value).trim());
+
+  if (expectedIds.length) {
+    return returnedIds.length > 0 &&
+      expectedIds.some(expectedId => returnedIds.includes(expectedId));
+  }
+
+  const expectedSubdomain = String(context.subdomain || '').trim().toLowerCase();
+  if (expectedSubdomain) {
+    return String(school.subdomain || '').trim().toLowerCase() === expectedSubdomain;
+  }
+
+  // With no current tenant identifier, a browser cache cannot safely identify
+  // which school's branding belongs on this report.
+  return false;
+}
+
 async function fetchCurrentSchoolConfig() {
   const context = getReportSchoolContext();
   const cached = readCachedSchoolConfig();
 
-  if (cached && !context.subdomain && !context.schoolId) {
-    return cached;
-  }
+  // A cached school is not shown immediately: it may belong to the previous
+  // tenant in this browser. Resolve the current report/tenant first.
 
   const headers = { Accept: 'application/json' };
   if (context.token) {
@@ -712,21 +766,32 @@ async function fetchCurrentSchoolConfig() {
     }
   }
 
-  return cached || null;
+  return cachedSchoolMatchesContext(cached, context) ? cached : null;
 }
 
 async function initializeReport() {
-  const school = await fetchCurrentSchoolConfig();
+  const schoolHeader = document.querySelector('.report-header');
+  if (schoolHeader) schoolHeader.classList.add('school-config-pending');
 
-  if (school) {
-    applySchoolConfig(school);
-    renderConfiguredGradeScale();
-  } else {
+  try {
+    const school = await fetchCurrentSchoolConfig();
+
+    if (school) {
+      applySchoolConfig(school);
+      renderConfiguredGradeScale();
+    } else {
+      clearStaticSchoolBranding();
+    }
+
+    populateReport();
+  } catch (error) {
+    console.error('Unable to initialize the report:', error);
     clearStaticSchoolBranding();
+    populateReport();
+  } finally {
+    if (schoolHeader) schoolHeader.classList.remove('school-config-pending');
+    window.reportPopulationComplete = true;
   }
-
-  populateReport();
-  window.reportPopulationComplete = true;
 }
 
 function formatDate(dateStr) {
