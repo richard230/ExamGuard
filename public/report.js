@@ -1,318 +1,3 @@
-/* ==========================================================
-   MULTI-SCHOOL REPORT CONFIGURATION
-   Loads only the school associated with this report/session.
-   ========================================================== */
-const REPORT_API_BASE = String(
-  window.BACKEND_URL ||
-  localStorage.getItem('BACKEND_URL') ||
-  'https://examguard-8rxe.onrender.com'
-).replace(/\/+$/, '');
-
-function getReportSchoolContext() {
-  const reportData = loadReportData() || {};
-  const hostname = window.location.hostname;
-  const hostParts = hostname.split('.');
-  const reservedHosts = ['www', 'verification', 'api', 'localhost'];
-  const hostSubdomain = hostParts.length > 2 && !reservedHosts.includes(hostParts[0])
-    ? hostParts[0]
-    : '';
-
-  const subdomain = localStorage.getItem('schoolSubdomain') ||
-    reportData.schoolSubdomain ||
-    hostSubdomain;
-
-  const schoolCode = localStorage.getItem('schoolCode') ||
-    localStorage.getItem('schoolId') ||
-    reportData.schoolCode ||
-    reportData.schoolId ||
-    '';
-
-  const token = localStorage.getItem('token') ||
-    localStorage.getItem('authToken') ||
-    localStorage.getItem('accessToken') ||
-    '';
-
-  return { subdomain, schoolCode, token, reportData };
-}
-
-function unwrapSchoolConfig(payload) {
-  if (!payload || typeof payload !== 'object') return null;
-  const root = payload.data || payload;
-  const candidate = root.school || root.currentSchool || root.config || root;
-  return candidate && typeof candidate === 'object' ? candidate : null;
-}
-
-async function fetchCurrentSchoolConfig() {
-  const context = getReportSchoolContext();
-  const headers = { 'Accept': 'application/json' };
-
-  if (context.token) headers.Authorization = `Bearer ${context.token}`;
-  if (context.schoolCode) headers['X-School-Code'] = context.schoolCode;
-
-  const url = new URL(`${REPORT_API_BASE}/api/schools/config`);
-  if (context.subdomain) url.searchParams.set('subdomain', context.subdomain);
-
-  try {
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers,
-      credentials: 'include',
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      throw new Error(`School configuration request failed (${response.status})`);
-    }
-
-    const payload = await response.json();
-    const school = unwrapSchoolConfig(payload);
-
-    if (!school) throw new Error('The school configuration response was empty.');
-
-    // Prevent accidentally applying a different tenant's config.
-    const expectedSchoolId = context.reportData.schoolId ||
-      context.reportData.school?._id ||
-      context.reportData.school?.id ||
-      context.schoolCode;
-
-    const returnedSchoolId = school.id || school._id || school.schoolId;
-    if (expectedSchoolId && returnedSchoolId &&
-        String(expectedSchoolId) !== String(returnedSchoolId)) {
-      throw new Error('The returned school configuration does not match this report.');
-    }
-
-    return school;
-  } catch (error) {
-    console.warn('School configuration could not be loaded:', error);
-    return null;
-  }
-}
-
-function firstConfigValue(...values) {
-  return values.find(value =>
-    value !== undefined && value !== null && String(value).trim() !== ''
-  );
-}
-
-function setTextIfPresent(selector, value) {
-  const element = document.querySelector(selector);
-  if (element && value !== undefined && value !== null && String(value).trim()) {
-    element.textContent = String(value);
-  }
-}
-
-function setImageIfPresent(element, source, fallback) {
-  if (!element) return;
-  const value = firstConfigValue(source, fallback);
-  if (value) {
-    element.src = value;
-    element.onerror = () => {
-      if (fallback && element.src !== fallback) element.src = fallback;
-      else element.style.display = 'none';
-    };
-  }
-}
-
-function getSchoolAddress(school) {
-  const contact = school.contact || school.contactInfo || {};
-  const location = school.location || school.addressInfo || {};
-  return firstConfigValue(
-    school.address,
-    school.schoolAddress,
-    contact.address,
-    location.fullAddress,
-    [location.street, location.city, location.state].filter(Boolean).join(', ')
-  );
-}
-
-function getSchoolContact(school) {
-  const contact = school.contact || school.contactInfo || {};
-  const email = firstConfigValue(school.email, contact.email);
-  const phone = firstConfigValue(school.phone, contact.phone, contact.mobile);
-  return [
-    email ? `Email: ${email}` : '',
-    phone ? `Phone: ${phone}` : ''
-  ].filter(Boolean).join(' | ');
-}
-
-function applySchoolConfig(school) {
-  if (!school) return;
-
-  const branding = school.branding || {};
-  const academic = school.academicConfig || school.academic || {};
-  const contact = school.contact || school.contactInfo || {};
-  const logo = firstConfigValue(
-    branding.logo, school.logo, school.schoolLogo, school.logoUrl
-  );
-  const watermark = firstConfigValue(
-    branding.watermark, school.watermark, logo
-  );
-  const stamp = firstConfigValue(
-    branding.schoolStamp, school.schoolStamp, school.stamp
-  );
-
-  const header = document.querySelector('.report-header');
-  if (header) {
-    const headerImages = header.querySelectorAll('img');
-    setImageIfPresent(headerImages[0], logo, 'arm.jpg');
-    setImageIfPresent(headerImages[1], logo, 'mainlogo.png');
-  }
-
-  setTextIfPresent('.school-name', firstConfigValue(
-    school.schoolName, school.name, school.institutionName
-  ));
-  setTextIfPresent('.school-location', getSchoolAddress(school));
-  setTextIfPresent('.school-contact', getSchoolContact(school));
-
-  const motto = firstConfigValue(
-    school.motto, school.tagline, school.schoolMotto
-  );
-  const mottoElement = document.querySelector('.motto');
-  if (mottoElement && motto) mottoElement.textContent = `Motto: ${motto}`;
-
-  const watermarkImage = document.querySelector('.watermark-img');
-  if (watermarkImage && watermark) setImageIfPresent(watermarkImage, watermark);
-
-  const sealImage = document.querySelector('.seal-image');
-  if (sealImage && stamp) setImageIfPresent(sealImage, stamp, 'seal.jpg');
-
-  const stampImage = document.querySelector('.stamp-image');
-  if (stampImage && stamp) setImageIfPresent(stampImage, stamp);
-
-  const primary = firstConfigValue(
-    branding.primaryColor, branding.primary, school.primaryColor
-  );
-  const secondary = firstConfigValue(
-    branding.secondaryColor, branding.secondary, school.secondaryColor
-  );
-  const accent = firstConfigValue(
-    branding.accentColor, branding.accent, school.accentColor
-  );
-
-  if (primary) document.documentElement.style.setProperty('--school-primary', primary);
-  if (secondary) document.documentElement.style.setProperty('--school-secondary', secondary);
-  if (accent) document.documentElement.style.setProperty('--school-accent', accent);
-
-  const reportSettings = school.reportSettings || school.reportConfig || {};
-  const principal = school.principal || school.principalInfo || {};
-  window.currentSchoolConfig = school;
-  window.currentSchoolAcademicConfig = academic;
-  window.currentSchoolReportSettings = reportSettings;
-  window.currentSchoolPrincipal = principal;
-
-  // Current school settings are fallbacks only; a historical report's
-  // own session/term and next-term date remain authoritative.
-  window.currentSchoolDefaults = {
-    session: firstConfigValue(academic.currentSession, school.currentSession),
-    term: firstConfigValue(academic.currentTerm, school.currentTerm),
-    nextTermDate: firstConfigValue(
-      academic.nextTermBeginDate, academic.nextTermDate,
-      school.nextTermBeginDate, school.nextTermDate
-    ),
-    principalName: firstConfigValue(
-      principal.name, principal.fullName, school.principalName,
-      reportSettings.principalName
-    ),
-    principalSignature: firstConfigValue(
-      principal.signature, principal.signatureUrl,
-      branding.principalSignature, reportSettings.principalSignature
-    )
-  };
-}
-
-function getConfiguredGradeFromPercentage(percentage) {
-  const scale = window.currentSchoolAcademicConfig?.gradingScale;
-  if (!scale) return calculateGradeFromPercentage(percentage);
-
-  const pct = Number(percentage);
-  let entries = [];
-
-  if (Array.isArray(scale)) {
-    entries = scale.map(item => ({
-      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
-      min: Number(firstConfigValue(item.minScore, item.minimum, item.min, item.from, item.lowerBound)),
-      max: Number(firstConfigValue(item.maxScore, item.maximum, item.max, item.to, item.upperBound))
-    }));
-  } else if (typeof scale === 'object') {
-    entries = Object.entries(scale).map(([grade, value]) => {
-      if (typeof value === 'number') return { grade, min: value, max: 100 };
-      return {
-        grade,
-        min: Number(firstConfigValue(value?.minScore, value?.minimum, value?.min, value?.from, value?.lowerBound)),
-        max: Number(firstConfigValue(value?.maxScore, value?.maximum, value?.max, value?.to, value?.upperBound))
-      };
-    });
-  }
-
-  const match = entries.find(item =>
-    item.grade && Number.isFinite(item.min) && pct >= item.min &&
-    (!Number.isFinite(item.max) || pct <= item.max)
-  );
-
-  return match?.grade || calculateGradeFromPercentage(percentage);
-}
-
-function renderConfiguredGradeScale() {
-  const scale = window.currentSchoolAcademicConfig?.gradingScale;
-  const table = document.getElementById('gradeScaleTable');
-  if (!table || !scale) return;
-
-  let entries = [];
-  if (Array.isArray(scale)) {
-    entries = scale.map(item => ({
-      grade: firstConfigValue(item.grade, item.name, item.label, item.code),
-      min: firstConfigValue(item.minScore, item.minimum, item.min, item.from, item.lowerBound),
-      max: firstConfigValue(item.maxScore, item.maximum, item.max, item.to, item.upperBound),
-      remark: firstConfigValue(item.remark, item.remarks, item.description)
-    }));
-  } else if (typeof scale === 'object') {
-    entries = Object.entries(scale).map(([grade, value]) => ({
-      grade,
-      min: typeof value === 'number' ? value : firstConfigValue(value?.minScore, value?.minimum, value?.min, value?.from),
-      max: typeof value === 'number' ? 100 : firstConfigValue(value?.maxScore, value?.maximum, value?.max, value?.to),
-      remark: typeof value === 'object' ? firstConfigValue(value?.remark, value?.remarks, value?.description) : ''
-    }));
-  }
-
-  if (!entries.length) return;
-
-  table.innerHTML = entries.map(item => {
-    const range = item.min !== undefined && item.max !== undefined
-      ? `${item.min}-${item.max}%`
-      : (item.min !== undefined ? `${item.min}% and above` : '-');
-    const grade = String(item.grade || '-');
-    return `<tr><td style="font-weight:700;">${grade}</td><td>${range}</td></tr>`;
-  }).join('');
-}
-
-function clearStaticSchoolBranding() {
-  // Never show the repository's previous school's identity if config loading fails.
-  const name = document.querySelector('.school-name');
-  const location = document.querySelector('.school-location');
-  const contact = document.querySelector('.school-contact');
-  const motto = document.querySelector('.motto');
-
-  if (name) name.textContent = 'School name unavailable';
-  if (location) location.textContent = '';
-  if (contact) contact.textContent = '';
-  if (motto) motto.textContent = '';
-
-  document.querySelectorAll('.report-header img, .watermark-img, .seal-image, .stamp-image')
-    .forEach(img => { img.removeAttribute('src'); img.style.display = 'none'; });
-}
-
-async function initializeReport() {
-  const school = await fetchCurrentSchoolConfig();
-  if (school) {
-    applySchoolConfig(school);
-    renderConfiguredGradeScale();
-  } else {
-    clearStaticSchoolBranding();
-  }
-  populateReport();
-  window.reportPopulationComplete = true;
-}
-
 // Helper: Format date
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -445,6 +130,188 @@ function extractRemark(data, fieldPath) {
   return value ? String(value).trim() : '-';
 }
 
+
+// ============================================
+// CURRENT SCHOOL CONFIGURATION (MULTI-SCHOOL)
+// ============================================
+let currentSchoolConfig = null;
+
+function getReportApiBase() {
+  return String(window.BACKEND_URL || 'https://examguard-8rxe.onrender.com').replace(/\/+$/, '');
+}
+
+function getStoredReportSchoolIdentity(reportData = {}) {
+  const stored = (key) => {
+    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+  };
+
+  const hostname = window.location.hostname || '';
+  const hostParts = hostname.split('.');
+  const hostSubdomain = hostParts.length > 2 &&
+    !['www', 'verification', 'localhost'].includes(hostParts[0])
+      ? hostParts[0] : '';
+
+  return {
+    subdomain: stored('schoolSubdomain') ||
+      reportData.schoolSubdomain || reportData.school?.subdomain || hostSubdomain,
+    schoolCode: stored('schoolCode') || stored('schoolId') ||
+      reportData.schoolCode || reportData.schoolId || reportData.school?.schoolId || ''
+  };
+}
+
+function getReportAuthToken() {
+  try {
+    return localStorage.getItem('token') ||
+      localStorage.getItem('authToken') ||
+      sessionStorage.getItem('token') ||
+      sessionStorage.getItem('authToken') || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+async function fetchCurrentSchoolConfig(reportData = {}) {
+  const identity = getStoredReportSchoolIdentity(reportData);
+  const params = new URLSearchParams();
+
+  if (identity.subdomain) params.set('subdomain', identity.subdomain);
+  else if (identity.schoolCode) params.set('schoolId', identity.schoolCode);
+  else {
+    console.warn('School identity was not found; report will use its existing fallback content.');
+    return null;
+  }
+
+  const headers = { Accept: 'application/json' };
+  const token = getReportAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (identity.schoolCode) headers['X-School-Code'] = identity.schoolCode;
+
+  try {
+    const response = await fetch(`${getReportApiBase()}/api/schools/config?${params.toString()}`, {
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`School configuration request failed (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const school = payload?.data?.school || payload?.school || payload?.data || null;
+
+    if (!school || typeof school !== 'object') {
+      throw new Error('The school configuration response did not contain school data.');
+    }
+
+    // Keep tenant identity attached to the config so it cannot be confused with another school.
+    const returnedSchoolId = school.schoolId || school.id || school._id || '';
+    if (identity.schoolCode && returnedSchoolId &&
+        String(identity.schoolCode).toLowerCase() !== String(returnedSchoolId).toLowerCase()) {
+      throw new Error('The returned school configuration does not match this report.');
+    }
+
+    currentSchoolConfig = school;
+    console.log('Current school configuration loaded:', school.schoolName || school.name || 'School');
+    return school;
+  } catch (error) {
+    console.warn('Unable to load current school configuration. Existing report data will remain available.', error);
+    return null;
+  }
+}
+
+function setImageIfAvailable(element, source) {
+  if (!element || typeof source !== 'string' || !source.trim()) return;
+  element.src = source.trim();
+}
+
+function applyCurrentSchoolConfig(school, reportData = {}) {
+  if (!school) return;
+
+  const branding = school.branding || {};
+  const contact = school.contact || {};
+  const location = school.location || {};
+  const academic = school.academicConfig || {};
+  const principal = school.principal || school.principalInfo || {};
+
+  const schoolName = school.schoolName || school.name || school.displayName;
+  const address = [
+    location.address || school.address || contact.address,
+    location.city || school.city,
+    location.state || school.state,
+    location.country || school.country
+  ].filter(Boolean).join(', ');
+
+  const email = contact.email || school.email;
+  const phone = contact.phone || school.phone;
+  const motto = school.motto || school.tagline || branding.motto;
+
+  const nameEl = document.querySelector('.school-name');
+  const locationEl = document.querySelector('.school-location');
+  const contactEl = document.querySelector('.school-contact');
+  const mottoEl = document.querySelector('.motto');
+
+  if (nameEl && schoolName) nameEl.textContent = schoolName;
+  if (locationEl && address) locationEl.textContent = address;
+
+  if (contactEl && (email || phone)) {
+    contactEl.textContent = [
+      email ? `Email: ${email}` : '',
+      phone ? `Phone: ${phone}` : ''
+    ].filter(Boolean).join(' | ');
+  }
+
+  if (mottoEl && motto) {
+    mottoEl.textContent = '';
+    mottoEl.appendChild(document.createTextNode('Motto: '));
+    const strong = document.createElement('strong');
+    strong.textContent = `“${motto}”`;
+    mottoEl.appendChild(strong);
+  }
+
+  const logo = branding.logo || branding.lightLogo || branding.darkLogo || school.logo;
+  const watermark = branding.watermark || logo;
+  const stamp = branding.schoolStamp || branding.stamp || school.schoolStamp;
+
+  const headerImages = document.querySelectorAll('.report-header img');
+  if (logo) headerImages.forEach(img => setImageIfAvailable(img, logo));
+  setImageIfAvailable(document.querySelector('.watermark-img'), watermark);
+  setImageIfAvailable(document.querySelector('.seal-image'), branding.schoolStamp || branding.seal || stamp);
+  setImageIfAvailable(document.querySelector('.stamp-image'), stamp);
+
+  // Apply configured school colours without changing the report layout.
+  const primary = branding.primaryColor || branding.primary || school.primaryColor;
+  const secondary = branding.secondaryColor || branding.secondary || school.secondaryColor;
+  if (primary) {
+    document.querySelectorAll('.report-header, .report-title').forEach(el => {
+      el.style.borderColor = primary;
+    });
+    document.querySelectorAll('.results-table thead th, .box h4').forEach(el => {
+      el.style.backgroundColor = primary;
+    });
+  }
+  if (secondary) {
+    document.querySelectorAll('.school-name, .school-location, .school-contact').forEach(el => {
+      el.style.color = secondary;
+    });
+  }
+
+  // Use school-configured leadership details only when the report payload has no value.
+  const configuredPrincipalName = principal.name || principal.fullName ||
+    school.principalName || school.headTeacherName;
+  const principalNameEl = document.getElementById('principalName');
+  if (principalNameEl && !reportData.principalName && configuredPrincipalName) {
+    principalNameEl.textContent = configuredPrincipalName;
+  }
+
+  const nextTermDate = academic.nextTermBeginDate || academic.nextTermDate ||
+    school.nextTermBeginDate;
+  const nextTermEl = document.getElementById('nextTermDate');
+  if (nextTermEl && !reportData.nextTermDate && nextTermDate) {
+    nextTermEl.textContent = formatDate(nextTermDate);
+  }
+}
+
 // Load report data from sessionStorage
 function loadReportData() {
   try {
@@ -537,8 +404,6 @@ function setSignatureImages(data) {
   const principalSigImg = document.getElementById('principalSigImage');
   if (data.principalSignatureBase64) {
     principalSigImg.src = 'data:image/jpeg;base64,' + data.principalSignatureBase64;
-  } else if (data.principalSignatureUrl) {
-    principalSigImg.src = data.principalSignatureUrl;
   } else {
     // Keep default seal.jpg for fallback
     principalSigImg.src = 'https://signaturely.com/wp-content/uploads/2020/04/just-a-nickname-signaturely.svg';
@@ -561,9 +426,7 @@ function populateReport() {
   const attendance = data.attendance || {};
   const skillsReport = data.skillsReport || {};
   
-  const schoolDefaults = window.currentSchoolDefaults || {};
-  const reportSession = firstConfigValue(data.session, schoolDefaults.session, '-');
-  const term = firstConfigValue(data.term, schoolDefaults.term, '');
+  const term = data.term || currentSchoolConfig?.academicConfig?.currentTerm || '';
 
   console.log('📊 Populating report with:');
   console.log('   - Results:', results.length, 'subjects');
@@ -581,7 +444,7 @@ function populateReport() {
   document.getElementById('profileName').textContent = student.name || '-';
   document.getElementById('profileAdmNo').textContent = student.regNo || '-';
   document.getElementById('profileClass').textContent = student.class?.name || student.class || '-';
-  document.getElementById('profileSession').textContent = reportSession;
+  document.getElementById('profileSession').textContent = data.session || currentSchoolConfig?.academicConfig?.currentSession || '-';
   document.getElementById('profileDOB').textContent = formatDate(student.DOB);
   document.getElementById('profileAge').textContent = calculateAge(student.DOB);
   document.getElementById('profileSex').textContent = student.gender || '-';
@@ -626,7 +489,7 @@ function populateReport() {
   const academicStatus = determineAcademicStatus(percentage, failCount);
 
   // ✅ Calculate overall grade based on percentage
-  const overallGrade = getConfiguredGradeFromPercentage(percentage);
+  const overallGrade = calculateGradeFromPercentage(percentage);
 
   console.log('📊 Calculated values:');
   console.log('   - Percentage:', percentage);
@@ -822,35 +685,34 @@ function populateReport() {
   
   // Set names
   document.getElementById('teacherName').textContent = data.teacherName || 'Teacher';
-  document.getElementById('principalName').textContent = data.principalName || schoolDefaults.principalName || 'Principal';
+  document.getElementById('principalName').textContent = data.principalName || currentSchoolConfig?.principal?.name || currentSchoolConfig?.principalName || 'Principal';
   
   // Set signature images with fallback to static seal.jpg
-  setSignatureImages({ ...data, principalSignatureUrl: data.principalSignatureUrl || schoolDefaults.principalSignature });
+  setSignatureImages(data);
   
   // Generate QR code
   try {
-    generateQRCode(student, reportSession);
+    generateQRCode(student, data.session);
   } catch (e) {
     console.warn('⚠️ QR code generation failed:', e);
   }
 
   // Dates
-  document.getElementById('nextTermDate').textContent = formatDate(firstConfigValue(data.nextTermDate, schoolDefaults.nextTermDate)) || '-';
+  document.getElementById('nextTermDate').textContent = formatDate(data.nextTermDate || currentSchoolConfig?.academicConfig?.nextTermBeginDate || currentSchoolConfig?.academicConfig?.nextTermDate) || '-';
   document.getElementById('dateIssued').textContent = formatDate(data.dateIssued) || formatDate(new Date().toISOString());
 
   console.log('✅ Report population completed successfully!');
 }
 
-// Initialize only after the current school's configuration has been resolved.
-document.addEventListener('DOMContentLoaded', initializeReport);
-// Auto-print after the report and available school configuration are ready.
-window.addEventListener('load', () => {
-  const waitForReport = () => {
-    if (window.reportPopulationComplete) {
-      setTimeout(() => window.print(), 500);
-    } else {
-      setTimeout(waitForReport, 100);
-    }
-  };
-  waitForReport();
+// Initialize after loading the active school's configuration.
+// Printing waits until the configuration and report have both been applied.
+document.addEventListener('DOMContentLoaded', async () => {
+  const reportData = loadReportData();
+  await fetchCurrentSchoolConfig(reportData || {});
+  applyCurrentSchoolConfig(currentSchoolConfig, reportData || {});
+  populateReport();
+
+  window.setTimeout(() => {
+    window.print();
+  }, 700);
 });
