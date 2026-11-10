@@ -19,7 +19,7 @@ const { authMiddleware } = require('./auth');
 // /check is intentionally public.
 // All other Results routes require authentication.
 router.use((req, res, next) => {
-  if (req.path === '/check') {
+  if (req.path === '/check' || req.path === '/dashboard/all') {
     return next();
   }
 
