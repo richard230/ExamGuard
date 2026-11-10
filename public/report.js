@@ -992,17 +992,17 @@ function generateQRCode(student, session, term) {
       school._id
   };
 
-  Object.entries(params).forEach(([key, value]) => {
+  for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && String(value).trim()) {
       verificationUrl.searchParams.set(key, String(value).trim());
     }
-  });
+  }
 
   new QRCode(container, {
     text: verificationUrl.toString(),
-    width: 70,
-    height: 70,
-    correctLevel: QRCode.CorrectLevel.M
+    width: 180,
+    height: 180,
+    correctLevel: QRCode.CorrectLevel.L
   });
 }
 
