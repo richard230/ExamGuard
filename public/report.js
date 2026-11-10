@@ -858,22 +858,33 @@ function applyDynamicFontSizing(resultCount) {
 }
 
 function generateQRCode(student, session) {
-  const qrData = `
-Name: ${student?.name || ''}
-RegNo: ${student?.regNo || ''}
-Class: ${student?.class?.name || student?.class || ''}
-Session: ${session || ''}
-Verify: https://verification.examguard.com.ng/verify
-  `.trim();
-
   const container = document.getElementById('qrCode');
-  if (!container || !qrData || typeof QRCode === 'undefined') return;
+  if (!container) return;
 
-  container.innerHTML = '';
+  container.replaceChildren();
+
+  if (typeof QRCode === 'undefined') {
+    console.error('QR code library is not loaded.');
+    return;
+  }
+
+  const verificationUrl = new URL(
+    'https://verification.examguard.com.ng/verify'
+  );
+
+  if (student?.regNo) {
+    verificationUrl.searchParams.set('regNo', student.regNo);
+  }
+
+  if (session) {
+    verificationUrl.searchParams.set('session', session);
+  }
+
   new QRCode(container, {
-    text: qrData,
+    text: verificationUrl.toString(),
     width: 70,
-    height: 70
+    height: 70,
+    correctLevel: QRCode.CorrectLevel.M
   });
 }
 
