@@ -16,8 +16,6 @@ const { authMiddleware } = require('./auth');
 // AUTHENTICATION
 // ===============================
 
-// /check is intentionally public.
-// All other Results routes require authentication.
 router.use((req, res, next) => {
   if (req.path === '/check' || req.path === '/dashboard/all') {
     return next();
@@ -590,18 +588,23 @@ router.get('/dashboard/student/:studentId', async (req, res) => {
   }
 });
 
-// 8. GET /dashboard/all
-router.get('/dashboard/all', apiKeyAuth, async (req, res) => {
-  try {
-    const school = req.school || req.apiKey?.school;
-    const schoolId = school?._id || req.apiKey?.school;
+router.get(
+  '/dashboard/all',
+  (req, res, next) => {
+    req.requiredPermission = 'results.read';
+    next();
+  },
+  apiKeyAuth,
+  async (req, res) => {
+    try {
+      const schoolId = req.school?._id;
 
-    if (!schoolId) {
-      return res.status(401).json({
-        success: false,
-        error: 'API key is not associated with a school.'
-      });
-    }
+      if (!schoolId) {
+        return res.status(401).json({
+          success: false,
+          error: 'API key is not associated with a valid school.'
+        });
+      }
 
     const query = { schoolId, status: 'Published' };
 
