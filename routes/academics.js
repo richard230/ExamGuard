@@ -165,7 +165,7 @@ router.get('/classes', authMiddleware, async (req, res) => {
     subjects: c.subjects
   })));
 });
-router.get('/sessions', async (req, res) => {
+router.get('/sessions', authMiddleware, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
 
