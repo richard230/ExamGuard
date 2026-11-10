@@ -19,6 +19,8 @@ const AppState = {
   isUploading: false,
   isValidating: false,
   isSyncedFromBackend: false,
+  currentSchool: null,
+  currentSchoolConfig: null,
   schoolMetadata: {
     schoolId: '',
     schoolName: '',
@@ -28,6 +30,118 @@ const AppState = {
     verified: false
   }
 };
+
+// ===== AUTH / SCHOOL HELPERS =====
+function getAuthToken() {
+  return localStorage.getItem('token') ||
+    localStorage.getItem('adminToken') ||
+    '';
+}
+
+function normalizeTermName(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function setCurrentTermInDropdown(termName) {
+  const termSelect = document.getElementById('termInput');
+  if (!termSelect || !termName) return;
+
+  const normalizedTerm = normalizeTermName(termName);
+  const matchingOption = Array.from(termSelect.options).find(option =>
+    normalizeTermName(option.value) === normalizedTerm ||
+    normalizeTermName(option.textContent) === normalizedTerm
+  );
+
+  if (matchingOption) {
+    termSelect.value = matchingOption.value;
+  }
+}
+
+async function loadCurrentSchoolConfig() {
+  const token = getAuthToken();
+  if (!token) {
+    showAlert('warning', 'Sign in to load your current school configuration.');
+    return;
+  }
+
+  try {
+    const meResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const meData = await meResponse.json();
+
+    if (!meResponse.ok || !meData.success || !meData.school) {
+      throw new Error(meData.error || 'Could not identify the school for this account.');
+    }
+
+    const authenticatedSchool = meData.school;
+    const schoolIdentifier = authenticatedSchool.schoolId;
+
+    if (!schoolIdentifier) {
+      throw new Error('The authenticated school is missing its school ID.');
+    }
+
+    const configUrl = new URL(`${API_BASE_URL}/api/schools/config`);
+    configUrl.searchParams.set('schoolId', schoolIdentifier);
+
+    const configResponse = await fetch(configUrl.toString(), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const configData = await configResponse.json();
+
+    if (!configResponse.ok || !configData.success || !configData.data) {
+      throw new Error(configData.error || 'Could not load school configuration.');
+    }
+
+    AppState.currentSchool = authenticatedSchool;
+    AppState.currentSchoolConfig = configData.data;
+
+    const academicConfig = configData.data.academic || {};
+    const sessionInput = document.getElementById('sessionInput');
+
+    if (sessionInput && academicConfig.currentSession) {
+      sessionInput.value = academicConfig.currentSession;
+    }
+
+    if (academicConfig.currentTerm) {
+      setCurrentTermInDropdown(academicConfig.currentTerm);
+    }
+
+    prefillCurrentSchoolInCloudPushForm();
+
+    console.info('Loaded current school configuration:', authenticatedSchool.schoolName);
+  } catch (error) {
+    console.error('Error loading current school configuration:', error);
+    showAlert('warning', error.message || 'Could not load the current school configuration.');
+  }
+}
+
+function prefillCurrentSchoolInCloudPushForm() {
+  const school = AppState.currentSchool;
+  if (!school) return;
+
+  const schoolIdInput = document.getElementById('schoolIdInput');
+  const schoolNameInput = document.getElementById('schoolNameInput');
+
+  if (schoolIdInput && school.schoolId) {
+    schoolIdInput.value = school.schoolId;
+  }
+
+  if (schoolNameInput) {
+    schoolNameInput.value = school.schoolName || school.name || '';
+  }
+
+  AppState.schoolMetadata.schoolId = school.schoolId || '';
+  AppState.schoolMetadata.schoolName = school.schoolName || school.name || '';
+}
 
 // ===== HELPERS =====
 function getApiAuthHeaders(extraHeaders = {}) {
@@ -385,6 +499,8 @@ function showCloudPushOption() {
   } else {
     cloudPushSection.style.display = 'block';
   }
+
+  prefillCurrentSchoolInCloudPushForm();
 }
 
 // ===== HIDE CLOUD PUSH OPTION =====
@@ -548,12 +664,9 @@ async function fetchFromBackend() {
   }
 
   try {
-    // Normalize the base URL to a backend host
     const baseOrigin = validUrl.origin;
     const basePath = validUrl.pathname.replace(/\/+$/, '');
 
-    // IMPORTANT:
-    // Use API key auth + correct route
     const dashboardEndpoint = /\/api\/results$/.test(basePath) || /\/api\/results\/$/.test(basePath)
       ? `${basePath}/dashboard/all`
       : `${basePath}/api/results/dashboard/all`;
@@ -591,7 +704,6 @@ async function fetchFromBackend() {
 
     console.log('Raw API response sample:', data[0]);
 
-    // Store key for future use
     CONFIG.API_KEY = apiKey;
     saveApiKeyToStorage(apiKey);
 
@@ -1275,6 +1387,11 @@ document.addEventListener('DOMContentLoaded', () => {
     CONFIG.API_KEY = storedApiKey;
     console.log('✓ API key loaded from localStorage');
   }
+
+  updateStats();
+  loadCurrentSchoolConfig();
+
+  console.log('✓ Result Verify loaded successfully');
 });
 
 async function uploadToUniversalServer(e) {
@@ -1722,25 +1839,4 @@ document.querySelectorAll('.nav-item').forEach(item => {
     const sidebar = document.querySelector('.sidebar');
     if (sidebar) sidebar.classList.remove('active');
   });
-});
-
-// ===== INITIALIZATION =====
-document.addEventListener('DOMContentLoaded', () => {
-  setupFileUpload();
-
-  const storedApiKey = localStorage.getItem('apiKey');
-  if (storedApiKey) {
-    CONFIG.API_KEY = storedApiKey;
-    console.log('✓ API key loaded from localStorage');
-  }
-
-  const today = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  updateStats();
-
-  console.log('✓ Result Verify loaded successfully');
 });
