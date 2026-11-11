@@ -196,7 +196,14 @@ scratchCardUsage: {
   min: 0,
   max: 5
 },
-
+scratchCardAssignedAt: {
+  type: Date,
+  default: null
+},
+scratchCardExpiry: {
+  type: Date,
+  default: null
+},
 scratchCardHistory: [{
   cardCode: {
     type: String,
@@ -216,7 +223,7 @@ scratchCardHistory: [{
   },
   status: {
     type: String,
-    enum: ['active', 'exhausted', 'replaced'],
+    enum: ['active', 'exhausted', 'replaced', 'expired'],
     default: 'active'
   }
 }],
