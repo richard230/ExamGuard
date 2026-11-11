@@ -339,13 +339,34 @@ async function verifyPaystack(purchase) {
   const actualStatus = String(transaction?.status || '').trim().toLowerCase();
   const actualCurrency = String(transaction?.currency || '').trim().toUpperCase();
   const actualAmount = Number(transaction?.amount);
+  const requestedAmountRaw = transaction?.requested_amount;
+  const transactionFeesRaw = transaction?.fees;
+  const requestedAmount = Number(requestedAmountRaw);
+  const transactionFees = Number(transactionFeesRaw);
+  const hasRequestedAmount = requestedAmountRaw !== null && requestedAmountRaw !== undefined && requestedAmountRaw !== '' && Number.isFinite(requestedAmount) && requestedAmount >= 0;
+  const hasTransactionFees = transactionFeesRaw !== null && transactionFeesRaw !== undefined && transactionFeesRaw !== '' && Number.isFinite(transactionFees) && transactionFees >= 0;
+
+  // Paystack's `amount` can represent the total paid by the customer, including
+  // processing fees. `requested_amount` represents the amount our integration
+  // originally requested. Prefer that field; otherwise reconcile amount - fees.
+  // Never accept an arbitrary overpayment or ignore an unexplained difference.
+  const amountBasisSubunits = hasRequestedAmount
+    ? requestedAmount
+    : (hasTransactionFees && Number.isFinite(actualAmount)
+      ? actualAmount - transactionFees
+      : actualAmount);
+  const amountBreakdownConsistent =
+    !(hasRequestedAmount && hasTransactionFees && Number.isFinite(actualAmount)) ||
+    actualAmount === requestedAmount + transactionFees;
+
   const checks = {
     providerAccepted: result?.status === true,
     transactionPresent: Boolean(transaction),
     statusIsSuccess: actualStatus === 'success',
     referenceMatches: actualReference === expectedReference,
     currencyMatches: actualCurrency === expectedCurrency,
-    amountMatches: Number.isFinite(actualAmount) && actualAmount === expectedAmount
+    amountMatches: Number.isFinite(amountBasisSubunits) && amountBasisSubunits === expectedAmount,
+    amountBreakdownConsistent
   };
   const verified = Object.values(checks).every(Boolean);
 
@@ -360,6 +381,9 @@ async function verifyPaystack(purchase) {
     returnedReference: actualReference || null,
     returnedStatus: actualStatus || null,
     returnedAmountSubunits: Number.isFinite(actualAmount) ? actualAmount : null,
+    returnedRequestedAmountSubunits: hasRequestedAmount ? requestedAmount : null,
+    returnedFeesSubunits: hasTransactionFees ? transactionFees : null,
+    reconciledBaseAmountSubunits: Number.isFinite(amountBasisSubunits) ? amountBasisSubunits : null,
     expectedAmountSubunits: expectedAmount,
     returnedCurrency: actualCurrency || null,
     expectedCurrency,
@@ -567,7 +591,7 @@ function purchaseResponse(purchase) {
 function getSchoolPortalBaseUrl(school) {
   const customDomain = String(school?.customDomain || '').trim();
   const subdomain = String(school?.subdomain || '').trim();
-  const baseDomain = String(process.env.GOLDLINCSCHOOLS_BASE_DOMAIN || 'goldlincschools.com.ng')
+  const baseDomain = String(process.env.EXAMGUARD_BASE_DOMAIN || 'examguard.com.ng')
     .trim().replace(/^https?:\/\//i, '').replace(/\/$/, '');
 
   // Custom domains are read from the trusted School record, never from callback query parameters.
@@ -587,11 +611,11 @@ function getSchoolPortalBaseUrl(school) {
     return `https://${subdomain.toLowerCase()}.${baseDomain}`;
   }
 
-  const fallback = String(process.env.GOLDLINCSCHOOLS_FRONTEND_URL || 'https://goldlincschools.com.ng').trim();
+  const fallback = String(process.env.EXAMGUARD_FRONTEND_URL || 'https://examguard.com.ng').trim();
   try {
     return new URL(fallback).origin;
   } catch (_) {
-    return 'https://goldlincschools.com.ng';
+    return 'https://examguard.com.ng';
   }
 }
 
