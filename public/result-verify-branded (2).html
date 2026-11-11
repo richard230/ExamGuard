@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title id="documentTitle">Upload Student Data | School Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="result-verify.css">
+  <style>
+    :root {
+      --school-primary: #1e40af;
+      --school-accent: #3b82f6;
+    }
+
+    /* Compact, school-branded sidebar header */
+    .sidebar-header {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
+      gap: 12px !important;
+      min-width: 0;
+      padding: 24px 18px 20px !important;
+      height: auto !important;
+      box-sizing: border-box;
+    }
+
+    .sidebar-logo,
+    .sidebar-logo-image {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 58px !important;
+      height: 58px !important;
+      min-width: 58px;
+      max-width: 58px;
+      min-height: 58px;
+      max-height: 58px;
+      flex: 0 0 58px;
+      box-sizing: border-box;
+      object-fit: contain;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .sidebar-logo-image {
+      display: block;
+      background: #fff;
+    }
+
+    .school-logo-hidden {
+      display: none !important;
+    }
+
+    .sidebar-brand {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    .sidebar-brand h3 {
+      display: block;
+      max-width: 100%;
+      margin: 0 0 4px;
+      font-size: 15px;
+      line-height: 1.3;
+      font-weight: 700;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+    .sidebar-brand p {
+      margin: 0 0 5px;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: normal;
+    }
+
+    .school-id-label {
+      display: block;
+      max-width: 100%;
+      font-size: 10px;
+      line-height: 1.35;
+      opacity: .78;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .school-name-loading {
+      opacity: 0.7;
+    }
+
+    .sidebar-nav {
+      min-width: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-wrapper">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo" id="sidebarLogoFallback" aria-hidden="true">EG</div>
+        <img
+          id="schoolLogo"
+          class="sidebar-logo sidebar-logo-image school-logo-hidden"
+          alt=""
+        >
+        <div class="sidebar-brand">
+          <h3 id="sidebarSchoolName" class="school-name-loading">School Portal</h3>
+          <p id="sidebarSchoolTagline">Student Results</p>
+          <small id="sidebarSchoolId" class="school-id-label" aria-live="polite"></small>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item" onclick="navigateTab('dashboard')">
+          <i class="fas fa-chart-line"></i>
+          <span>Dashboard</span>
+        </div>
+        <div class="nav-item active" onclick="navigateTab('upload')">
+          <i class="fas fa-cloud-upload-alt"></i>
+          <span>Upload Data</span>
+        </div>
+        <div class="nav-item" onclick="navigateTab('history')">
+          <i class="fas fa-history"></i>
+          <span>Upload History</span>
+        </div>
+        <div class="nav-item" onclick="navigateTab('results')">
+          <i class="fas fa-file-pdf"></i>
+          <span>View Results</span>
+        </div>
+        <div class="nav-item" onclick="navigateTab('settings')">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </div>
+        <div class="nav-item" onclick="navigateTab('support')">
+          <i class="fas fa-circle-question"></i>
+          <span>Help &amp; Support</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-avatar" id="sidebarAvatar">A</div>
+        <div class="sidebar-footer-info">
+          <p id="sidebarUserName">Administrator</p>
+          <span id="sidebarUserRole">School Administrator</span>
+        </div>
+      </div>
+    </aside>
+
+    <header class="header">
+      <div class="header-left">
+        <div class="header-title">
+          <h1>Upload Student Data</h1>
+          <p id="headerSubtitle">Manage and upload student results for your school</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="header-btn" type="button" onclick="downloadTemplate()">
+          <i class="fas fa-download"></i>
+          <span>Download Template</span>
+        </button>
+        <div class="header-avatar" id="headerAvatar">A</div>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="main-content">
+        <div class="tabs-container">
+          <button class="tab-btn active" type="button" onclick="switchTab('upload-tab')">
+            <i class="fas fa-arrow-up"></i> Upload
+          </button>
+          <button class="tab-btn" type="button" onclick="switchTab('bulk-tab')">
+            <i class="fas fa-list"></i> Bulk Operations
+          </button>
+          <button class="tab-btn" type="button" onclick="switchTab('preview-tab')">
+            <i class="fas fa-eye"></i> Preview
+          </button>
+        </div>
+
+        <div id="upload-tab" class="tab-content active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon blue">
+                <i class="fas fa-users"></i>
+              </div>
+              <div class="stat-content">
+                <h3>Total Records</h3>
+                <p class="stat-value" id="totalRecords">0</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon green">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <div class="stat-content">
+                <h3>Uploaded</h3>
+                <p class="stat-value" id="uploadedCount">0</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon orange">
+                <i class="fas fa-hourglass"></i>
+              </div>
+              <div class="stat-content">
+                <h3>Pending</h3>
+                <p class="stat-value" id="pendingCount">0</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon red">
+                <i class="fas fa-exclamation-circle"></i>
+              </div>
+              <div class="stat-content">
+                <h3>Errors</h3>
+                <p class="stat-value" id="errorCount">0</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </div>
+              <div>
+                <h2>Upload Student Results</h2>
+                <p>Upload results to the universal server or sync from your school backend</p>
+              </div>
+            </div>
+
+            <div class="alert alert-success" id="successAlert">
+              <div class="alert-icon"><i class="fas fa-check-circle"></i></div>
+              <div class="alert-content">
+                <div class="alert-title">Success!</div>
+                <div class="alert-message" id="successMessage">Operation completed successfully</div>
+              </div>
+            </div>
+
+            <div class="alert alert-error" id="errorAlert">
+              <div class="alert-icon"><i class="fas fa-exclamation-circle"></i></div>
+              <div class="alert-content">
+                <div class="alert-title">Error</div>
+                <div class="alert-message" id="errorMessage">An error occurred</div>
+              </div>
+            </div>
+
+            <div class="alert alert-warning" id="warningAlert">
+              <div class="alert-icon"><i class="fas fa-info-circle"></i></div>
+              <div class="alert-content">
+                <div class="alert-title">Info</div>
+                <div class="alert-message" id="warningMessage">Please review the information</div>
+              </div>
+            </div>
+
+            <form id="uploadForm">
+              <div class="form-row three">
+                <div class="form-group">
+                  <label class="form-label" for="sessionInput">
+                    Academic Session <span class="required">*</span>
+                  </label>
+                  <input type="text" class="form-input" id="sessionInput" placeholder="e.g., 2024/2025" required>
+                  <span class="form-hint">Prefilled from your school configuration when available</span>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="termInput">
+                    Term <span class="required">*</span>
+                  </label>
+                  <select class="form-select" id="termInput" required>
+                    <option value="">Select Term</option>
+                    <option value="First Term">First Term</option>
+                    <option value="Second Term">Second Term</option>
+                    <option value="Third Term">Third Term</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="classInput">
+                    Class/Grade <span class="required">*</span>
+                  </label>
+                  <input type="text" class="form-input" id="classInput" placeholder="e.g., JSS1A" required>
+                  <span class="form-hint">Class or grade level</span>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="subjectInput">
+                    Subject <span class="required">*</span>
+                  </label>
+                  <input type="text" class="form-input" id="subjectInput" placeholder="e.g., Mathematics" required>
+                  <span class="form-hint">Subject name</span>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="scoreTypeInput">
+                    Score Type <span class="required">*</span>
+                  </label>
+                  <select class="form-select" id="scoreTypeInput" required>
+                    <option value="">Select Score Type</option>
+                    <option value="ca1_score">Continuous Assessment 1</option>
+                    <option value="ca2_score">Continuous Assessment 2</option>
+                    <option value="midterm_score">Midterm Exam</option>
+                    <option value="exam_score">Final Exam</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="file-upload-wrapper">
+                <label class="form-label" for="fileInput">
+                  Upload File <span class="required">*</span>
+                </label>
+                <div class="file-upload-area" id="fileUploadArea" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                  <input type="file" id="fileInput" accept=".json,.csv,.xlsx" aria-label="Upload a JSON, CSV, or XLSX file">
+                  <div class="file-upload-icon">
+                    <i class="fas fa-file-import"></i>
+                  </div>
+                  <div class="file-upload-text">
+                    <h3>Click to upload or drag and drop</h3>
+                    <p>JSON, CSV, or XLSX format</p>
+                  </div>
+                  <div class="file-upload-hint">Maximum file size: 50MB</div>
+                </div>
+                <div id="fileList" class="file-list"></div>
+              </div>
+
+              <hr style="margin: 28px 0; border: none; border-top: 2px solid var(--border);">
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="backendUrlInput">Or Sync from School Backend</label>
+                  <input type="url" class="form-input" id="backendUrlInput" placeholder="https://your-school-backend.com/api">
+                  <span class="form-hint">Optional: Fetch directly from your school system</span>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="apiKeyInput">API Key</label>
+                  <input type="password" class="form-input" id="apiKeyInput" placeholder="Your backend API key" autocomplete="off">
+                  <span class="form-hint">Required for backend sync</span>
+                </div>
+              </div>
+
+              <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="fetchFromBackend()">
+                  <i class="fas fa-sync-alt"></i>
+                  <span id="fetchBtnText">Sync from Backend</span>
+                </button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                  <i class="fas fa-arrow-up"></i>
+                  <span id="submitBtnText">Upload to Universal Server</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card progress-section" id="progressSection">
+            <div class="progress-header">
+              <h3>Upload Progress</h3>
+              <div class="progress-percentage">
+                <span id="progressPercent">0</span>%
+              </div>
+            </div>
+
+            <div class="progress-bar-container">
+              <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+
+            <div class="progress-info">
+              <div class="progress-item">
+                <div class="progress-item-label">Processing</div>
+                <div class="progress-item-value" id="processingCount">0</div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-item-label">Successful</div>
+                <div class="progress-item-value" id="successCount">0</div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-item-label">Failed</div>
+                <div class="progress-item-value" id="failedCount">0</div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-item-label">Total</div>
+                <div class="progress-item-value" id="totalUploadCount">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="bulk-tab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-icon">
+                <i class="fas fa-list"></i>
+              </div>
+              <div>
+                <h2>Bulk Operations</h2>
+                <p>Manage multiple uploads and batch operations</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="bulkOperationType">
+                Operation Type <span class="required">*</span>
+              </label>
+              <select class="form-select" id="bulkOperationType">
+                <option value="">Select Operation</option>
+                <option value="merge">Merge Duplicate Results</option>
+                <option value="publish">Publish All Drafts</option>
+                <option value="sync">Sync with Universal Server</option>
+                <option value="export">Export Results</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="recordsInput">Select Records</label>
+              <textarea class="form-textarea" id="recordsInput" placeholder="Paste result IDs (one per line) or leave empty for all"></textarea>
+              <span class="form-hint">Leave empty to apply to all records</span>
+            </div>
+
+            <div class="button-group">
+              <button type="button" class="btn btn-primary" onclick="executeBulkOperation()">
+                <i class="fas fa-gear"></i>
+                <span>Execute Operation</span>
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                <i class="fas fa-rotate-left"></i>
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card" id="bulkStatusCard" style="display: none;">
+            <div class="card-header">
+              <div class="card-header-icon">
+                <i class="fas fa-circle-check"></i>
+              </div>
+              <div>
+                <h2>Operation Status</h2>
+                <p id="operationStatusText">Processing...</p>
+              </div>
+            </div>
+
+            <div class="progress-bar-container">
+              <div class="progress-bar" id="bulkProgressBar" style="width: 0%"></div>
+            </div>
+
+            <div class="progress-info">
+              <div class="progress-item">
+                <div class="progress-item-label">Processed</div>
+                <div class="progress-item-value" id="bulkProcessed">0</div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-item-label">Successful</div>
+                <div class="progress-item-value" id="bulkSuccess">0</div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-item-label">Failed</div>
+                <div class="progress-item-value" id="bulkFailed">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="preview-tab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-icon">
+                <i class="fas fa-eye"></i>
+              </div>
+              <div>
+                <h2>Data Preview</h2>
+                <p>Review data before uploading</p>
+              </div>
+            </div>
+
+            <div id="previewContent" class="empty-state">
+              <div class="empty-state-icon">
+                <i class="fas fa-magnifying-glass"></i>
+              </div>
+              <h3>No Data to Preview</h3>
+              <p>Upload a file or fetch from backend to see preview</p>
+            </div>
+
+            <div id="previewTable" style="display: none;">
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr id="previewHeader"></tr>
+                  </thead>
+                  <tbody id="previewBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="templateModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Upload Template</h2>
+        <button class="modal-close" onclick="closeModal('templateModal')">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Template Format (JSON):</strong></p>
+        <pre style="background: var(--bg-lighter); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem;"><code id="templateCode"></code></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('templateModal')">Close</button>
+        <button class="btn btn-primary" onclick="copyTemplate()">Copy to Clipboard</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="result-verify.js"></script>
+</body>
+</html>
