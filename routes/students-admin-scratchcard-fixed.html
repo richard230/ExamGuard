@@ -1,0 +1,1026 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const Joi = require('joi');
+const studentAuthMiddleware = require('../middleware/studentAuth');
+const adminAuth = require('../middleware/adminAuth');
+const { authMiddleware } = require('./auth');
+const Student = require('../models/Student');
+
+// Utility: Extract schoolId from req.user for all roles (including superadmin)
+function getSchoolId(req) {
+  if (!req.user) return null;
+  // Keep school context consistent with the results routes. Some authenticated
+  // admin sessions expose the tenant as `school` rather than `schoolId`.
+  const school = req.user.schoolId || req.user.school || null;
+  return school && typeof school === 'object' ? (school._id || null) : school;
+}
+
+// Utility: Force school filtering on queries
+function applySchoolFilter(req, query = {}) {
+  const schoolId = getSchoolId(req);
+
+  if (!schoolId) {
+    throw new Error('Your account is not assigned to a school.');
+  }
+
+  query.schoolId = schoolId;
+
+  return query;
+}
+
+// Multer setup for photo uploads (limit size to 2MB, accept only images/docs)
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype.startsWith('image/') ||
+      file.mimetype === 'application/pdf' ||
+      file.mimetype === 'application/msword' ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images and documents (PDF/DOC/DOCX) are allowed.'));
+    }
+  }
+});
+
+// Utility: generate student_id
+function generateStudentId() {
+  return 'STU' + Math.floor(100000 + Math.random() * 900000);
+}
+
+// Utility: generate 8-character alphanumeric scratch card
+function generateScratchCard() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let card = '';
+  for (let i = 0; i < 8; i++) {
+    card += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return card;
+}
+
+// --- Joi validation schema for enrollment ---
+const studentSchema = Joi.object({
+  surname: Joi.string().required(),
+  firstname: Joi.string().required(),
+  dob: Joi.string().required(),
+  gender: Joi.string().required(),
+  scratchCard: Joi.string().length(8).alphanum().required(),
+  class: Joi.string().required(),
+  parentName: Joi.string().required(),
+  parentId: Joi.string().length(24).hex().optional().allow(null, ''),
+  parentRelationship: Joi.string().required(),
+  parentPhone: Joi.string().required(),
+  password: Joi.string().min(6).required(),
+  othernames: Joi.string().allow(''),
+  nationality: Joi.string().allow(''),
+  state: Joi.string().allow(''),
+  lga: Joi.string().allow(''),
+  address: Joi.string().allow(''),
+  classArm: Joi.string().allow(''),
+  previousSchool: Joi.string().allow(''),
+  admissionDate: Joi.string().allow(''),
+  academicSession: Joi.string().allow(''),
+  parentEmail: Joi.string().allow(''),
+  parentAddress: Joi.string().allow(''),
+  parentOccupation: Joi.string().allow(''),
+  studentEmail: Joi.string().allow(''),
+  studentPhone: Joi.string().allow(''),
+  religion: Joi.string().allow(''),
+  bloodGroup: Joi.string().allow(''),
+  genotype: Joi.string().allow(''),
+  medical: Joi.string().allow('')
+});
+
+router.post('/', authMiddleware, upload.single('photo'), async (req, res) => {
+  try {
+    const schoolId = getSchoolId(req);
+
+    if (!schoolId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is not assigned to a school.'
+      });
+    }
+
+    if (!req.body.scratchCard || req.body.scratchCard.length !== 8) {
+      req.body.scratchCard = generateScratchCard();
+    }
+
+    if (req.body.regNo) delete req.body.regNo;
+
+    const { error, value: data } = studentSchema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    const year = new Date().getFullYear();
+    // Get highest regNo for this year within the same school
+    const regNoQuery = {
+      regNo: { $regex: `^${year}/` }
+    };
+
+    applySchoolFilter(req, regNoQuery);
+
+    const lastStudent = await Student.findOne(regNoQuery)
+      .sort({ regNo: -1 })
+      .exec();
+
+    let nextSerial = 1;
+    if (lastStudent && lastStudent.regNo) {
+      const parts = lastStudent.regNo.split('/');
+      if (parts.length === 2) {
+        nextSerial = parseInt(parts[1], 10) + 1;
+      }
+    }
+    const regNo = `${year}/${String(nextSerial).padStart(4, '0')}`;
+
+    // Ensure regNo is unique per school
+    const regNoExistsQuery = { regNo };
+    applySchoolFilter(req, regNoExistsQuery);
+
+    if (await Student.exists(regNoExistsQuery)) {
+      return res.status(400).json({ error: 'A student with that registration number already exists. Please try again.' });
+    }
+
+    // Ensure scratchCard is unique per school
+    let scratchCard = data.scratchCard;
+    let tries = 0;
+    const scratchCardExists = async (card) => {
+      const query = { scratchCard };
+      applySchoolFilter(req, query);
+      return Student.exists(query);
+    };
+
+    while (await scratchCardExists(scratchCard) && tries < 5) {
+      scratchCard = generateScratchCard();
+      tries++;
+    }
+    if (tries === 5 && await scratchCardExists(scratchCard)) {
+      return res.status(400).json({ error: 'Could not generate a unique scratch card. Please try again.' });
+    }
+
+    let student_id = data.student_id || generateStudentId();
+    const studentIdExistsQuery = { student_id };
+    applySchoolFilter(req, studentIdExistsQuery);
+
+    if (await Student.exists(studentIdExistsQuery)) {
+      return res.status(400).json({ error: 'A student with that student ID already exists.' });
+    }
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    const admissionDate = data.admissionDate ? new Date(data.admissionDate) : undefined;
+
+    let photoBase64 = '';
+    if (req.file) {
+      photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    }
+    let parentObjectId = null;
+
+    if (data.parentId && mongoose.Types.ObjectId.isValid(data.parentId)) {
+      parentObjectId = new mongoose.Types.ObjectId(data.parentId);
+    }
+
+    const studentDoc = {
+      schoolId,
+      student_id,
+      surname: data.surname,
+      firstname: data.firstname,
+      othernames: data.othernames || '',
+      dob: data.dob,
+      gender: data.gender,
+      nationality: data.nationality || '',
+      state: data.state || '',
+      lga: data.lga || '',
+      address: data.address || '',
+      photoBase64: photoBase64,
+      regNo,
+      scratchCard,
+      class: data.class,
+      classArm: data.classArm || '',
+      previousSchool: data.previousSchool || '',
+      admissionDate: admissionDate || null,
+      academicSession: data.academicSession || '',
+      parentName: data.parentName,
+      parentRelationship: data.parentRelationship,
+      parentPhone: data.parentPhone,
+      parentEmail: data.parentEmail || '',
+      parentAddress: data.parentAddress || '',
+      parentOccupation: data.parentOccupation || '',
+      studentEmail: data.studentEmail || '',
+      studentPhone: data.studentPhone || '',
+      religion: data.religion || '',
+      bloodGroup: data.bloodGroup || '',
+      genotype: data.genotype || '',
+      medical: data.medical || '',
+      password: hashedPassword,
+      parentId: parentObjectId,
+      academic: [],
+      attendance: [],
+      guardians: [],
+      hostel: {},
+      transport: {},
+      fees: [],
+      docs: [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const newStudent = await Student.create(studentDoc);
+
+    // If parent was selected, verify tenant ownership and link student to parent
+    if (data.parentId && parentObjectId) {
+      const Parent = require('../models/Parent');
+
+      const parent = await Parent.findOne({
+        _id: parentObjectId,
+        schoolId
+      });
+
+      if (!parent) {
+        return res.status(400).json({
+          success: false,
+          error: 'Selected parent does not belong to this school.'
+        });
+      }
+
+      await Parent.findByIdAndUpdate(
+        parentObjectId,
+        {
+          $addToSet: {
+            studentIds: newStudent._id.toString()
+          }
+        },
+        { new: true }
+      );
+    }
+
+    res.status(201).json({ 
+      message: 'Student enrolled successfully!', 
+      regNo,
+      student_id: newStudent.student_id,
+      parentLinked: !!data.parentId
+    });
+  } catch (error) {
+    console.error('[ENROLL ERROR]', error);
+    res.status(500).json({ error: error.message || 'Unknown server error.' });
+  }
+});
+
+// --- Get logged-in student's hostel info ---
+router.get('/me/hostel', studentAuthMiddleware, async (req, res) => {
+  try {
+    const student = req.student;
+    res.json(student.hostel || {});
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// PATCH /api/students/:studentId/promote
+router.patch('/:studentId/promote', async (req, res) => {
+  try {
+    const { action } = req.body; // 'promote', 'demote', 'graduate'
+    const studentId = req.params.studentId;
+    let student = await Student.findOne({ student_id: studentId }) || await Student.findOne({ regNo: studentId });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Classes order - update this list as per your school's structure
+    const classesOrder = ["Creche", "Nursery 1", "Nursery 2", "Nursery 3", "Primary 1", "Primary 2","Primary 3", "Primary 4", "Primary 5", "JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"];
+    let newStatus;
+
+    if (action === 'promote') {
+      let idx = classesOrder.indexOf(student.class);
+      if (idx >= 0 && idx < classesOrder.length - 1) {
+        student.class = classesOrder[idx + 1];
+        newStatus = 'Promoted';
+      } else if (idx === classesOrder.length - 1) {
+        newStatus = 'Graduated';
+      } else {
+        return res.status(400).json({ error: 'Cannot promote: class not recognized.' });
+      }
+    } else if (action === 'demote') {
+      let idx = classesOrder.indexOf(student.class);
+      if (idx > 0) {
+        student.class = classesOrder[idx - 1];
+        newStatus = 'Pending';
+      } else if (idx === 0) {
+        newStatus = 'Pending';
+      } else {
+        return res.status(400).json({ error: 'Cannot demote: class not recognized.' });
+      }
+    } else if (action === 'graduate') {
+      newStatus = 'Graduated';
+      student.class = "Graduated";
+    } else {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    student.status = newStatus;
+    await student.save();
+    res.json({ message: `Student ${action}d successfully!`, status: newStatus, class: student.class });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk actions for promotion/demotion/graduation
+router.patch('/bulk/promote', async (req, res) => {
+  try {
+    const { studentIds, action } = req.body;
+    if (!Array.isArray(studentIds) || !action) return res.status(400).json({ error: 'studentIds and action required' });
+
+    const classesOrder = ["JSS1", "JSS2", "JSS3", "SS1", "SS2", "SS3"];
+    let newStatus;
+
+    let bulkUpdates = [];
+    for (const studentId of studentIds) {
+      let student = await Student.findOne({ student_id: studentId }) || await Student.findOne({ regNo: studentId });
+      if (!student) continue;
+      if (action === 'promote') {
+        let idx = classesOrder.indexOf(student.class);
+        if (idx >= 0 && idx < classesOrder.length - 1) {
+          student.class = classesOrder[idx + 1];
+          newStatus = 'Promoted';
+        } else if (idx === classesOrder.length - 1) {
+          newStatus = 'Graduated';
+        } else {
+          continue;
+        }
+      } else if (action === 'demote') {
+        let idx = classesOrder.indexOf(student.class);
+        if (idx > 0) {
+          student.class = classesOrder[idx - 1];
+          newStatus = 'Pending';
+        } else if (idx === 0) {
+          newStatus = 'Pending';
+        } else {
+          continue;
+        }
+      } else if (action === 'graduate') {
+        newStatus = 'Graduated';
+        student.class = "Graduated";
+      } else {
+        continue;
+      }
+      student.status = newStatus;
+      await student.save();
+      bulkUpdates.push(student.student_id);
+    }
+
+    res.json({ message: `Bulk ${action} completed!`, updatedCount: bulkUpdates.length, updated: bulkUpdates });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    let query = {};
+    applySchoolFilter(req, query);
+    let directLookup = false;
+
+    if (req.query.student_id) {
+      query.student_id = String(req.query.student_id);
+      directLookup = true;
+    } else if (req.query.regNo) {
+      query.regNo = String(req.query.regNo);
+      directLookup = true;
+    } else {
+      if (req.query.class) query.class = req.query.class;
+      if (req.query.classArm) query.classArm = req.query.classArm;
+      if (req.query.academicSession) query.academicSession = req.query.academicSession;
+    }
+
+    let students;
+    if (directLookup) {
+      students = await Student.find(query).limit(1);
+    } else {
+      const pageSize = parseInt(req.query.pageSize) || 20000;
+      const sort = { surname: 1 };
+      if (req.query.startAfter) {
+        students = await Student.find({ ...query, surname: { $gt: req.query.startAfter } }).sort(sort).limit(pageSize);
+      } else {
+        students = await Student.find(query).sort(sort).limit(pageSize);
+      }
+    }
+
+    res.json({
+      students: students.map(d => ({
+        student_id: d.student_id,
+        surname: d.surname,
+        firstname: d.firstname,
+        othernames: d.othernames || '',
+        regNo: d.regNo,
+        scratchCard: d.scratchCard,
+        scratchCardUsage: Number(d.scratchCardUsage || 0),
+        scratchCardHistory: Array.isArray(d.scratchCardHistory) ? d.scratchCardHistory : [],
+        class: d.class,
+        classArm: d.classArm,
+        gender: d.gender,
+        dob: d.dob,
+        parentName: d.parentName,
+        parentPhone: d.parentPhone,
+        parentRelationship: d.parentRelationship,
+        parentEmail: d.parentEmail,
+        parentAddress: d.parentAddress,
+        parentOccupation: d.parentOccupation,
+        studentEmail: d.studentEmail,
+        studentPhone: d.studentPhone,
+        nationality: d.nationality,
+        state: d.state,
+        lga: d.lga,
+        previousSchool: d.previousSchool,
+        admissionDate: d.admissionDate,
+        academicSession: d.academicSession,
+        photoBase64: d.photoBase64 || '',
+      })),
+      lastVisible: students.length ? students[students.length - 1].surname : null
+    });
+  } catch (error) {
+    console.error('[GET STUDENTS ERROR]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Get logged-in student profile ---
+router.get('/me', studentAuthMiddleware, async (req, res) => {
+  const student = req.student;
+  const { password, ...safeProfile } = student.toObject ? student.toObject() : student;
+  res.json({
+    ...safeProfile,
+    name: `${student.firstname} ${student.surname}`,
+    photo_url: student.photoBase64 || ''
+  });
+});
+
+/**
+ * GET all parents for student assignment
+ */
+router.get('/parents/available', async (req, res) => {
+  try {
+    const Parent = require('../models/Parent');
+    const parents = await Parent.find({ status: 'active' })
+      .select('_id name email phone occupation studentIds')
+      .sort({ name: 1 });
+    
+    res.json(parents);
+  } catch (error) {
+    console.error('Error fetching parents:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/alumni - Return alumni
+router.get('/alumni', async (req, res) => {
+  try {
+    let query = { status: "Pending", class: "Graduated" };
+    if (req.query.year) query.graduationYear = req.query.year;
+    if (req.query.search) {
+      const search = req.query.search.trim();
+      query.$or = [
+        { surname: { $regex: search,$options: "i" } },
+        { firstname: { $regex: search,$options: "i" } },
+        { regNo: { $regex: search,$options: "i" } }
+      ];
+    }
+    const alumni = await Student.find(query).sort({ graduationYear: -1, surname: 1 });
+    res.json({
+      students: alumni.map(stu => ({
+        student_id: stu.student_id,
+        regNo: stu.regNo,
+        firstname: stu.firstname,
+        surname: stu.surname,
+        name: `${stu.firstname} ${stu.surname}`,
+        class: stu.class,
+        graduationYear: stu.graduationYear || stu.academicSession,
+        achievement: stu.achievement || "",
+        remark: stu.remark || "",
+        report: stu.report || "",
+        photoBase64: stu.photoBase64 || "",
+        photo_url: stu.photo_url || "",
+        academicSession: stu.academicSession || ""
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/mni - Get graduated students
+router.get('/mni', async (req, res) => {
+  try {
+    const { search, graduationYear } = req.query;
+    let query = { status: "Graduated" };
+    if (search) {
+      query.$or = [
+        { surname: { $regex: search,$options: "i" } },
+        { firstname: { $regex: search,$options: "i" } },
+        { regNo: { $regex: search,$options: "i" } }
+      ];
+    }
+    if (graduationYear) query.academicSession = graduationYear;
+
+    const students = await Student.find(query).sort({ academicSession: -1, surname: 1 });
+    res.json({
+      students: students.map(d => ({
+        student_id: d.student_id,
+        regNo: d.regNo,
+        surname: d.surname,
+        firstname: d.firstname,
+        othernames: d.othernames || '',
+        class: d.class,
+        academicSession: d.academicSession,
+        graduationYear: d.academicSession,
+        achievement: d.achievement || '',
+        remark: d.remark || '',
+        report: d.report || '',
+        photoBase64: d.photoBase64 || '',
+        photo_url: d.photoBase64 || '',
+        status: d.status
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Get a student profile by regNo (admin only) ---
+router.get('/:regNo', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const profileQuery = { regNo };
+    applySchoolFilter(req, profileQuery);
+
+    const profile = await Student.findOne(profileQuery);
+    if (!profile) return res.status(404).json({ error: 'Student not found' });
+
+    const { password, ...safeProfile } = profile.toObject();
+    res.json(safeProfile);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Student login ---
+router.post('/login', async (req, res) => {
+  const { regNo, studentEmail, password } = req.body;
+  if ((!regNo && !studentEmail) || !password) {
+    return res.status(400).json({ error: 'Registration number or email and password are required.' });
+  }
+  try {
+    const query = regNo ? { regNo } : { studentEmail };
+    const student = await Student.findOne(query);
+    if (!student) return res.status(401).json({ error: 'Invalid credentials.' });
+
+    const isMatch = await bcrypt.compare(password, student.password);
+    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials.' });
+
+    const token = jwt.sign(
+      { id: student._id, regNo: student.regNo, role: 'student' },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: student._id,
+        name: `${student.firstname} ${student.surname}`,
+        regNo: student.regNo,
+        role: 'student',
+        class: student.class,
+        photo_url: student.photoBase64 || ''
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// --- Update student profile (student only) ---
+const updateSchema = Joi.object({
+  surname: Joi.string(),
+  firstname: Joi.string(),
+  othernames: Joi.string().allow(''),
+  dob: Joi.string(),
+  gender: Joi.string(),
+  nationality: Joi.string().allow(''),
+  state: Joi.string().allow(''),
+  lga: Joi.string().allow(''),
+  address: Joi.string().allow(''),
+  class: Joi.string(),
+  classArm: Joi.string().allow(''),
+  studentEmail: Joi.string().allow(''),
+  studentPhone: Joi.string().allow(''),
+  religion: Joi.string().allow(''),
+  bloodGroup: Joi.string().allow(''),
+  genotype: Joi.string().allow(''),
+  medical: Joi.string().allow('')
+});
+
+router.put('/me', studentAuthMiddleware, upload.single('photo'), async (req, res) => {
+  try {
+    const { error, value: data } = updateSchema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    const student = req.student;
+    let updates = { ...data };
+
+    if (req.file) {
+      updates.photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    }
+
+    updates.updatedAt = new Date();
+
+    await Student.updateOne({ regNo: student.regNo }, { $set: updates });
+
+    res.json({ message: 'Profile updated successfully!' });
+  } catch (err) {
+    console.error('[UPDATE PROFILE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Change password (student only) ---
+router.post('/change-password', studentAuthMiddleware, async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword)
+    return res.status(400).json({ error: 'Old and new password are required.' });
+  try {
+    const student = req.student;
+    const isMatch = await bcrypt.compare(oldPassword, student.password);
+    if (!isMatch) return res.status(400).json({ error: 'Old password incorrect.' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await Student.updateOne({ regNo: student.regNo }, { $set: { password: hashed, updatedAt: new Date() } });
+    res.json({ message: 'Password changed successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Upload a document for a student (student only) ---
+router.post('/me/docs', studentAuthMiddleware, upload.single('document'), async (req, res) => {
+  try {
+    const student = req.student;
+    if (!req.file) return res.status(400).json({ error: 'No document uploaded.' });
+
+    const docBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const docMeta = {
+      label: req.body.label || req.file.originalname,
+      value: req.file.originalname,
+      base64: docBase64,
+      uploadedAt: new Date()
+    };
+
+    await Student.updateOne(
+      { regNo: student.regNo },
+      { $push: { docs: docMeta },$set: { updatedAt: new Date() } }
+    );
+
+    res.json({ message: 'Document uploaded successfully!', doc: docMeta });
+  } catch (err) {
+    console.error('[UPLOAD DOC ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Update academic record for a student (admin only) ---
+router.post('/:regNo/academic', adminAuth, async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const academicEntry = req.body;
+    if (!academicEntry.session || !academicEntry.term || !academicEntry.class || !academicEntry.subject) {
+      return res.status(400).json({ error: 'Missing required academic fields.' });
+    }
+
+    await Student.updateOne(
+      { regNo },
+      { $push: { academic: academicEntry },$set: { updatedAt: new Date() } }
+    );
+
+    const student = await Student.findOne({ regNo });
+    res.json({ message: 'Academic record updated!', academic: student.academic });
+  } catch (err) {
+    console.error('[ACADEMIC UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add attendance record (admin only) ---
+router.post('/:regNo/attendance', adminAuth, async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const attendanceEntry = req.body;
+    if (!attendanceEntry.session || !attendanceEntry.term || !attendanceEntry.present || !attendanceEntry.total) {
+      return res.status(400).json({ error: 'Missing required attendance fields.' });
+    }
+
+    await Student.updateOne(
+      { regNo },
+      { $push: { attendance: attendanceEntry },$set: { updatedAt: new Date() } }
+    );
+
+    const student = await Student.findOne({ regNo });
+    res.json({ message: 'Attendance record updated!', attendance: student.attendance });
+  } catch (err) {
+    console.error('[ATTENDANCE UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add/update guardian info (student only) ---
+router.post('/me/guardians', studentAuthMiddleware, async (req, res) => {
+  try {
+    const student = req.student;
+    const guardians = req.body.guardians;
+    if (!Array.isArray(guardians)) return res.status(400).json({ error: 'Guardians must be array.' });
+
+    await Student.updateOne({ regNo: student.regNo }, { $set: { guardians: guardians, updatedAt: new Date() } });
+
+    res.json({ message: 'Guardians info updated!' });
+  } catch (err) {
+    console.error('[GUARDIAN UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add/update hostel info (student only) ---
+router.post('/me/hostel', studentAuthMiddleware, async (req, res) => {
+  try {
+    const student = req.student;
+    const hostel = req.body.hostel;
+    if (typeof hostel !== 'object') return res.status(400).json({ error: 'Hostel must be an object.' });
+
+    await Student.updateOne({ regNo: student.regNo }, { $set: { hostel: hostel, updatedAt: new Date() } });
+
+    res.json({ message: 'Hostel info updated!' });
+  } catch (err) {
+    console.error('[HOSTEL UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add/update transport info (student only) ---
+router.post('/me/transport', studentAuthMiddleware, async (req, res) => {
+  try {
+    const student = req.student;
+    const transport = req.body.transport;
+    if (typeof transport !== 'object') return res.status(400).json({ error: 'Transport must be an object.' });
+
+    await Student.updateOne({ regNo: student.regNo }, { $set: { transport: transport, updatedAt: new Date() } });
+
+    res.json({ message: 'Transport info updated!' });
+  } catch (err) {
+    console.error('[TRANSPORT UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Add/update fees info (admin only) ---
+router.post('/:regNo/fees', adminAuth, async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const feeEntry = req.body;
+    if (!feeEntry.session || !feeEntry.term || !feeEntry.type || !feeEntry.amount || !feeEntry.status) {
+      return res.status(400).json({ error: 'Missing required fee fields.' });
+    }
+
+    await Student.updateOne(
+      { regNo },
+      { $push: { fees: feeEntry },$set: { updatedAt: new Date() } }
+    );
+
+    const student = await Student.findOne({ regNo });
+    res.json({ message: 'Fee record updated!', fees: student.fees });
+  } catch (err) {
+    console.error('[FEES UPDATE ERROR]', err);
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// Add or update skills & reports for a student (admin only)
+router.post('/:regNo/skills-report', async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const { session, term, skills, attendance, comment } = req.body;
+    if (!session || !term || !skills) {
+      return res.status(400).json({ error: 'session, term, and skills are required.' });
+    }
+
+    const student = await Student.findOne({ regNo });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const reportEntry = {
+      session,
+      term,
+      skills,
+      attendance,
+      comment,
+      updatedAt: new Date()
+    };
+
+    let skillsReports = student.skillsReports || [];
+    const idx = skillsReports.findIndex(r => r.session === session && r.term === term);
+    if (idx >= 0) skillsReports[idx] = reportEntry;
+    else skillsReports.push(reportEntry);
+
+    await Student.updateOne({ regNo }, { $set: { skillsReports, updatedAt: new Date() } });
+
+    res.json({ message: 'Skills report saved!', skillsReports });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// Get all skills & reports for a student (admin or student)
+router.get('/:regNo/skills-report', async (req, res) => {
+  try {
+    const regNo = req.params.regNo;
+    const student = await Student.findOne({ regNo });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    res.json({ skillsReports: student.skillsReports || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Update student by student_id or regNo (admin only) ---
+// Scratch-card assignments are deliberately handled here so they are saved
+// to MongoDB and recorded in scratchCardHistory. Clients cannot overwrite
+// scratchCardUsage or scratchCardHistory directly.
+router.put('/:studentId', authMiddleware, adminAuth, upload.single('photo'), async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const schoolId = getSchoolId(req);
+
+    if (!schoolId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is not assigned to a school.'
+      });
+    }
+
+    // Admin pages may identify a student by the public student ID,
+    // registration number, or MongoDB document ID. Resolve all three while
+    // keeping the lookup strictly inside the authenticated school.
+    const studentLookup = [
+      { student_id: studentId },
+      { regNo: studentId }
+    ];
+    if (mongoose.Types.ObjectId.isValid(String(studentId))) {
+      studentLookup.push({ _id: new mongoose.Types.ObjectId(studentId) });
+    }
+
+    const student = await Student.findOne({
+      schoolId,
+      $or: studentLookup
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, error: 'Student not found in this school.' });
+    }
+
+    const allowedFields = [
+      "surname", "firstname", "othernames", "dob", "gender", "nationality", "state", "lga", "address",
+      "class", "classArm", "previousSchool", "admissionDate", "academicSession",
+      "parentName", "parentRelationship", "parentPhone", "parentEmail", "parentAddress", "parentOccupation",
+      "studentEmail", "studentPhone", "religion", "bloodGroup", "genotype", "medical"
+    ];
+
+    for (const key of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        student[key] = req.body[key];
+      }
+    }
+
+    // Assign or replace a scratch card only when the request explicitly
+    // includes the scratchCard property. Empty values are rejected.
+    if (Object.prototype.hasOwnProperty.call(req.body, 'scratchCard')) {
+      const newCard = String(req.body.scratchCard || '').trim().toUpperCase();
+
+      if (!/^[A-Z0-9]{8}$/.test(newCard)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Scratch card must contain exactly 8 letters or numbers.'
+        });
+      }
+
+      const duplicate = await Student.findOne({
+        schoolId,
+        scratchCard: newCard,
+        _id: { $ne: student._id }
+      }).select('_id');
+
+      if (duplicate) {
+        return res.status(409).json({
+          success: false,
+          error: 'This scratch card is already assigned to another student in this school.'
+        });
+      }
+
+      const previousCard = String(student.scratchCard || '').trim().toUpperCase();
+
+      if (previousCard !== newCard) {
+        if (!Array.isArray(student.scratchCardHistory)) {
+          student.scratchCardHistory = [];
+        }
+
+        // Mark any currently active historical card as replaced.
+        student.scratchCardHistory.forEach(entry => {
+          if (entry.status === 'active') {
+            entry.status = 'replaced';
+            if (!entry.exhaustedAt) entry.exhaustedAt = new Date();
+          }
+        });
+
+        student.scratchCardHistory.push({
+          cardCode: newCard,
+          usedCount: 0,
+          assignedAt: new Date(),
+          exhaustedAt: null,
+          status: 'active'
+        });
+
+        student.scratchCard = newCard;
+        student.scratchCardUsage = 0;
+        student.scratchCardAssignedAt = new Date();
+      }
+    }
+
+    if (req.file) {
+      student.photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    }
+
+    student.updatedAt = new Date();
+    await student.save();
+
+    return res.json({
+      success: true,
+      message: 'Student updated successfully!',
+      student: {
+        student_id: student.student_id,
+        regNo: student.regNo,
+        scratchCard: student.scratchCard || '',
+        scratchCardUsage: Number(student.scratchCardUsage || 0),
+        scratchCardHistory: Array.isArray(student.scratchCardHistory) ? student.scratchCardHistory : []
+      }
+    });
+  } catch (err) {
+    console.error('[UPDATE STUDENT ERROR]', err);
+
+    if (err && err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        error: 'A duplicate value already exists for this school.'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Unknown server error.'
+    });
+  }
+});
+
+// --- DELETE student by student_id or regNo (school admin only) ---
+router.delete('/:studentId', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const schoolId = getSchoolId(req);
+
+    if (!schoolId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is not assigned to a school.'
+      });
+    }
+
+    const student = await Student.findOne({
+      schoolId,
+      $or: [{ student_id: studentId }, { regNo: studentId }]
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, error: 'Student not found in this school.' });
+    }
+
+    await Student.deleteOne({ _id: student._id, schoolId });
+    return res.json({ success: true, message: 'Student deleted successfully!' });
+  } catch (err) {
+    console.error('[DELETE STUDENT ERROR]', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Unknown server error.'
+    });
+  }
+});
+
+module.exports = router;
