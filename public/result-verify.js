@@ -1,6 +1,5 @@
 // ===== CONFIGURATION =====
 const API_BASE_URL = 'https://examguard-8rxe.onrender.com';
-
 const CONFIG = {
   SCHOOL_BACKEND_URL: 'https://examguard-8rxe.onrender.com',
   UNIVERSAL_SERVER_URL: 'https://examguard-8rxe.onrender.com',
@@ -19,8 +18,6 @@ const AppState = {
   isUploading: false,
   isValidating: false,
   isSyncedFromBackend: false,
-  currentSchool: null,
-  currentSchoolConfig: null,
   schoolMetadata: {
     schoolId: '',
     schoolName: '',
@@ -31,140 +28,207 @@ const AppState = {
   }
 };
 
-// ===== AUTH / SCHOOL HELPERS =====
-function getAuthToken() {
+
+// ===== CURRENT SCHOOL CONTEXT & BRANDING =====
+const API_ROOT = (window.API_BASE_URL || 'https://examguard-8rxe.onrender.com').replace(/\/$/, '');
+const API_API = `${API_ROOT}/api`;
+let currentUser = null;
+let currentSchool = null;
+let currentSchoolCode = '';
+
+function getStoredAuthToken() {
   return localStorage.getItem('token') ||
     localStorage.getItem('adminToken') ||
-    '';
+    localStorage.getItem('authToken') || '';
 }
 
-function normalizeTermName(value) {
-  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+function firstNonEmpty(...values) {
+  return values.find(value => typeof value === 'string' && value.trim()) || '';
 }
 
-function setCurrentTermInDropdown(termName) {
-  const termSelect = document.getElementById('termInput');
-  if (!termSelect || !termName) return;
+function getSchoolBrandingValue(keys) {
+  const sources = [
+    currentSchool?.branding,
+    currentSchool?.theme,
+    currentSchool?.config?.branding,
+    currentSchool?.settings?.branding,
+    currentSchool
+  ].filter(Boolean);
 
-  const normalizedTerm = normalizeTermName(termName);
-  const matchingOption = Array.from(termSelect.options).find(option =>
-    normalizeTermName(option.value) === normalizedTerm ||
-    normalizeTermName(option.textContent) === normalizedTerm
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source?.[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+  }
+  return '';
+}
+
+function applyCurrentSchoolBranding() {
+  const schoolName = firstNonEmpty(
+    currentSchool?.schoolName,
+    currentSchool?.name,
+    currentUser?.schoolName,
+    typeof currentUser?.school === 'string' ? currentUser.school : '',
+    localStorage.getItem('schoolName')
+  ) || 'School Portal';
+
+  const schoolId = firstNonEmpty(
+    currentSchool?.schoolId,
+    currentUser?.schoolId,
+    currentUser?.schoolCode,
+    currentSchoolCode,
+    localStorage.getItem('schoolId')
   );
 
-  if (matchingOption) {
-    termSelect.value = matchingOption.value;
+  const logoUrl = getSchoolBrandingValue([
+    'logoUrl', 'logo', 'lightLogo', 'darkLogo', 'schoolLogo', 'logoURL'
+  ]);
+  const primaryColor = getSchoolBrandingValue([
+    'primaryColor', 'primary', 'primary_colour', 'primaryColour'
+  ]);
+  const accentColor = getSchoolBrandingValue([
+    'accentColor', 'accent', 'secondaryColor', 'secondary'
+  ]);
+
+  document.title = `${schoolName} | Upload Student Data`;
+
+  const nameEl = document.getElementById('sidebarSchoolName');
+  if (nameEl) {
+    nameEl.textContent = schoolName;
+    nameEl.classList.remove('school-name-loading');
+    nameEl.title = schoolName;
   }
+
+  const taglineEl = document.getElementById('sidebarSchoolTagline');
+  if (taglineEl) taglineEl.textContent = 'Student Results';
+
+  const schoolIdEl = document.getElementById('sidebarSchoolId');
+  if (schoolIdEl) schoolIdEl.textContent = schoolId ? `School ID: ${schoolId}` : '';
+
+  const subtitleEl = document.getElementById('headerSubtitle');
+  if (subtitleEl) {
+    subtitleEl.textContent = `${schoolName} · Manage and upload student results`;
+  }
+
+  const logoEl = document.getElementById('schoolLogo');
+  const fallbackEl = document.getElementById('sidebarLogoFallback');
+  if (logoEl && logoUrl) {
+    logoEl.onload = () => {
+      logoEl.classList.remove('school-logo-hidden');
+      if (fallbackEl) fallbackEl.style.display = 'none';
+    };
+    logoEl.onerror = () => {
+      logoEl.classList.add('school-logo-hidden');
+      if (fallbackEl) fallbackEl.style.display = 'flex';
+      logoEl.removeAttribute('src');
+    };
+    logoEl.alt = `${schoolName} logo`;
+    logoEl.src = logoUrl;
+  } else if (logoEl) {
+    logoEl.classList.add('school-logo-hidden');
+    logoEl.removeAttribute('src');
+    if (fallbackEl) fallbackEl.style.display = 'flex';
+  }
+
+  if (fallbackEl) {
+    const initials = schoolName.split(/\s+/).filter(Boolean).slice(0, 2)
+      .map(part => part[0]).join('').toUpperCase();
+    fallbackEl.textContent = initials || 'SC';
+  }
+
+  if (primaryColor && CSS.supports('color', primaryColor)) {
+    document.documentElement.style.setProperty('--school-primary', primaryColor);
+    document.documentElement.style.setProperty('--primary', primaryColor);
+  }
+  if (accentColor && CSS.supports('color', accentColor)) {
+    document.documentElement.style.setProperty('--school-accent', accentColor);
+    document.documentElement.style.setProperty('--accent', accentColor);
+  }
+
+  const adminName = firstNonEmpty(
+    currentUser?.name, currentUser?.fullName, currentUser?.email,
+    localStorage.getItem('adminName')
+  ) || 'Administrator';
+  const avatarText = adminName.trim().charAt(0).toUpperCase() || 'A';
+
+  const sidebarUserName = document.getElementById('sidebarUserName');
+  const sidebarAvatar = document.getElementById('sidebarAvatar');
+  const headerAvatar = document.getElementById('headerAvatar');
+  const sidebarUserRole = document.getElementById('sidebarUserRole');
+
+  if (sidebarUserName) sidebarUserName.textContent = adminName;
+  if (sidebarAvatar) sidebarAvatar.textContent = avatarText;
+  if (headerAvatar) headerAvatar.textContent = avatarText;
+  if (sidebarUserRole) {
+    sidebarUserRole.textContent = (currentUser?.role || 'School Administrator')
+      .toString().replace(/[_-]/g, ' ');
+  }
+
+  // Keep the active school identity available to existing school-aware workflows.
+  if (schoolId) localStorage.setItem('schoolId', schoolId);
+  if (schoolName) localStorage.setItem('schoolName', schoolName);
 }
 
-async function loadCurrentSchoolConfig() {
-  const token = getAuthToken();
+async function loadCurrentSchoolBranding() {
+  const token = getStoredAuthToken();
   if (!token) {
-    showAlert('warning', 'Sign in to load your current school configuration.');
-    return;
+    applyCurrentSchoolBranding();
+    return null;
   }
 
   try {
-    const meResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    const response = await fetch(`${API_API}/auth/me`, {
+      method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(localStorage.getItem('schoolId') ? {
+          'X-School-Code': localStorage.getItem('schoolId')
+        } : {})
       }
     });
 
-    const meData = await meResponse.json();
-
-    if (!meResponse.ok || !meData.success || !meData.school) {
-      throw new Error(meData.error || 'Could not identify the school for this account.');
+    if (!response.ok) {
+      throw new Error(`Could not load current school profile (${response.status})`);
     }
 
-    const authenticatedSchool = meData.school;
-    const schoolIdentifier = authenticatedSchool.schoolId;
+    const payload = await response.json();
+    currentUser = payload.user || payload.data?.user || payload;
+    currentSchool = payload.school || payload.data?.school ||
+      currentUser?.schoolDetails || currentUser?.schoolObject ||
+      (currentUser?.school && typeof currentUser.school === 'object'
+        ? currentUser.school : null);
 
-    if (!schoolIdentifier) {
-      throw new Error('The authenticated school is missing its school ID.');
+    currentSchoolCode = firstNonEmpty(
+      currentSchool?.schoolId,
+      currentUser?.schoolCode,
+      typeof currentUser?.school === 'string' ? currentUser.school : ''
+    );
+
+    // Some auth responses include school identity on the user object only.
+    if (!currentSchool && currentUser) {
+      currentSchool = {
+        schoolName: currentUser.schoolName || currentUser.school_name || '',
+        schoolId: currentUser.schoolId || currentUser.schoolCode || ''
+      };
     }
 
-    const configUrl = new URL(`${API_BASE_URL}/api/schools/config`);
-    configUrl.searchParams.set('schoolId', schoolIdentifier);
-
-    const configResponse = await fetch(configUrl.toString(), {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const configData = await configResponse.json();
-
-    if (!configResponse.ok || !configData.success || !configData.data) {
-      throw new Error(configData.error || 'Could not load school configuration.');
-    }
-
-    AppState.currentSchool = authenticatedSchool;
-    AppState.currentSchoolConfig = configData.data;
-
-    const academicConfig = configData.data.academic || {};
-    const sessionInput = document.getElementById('sessionInput');
-
-    if (sessionInput && academicConfig.currentSession) {
-      sessionInput.value = academicConfig.currentSession;
-    }
-
-    if (academicConfig.currentTerm) {
-      setCurrentTermInDropdown(academicConfig.currentTerm);
-    }
-
-    prefillCurrentSchoolInCloudPushForm();
-
-    console.info('Loaded current school configuration:', authenticatedSchool.schoolName);
+    applyCurrentSchoolBranding();
+    return currentUser;
   } catch (error) {
-    console.error('Error loading current school configuration:', error);
-    showAlert('warning', error.message || 'Could not load the current school configuration.');
+    console.warn('School branding could not be refreshed:', error);
+    // Use any previously cached school identity rather than blocking the page.
+    applyCurrentSchoolBranding();
+    return null;
   }
 }
 
-function prefillCurrentSchoolInCloudPushForm() {
-  const school = AppState.currentSchool;
-  if (!school) return;
-
-  const schoolIdInput = document.getElementById('schoolIdInput');
-  const schoolNameInput = document.getElementById('schoolNameInput');
-
-  if (schoolIdInput && school.schoolId) {
-    schoolIdInput.value = school.schoolId;
-  }
-
-  if (schoolNameInput) {
-    schoolNameInput.value = school.schoolName || school.name || '';
-  }
-
-  AppState.schoolMetadata.schoolId = school.schoolId || '';
-  AppState.schoolMetadata.schoolName = school.schoolName || school.name || '';
-}
-
-// ===== HELPERS =====
-function getApiAuthHeaders(extraHeaders = {}) {
-  const key = CONFIG.API_KEY || localStorage.getItem('apiKey') || '';
-
-  return {
-    ...extraHeaders,
-    ...(key ? { Authorization: `Bearer ${key}` } : {})
-  };
-}
-
-function buildApiUrl(baseUrl, path) {
-  const normalizedBase = String(baseUrl || '').trim().replace(/\/+$/, '');
-  const normalizedPath = String(path || '').trim().replace(/^\/+/, '');
-  return `${normalizedBase}/${normalizedPath}`;
-}
 
 // ===== FILE HANDLING =====
 function setupFileUpload() {
   const fileUploadArea = document.getElementById('fileUploadArea');
   const fileInput = document.getElementById('fileInput');
-
-  if (!fileUploadArea || !fileInput) return;
 
   fileUploadArea.addEventListener('click', () => fileInput.click());
 
@@ -181,23 +245,19 @@ function setupFileUpload() {
 function handleDragOver(e) {
   e.preventDefault();
   e.stopPropagation();
-  const uploadArea = document.getElementById('fileUploadArea');
-  if (uploadArea) uploadArea.classList.add('dragover');
+  document.getElementById('fileUploadArea').classList.add('dragover');
 }
 
 function handleDragLeave(e) {
   e.preventDefault();
   e.stopPropagation();
-  const uploadArea = document.getElementById('fileUploadArea');
-  if (uploadArea) uploadArea.classList.remove('dragover');
+  document.getElementById('fileUploadArea').classList.remove('dragover');
 }
 
 function handleDrop(e) {
   e.preventDefault();
   e.stopPropagation();
-  const uploadArea = document.getElementById('fileUploadArea');
-  if (uploadArea) uploadArea.classList.remove('dragover');
-
+  document.getElementById('fileUploadArea').classList.remove('dragover');
   const files = Array.from(e.dataTransfer.files);
   handleFiles(files);
 }
@@ -226,8 +286,6 @@ function handleFiles(files) {
 
 function displayFiles() {
   const fileList = document.getElementById('fileList');
-  if (!fileList) return;
-
   fileList.innerHTML = AppState.files.map((file, idx) => `
     <div class="file-item">
       <div class="file-item-info">
@@ -251,13 +309,8 @@ function removeFile(idx) {
   AppState.data = [];
   AppState.isSyncedFromBackend = false;
   displayFiles();
-
-  const previewContent = document.getElementById('previewContent');
-  const previewTable = document.getElementById('previewTable');
-
-  if (previewContent) previewContent.style.display = 'block';
-  if (previewTable) previewTable.style.display = 'none';
-
+  document.getElementById('previewContent').style.display = 'block';
+  document.getElementById('previewTable').style.display = 'none';
   showAlert('info', 'File removed');
 }
 
@@ -331,8 +384,6 @@ function updatePreview() {
   const previewHeader = document.getElementById('previewHeader');
   const previewBody = document.getElementById('previewBody');
 
-  if (!previewContent || !previewTable || !previewHeader || !previewBody) return;
-
   if (AppState.data.length === 0) {
     previewContent.style.display = 'block';
     previewTable.style.display = 'none';
@@ -364,9 +415,8 @@ function updatePreview() {
 function saveApiKeyToStorage(apiKey) {
   try {
     if (apiKey && apiKey.trim().length > 0) {
-      const cleanKey = apiKey.trim();
-      localStorage.setItem('apiKey', cleanKey);
-      CONFIG.API_KEY = cleanKey;
+      localStorage.setItem('apiKey', apiKey.trim());
+      CONFIG.API_KEY = apiKey.trim();
       console.log('✓ API key saved to localStorage');
     }
   } catch (err) {
@@ -374,17 +424,18 @@ function saveApiKeyToStorage(apiKey) {
   }
 }
 
-// ===== SHOW CLOUD PUSH OPTION (Dynamic UI) =====
+// ===== SHOW CLOUD PUSH OPTION (Dynamic UI) - UPDATED =====
 function showCloudPushOption() {
   let cloudPushSection = document.getElementById('cloudPushSection');
-
+  
   if (!cloudPushSection) {
     const formContainer = document.querySelector('.button-group');
     if (!formContainer) return;
-
-    const hasMetadataInData = AppState.data[0] &&
+    
+    // Check if data has metadata
+    const hasMetadataInData = AppState.data[0] && 
       (AppState.data[0].session || AppState.data[0].term || AppState.data[0].class);
-
+    
     cloudPushSection = document.createElement('div');
     cloudPushSection.id = 'cloudPushSection';
     cloudPushSection.style.cssText = 'margin-top: 28px; padding-top: 20px; border-top: 2px solid var(--accent-light);';
@@ -393,7 +444,7 @@ function showCloudPushOption() {
         <i class="fas fa-cloud-arrow-up" style="margin-right: 8px;"></i>
         Push to Universal Cloud
       </h3>
-
+      
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">
@@ -402,7 +453,7 @@ function showCloudPushOption() {
           <input type="text" class="form-input" id="schoolIdInput" placeholder="e.g., SCH-2024-001" required>
           <span class="form-hint">Unique identifier for your school (will be verified)</span>
         </div>
-
+        
         <div class="form-group">
           <label class="form-label">
             School Name <span class="required">*</span>
@@ -472,7 +523,7 @@ function showCloudPushOption() {
         </p>
       </div>
       `}
-
+      
       <div class="button-group" style="margin-top: 20px; border-top: none; padding-top: 0;">
         <button type="button" class="btn btn-primary" onclick="pushToUniversalCloud(event)">
           <i class="fas fa-cloud-arrow-up"></i>
@@ -488,9 +539,10 @@ function showCloudPushOption() {
         </button>
       </div>
     `;
-
+    
     formContainer.parentNode.insertBefore(cloudPushSection, formContainer.nextSibling);
 
+    // Add event listener for School ID input to auto-verify
     const schoolIdInput = document.getElementById('schoolIdInput');
     if (schoolIdInput) {
       schoolIdInput.addEventListener('change', verifySchoolId);
@@ -499,8 +551,6 @@ function showCloudPushOption() {
   } else {
     cloudPushSection.style.display = 'block';
   }
-
-  prefillCurrentSchoolInCloudPushForm();
 }
 
 // ===== HIDE CLOUD PUSH OPTION =====
@@ -521,8 +571,8 @@ async function verifySchoolId() {
   const schoolId = schoolIdInput?.value.trim();
 
   if (!schoolId) {
-    if (verificationInfo) verificationInfo.style.display = 'none';
-    if (schoolNameInput) schoolNameInput.value = '';
+    verificationInfo.style.display = 'none';
+    schoolNameInput.value = '';
     AppState.schoolMetadata.verified = false;
     return;
   }
@@ -544,7 +594,7 @@ async function verifySchoolId() {
 
     if (result.success && result.data) {
       const school = result.data;
-      if (schoolNameInput) schoolNameInput.value = school.schoolName || '';
+      schoolNameInput.value = school.schoolName || '';
       AppState.schoolMetadata.verified = true;
       AppState.schoolMetadata.schoolId = schoolId;
       AppState.schoolMetadata.schoolName = school.schoolName || '';
@@ -552,25 +602,25 @@ async function verifySchoolId() {
       if (verificationMessage) {
         verificationMessage.textContent = `✓ School verified: ${school.schoolName}`;
       }
-      if (verificationInfo) verificationInfo.style.display = 'block';
-
+      verificationInfo.style.display = 'block';
+      
       showAlert('success', `✓ School ID verified: ${school.schoolName}`);
     } else {
       throw new Error('School not found');
     }
   } catch (err) {
     console.error('School verification error:', err);
-    if (schoolNameInput) schoolNameInput.value = '';
+    schoolNameInput.value = '';
     AppState.schoolMetadata.verified = false;
-    if (verificationInfo) verificationInfo.style.display = 'none';
+    verificationInfo.style.display = 'none';
     showAlert('error', `School ID verification failed: ${err.message}`);
   }
 }
 
-// ===== HELPER: FLATTEN BACKEND SUMMARY DATA =====
+// ===== HELPER: FLATTEN BACKEND SUMMARY DATA (for file uploads) =====
 function flattenBackendData(summaryData) {
   console.log('Flattening backend summary data...');
-
+  
   const flattenedRecords = [];
 
   summaryData.forEach((studentSummary, idx) => {
@@ -589,6 +639,7 @@ function flattenBackendData(summaryData) {
       subjects = []
     } = studentSummary;
 
+    // Normalize field names (handle both camelCase and snake_case)
     const normalizedStudentId = studentId || student_id;
     const normalizedStudentName = studentName || student_name;
     const normalizedRegNo = regNo || reg_no;
@@ -598,6 +649,7 @@ function flattenBackendData(summaryData) {
 
     console.log(`Processing student ${idx + 1}: ${normalizedStudentName} (${subjects.length} subjects)`);
 
+    // CRITICAL: Create a record for each subject while preserving session/term/class
     subjects.forEach(subject => {
       flattenedRecords.push({
         student_id: normalizedStudentId,
@@ -621,11 +673,11 @@ function flattenBackendData(summaryData) {
 
   console.log(`Flattened ${flattenedRecords.length} individual subject records`);
   console.log('Sample record:', flattenedRecords[0]);
-
+  
   return flattenedRecords;
 }
 
-// ===== FETCH FROM BACKEND (STEP 1) =====
+// ===== FETCH FROM BACKEND (STEP 1) - WITH FLATTENING =====
 async function fetchFromBackend() {
   const backendUrl = document.getElementById('backendUrlInput')?.value.trim();
   const apiKey = document.getElementById('apiKeyInput')?.value.trim();
@@ -638,11 +690,7 @@ async function fetchFromBackend() {
     return;
   }
 
-  if (!apiKey) {
-    showAlert('error', 'Please enter a valid API key');
-    return;
-  }
-
+  // Validate and normalize the URL
   let validUrl;
   try {
     const urlToTest = backendUrl.startsWith('http') ? backendUrl : `https://${backendUrl}`;
@@ -652,65 +700,63 @@ async function fetchFromBackend() {
     return;
   }
 
-  const fetchBtn = document.getElementById('fetchBtn') ||
-    document.querySelector('[data-action="fetch-backend"]') ||
-    document.querySelector('[onclick*="fetchFromBackend"]');
-
-  const originalText = fetchBtn ? fetchBtn.innerHTML : 'Sync from Backend';
-
-  if (fetchBtn) {
-    fetchBtn.disabled = true;
-    fetchBtn.innerHTML = '<span class="spinner"></span><span>Syncing from Backend...</span>';
-  }
+  const fetchBtn = event.target;
+  const originalText = fetchBtn.innerHTML;
+  fetchBtn.disabled = true;
+  fetchBtn.innerHTML = '<span class="spinner"></span><span>Syncing from Backend...</span>';
 
   try {
-    const baseOrigin = validUrl.origin;
-    const basePath = validUrl.pathname.replace(/\/+$/, '');
-
-    const dashboardEndpoint = /\/api\/results$/.test(basePath) || /\/api\/results\/$/.test(basePath)
-      ? `${basePath}/dashboard/all`
-      : `${basePath}/api/results/dashboard/all`;
-
-    const fetchUrl = new URL(`${baseOrigin}${dashboardEndpoint}`);
-
+    // Build the fetch URL
+    let endpoint = validUrl.pathname.endsWith('/') ? validUrl.pathname : validUrl.pathname + '/';
+    if (!endpoint.includes('/api/results')) {
+      endpoint += 'api/results/';
+    }
+    
+    const fetchUrl = new URL(validUrl.origin + endpoint + 'dashboard/all');
+    
+    // Add query parameters for filtering (optional)
     if (session) fetchUrl.searchParams.set('session', session);
     if (term) fetchUrl.searchParams.set('term', term);
     if (className) fetchUrl.searchParams.set('class', className);
 
-    const headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    };
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      saveApiKeyToStorage(apiKey);
+    }
 
     console.log('Fetching from:', fetchUrl.toString());
 
-    const response = await fetch(fetchUrl.toString(), {
+    const response = await fetch(fetchUrl.toString(), { 
       method: 'GET',
-      headers,
-      mode: 'cors'
+      headers, 
+      mode: 'cors' 
     });
-
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Response error:', errorText);
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      const errorData = await response.text();
+      console.error('Response error:', errorData);
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
     }
 
     let data = await response.json();
-
-    if (data && data.data && Array.isArray(data.data)) {
+    
+    // Handle if response is wrapped in a data property
+    if (data.data && Array.isArray(data.data)) {
       data = data.data;
     }
 
     console.log('Raw API response sample:', data[0]);
-
-    CONFIG.API_KEY = apiKey;
-    saveApiKeyToStorage(apiKey);
-
+    
+    // ✅ ENRICH DATA WITH COMPLETE STUDENT REPORTS
     AppState.data = await enrichDataWithCompleteReports(data, validUrl, headers);
-
+    
+    console.log('Enriched data sample:', AppState.data[0]);
+    
+    // Mark as synced from backend
     AppState.isSyncedFromBackend = true;
-
+    
+    // Store school metadata for cloud push
     AppState.schoolMetadata = {
       schoolId: '',
       schoolName: '',
@@ -719,29 +765,28 @@ async function fetchFromBackend() {
       recordCount: AppState.data.length,
       verified: false
     };
-
+    
     updatePreview();
     showAlert('success', `✓ Synced ${AppState.data.length} enriched subject records from backend (from ${Array.isArray(data) ? data.length : 1} students)`);
-
+    
+    // Show cloud push section
     showCloudPushOption();
-
+    
   } catch (err) {
     console.error('Fetch error:', err);
     showAlert('error', `Sync failed: ${err.message}`);
   } finally {
-    if (fetchBtn) {
-      fetchBtn.disabled = false;
-      fetchBtn.innerHTML = originalText;
-    }
+    fetchBtn.disabled = false;
+    fetchBtn.innerHTML = originalText;
   }
 }
 
 // ===== NEW FUNCTION: ENRICH DATA WITH COMPLETE STUDENT REPORTS =====
 async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
   console.log('Enriching data with complete student reports...');
-
+  
   const enrichedRecords = [];
-
+  
   for (const studentSummary of summaryData) {
     try {
       const {
@@ -756,7 +801,7 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
         academicYear,
         session,
         term,
-        allResultIds = []
+        allResultIds = [] // All result IDs for this student group
       } = studentSummary;
 
       const normalizedStudentId = studentId || student_id;
@@ -768,6 +813,7 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
 
       console.log(`Fetching detailed report for: ${normalizedStudentName} (${normalizedSession}/${normalizedTerm}/${normalizedClass})`);
 
+      // Fetch complete student report from backend
       let reportData = {
         skills: { punctuality: '-', obedience: '-', honesty: '-', cleanliness: '-', initiative: '-', cooperation: '-' },
         attendance: { present: '-', absent: '-', rate: 0 },
@@ -776,9 +822,13 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
         studentPosition: 0
       };
 
+      // Try to fetch complete report if we have result IDs
       if (allResultIds && allResultIds.length > 0) {
         try {
-          const reportUrl = new URL(`${backendUrl.origin}/api/results/student/${normalizedStudentId}/report`);
+          // Try to fetch report using first result ID or student ID
+          const reportUrl = new URL(
+            `${backendUrl.origin}/api/results/student/${normalizedStudentId}/report`
+          );
           reportUrl.searchParams.set('sessionId', normalizedSession);
           reportUrl.searchParams.set('termId', normalizedTerm);
           reportUrl.searchParams.set('classId', normalizedClass);
@@ -791,7 +841,8 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
 
           if (reportResponse.ok) {
             const report = await reportResponse.json();
-
+            
+            // Extract skills and attendance from report
             if (report.skillsReport) {
               reportData.skills = report.skillsReport.skills || reportData.skills;
               reportData.attendance = report.skillsReport.attendance || reportData.attendance;
@@ -816,18 +867,26 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
           }
         } catch (err) {
           console.warn(`Could not fetch detailed report for ${normalizedStudentName}:`, err.message);
+          // Continue with basic data
         }
       }
 
+      // Now flatten subjects with enriched data
       const subjects = studentSummary.subjects || [];
+      
       subjects.forEach(subject => {
         enrichedRecords.push({
+          // Student info
           student_id: normalizedStudentId,
           student_name: normalizedStudentName,
           regNo: normalizedRegNo,
+          
+          // Metadata
           session: normalizedSession,
           term: normalizedTerm,
           class: normalizedClass,
+          
+          // Subject scores
           subject: subject.name || subject.subjectName || subject.subject || '',
           ca1_score: parseFloat(subject.ca1_score) || parseFloat(subject.ca1) || 0,
           ca2_score: parseFloat(subject.ca2_score) || parseFloat(subject.ca2) || 0,
@@ -835,7 +894,11 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
           exam_score: parseFloat(subject.exam_score) || parseFloat(subject.exam) || 0,
           grade: subject.grade || '',
           remarks: subject.remarks || '',
-          position: subject.position || subject.subject_position || '-',
+          
+          // Subject-specific data
+          position: subject.position || subject.subject_position || '-', // Subject position
+          
+          // Enriched data (same for all subjects of this student)
           skills: reportData.skills,
           attendance: reportData.attendance,
           teacherComment: reportData.teacherComment,
@@ -843,8 +906,10 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
           studentPosition: reportData.studentPosition
         });
       });
+
     } catch (err) {
       console.error(`Error enriching student data:`, err);
+      // Continue with next student
     }
   }
 
@@ -854,15 +919,16 @@ async function enrichDataWithCompleteReports(summaryData, backendUrl, headers) {
 
 async function pushToUniversalCloud(e) {
   e?.preventDefault?.();
-
+  
   console.log('=== PUSH TO CLOUD INITIATED ===');
   console.log('AppState.data length:', AppState.data.length);
-
+  
   if (AppState.data.length === 0) {
     showAlert('error', 'No data to push. Sync from backend first.');
     return;
   }
 
+  // Get school identification
   const schoolId = document.getElementById('schoolIdInput')?.value.trim();
   const schoolName = document.getElementById('schoolNameInput')?.value.trim();
 
@@ -876,24 +942,28 @@ async function pushToUniversalCloud(e) {
     return;
   }
 
-  const pushBtn = e?.target || document.querySelector('[onclick*="pushToUniversalCloud"]');
+  const pushBtn = event?.target || document.querySelector('[onclick*="pushToUniversalCloud"]');
   const originalText = pushBtn?.innerHTML;
-
+  
   if (pushBtn) {
     pushBtn.disabled = true;
     pushBtn.innerHTML = '<span class="spinner"></span><span>Checking for duplicates...</span>';
   }
 
   try {
+    console.log('Preparing data for cloud push...');
+    
+    // CRITICAL: Group records by session/term/class combination
     const groupedByMetadata = {};
-
+    
     AppState.data.forEach((record, idx) => {
       const session = record.session?.trim() || 'Unknown';
       const term = record.term?.trim() || 'Unknown';
       const className = record.class?.trim() || 'Unknown';
-
+      
+      // Create a unique key for this session/term/class combination
       const key = `${session}||${term}||${className}`;
-
+      
       if (!groupedByMetadata[key]) {
         groupedByMetadata[key] = {
           session,
@@ -902,15 +972,21 @@ async function pushToUniversalCloud(e) {
           records: []
         };
       }
-
+      
       groupedByMetadata[key].records.push(record);
     });
 
+    console.log(`Grouped data into ${Object.keys(groupedByMetadata).length} session/term/class combinations`);
+
+    // ✅ CHECK FOR DUPLICATES FOR EACH GROUP
     const duplicateWarnings = [];
     const groupsToProcess = [];
 
     for (const [key, group] of Object.entries(groupedByMetadata)) {
+      console.log(`Checking for existing upload: ${group.session} / ${group.term} / ${group.class}`);
+      
       try {
+        // Check if exact same upload exists
         const checkResponse = await fetch(`${CONFIG.CLOUD_SYNC_ENDPOINT}/check-duplicate`, {
           method: 'POST',
           headers: {
@@ -929,8 +1005,10 @@ async function pushToUniversalCloud(e) {
 
         if (checkResponse.ok) {
           const duplicateCheck = await checkResponse.json();
-
+          
           if (duplicateCheck.isDuplicate) {
+            console.warn(`Duplicate found for ${group.session}/${group.term}/${group.class}:`, duplicateCheck);
+            
             duplicateWarnings.push({
               group: `${group.session} / ${group.term} / ${group.class}`,
               uploadId: duplicateCheck.uploadId,
@@ -943,14 +1021,20 @@ async function pushToUniversalCloud(e) {
             groupsToProcess.push({ key, group, duplicateInfo: duplicateCheck });
           }
         } else {
+          // If check fails, proceed with caution
+          console.warn(`Could not check duplicates for ${group.session}/${group.term}/${group.class}`);
           groupsToProcess.push({ key, group, duplicateInfo: null });
         }
       } catch (err) {
         console.error(`Error checking duplicates for ${group.session}/${group.term}/${group.class}:`, err);
+        // Continue with other groups
       }
     }
 
+    // Handle duplicate warnings
     if (duplicateWarnings.length > 0) {
+      console.log('Duplicate uploads found:', duplicateWarnings);
+      
       let warningMessage = `⚠️ The following data has already been uploaded:\n\n`;
       duplicateWarnings.forEach((dup, idx) => {
         warningMessage += `${idx + 1}. ${dup.group}\n`;
@@ -965,8 +1049,9 @@ async function pushToUniversalCloud(e) {
       warningMessage += `2. Update existing uploads (replace data)\n`;
       warningMessage += `3. Cancel and review data`;
 
+      // Show custom confirmation dialog
       showDuplicateDialog(duplicateWarnings, groupsToProcess, schoolId, schoolName);
-
+      
       if (pushBtn) {
         pushBtn.disabled = false;
         pushBtn.innerHTML = originalText;
@@ -974,6 +1059,7 @@ async function pushToUniversalCloud(e) {
       return;
     }
 
+    // No duplicates found, proceed with upload
     if (groupsToProcess.length > 0) {
       await processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn, originalText);
     } else {
@@ -996,6 +1082,7 @@ async function pushToUniversalCloud(e) {
 
 // ===== NEW: Handle Duplicate Dialog =====
 function showDuplicateDialog(duplicates, groupsToProcess, schoolId, schoolName) {
+  // Create modal for duplicate handling
   const modal = document.createElement('div');
   modal.id = 'duplicateWarningModal';
   modal.className = 'modal active';
@@ -1062,6 +1149,7 @@ function showDuplicateDialog(duplicates, groupsToProcess, schoolId, schoolName) 
 
   document.body.appendChild(modal);
 
+  // Store dialog state globally for button callbacks
   window.duplicateDialogState = {
     duplicates,
     groupsToProcess,
@@ -1080,11 +1168,15 @@ async function skipDuplicatesAndUpload() {
   const state = window.duplicateDialogState;
   if (!state) return;
 
+  console.log('Skipping duplicates and uploading only new data...');
+  
+  // Filter out duplicate groups
   const duplicateGroupKeys = state.duplicates.map(d => {
+    // Reconstruct the key from group info
     return `${d.group.split(' / ')[0]}||${d.group.split(' / ')[1]}||${d.group.split(' / ')[2]}`;
   });
 
-  const newGroupsToProcess = state.groupsToProcess.filter(g =>
+  const newGroupsToProcess = state.groupsToProcess.filter(g => 
     !duplicateGroupKeys.includes(g.key)
   );
 
@@ -1097,7 +1189,7 @@ async function skipDuplicatesAndUpload() {
 
   const pushBtn = document.querySelector('[onclick*="pushToUniversalCloud"]');
   const originalText = pushBtn?.innerHTML;
-
+  
   if (pushBtn) {
     pushBtn.disabled = true;
     pushBtn.innerHTML = '<span class="spinner"></span><span>Uploading new data...</span>';
@@ -1110,16 +1202,19 @@ async function updateExistingUploads() {
   const state = window.duplicateDialogState;
   if (!state) return;
 
+  console.log('Updating existing uploads...');
+  
   closeDuplicateDialog();
 
   const pushBtn = document.querySelector('[onclick*="pushToUniversalCloud"]');
   const originalText = pushBtn?.innerHTML;
-
+  
   if (pushBtn) {
     pushBtn.disabled = true;
     pushBtn.innerHTML = '<span class="spinner"></span><span>Updating uploads...</span>';
   }
 
+  // Process with update flag
   await processPushGroups(state.groupsToProcess, state.schoolId, state.schoolName, pushBtn, originalText, true);
 }
 
@@ -1130,7 +1225,7 @@ async function processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn,
 
   for (const { key, group } of groupsToProcess) {
     console.log(`\nProcessing group: ${group.session} / ${group.term} / ${group.class}`);
-
+    
     const missingFields = [];
     if (!group.session) missingFields.push('Session');
     if (!group.term) missingFields.push('Term');
@@ -1178,7 +1273,7 @@ async function processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn,
       results: enrichedData,
       sourceType: 'school_backend',
       upsert: true,
-      shouldUpdate: shouldUpdate,
+      shouldUpdate: shouldUpdate, // Flag to indicate update vs. new
       metadata: {
         backendUrl: AppState.schoolMetadata?.backendUrl || null,
         syncedAt: new Date().toISOString(),
@@ -1208,7 +1303,7 @@ async function processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn,
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Cloud push error response:', errorData);
-
+        
         let errorMessage = `HTTP ${response.status}`;
         try {
           const jsonError = JSON.parse(errorData);
@@ -1216,7 +1311,7 @@ async function processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn,
         } catch (e) {
           errorMessage = errorData || errorMessage;
         }
-
+        
         showAlert('error', `Failed to push ${group.session}/${group.term}/${group.class}: ${errorMessage}`);
         continue;
       }
@@ -1225,7 +1320,7 @@ async function processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn,
 
       if (result.success) {
         totalProcessed += enrichedData.length;
-
+        
         uploadResults.push({
           session: group.session,
           term: group.term,
@@ -1257,14 +1352,15 @@ async function processPushGroups(groupsToProcess, schoolId, schoolName, pushBtn,
     }
   }
 
+  // Final summary
   if (uploadResults.length > 0) {
     let summaryMessage = `✓ Successfully uploaded ${totalProcessed} records across ${uploadResults.length} group(s):\n`;
     uploadResults.forEach(r => {
       summaryMessage += `\n• ${r.session} / ${r.term} / ${r.class}: ${r.recordsCount} records (ID: ${r.uploadId})`;
     });
-
+    
     showAlert('success', summaryMessage);
-
+    
     setTimeout(() => {
       resetForm();
     }, 2000);
@@ -1283,11 +1379,12 @@ function logCloudSync(syncData) {
   try {
     const syncLogs = JSON.parse(localStorage.getItem('cloudSyncLogs') || '[]');
     syncLogs.push(syncData);
-
+    
+    // Keep only last 100 logs
     if (syncLogs.length > 100) {
       syncLogs.splice(0, syncLogs.length - 100);
     }
-
+    
     localStorage.setItem('cloudSyncLogs', JSON.stringify(syncLogs));
     console.log('✓ Cloud sync logged:', syncData);
   } catch (err) {
@@ -1299,12 +1396,13 @@ function logCloudSync(syncData) {
 function viewSyncHistory() {
   try {
     const syncLogs = JSON.parse(localStorage.getItem('cloudSyncLogs') || '[]');
-
+    
     if (syncLogs.length === 0) {
       showAlert('info', 'No cloud sync history found');
       return;
     }
-
+    
+    // Display sync history modal or table
     let historyHTML = `
       <div style="padding: 20px; background: var(--card-bg); border-radius: 10px; margin-top: 20px;">
         <h3 style="margin: 0 0 15px 0; color: var(--primary); font-weight: 800;">
@@ -1326,19 +1424,19 @@ function viewSyncHistory() {
             </thead>
             <tbody>
     `;
-
+    
     syncLogs.slice().reverse().forEach(log => {
-      const statusBadge = log.status === 'success'
+      const statusBadge = log.status === 'success' 
         ? '<span class="status-badge status-success"><i class="fas fa-check"></i> Success</span>'
         : log.status === 'error'
         ? '<span class="status-badge status-error"><i class="fas fa-times"></i> Error</span>'
         : log.status === 'failed'
         ? '<span class="status-badge status-error"><i class="fas fa-times"></i> Failed</span>'
         : '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Processing</span>';
-
+      
       const uploadId = log.uploadId || 'N/A';
       const sessionTerm = log.session && log.term ? `${log.session} / ${log.term}` : 'N/A';
-
+      
       historyHTML += `
         <tr>
           <td style="font-family: monospace; font-size: 0.8rem;">${uploadId}</td>
@@ -1351,14 +1449,15 @@ function viewSyncHistory() {
         </tr>
       `;
     });
-
+    
     historyHTML += `
             </tbody>
           </table>
         </div>
       </div>
     `;
-
+    
+    // Create a temporary container and display it
     const historyContainer = document.getElementById('syncHistoryContainer');
     if (historyContainer) {
       historyContainer.innerHTML = historyHTML;
@@ -1376,22 +1475,10 @@ function viewSyncHistory() {
 // ===== UPLOAD (FOR FILE-BASED UPLOADS) =====
 document.addEventListener('DOMContentLoaded', () => {
   setupFileUpload();
-
   const uploadForm = document.getElementById('uploadForm');
   if (uploadForm) {
     uploadForm.addEventListener('submit', uploadToUniversalServer);
   }
-
-  const storedApiKey = localStorage.getItem('apiKey');
-  if (storedApiKey) {
-    CONFIG.API_KEY = storedApiKey;
-    console.log('✓ API key loaded from localStorage');
-  }
-
-  updateStats();
-  loadCurrentSchoolConfig();
-
-  console.log('✓ Result Verify loaded successfully');
 });
 
 async function uploadToUniversalServer(e) {
@@ -1430,7 +1517,7 @@ async function uploadToUniversalServer(e) {
   try {
     await uploadBatch(session, term, className, subject, scoreType);
     updateStats();
-    showAlert('success', `✓ Successfully uploaded ${AppState.uploadProgress.success}/${AppState.uploadProgress.total} records`);
+    showAlert('success', `��� Successfully uploaded ${AppState.uploadProgress.success}/${AppState.uploadProgress.total} records`);
   } catch (err) {
     showAlert('error', `Upload failed: ${err.message}`);
   } finally {
@@ -1713,7 +1800,7 @@ function showAlert(type, message, duration = 5000) {
 
   const messageEl = alertEl.querySelector('.alert-message');
   if (messageEl) messageEl.textContent = message;
-
+  
   alertEl.classList.add('show');
 
   setTimeout(() => {
@@ -1798,18 +1885,38 @@ function closeModal(modalId) {
   if (modal) modal.classList.remove('active');
 }
 
+function copyTemplate() {
+  const templateCode = document.getElementById('templateCode');
+  if (!templateCode) return;
+
+  const code = templateCode.textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    showAlert('success', 'Template copied to clipboard');
+    closeModal('templateModal');
+  }).catch(err => {
+    console.error('Copy failed:', err);
+    showAlert('error', 'Failed to copy template');
+  });
+}
+
 // ===== NAVIGATION =====
 function switchTab(tabId) {
+  // Hide all tabs
   document.querySelectorAll('.tab-content').forEach(tab => {
     tab.classList.remove('active');
   });
 
+  // Deactivate all tab buttons
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.remove('active');
   });
 
+  // Show selected tab
   const targetTab = document.getElementById(tabId);
   if (targetTab) targetTab.classList.add('active');
+
+  // Activate corresponding button
+  if (event?.target) event.target.classList.add('active');
 }
 
 function navigateTab(tabName) {
@@ -1839,4 +1946,34 @@ document.querySelectorAll('.nav-item').forEach(item => {
     const sidebar = document.querySelector('.sidebar');
     if (sidebar) sidebar.classList.remove('active');
   });
+});
+
+// ===== INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', async () => {
+  // Render cached branding immediately, then refresh it from the authenticated profile.
+  applyCurrentSchoolBranding();
+  await loadCurrentSchoolBranding();
+
+  setupFileUpload();
+
+  // Load API key from localStorage on page load
+  const storedApiKey = localStorage.getItem('apiKey');
+  if (storedApiKey) {
+    CONFIG.API_KEY = storedApiKey;
+    console.log('✓ API key loaded from localStorage');
+  }
+
+  updateStats();
+  console.log('✓ Result Verify loaded successfully');
+});
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 's') {
+    e.preventDefault();
+    const uploadForm = document.getElementById('uploadForm');
+    if (uploadForm) {
+      uploadForm.dispatchEvent(new Event('submit'));
+    }
+  }
 });
