@@ -141,11 +141,15 @@ async function parseProviderResponse(response) {
   }
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       payload.message ||
       payload.error ||
       `Payment provider request failed (${response.status}).`
     );
+    error.statusCode = response.status >= 400 && response.status < 600 ? 502 : 502;
+    error.providerHttpStatus = response.status;
+    error.providerCode = payload.code || payload.type || null;
+    throw error;
   }
 
   return payload;
@@ -832,8 +836,25 @@ router.post('/purchases/initiate', async (req, res) => {
         data: purchaseResponse(purchase)
       });
     } catch (gatewayError) {
+      // Log actionable gateway diagnostics, but never log API keys or authorization headers.
+      console.error('[ScratchCards][GatewayInitializeFailed]', JSON.stringify({
+        provider,
+        reference,
+        schoolId: String(school._id),
+        quantity,
+        amountNaira,
+        providerHttpStatus: gatewayError.providerHttpStatus || null,
+        providerCode: gatewayError.providerCode || null,
+        error: gatewayError.message,
+        at: new Date().toISOString()
+      }));
+
       purchase.paymentStatus = 'failed';
-      purchase.providerResponse = { error: gatewayError.message };
+      purchase.providerResponse = {
+        error: gatewayError.message,
+        providerHttpStatus: gatewayError.providerHttpStatus || null,
+        providerCode: gatewayError.providerCode || null
+      };
       await purchase.save();
 
       const status = gatewayError.statusCode || 502;
