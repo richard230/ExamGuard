@@ -591,7 +591,7 @@ function purchaseResponse(purchase) {
 function getSchoolPortalBaseUrl(school) {
   const customDomain = String(school?.customDomain || '').trim();
   const subdomain = String(school?.subdomain || '').trim();
-  const baseDomain = String(process.env.EXAMGUARD_BASE_DOMAIN || 'examguard.com.ng')
+  const baseDomain = String(process.env.GOLDLINCSCHOOLS_BASE_DOMAIN || 'goldlinc-schools-manuhf.goldlincschools.com.ng')
     .trim().replace(/^https?:\/\//i, '').replace(/\/$/, '');
 
   // Custom domains are read from the trusted School record, never from callback query parameters.
@@ -611,11 +611,11 @@ function getSchoolPortalBaseUrl(school) {
     return `https://${subdomain.toLowerCase()}.${baseDomain}`;
   }
 
-  const fallback = String(process.env.EXAMGUARD_FRONTEND_URL || 'https://examguard.com.ng').trim();
+  const fallback = String(process.env.GOLDLINCSCHOOLS_FRONTEND_URL || 'https://goldlinc-schools-manuhf.goldlincschools.com.ng').trim();
   try {
     return new URL(fallback).origin;
   } catch (_) {
-    return 'https://examguard.com.ng';
+    return 'https://goldlinc-schools-manuhf.goldlincschools.com.ng';
   }
 }
 
