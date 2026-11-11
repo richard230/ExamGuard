@@ -851,7 +851,7 @@
         <header class="topbar">
             <div class="topbar-left">
                 <h1 class="topbar-title">API Key Management</h1>
-                <p class="topbar-subtitle">ExamGuard International School</p>
+                <p class="topbar-subtitle">Loading school...</p>
             </div>
             <div class="topbar-right">
                 <button class="icon-btn" title="Help" onclick="showHelp()">
@@ -1171,32 +1171,145 @@
 
     <script>
         // ===== CONFIGURATION =====
-        const API_BASE_URL = 'https://examguard-8rxe.onrender.com/api';
-        const SCHOOL_ID = 'goldlinc-school';
-        const SCHOOL_NAME = 'GoldLinc-School';
+        // ===== MULTI-SCHOOL CONFIGURATION =====
+        const API_ROOT = window.API_BASE_URL || 'https://examguard-8rxe.onrender.com';
+        const API_BASE_URL = `${API_ROOT.replace(/\/$/, '')}/api`;
+        const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE_URL}/schools/config`;
 
         let currentKeyId = null;
         let allKeys = [];
+        let currentUser = null;
+        let currentSchool = null;
+        let schoolId = '';
+        let publicSchoolCode = '';
+        let authReady = false;
+
+        function getAuthToken() {
+            return localStorage.getItem('token') ||
+                   localStorage.getItem('adminToken') ||
+                   localStorage.getItem('authToken') || '';
+        }
+
+        function getSchoolIdFrom(value) {
+            if (!value) return '';
+            if (typeof value === 'string') return value.trim();
+            return value.schoolId || value._id || value.id || value.code || '';
+        }
+
+        function getRequestHeaders(extra = {}) {
+            const token = getAuthToken();
+            return {
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                'Content-Type': 'application/json',
+                ...(publicSchoolCode ? { 'X-School-Code': publicSchoolCode } : {}),
+                ...(schoolId ? { 'X-School-Id': schoolId } : {}),
+                ...extra
+            };
+        }
+
+        async function readApiResponse(response) {
+            const raw = await response.text();
+            let data = {};
+            if (raw) {
+                try { data = JSON.parse(raw); }
+                catch (_) { data = { message: raw }; }
+            }
+            if (!response.ok) {
+                throw new Error(data.message || data.error || data.details || `HTTP ${response.status}`);
+            }
+            return data;
+        }
 
         // ===== INITIALIZATION =====
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
-            loadApiKeys();
+        document.addEventListener('DOMContentLoaded', async () => {
+            const authenticated = await loadAuthenticatedUser();
+            if (!authenticated) return;
+            authReady = true;
+            await loadApiKeys();
         });
 
-        // ===== AUTHENTICATION =====
-        function checkAuth() {
-            const token = localStorage.getItem('token');
+        // ===== AUTHENTICATION / SCHOOL CONTEXT =====
+        async function loadAuthenticatedUser() {
+            const token = getAuthToken();
             if (!token) {
-                console.warn('No authentication token found');
-                // Uncomment to redirect to login
-                // window.location.href = 'login.html';
+                showAlert('error', 'Your session has expired. Please log in again.');
+                setTimeout(() => { window.location.href = 'login.html'; }, 1200);
+                return false;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/me`, {
+                    method: 'GET',
+                    headers: getRequestHeaders()
+                });
+                const result = await readApiResponse(response);
+                currentUser = result.user || result.data?.user || result;
+                currentSchool = result.school || result.data?.school ||
+                                currentUser?.school || currentUser?.schoolDetails || null;
+
+                // Resolve tenant from the authenticated account first; never fall back
+                // to a hard-coded school.
+                // Match the admin dashboard's tenant contract: the signed-in
+                // superadmin must carry a schoolId, and the school context supplies
+                // the public school code used by tenant-aware API middleware.
+                if (currentUser?.role !== 'superadmin' || !currentUser?.schoolId) {
+                    throw new Error('Access denied. A school-linked superadmin account is required.');
+                }
+
+                schoolId = getSchoolIdFrom(currentSchool?.schoolId) ||
+                           getSchoolIdFrom(currentUser.schoolId);
+
+                publicSchoolCode = currentSchool?.schoolId ||
+                                   currentUser?.schoolCode ||
+                                   (typeof currentUser?.school === 'string' ? currentUser.school : '') ||
+                                   '';
+
+                if (!schoolId) {
+                    throw new Error('Your authenticated account does not contain a valid school ID.');
+                }
+
+                localStorage.setItem('schoolId', schoolId);
+                if (publicSchoolCode) localStorage.setItem('schoolCode', publicSchoolCode);
+
+                applySchoolBranding();
+                return true;
+            } catch (error) {
+                console.error('Authentication/context error:', error);
+                showAlert('error', `Unable to verify your school session: ${error.message}`);
+                document.getElementById('keysTableContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon"><i class="fas fa-shield-alt"></i></div>
+                        <h3>School session unavailable</h3>
+                        <p>${escapeHtml(error.message)}</p>
+                        <button class="btn btn-primary" onclick="window.location.href='login.html'" style="margin-top:16px;">
+                            <i class="fas fa-sign-in-alt"></i> Sign in again
+                        </button>
+                    </div>`;
+                return false;
+            }
+        }
+
+        function applySchoolBranding() {
+            const schoolName = currentSchool?.schoolName || currentSchool?.name ||
+                               currentUser?.schoolName || 'Your School';
+            const logo = currentSchool?.logoUrl || currentSchool?.branding?.logo ||
+                         currentSchool?.branding?.lightLogo || currentSchool?.branding?.darkLogo || '';
+            document.title = `API Key Management | ${schoolName}`;
+            const subtitle = document.querySelector('.topbar-subtitle');
+            if (subtitle) subtitle.textContent = schoolName;
+            const brandName = document.querySelector('.brand-text h3');
+            const brandSubtitle = document.querySelector('.brand-text p');
+            if (brandName) brandName.textContent = schoolName;
+            if (brandSubtitle) brandSubtitle.textContent = 'API Key Management';
+            const brandIcon = document.querySelector('.brand-icon');
+            if (logo && brandIcon) {
+                brandIcon.innerHTML = `<img src="${escapeHtml(logo)}" alt="${escapeHtml(schoolName)} logo" style="width:100%;height:100%;object-fit:contain;border-radius:10px;background:#fff;padding:3px" onerror="this.parentElement.textContent='🔑'">`;
             }
         }
 
         function logout() {
             if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('token');
+                ['token', 'adminToken', 'authToken'].forEach(key => localStorage.removeItem(key));
                 window.location.href = 'login.html';
             }
         }
@@ -1204,33 +1317,18 @@
         // ===== API CALLS =====
         async function loadApiKeys() {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    showAlert('error', 'Authentication token not found. Please login again.');
-                    renderKeysTableError();
-                    return;
-                }
+                if (!authReady || !schoolId) throw new Error('School context is not ready. Please sign in again.');
+                const token = getAuthToken();
+                if (!token) throw new Error('Authentication token not found. Please sign in again.');
 
-                console.log('Loading API keys...');
-
-                const response = await fetch(`${API_BASE_URL}/api-keys?schoolId=${SCHOOL_ID}`, {
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
+                console.log('Loading API keys for school:', schoolId);
+                const response = await fetch(`${API_BASE_URL}/api-keys?schoolId=${encodeURIComponent(schoolId)}`, {
+                    method: 'GET',
+                    headers: getRequestHeaders()
                 });
-
-                console.log('Response status:', response.status);
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Error response:', errorData);
-                    throw new Error(errorData.error || `HTTP ${response.status}`);
-                }
-
-                const result = await response.json();
+                const result = await readApiResponse(response);
                 console.log('Loaded keys:', result);
-                allKeys = result.data || [];
+                allKeys = Array.isArray(result.data) ? result.data : (Array.isArray(result.keys) ? result.keys : (Array.isArray(result) ? result : []));
                 renderKeysTable();
                 updateStatistics();
             } catch (err) {
@@ -1275,18 +1373,15 @@
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner"></span> Creating...';
 
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    showAlert('error', 'Authentication token not found');
-                    return;
-                }
+                const token = getAuthToken();
+                if (!token || !schoolId) throw new Error('Authentication or school context is missing.');
 
                 const expiresAt = expiresIn ? new Date(Date.now() + parseInt(expiresIn) * 24 * 60 * 60 * 1000) : null;
 
                 const payload = {
                     name,
                     description,
-                    schoolId: SCHOOL_ID,
+                    schoolId: schoolId,
                     permissions,
                     expiresAt,
                     rateLimit: { 
@@ -1299,10 +1394,7 @@
 
                 const response = await fetch(`${API_BASE_URL}/api-keys`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: getRequestHeaders(),
                     body: JSON.stringify(payload)
                 });
 
@@ -1318,7 +1410,7 @@
                 console.log('Key created successfully:', result);
 
                 showAlert('success', '✓ API key generated successfully!');
-                showKeyDetails(result.data);
+                showKeyDetails(result.data || result.key || result);
                 closeModal('createKeyModal');
                 document.getElementById('createKeyForm').reset();
                 
@@ -1335,18 +1427,15 @@
 
         async function submitRotateKey() {
             try {
-                const token = localStorage.getItem('token');
+                const token = getAuthToken();
                 if (!token) {
                     showAlert('error', 'Authentication token not found');
                     return;
                 }
 
-                const response = await fetch(`${API_BASE_URL}/api-keys/${currentKeyId}/rotate`, {
+                const response = await fetch(`${API_BASE_URL}/api-keys/${encodeURIComponent(currentKeyId)}/rotate?schoolId=${encodeURIComponent(schoolId)}`, {
                     method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
+                    headers: getRequestHeaders()
                 });
 
                 if (!response.ok) {
@@ -1358,7 +1447,7 @@
                 console.log('Key rotated successfully:', result);
 
                 showAlert('success', '✓ API key rotated successfully!');
-                showKeyDetails(result.data);
+                showKeyDetails(result.data || result.key || result);
                 closeModal('rotateKeyModal');
                 
                 setTimeout(() => loadApiKeys(), 500);
@@ -1370,18 +1459,15 @@
 
         async function submitDeactivateKey() {
             try {
-                const token = localStorage.getItem('token');
+                const token = getAuthToken();
                 if (!token) {
                     showAlert('error', 'Authentication token not found');
                     return;
                 }
 
-                const response = await fetch(`${API_BASE_URL}/api-keys/${currentKeyId}/deactivate`, {
+                const response = await fetch(`${API_BASE_URL}/api-keys/${encodeURIComponent(currentKeyId)}/deactivate?schoolId=${encodeURIComponent(schoolId)}`, {
                     method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
+                    headers: getRequestHeaders()
                 });
 
                 if (!response.ok) {
@@ -1403,18 +1489,15 @@
             if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) return;
 
             try {
-                const token = localStorage.getItem('token');
+                const token = getAuthToken();
                 if (!token) {
                     showAlert('error', 'Authentication token not found');
                     return;
                 }
 
-                const response = await fetch(`${API_BASE_URL}/api-keys/${keyId}`, {
+                const response = await fetch(`${API_BASE_URL}/api-keys/${encodeURIComponent(keyId)}?schoolId=${encodeURIComponent(schoolId)}`, {
                     method: 'DELETE',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
+                    headers: getRequestHeaders()
                 });
 
                 if (!response.ok) {
@@ -1595,7 +1678,17 @@
             document.getElementById('activeKeysCount').textContent = activeCount;
             document.getElementById('inactiveKeysCount').textContent = inactiveCount;
             document.getElementById('totalRequests').textContent = totalRequests.toLocaleString();
-            document.getElementById('requestsToday').textContent = '0';
+            const today = new Date().toDateString();
+            const todayRequests = allKeys.reduce((sum, key) => {
+                const usage = key.usage || {};
+                if (usage.todayRequests != null) return sum + Number(usage.todayRequests || 0);
+                if (usage.requestsToday != null) return sum + Number(usage.requestsToday || 0);
+                if (usage.lastUsedAt && new Date(usage.lastUsedAt).toDateString() === today) {
+                    return sum + Number(usage.lastRequestCount || 0);
+                }
+                return sum;
+            }, 0);
+            document.getElementById('requestsToday').textContent = todayRequests.toLocaleString();
         }
 
         // ===== MODALS =====
@@ -1763,8 +1856,10 @@ Security Tips:
 
         // ===== AUTO-REFRESH KEYS EVERY 5 MINUTES =====
         setInterval(() => {
-            console.log('Auto-refreshing API keys...');
-            loadApiKeys();
+            if (authReady && schoolId) {
+                console.log('Auto-refreshing API keys for current school...');
+                loadApiKeys();
+            }
         }, 5 * 60 * 1000);
     </script>
 </body>
