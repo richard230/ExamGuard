@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.5" />
-  <title>Scratch Cards | School Administration</title>
+  <title>Scratch Card Management | School Administration</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,96 +11,144 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root{
-      --brand:#2563eb; --brand-dark:#1e40af; --brand-soft:#eff6ff; --green:#10b981; --amber:#f59e0b; --red:#ef4444;
-      --slate-950:#0f172a; --slate-900:#111827; --slate-800:#1f2937; --slate-700:#334155; --slate-600:#475569;
-      --slate-400:#94a3b8; --slate-300:#cbd5e1; --slate-200:#e2e8f0; --slate-100:#f1f5f9; --slate-50:#f8fafc;
-      --card:#ffffff; --muted:#64748b; --shadow:0 24px 60px rgba(15,23,42,.08);
+      --brand:#2563eb;
+      --brand-dark:#1e40af;
+      --brand-soft:#dbeafe;
+      --success:#10b981;
+      --warning:#f59e0b;
+      --danger:#ef4444;
+      --slate-950:#0f172a;
+      --slate-800:#1e293b;
+      --slate-700:#334155;
+      --slate-600:#475569;
+      --slate-500:#64748b;
+      --slate-300:#cbd5e1;
+      --slate-200:#e2e8f0;
+      --slate-100:#f1f5f9;
+      --white:#ffffff;
     }
+
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0}
+    html,body{height:100%}
     body{
       font-family:"Plus Jakarta Sans",sans-serif;
-      background:linear-gradient(180deg,#f8fafc 0%, #eef4ff 100%);
-      color:#0f172a;
       -webkit-tap-highlight-color:transparent;
+      background:linear-gradient(180deg,#f8fbff 0%,#eef4ff 100%);
+      color:#0f172a;
     }
+
     .sidebar{transition:transform .28s ease}
     .overlay{display:none}.overlay.show{display:block}
     .spinner{
-      width:19px;height:19px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;
-      animation:spin .7s linear infinite
+      width:20px;height:20px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;
+      animation:spin .7s linear infinite;
     }
     @keyframes spin{to{transform:rotate(360deg)}}
-    .modal{display:none}.modal.show{display:flex}
-    .toast{animation:slide .2s ease}
-    @keyframes slide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+    .modal{display:none}.modal.show{display:flex}.toast{animation:slide .2s ease}
+    @keyframes slide{
+      from{opacity:0;transform:translateY(-8px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+
     .field{
-      width:100%;border:1px solid #e2e8f0;border-radius:11px;padding:10px 12px;font-size:12px;background:#fff;outline:none;
-      transition:border-color .18s ease, box-shadow .18s ease
+      width:100%;
+      border:1px solid #e2e8f0;
+      border-radius:11px;
+      padding:10px 12px;
+      font-size:12px;
+      background:#fff;
+      outline:none;
+      color:#0f172a;
     }
     .field:focus{
-      border-color:#60a5fa;box-shadow:0 0 0 3px #dbeafe
+      border-color:#60a5fa;
+      box-shadow:0 0 0 3px rgba(96,165,250,.18);
     }
+
     .btn{
-      display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;padding:10px 14px;font-size:12px;font-weight:800;
-      transition:.18s ease; border:none; cursor:pointer
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      border-radius:11px;
+      padding:10px 14px;
+      font-size:12px;
+      font-weight:800;
+      transition:.18s ease;
+      cursor:pointer;
+      border:none;
     }
     .btn:disabled{opacity:.55;cursor:not-allowed}
-    .btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;box-shadow:0 12px 26px rgba(37,99,235,.22)}
+    .btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;box-shadow:0 10px 24px rgba(37,99,235,.18)}
     .btn-primary:hover{transform:translateY(-1px)}
-    .btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
-    .btn-warning{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}
-    .btn-ghost{background:#fff;border:1px solid #e2e8f0;color:#334155}
-    .btn-ghost:hover{background:#f8fafc}
-    .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border:1px solid #e2e8f0}
+    .btn-secondary:hover{background:#f8fafc}
+    .btn-success{background:#10b981;color:#fff}
+    .btn-warning{background:#f59e0b;color:#fff}
+    .btn-danger{background:#ef4444;color:#fff}
+    .btn-subtle{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+
     .card-panel{
-      background:#fff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:var(--shadow)
+      background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 8px 24px rgba(15,23,42,.04)
     }
-    .mini-badge{
-      display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:800;
-      letter-spacing:.04em;text-transform:uppercase;border:1px solid transparent
-    }
-    .mini-badge.success{background:#ecfdf5;color:#047857;border-color:#bbf7d0}
-    .mini-badge.warning{background:#fffbeb;color:#b45309;border-color:#fde68a}
-    .mini-badge.danger{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
-    .mini-badge.info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+
     .table-wrap{overflow:auto}
     .student-row:hover{background:#f8fafc}
     .status{
-      font-size:10px;font-weight:800;border-radius:999px;padding:5px 9px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:10px;font-weight:800;border-radius:999px;padding:5px 9px;white-space:nowrap;letter-spacing:.03em
     }
-    .status.active{background:#ecfdf5;color:#047857}
-    .status.pending{background:#f3f4f6;color:#475569}
-    .status.expired{background:#fef2f2;color:#991b1b}
-    .status.used{background:#e0f2fe;color:#075985}
-    .status.pool{background:#eff6ff;color:#1d4ed8}
-    .status.sold{background:#fef3c7;color:#92400e}
-    .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
-    .dot.active{background:#10b981}.dot.pending{background:#94a3b8}.dot.expired{background:#ef4444}.dot.used{background:#0284c7}.dot.pool{background:#3b82f6}.dot.sold{background:#f59e0b}
-    .muted{color:var(--muted)}
+    .status-active{background:#dcfce7;color:#166534}
+    .status-warning{background:#fff7ed;color:#9a5a00}
+    .status-danger{background:#fee2e2;color:#991b1b}
+    .status-muted{background:#e2e8f0;color:#475569}
+    .status-info{background:#dbeafe;color:#1d4ed8}
+
+    .pill{
+      display:inline-flex;align-items:center;gap:6px;
+      border-radius:999px;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase
+    }
+    .pill-blue{background:#dbeafe;color:#1d4ed8}
+    .pill-green{background:#dcfce7;color:#166534}
+    .pill-amber{background:#fff7ed;color:#9a5a00}
+    .pill-rose{background:#fee2e2;color:#991b1b}
+    .pill-slate{background:#e2e8f0;color:#475569}
+
+    .mini-chart{
+      position:relative;height:60px;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#f8fafc);overflow:hidden
+    }
+    .mini-chart-bar{
+      position:absolute;bottom:0;left:0;width:100%;height:75%;background:linear-gradient(135deg,#93c5fd,#2563eb);border-radius:12px 12px 0 0
+    }
+
     @media(max-width:767px){
-      .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}
+      .sidebar{transform:translateX(-100%)}
+      .sidebar.open{transform:translateX(0)}
       .content{padding-bottom:88px}
     }
+
     @media print{
-      .sidebar,.topbar,.filters,.actions,.mobile-nav,.no-print{display:none!important}.content{margin:0!important;padding:0!important}.print-only{display:block!important}.card-panel{box-shadow:none}
+      .sidebar,.topbar,.filters,.actions,.mobile-nav,.no-print{display:none!important}
+      .content{margin:0!important;padding:0!important}
+      .print-only{display:block!important}
+      body{background:#fff}
     }
   </style>
 </head>
 <body class="min-h-full text-slate-800">
   <div id="toastHost" class="fixed right-4 top-4 z-[100] space-y-2 w-[min(360px,calc(100%-2rem))]"></div>
+
   <div id="loading" class="fixed inset-0 z-[90] bg-white/90 backdrop-blur-sm flex items-center justify-center">
     <div class="text-center">
       <div class="spinner mx-auto w-10 h-10"></div>
       <p class="mt-4 text-xs font-extrabold tracking-widest text-slate-500 uppercase">Loading school portal</p>
     </div>
   </div>
+
   <div id="sidebarOverlay" class="overlay fixed inset-0 bg-slate-950/60 z-40 md:hidden"></div>
 
   <div class="min-h-screen flex">
     <aside id="sidebar" class="sidebar fixed z-50 inset-y-0 left-0 w-64 bg-slate-950 text-white flex flex-col shadow-2xl md:translate-x-0">
       <div class="p-5 border-b border-slate-800 flex items-center gap-3">
-        <img id="schoolLogo" class="w-10 h-10 rounded-xl object-contain bg-white p-1" alt="School logo">
+        <img id="schoolLogo" class="w-10 h-10 rounded-xl object-contain bg-white p-1" alt="School logo" />
         <div class="min-w-0">
           <p id="schoolName" class="font-extrabold text-sm text-amber-300 truncate">School Administration</p>
           <p class="text-[10px] text-slate-400">Management Portal</p>
@@ -112,7 +160,7 @@
         <a href="admission.html" class="flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-slate-800"><i class="fa-solid fa-user-plus w-4"></i> Admission</a>
         <a href="people.html" class="flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-slate-800"><i class="fa-solid fa-users w-4"></i> People</a>
         <a href="students-view.html" class="flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-slate-800"><i class="fa-solid fa-graduation-cap w-4"></i> Students</a>
-        <a href="scratch-cards.html" class="flex items-center gap-3 p-3 rounded-xl bg-blue-600 text-white shadow-lg"><i class="fa-solid fa-ticket w-4"></i> Scratch Cards</a>
+        <a href="scratchcard.html" class="flex items-center gap-3 p-3 rounded-xl bg-blue-600 text-white shadow-lg"><i class="fa-solid fa-ticket w-4"></i> Scratch Cards</a>
         <a href="academics.html" class="flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-slate-800"><i class="fa-solid fa-book w-4"></i> Academics</a>
         <a href="results.html" class="flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-slate-800"><i class="fa-solid fa-file-lines w-4"></i> Results</a>
         <a href="finance.html" class="flex items-center gap-3 p-3 rounded-xl text-slate-300 hover:bg-slate-800"><i class="fa-solid fa-wallet w-4"></i> Finance</a>
@@ -123,8 +171,8 @@
       <div class="mt-auto p-4 border-t border-slate-800 flex items-center gap-3">
         <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-xs font-extrabold">SA</div>
         <div class="min-w-0">
-          <p id="schoolAdminName" class="text-xs font-extrabold text-white truncate">School Administrator</p>
-          <span id="schoolAdminRole" class="text-[10px] text-slate-400 block">Administrator</span>
+          <p id="schoolShortLabel" class="text-xs font-bold text-white truncate">School Admin</p>
+          <p class="text-[10px] text-slate-400">Scratch Card Control</p>
         </div>
       </div>
     </aside>
@@ -132,219 +180,150 @@
     <main class="content flex-1 min-w-0 md:ml-64">
       <header class="topbar sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200 px-4 md:px-7 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <button id="menuBtn" class="md:hidden p-2 rounded-lg hover:bg-slate-100" aria-label="Toggle menu">
-            <i class="fa-solid fa-bars"></i>
-          </button>
+          <button id="menuBtn" class="md:hidden p-2 rounded-lg hover:bg-slate-100"><i class="fa-solid fa-bars"></i></button>
           <div>
-            <p class="hidden sm:block text-[10px] text-slate-500 uppercase tracking-[0.2em] font-extrabold">School portal</p>
-            <h1 class="text-lg font-extrabold text-slate-900">Scratch Card Inventory</h1>
+            <p class="hidden sm:block text-[10px] text-slate-500 font-extrabold uppercase tracking-[.2em]">School portal</p>
+            <h1 class="text-lg md:text-xl font-extrabold text-slate-900">Scratch Card Management</h1>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <span id="schoolPill" class="hidden sm:block text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">School portal</span>
-          <button id="refreshBtn" class="btn btn-ghost" title="Refresh data">
-            <i class="fa-solid fa-rotate-right"></i>
-          </button>
+          <button id="purchaseBtn" class="btn btn-primary"><i class="fa-solid fa-bag-shopping"></i> Buy Pool</button>
+          <button id="refreshBtn" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i> Refresh</button>
           <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-extrabold">SA</div>
         </div>
       </header>
 
       <div class="p-4 md:p-7 max-w-[1600px] mx-auto space-y-5">
-        <section class="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-          <div>
-            <div class="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full mb-3">
-              <i class="fa-solid fa-shield-halved"></i> Scratch card management
+        <section class="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          <div class="card-panel p-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-400">Available</p>
+                <p id="statAvailable" class="mt-2 text-2xl font-extrabold text-blue-700">0</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <i class="fa-solid fa-ticket"></i>
+              </div>
             </div>
-            <h2 class="text-xl font-extrabold text-slate-900">School-wide result verification credits</h2>
           </div>
 
-          <div class="actions flex flex-wrap gap-2">
-            <button id="purchaseBtn" class="btn btn-primary">
-              <i class="fa-solid fa-bag-shopping"></i> Purchase cards
-            </button>
-            <button id="openAssignModalBtn" class="btn btn-success">
-              <i class="fa-solid fa-ticket"></i> Assign Card
-            </button>
-            <button id="bulkAssignBtn" class="btn btn-ghost border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> Assign Selected
-            </button>
-            <button id="exportBtn" class="btn btn-ghost">
-              <i class="fa-solid fa-file-csv"></i> Export CSV
-            </button>
+          <div class="card-panel p-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-400">Assigned</p>
+                <p id="statAssigned" class="mt-2 text-2xl font-extrabold text-emerald-600">0</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i class="fa-solid fa-user-check"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-panel p-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-400">Used / Exhausted</p>
+                <p id="statUsed" class="mt-2 text-2xl font-extrabold text-amber-600">0</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i class="fa-solid fa-bolt"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-panel p-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-400">Expired</p>
+                <p id="statExpired" class="mt-2 text-2xl font-extrabold text-rose-600">0</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-          <div class="card-panel p-4">
-            <div class="flex justify-between items-start">
-              <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total students</p>
-              <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center"><i class="fa-solid fa-user-graduate"></i></div>
-            </div>
-            <p id="statTotalStudents" class="mt-3 text-2xl font-extrabold text-slate-900">0</p>
-          </div>
-
-          <div class="card-panel p-4">
-            <div class="flex justify-between items-start">
-              <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Pool available</p>
-              <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center"><i class="fa-solid fa-layer-group"></i></div>
-            </div>
-            <p id="statPoolAvailable" class="mt-3 text-2xl font-extrabold text-slate-900">0</p>
-          </div>
-
-          <div class="card-panel p-4">
-            <div class="flex justify-between items-start">
-              <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Assigned active</p>
-              <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center"><i class="fa-solid fa-user-check"></i></div>
-            </div>
-            <p id="statAssignedActive" class="mt-3 text-2xl font-extrabold text-slate-900">0</p>
-          </div>
-
-          <div class="card-panel p-4">
-            <div class="flex justify-between items-start">
-              <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Used / expired</p>
-              <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center"><i class="fa-solid fa-circle-xmark"></i></div>
-            </div>
-            <p id="statUsedExpired" class="mt-3 text-2xl font-extrabold text-slate-900">0</p>
-          </div>
-
-          <div class="card-panel p-4 col-span-2 xl:col-span-1">
-            <div class="flex justify-between items-start">
-              <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Revenue in pool</p>
-              <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center"><i class="fa-solid fa-naira-sign"></i></div>
-            </div>
-            <p id="statRevenue" class="mt-3 text-2xl font-extrabold text-slate-900">₦0</p>
-          </div>
-        </section>
-
-        <section class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-3">
-          <div class="card-panel p-4 md:p-5">
+        <section class="grid grid-cols-1 xl:grid-cols-[1.25fr,0.75fr] gap-4">
+          <div class="card-panel p-4 md:p-5 filters">
             <div class="flex items-center justify-between gap-3 mb-4">
               <div>
-                <h3 class="text-sm font-extrabold">Inventory overview</h3>
-                <p class="text-[10px] text-slate-400 mt-1">Available, issued, used and expired cards for your school</p>
+                <h3 class="text-sm font-extrabold">Find students</h3>
+                <p class="text-[10px] text-slate-400 mt-1">Filter your current school’s student records and scratch card usage.</p>
               </div>
-              <div class="mini-badge info"><i class="fa-solid fa-tag"></i> ₦150 per card</div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div class="card-panel border border-blue-100 bg-blue-50/60 p-4">
-                <div class="flex justify-between">
-                  <div>
-                    <p class="text-[10px] font-extrabold uppercase text-blue-700">Available pool</p>
-                    <p id="poolSummaryAvailable" class="mt-2 text-xl font-extrabold text-blue-900">0</p>
-                  </div>
-                  <div class="w-10 h-10 rounded-xl bg-white text-blue-700 flex items-center justify-center shadow-sm"><i class="fa-solid fa-box-open"></i></div>
-                </div>
-              </div>
-
-              <div class="card-panel border border-emerald-100 bg-emerald-50/60 p-4">
-                <div class="flex justify-between">
-                  <div>
-                    <p class="text-[10px] font-extrabold uppercase text-emerald-700">Assigned active</p>
-                    <p id="poolSummaryActive" class="mt-2 text-xl font-extrabold text-emerald-900">0</p>
-                  </div>
-                  <div class="w-10 h-10 rounded-xl bg-white text-emerald-700 flex items-center justify-center shadow-sm"><i class="fa-solid fa-user-check"></i></div>
-                </div>
-              </div>
-
-              <div class="card-panel border border-rose-100 bg-rose-50/60 p-4">
-                <div class="flex justify-between">
-                  <div>
-                    <p class="text-[10px] font-extrabold uppercase text-rose-700">Expired / used</p>
-                    <p id="poolSummaryExpired" class="mt-2 text-xl font-extrabold text-rose-900">0</p>
-                  </div>
-                  <div class="w-10 h-10 rounded-xl bg-white text-rose-700 flex items-center justify-center shadow-sm"><i class="fa-solid fa-circle-xmark"></i></div>
-                </div>
+              <div class="flex items-center gap-2">
+                <button id="bulkAssignBtn" class="btn btn-subtle"><i class="fa-solid fa-wand-magic-sparkles"></i> Assign from pool</button>
               </div>
             </div>
-          </div>
 
-          <div class="card-panel p-4 md:p-5">
-            <div class="flex items-center justify-between gap-3 mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
               <div>
-                <h3 class="text-sm font-extrabold">Quick purchase</h3>
-                <p class="text-[10px] text-slate-400 mt-1">Pregenerate stock at ₦150 per card</p>
+                <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Search student</label>
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400"></i>
+                  <input id="searchInput" class="field pl-9" placeholder="Name, reg no, card" />
+                </div>
               </div>
-            </div>
 
-            <div class="space-y-3">
               <div>
-                <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Quantity</label>
-                <input id="purchaseQty" type="number" min="1" max="1000" value="25" class="field font-bold text-slate-800" />
+                <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Class</label>
+                <select id="classFilter" class="field">
+                  <option value="">All classes</option>
+                </select>
               </div>
 
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Unit price</label>
-                  <div class="field bg-slate-50 text-slate-700 flex items-center justify-center font-extrabold">₦150</div>
-                </div>
-                <div>
-                  <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Estimated total</label>
-                  <div id="purchaseTotal" class="field bg-slate-100 text-slate-800 flex items-center justify-center font-extrabold">₦3,750</div>
-                </div>
+              <div>
+                <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Academic session</label>
+                <select id="sessionFilter" class="field">
+                  <option value="">All sessions</option>
+                </select>
               </div>
 
-              <button id="confirmPurchaseBtn" class="btn btn-primary w-full">
-                <i class="fa-solid fa-cart-shopping"></i> Purchase & Pregenerate
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section class="card-panel p-4 md:p-5 filters">
-          <div class="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h3 class="text-sm font-extrabold">Find & filter students</h3>
-              <p class="text-[10px] text-slate-400 mt-1">Filter school records and scratch card assignment states</p>
-            </div>
-
-            <div class="actions flex items-center gap-2 flex-wrap">
-              <button id="clearFilters" class="btn btn-ghost">
-                <i class="fa-solid fa-filter-circle-xmark"></i> Clear filters
-              </button>
+              <div>
+                <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Card status</label>
+                <select id="statusFilter" class="field">
+                  <option value="">All students</option>
+                  <option value="active">Active</option>
+                  <option value="used">Used</option>
+                  <option value="expired">Expired</option>
+                  <option value="unassigned">Not assigned</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-            <div>
-              <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Search student</label>
-              <input id="searchInput" class="field" placeholder="Search name or reg no" />
+          <div class="card-panel p-4">
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h3 class="text-sm font-extrabold">Pool overview</h3>
+              </div>
+              <div class="pill pill-blue">
+                <i class="fa-solid fa-wallet"></i> ₦150/card
+              </div>
             </div>
 
-            <div>
-              <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Class</label>
-              <select id="classFilter" class="field">
-                <option value="">All classes</option>
-              </select>
+            <div class="mini-chart mb-4">
+              <div id="poolChartFill" class="mini-chart-bar" style="height: 0%"></div>
             </div>
 
-            <div>
-              <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Academic session</label>
-              <select id="sessionFilter" class="field">
-                <option value="">All sessions</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Card status</label>
-              <select id="statusFilter" class="field">
-                <option value="">All statuses</option>
-                <option value="active">Active assigned</option>
-                <option value="pending">Unassigned</option>
-                <option value="expired">Expired</option>
-                <option value="used">Exhausted (5/5 uses)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Usage count</label>
-              <select id="usageFilter" class="field">
-                <option value="">All usage</option>
-                <option value="0">0 uses (New)</option>
-                <option value="1-4">1-4 uses</option>
-                <option value="5">5 uses (Exhausted)</option>
-              </select>
+            <div class="grid grid-cols-2 gap-2 text-[10px] font-extrabold uppercase tracking-[.12em] text-slate-500">
+              <div class="rounded-xl bg-blue-50 p-2">
+                <div>Available</div>
+                <div id="poolAvailableLabel" class="mt-1 text-sm text-blue-700">0</div>
+              </div>
+              <div class="rounded-xl bg-emerald-50 p-2">
+                <div>Assigned</div>
+                <div id="poolAssignedLabel" class="mt-1 text-sm text-emerald-600">0</div>
+              </div>
+              <div class="rounded-xl bg-amber-50 p-2">
+                <div>Used</div>
+                <div id="poolUsedLabel" class="mt-1 text-sm text-amber-600">0</div>
+              </div>
+              <div class="rounded-xl bg-rose-50 p-2">
+                <div>Expired</div>
+                <div id="poolExpiredLabel" class="mt-1 text-sm text-rose-600">0</div>
+              </div>
             </div>
           </div>
         </section>
@@ -357,9 +336,8 @@
             </div>
 
             <div class="actions flex items-center gap-2 flex-wrap">
-              <button id="bulkClearBtn" class="btn btn-danger">
-                <i class="fa-solid fa-trash-can"></i> Clear selected
-              </button>
+              <button id="bulkClearBtn" class="btn btn-secondary"><i class="fa-solid fa-trash-can"></i> Clear selected</button>
+              <button id="bulkReplaceBtn" class="btn btn-warning"><i class="fa-solid fa-arrows-rotate"></i> Replace selected</button>
             </div>
           </div>
 
@@ -367,80 +345,58 @@
             <table class="w-full text-left min-w-[1100px]">
               <thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                 <tr>
-                  <th class="p-3 w-10">
-                    <input id="selectAll" type="checkbox" class="rounded border-slate-300">
-                  </th>
+                  <th class="p-3 w-10"><input id="selectAll" type="checkbox" class="rounded border-slate-300"></th>
                   <th class="p-3">Student</th>
                   <th class="p-3">Reg No</th>
                   <th class="p-3">Class</th>
-                  <th class="p-3">Card code</th>
-                  <th class="p-3">Usage</th>
+                  <th class="p-3">Card</th>
                   <th class="p-3">Status</th>
-                  <th class="p-3">Assigned date</th>
-                  <th class="p-3 text-right">Actions</th>
+                  <th class="p-3">Uses</th>
+                  <th class="p-3">Actions</th>
                 </tr>
               </thead>
               <tbody id="studentRows" class="divide-y divide-slate-100 text-xs">
                 <tr>
-                  <td colspan="9" class="p-10 text-center text-slate-400">Loading students…</td>
+                  <td colspan="8" class="p-10 text-center text-slate-400">Loading students…</td>
                 </tr>
               </tbody>
             </table>
           </div>
+
           <div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p id="pageInfo" class="text-[10px] text-slate-400"></p>
             <div class="flex items-center gap-2">
-              <button id="prevPage" class="btn btn-ghost" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
-              <button id="nextPage" class="btn btn-ghost" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+              <button id="prevPage" class="btn btn-secondary"><i class="fa-solid fa-chevron-left"></i></button>
+              <button id="nextPage" class="btn btn-secondary"><i class="fa-solid fa-chevron-right"></i></button>
             </div>
           </div>
         </section>
 
-        <section class="card-panel p-4 md:p-5">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h3 class="font-extrabold text-sm">Unassigned card pool</h3>
-              <p class="text-[10px] text-slate-400 mt-1">Purchased cards ready to be issued to students</p>
+        <section class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="card-panel p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-extrabold">Purchased card pool</h3>
+              </div>
+              <div class="pill pill-blue">
+                <i class="fa-solid fa-wallet"></i> Live pool
+              </div>
             </div>
 
-            <div class="actions flex items-center gap-2 flex-wrap">
-              <button id="poolRefreshBtn" class="btn btn-ghost">
-                <i class="fa-solid fa-arrows-rotate"></i> Refresh pool
-              </button>
+            <div id="poolList" class="space-y-2"></div>
+          </div>
+
+          <div class="card-panel p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-extrabold">Card history & actions</h3>
+              </div>
+              <div class="pill pill-slate">
+                <i class="fa-solid fa-clock-rotate-left"></i> Audit trail
+              </div>
             </div>
-          </div>
 
-          <div class="table-wrap mt-4">
-            <table class="w-full text-left min-w-[900px]">
-              <thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th class="p-3">Card code</th>
-                  <th class="p-3">Status</th>
-                  <th class="p-3">Purchased</th>
-                  <th class="p-3">Assigned to</th>
-                  <th class="p-3">Expiry</th>
-                  <th class="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="poolRows" class="divide-y divide-slate-100 text-xs">
-                <tr>
-                  <td colspan="6" class="p-10 text-center text-slate-400">Loading card pool…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="card-panel p-4 md:p-5">
-          <div class="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h3 class="font-extrabold text-sm">Activity log</h3>
-              <p class="text-[10px] text-slate-400 mt-1">Audit trail for purchases, assignments, expiries, and reissues</p>
-            </div>
-          </div>
-
-          <div id="activityLog" class="space-y-2 text-xs text-slate-600">
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">No activity logged yet.</div>
+            <div id="historyList" class="space-y-2"></div>
           </div>
         </section>
       </div>
@@ -451,34 +407,49 @@
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
       <div class="p-5 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <h3 class="font-extrabold">Assign Scratch Card</h3>
-          <p class="text-[10px] text-slate-400 mt-1">Issue a card from the school inventory pool</p>
+          <h3 class="font-extrabold">Assign scratch card</h3>
+          <p class="text-[10px] text-slate-400 mt-1">Select a code from the purchased pool.</p>
         </div>
-        <button class="btn btn-ghost p-2" data-close-modal="assignModal">
+        <button type="button" class="text-slate-400 hover:text-slate-700" onclick="closeAssignModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
       <div class="p-5 space-y-4">
-        <div>
-          <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Select Student</label>
-          <select id="assignStudentSelect" class="field"></select>
-        </div>
-
-        <div>
-          <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Select Card from Pool</label>
-          <select id="assignCardSelect" class="field"></select>
-        </div>
-
         <div class="bg-blue-50 rounded-xl p-3 text-[11px] text-blue-800">
           <i class="fa-solid fa-circle-info mr-1"></i>
-          Each card grants up to 5 result verification attempts. When exhausted or expired, a replacement card can be assigned.
+          Cards are assigned from the purchased pool. If the pool is empty, a new card can be generated for the student.
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Student</label>
+          <div id="assignStudentName" class="field bg-slate-50 flex items-center text-slate-700">Select a student</div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Card from pool</label>
+          <select id="assignPoolSelect" class="field"></select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Generate fallback</label>
+          <input id="assignFallbackCode" class="field" placeholder="Custom code (optional)" />
+        </div>
+
+        <div id="modalProgressWrap" class="hidden">
+          <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-2">
+            <span id="progressLabel">Processing…</span>
+            <span id="progressText">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div id="progressBar" class="h-full bg-blue-600 rounded-full" style="width:0%"></div>
+          </div>
         </div>
       </div>
 
       <div class="p-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
-        <button class="btn btn-ghost" data-close-modal="assignModal">Cancel</button>
-        <button id="confirmAssignBtn" class="btn btn-primary"><i class="fa-solid fa-check"></i> Confirm Assignment</button>
+        <button type="button" class="btn btn-secondary" onclick="closeAssignModal()">Cancel</button>
+        <button id="confirmAssignBtn" type="button" class="btn btn-primary">Assign</button>
       </div>
     </div>
   </div>
@@ -487,722 +458,1174 @@
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
       <div class="p-5 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <h3 class="font-extrabold">Purchase Scratch Cards</h3>
-          <p class="text-[10px] text-slate-400 mt-1">Pregenerate stock at ₦150 per unit</p>
+          <h3 class="font-extrabold">Purchase scratch card pool</h3>
+          <p class="text-[10px] text-slate-400 mt-1">₦150 per card.</p>
         </div>
-        <button class="btn btn-ghost p-2" data-close-modal="purchaseModal">
+        <button type="button" class="text-slate-400 hover:text-slate-700" onclick="closePurchaseModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
       <div class="p-5 space-y-4">
-        <div>
-          <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Number of cards</label>
-          <input id="purchaseModalQty" type="number" min="1" max="1000" value="25" class="field font-bold text-slate-800" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Quantity</label>
+            <input id="purchaseQty" type="number" min="1" max="1000" step="1" value="10" class="field" />
+          </div>
+
+          <div>
+            <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Total</label>
+            <div id="purchaseTotal" class="field bg-slate-50 flex items-center text-slate-700">₦1,500</div>
+          </div>
         </div>
 
-        <div>
-          <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Total Cost</label>
-          <div id="purchaseModalTotal" class="field bg-slate-100 text-slate-800 flex items-center justify-center font-extrabold text-base">₦3,750</div>
-        </div>
-
-        <div class="bg-amber-50 rounded-xl p-3 text-[11px] text-amber-800 border border-amber-200">
-          <i class="fa-solid fa-shield-halved mr-1"></i>
-          Cards will be pregenerated immediately into your school's central pool and ready for student assignment.
+        <div class="rounded-xl border border-amber-100 bg-amber-50 p-3 text-[11px] text-amber-800">
+          <i class="fa-solid fa-circle-info mr-1"></i>
+          This creates a purchased card pool for the school. Later, the school can assign those cards to students individually or in bulk.
         </div>
       </div>
 
       <div class="p-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
-        <button class="btn btn-ghost" data-close-modal="purchaseModal">Cancel</button>
-        <button id="confirmPurchaseModalBtn" class="btn btn-primary"><i class="fa-solid fa-cart-shopping"></i> Complete Purchase</button>
+        <button type="button" class="btn btn-secondary" onclick="closePurchaseModal()">Cancel</button>
+        <button id="confirmPurchaseBtn" type="button" class="btn btn-primary">Purchase pool</button>
       </div>
     </div>
   </div>
 
   <div id="confirmModal" class="modal fixed inset-0 z-[85] bg-slate-950/60 backdrop-blur-sm items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-      <div class="text-center">
-        <div id="confirmModalIcon" class="mb-3 text-3xl text-amber-500"><i class="fa-solid fa-triangle-exclamation"></i></div>
-        <h3 id="confirmTitle" class="text-sm font-extrabold text-slate-900">Confirmation</h3>
-        <p id="confirmMessage" class="text-xs text-slate-500 mt-2">Proceed with this action?</p>
+      <div class="mb-4">
+        <h3 id="confirmTitle" class="text-lg font-extrabold">Confirm action</h3>
+        <p id="confirmMessage" class="text-sm text-slate-500">Are you sure?</p>
       </div>
-
-      <div class="flex justify-end gap-2 mt-6">
-        <button id="confirmNo" class="btn btn-ghost">Cancel</button>
-        <button id="confirmYes" class="btn btn-primary">Continue</button>
+      <div class="flex justify-end gap-2">
+        <button id="confirmNo" type="button" class="btn btn-secondary">No</button>
+        <button id="confirmYes" type="button" class="btn btn-danger">Yes</button>
       </div>
     </div>
   </div>
 
   <script>
-    const BACKEND_URL = window.BACKEND_URL || "https://examguard-8rxe.onrender.com";
+    const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
     const API_ROOT = `${BACKEND_URL}/api`;
     const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_ROOT}/schools/config`;
-    const CARD_UNIT_PRICE = 150;
-    const BASE_DOMAINS = ["goldlincschools.com.ng", "examguard.com.ng"];
-    const token = localStorage.getItem("adminToken") || localStorage.getItem("token") || localStorage.getItem("authToken") || "";
-    
+    const BASE_DOMAINS = ['goldlincschools.com.ng', 'examguard.com.ng'];
+    const CARD_PRICE = 150;
+    const CARD_LIMIT = 5;
+
+    let token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken') || '';
     let currentUser = null;
     let currentSchool = null;
-    let publicSchoolId = "";
+    let publicSchoolId = '';
     let students = [];
-    let filteredStudents = [];
+    let filtered = [];
     let selected = new Set();
-    let poolCards = [];
-    let activityLog = [];
+    let pool = [];
     let page = 1;
     const pageSize = 12;
 
     const $ = (id) => document.getElementById(id);
-    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
-    const formatMoney = (n) => `₦${Number(n || 0).toLocaleString("en-NG")}`;
-    const formatDate = (date) => {
-      if (!date) return "—";
-      const d = new Date(date);
-      if (Number.isNaN(d.getTime())) return "—";
-      return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-    };
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    function toast(message, type = "success") {
-      const el = document.createElement("div");
+    function toast(message, type = 'success') {
+      const el = document.createElement('div');
       const styles = {
-        success: "bg-emerald-600",
-        error: "bg-rose-600",
-        info: "bg-slate-800",
-        warning: "bg-amber-500"
+        success: 'bg-emerald-600',
+        error: 'bg-rose-600',
+        info: 'bg-slate-800',
+        warning: 'bg-amber-500'
       };
-      el.className = `toast ${styles[type] || styles.info} text-white px-4 py-3 rounded-xl shadow-xl text-xs font-bold flex items-start gap-2`;
-      el.innerHTML = `<i class="fa-solid ${type === "success" ? "fa-circle-check" : type === "error" ? "fa-circle-xmark" : type === "warning" ? "fa-triangle-exclamation" : "fa-circle-info"} mt-0.5"></i><span>${esc(message)}</span>`;
-      $("toastHost").appendChild(el);
-      setTimeout(() => el.remove(), 4000);
+      el.className = `toast w-[min(360px,calc(100%-2rem))] rounded-xl text-white px-4 py-3 text-xs font-bold shadow-lg ${styles[type] || styles.info}`;
+      el.innerHTML = `<div class="flex items-center gap-3"><i class="fa-solid ${type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-exclamation' : type === 'warning' ? 'fa-circle-info' : 'fa-info-circle'}"></i><span>${esc(message)}</span></div>`;
+      document.getElementById('toastHost').appendChild(el);
+      setTimeout(() => el.remove(), 3500);
     }
 
-    function getAuthHeaders(extra = {}) {
-      const h = { Accept: "application/json", ...extra };
-      if (token) h.Authorization = `Bearer ${token}`;
-      if (publicSchoolId) h["X-School-Code"] = publicSchoolId;
-      return h;
-    }
-
-    async function api(url, options = {}) {
-      const h = { ...getAuthHeaders(), ...(options.headers || {}) };
-      if (options.body && !h["Content-Type"]) h["Content-Type"] = "application/json";
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 18000);
+    function decodeJwt(jwt) {
       try {
-        const res = await fetch(url, { ...options, headers: h, signal: controller.signal });
-        if (res.status === 401) {
-          ["adminToken", "token", "authToken"].forEach(k => localStorage.removeItem(k));
-          throw new Error("Your session has expired. Please sign in again.");
-        }
-        if (res.status === 403) {
-          throw new Error("You do not have permission to access this school.");
-        }
-        return res;
-      } catch (error) {
-        if (error.name === "AbortError") {
-          throw new Error("The school server did not respond within 18 seconds.");
-        }
-        if (error instanceof TypeError) {
-          throw new Error("Could not connect to the school server. Confirm backend is online.");
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeout);
+        const base64Url = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(atob(base64Url));
+      } catch {
+        return null;
       }
     }
 
     function tenantSubdomain() {
       const host = location.hostname.toLowerCase();
       for (const base of BASE_DOMAINS) {
-        const suffix = `.${base}`;
+        const suffix = '.' + base;
         if (host.endsWith(suffix)) {
           const sub = host.slice(0, -suffix.length);
-          if (sub && !sub.includes(".")) return sub;
+          if (sub && sub.length > 0) return sub;
         }
       }
-      return (localStorage.getItem("schoolSubdomain") || "").trim().toLowerCase();
+      return '';
     }
 
-    function unwrapSchool(data) { return data?.school || data?.data?.school || data?.data || data || {}; }
-    function unwrapUser(data) { return data?.user || data?.data?.user || data?.data || data || {}; }
+    function headers(extra = {}) {
+      const h = { Accept: 'application/json', ...extra };
+      if (token) h.Authorization = `Bearer ${token}`;
+      if (publicSchoolId) h['X-School-Code'] = publicSchoolId;
+      return h;
+    }
+
+    async function api(url, options = {}) {
+      const h = { ...headers(), ...(options.headers || {}) };
+      if (options.body && !h['Content-Type']) h['Content-Type'] = 'application/json';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 18000);
+      try {
+        const res = await fetch(url, { ...options, headers: h, signal: controller.signal });
+        if (res.status === 401) {
+          ['adminToken', 'token', 'authToken'].forEach(key => localStorage.removeItem(key));
+          throw new Error('Your session has expired. Please sign in again.');
+        }
+        if (res.status === 403) throw new Error('You do not have permission to access this school.');
+        return res;
+      } catch (error) {
+        if (error.name === 'AbortError') throw new Error('The school server did not respond within 18 seconds. Please check your connection and try Refresh again.');
+        if (error instanceof TypeError) throw new Error('Could not connect to the school server. Check your internet connection and confirm the backend is online.');
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    function unwrapSchool(d) {
+      return d?.school || d?.data?.school || d?.data || d || {};
+    }
+
+    function unwrapUser(d) {
+      return d?.user || d?.data?.user || d?.data || d || {};
+    }
+
     function unwrapArray(d) {
       if (Array.isArray(d)) return d;
-      for (const k of ["students", "data", "results", "items", "cards"]) if (Array.isArray(d?.[k])) return d[k];
+      for (const key of ['students', 'data', 'results', 'items', 'cards']) {
+        if (Array.isArray(d?.[key])) return d[key];
+      }
+      if (Array.isArray(d?.data?.students)) return d.data.students;
+      if (Array.isArray(d?.data?.data)) return d.data.data;
       return [];
     }
 
-    async function loadSchool() {
-      if (!token) throw new Error("No administrator token found. Please sign in again.");
-      try {
-        const res = await api(`${API_ROOT}/auth/me`);
-        if (!res.ok) throw new Error("Could not load administrator account.");
-        const raw = await res.json();
-        currentUser = unwrapUser(raw);
-        currentSchool = unwrapSchool(raw);
-      } catch (e) {
-        currentUser = { name: "Administrator", role: "School Admin" };
+    function formatCurrency(value) {
+      return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(value || 0));
+    }
+
+    function getSchoolNameFromUser(u) {
+      return u?.schoolName || u?.school?.schoolName || '';
+    }
+
+    function studentId(student) {
+      return student.student_id || student._id || student.regNo || '';
+    }
+
+    function studentName(student) {
+      return [student.surname, student.firstname, student.othernames].filter(Boolean).join(' ') || student.name || 'Unnamed student';
+    }
+
+    function className(student) {
+      return typeof student.class === 'object' ? (student.class?.name || '') : (student.class || '');
+    }
+
+    function sessionName(student) {
+      return student.academicSession || student.session || student.academic_session || '';
+    }
+
+    function normalizeStatusCode(code) {
+      const status = String(code || '').trim().toLowerCase();
+      if (!status) return 'unassigned';
+      if (['active', 'assigned', 'available'].includes(status)) return 'active';
+      if (['used', 'exhausted', 'consumed'].includes(status)) return 'used';
+      if (['expired', 'expired_card', 'rejected'].includes(status)) return 'expired';
+      return status;
+    }
+
+    function cardStateFromStudent(student) {
+      const scratch = String(student.scratchCard || '').trim();
+      const usage = Number(student.scratchCardUsage || student.usesConsumed || 0);
+      const history = Array.isArray(student.scratchCardHistory) ? student.scratchCardHistory : [];
+      const latestHistory = history.length ? history[history.length - 1] : null;
+
+      if (!scratch) return { label: 'Not assigned', status: 'unassigned', usesRemaining: 0, uses: usage };
+      if (student.cardStatus === 'expired' || student.scratchCardExpired === true || latestHistory?.status === 'expired' || latestHistory?.status === 'replaced') {
+        return { label: 'Expired', status: 'expired', usesRemaining: 0, uses: usage };
       }
-
-      publicSchoolId = currentSchool?.schoolId || currentSchool?.publicSchoolId || "";
-      const schoolName = currentSchool?.schoolName || currentSchool?.name || currentUser?.schoolName || "School Administration";
-      
-      $("schoolName").textContent = schoolName;
-      $("schoolPill").textContent = schoolName;
-      $("schoolAdminName").textContent = currentUser?.name || currentUser?.fullName || "Administrator";
-      $("schoolAdminRole").textContent = currentUser?.role || "School Admin";
-
-      const logo = currentSchool?.logoUrl || currentSchool?.branding?.logo || "";
-      $("schoolLogo").src = logo || `https://ui-avatars.com/api/?name=${encodeURIComponent(schoolName)}&background=fff&color=1e40af`;
-      document.title = `Scratch Cards | ${schoolName}`;
+      if (usage >= CARD_LIMIT) return { label: 'Used / exhausted', status: 'used', usesRemaining: 0, uses: usage };
+      return { label: 'Active', status: 'active', usesRemaining: Math.max(0, CARD_LIMIT - usage), uses: usage };
     }
 
-    function studentId(s) { return s.student_id || s._id || s.regNo; }
-    function studentName(s) { return [s.surname, s.firstname, s.othernames].filter(Boolean).join(" ") || s.name || "Unnamed student"; }
-    function className(s) { return typeof s.class === "object" ? (s.class?.name || "") : (s.class || ""); }
-    function sessionName(s) { return s.academicSession || s.session || s.academic_session || ""; }
-
-    function makeCardCode() {
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      let code = "";
-      for (let i = 0; i < 8; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-      return code;
+    function getPoolStatusLabel(status) {
+      if (status === 'available') return 'Available';
+      if (status === 'assigned') return 'Assigned';
+      if (status === 'used') return 'Used';
+      if (status === 'expired') return 'Expired';
+      return 'Available';
     }
 
-    function isCardExpired(expiryDate) {
-      if (!expiryDate) return false;
-      return new Date(expiryDate).getTime() <= Date.now();
+    function getPoolStatusClass(status) {
+      if (status === 'available') return 'status-info';
+      if (status === 'assigned') return 'status-active';
+      if (status === 'used') return 'status-warning';
+      if (status === 'expired') return 'status-danger';
+      return 'status-muted';
     }
 
-    function getStudentCardState(s) {
-      const card = String(s.scratchCard || "").trim();
-      const usage = Number(s.scratchCardUsage || 0);
-      const expired = s.scratchCardExpiry ? isCardExpired(s.scratchCardExpiry) : false;
+    function derivePoolFromStudents() {
+      const assignedCards = new Set();
+      const allCards = [];
 
-      if (!card) return "pending";
-      if (usage >= 5) return "used";
-      if (expired) return "expired";
-      return "active";
-    }
+      students.forEach(student => {
+        const scratch = String(student.scratchCard || '').trim();
+        if (!scratch) return;
 
-    function loadPoolFromStorage() {
-      const key = `scratch_pool_${publicSchoolId || "default"}`;
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        try { poolCards = JSON.parse(saved); } catch { poolCards = []; }
-      } else {
-        poolCards = generateMockPoolCards(15);
-        savePoolToStorage();
-      }
-    }
-
-    function savePoolToStorage() {
-      const key = `scratch_pool_${publicSchoolId || "default"}`;
-      localStorage.setItem(key, JSON.stringify(poolCards));
-    }
-
-    function generateMockStudentData() {
-      return [
-        { student_id: "STU1001", surname: "Adamu", firstname: "Aisha", regNo: "2025/0001", class: "JSS 1", academicSession: "2025/2026", scratchCard: "9X2K4M8P", scratchCardUsage: 1, scratchCardExpiry: new Date(Date.now() + 60*86400000).toISOString(), assignedAt: new Date(Date.now() - 5*86400000).toISOString() },
-        { student_id: "STU1002", surname: "Ojo", firstname: "Tunde", regNo: "2025/0002", class: "JSS 1", academicSession: "2025/2026", scratchCard: "7B3V9N1Q", scratchCardUsage: 5, scratchCardExpiry: new Date(Date.now() + 60*86400000).toISOString(), assignedAt: new Date(Date.now() - 12*86400000).toISOString() },
-        { student_id: "STU1003", surname: "Okafor", firstname: "Nneka", regNo: "2025/0003", class: "JSS 2", academicSession: "2025/2026", scratchCard: "4W8J2L5R", scratchCardUsage: 3, scratchCardExpiry: new Date(Date.now() - 2*86400000).toISOString(), assignedAt: new Date(Date.now() - 95*86400000).toISOString() },
-        { student_id: "STU1004", surname: "Bello", firstname: "Kola", regNo: "2025/0004", class: "JSS 3", academicSession: "2025/2026", scratchCard: "", scratchCardUsage: 0, scratchCardExpiry: null, assignedAt: null },
-        { student_id: "STU1005", surname: "Eze", firstname: "Chidi", regNo: "2025/0005", class: "SS 1", academicSession: "2025/2026", scratchCard: "", scratchCardUsage: 0, scratchCardExpiry: null, assignedAt: null },
-        { student_id: "STU1006", surname: "Adeleke", firstname: "Dami", regNo: "2025/0006", class: "SS 2", academicSession: "2025/2026", scratchCard: "8P2M4K9X", scratchCardUsage: 0, scratchCardExpiry: new Date(Date.now() + 85*86400000).toISOString(), assignedAt: new Date(Date.now() - 1*86400000).toISOString() }
-      ];
-    }
-
-    function generateMockPoolCards(count = 15) {
-      const cards = [];
-      for (let i = 0; i < count; i++) {
-        cards.push({
-          id: `card-${Date.now()}-${i}`,
-          code: makeCardCode(),
-          status: "available",
-          assignedTo: null,
-          purchasedAt: new Date(Date.now() - i * 3600000).toISOString(),
-          expiryDate: new Date(Date.now() + 90 * 86400000).toISOString()
+        assignedCards.add(scratch);
+        allCards.push({
+          id: student._id || student.student_id || scratch,
+          code: scratch,
+          assignedTo: studentName(student),
+          studentId: studentId(student),
+          status: cardStateFromStudent(student).status === 'expired' ? 'expired' : (cardStateFromStudent(student).status === 'used' ? 'used' : 'assigned'),
+          assignedAt: student.createdAt || new Date().toISOString(),
+          expiresAt: student.scratchedExpiredAt || null
         });
+      });
+
+      const uniqueCodes = {};
+      allCards.forEach(item => {
+        const key = item.code.toUpperCase();
+        if (!uniqueCodes[key]) uniqueCodes[key] = { ...item };
+        else {
+          const current = uniqueCodes[key];
+          if ((current.status || '').toLowerCase() === 'expired') current.status = 'expired';
+        }
+      });
+
+      const pool = [];
+      students.forEach(student => {
+        const scratch = String(student.scratchCard || '').trim();
+        if (!scratch || pool.some(p => p.code === scratch)) return;
+      });
+
+      return Object.values(uniqueCodes).map(item => ({
+        ...item,
+        status: item.status || 'assigned'
+      }));
+    }
+
+    function buildFallbackPool() {
+      const seen = new Set();
+      const items = [];
+
+      students.forEach(student => {
+        const scratch = String(student.scratchCard || '').trim();
+        if (!scratch || seen.has(scratch)) continue;
+        seen.add(scratch);
+
+        const state = cardStateFromStudent(student);
+        items.push({
+          id: `${student.student_id || student.regNo || scratch}`,
+          code: scratch,
+          status: state.status === 'expired' ? 'expired' : (state.status === 'used' ? 'used' : 'assigned'),
+          assignedTo: studentName(student),
+          studentId: studentId(student),
+          assignedAt: student.createdAt || new Date().toISOString(),
+          expiresAt: null
+        });
+      });
+
+      return items;
+    }
+
+    function deriveSummaryFromPool() {
+      const total = pool.length;
+      const available = pool.filter(item => item.status === 'available').length;
+      const assigned = pool.filter(item => item.status === 'assigned').length;
+      const used = pool.filter(item => item.status === 'used').length;
+      const expired = pool.filter(item => item.status === 'expired').length;
+
+      const summary = {
+        total,
+        available,
+        assigned,
+        used,
+        expired
+      };
+
+      return summary;
+    }
+
+    function setCardPoolFromApi(data) {
+      const cards = unwrapArray(data);
+      let normalized = cards.map((item, idx) => {
+        const cardCode = String(item.code || item.cardCode || item.scratchCard || item.id || '').trim().toUpperCase();
+        if (!cardCode) return null;
+        return {
+          id: item._id || item.id || `${cardCode}-${idx}`,
+          code: cardCode,
+          status: normalizeStatusCode(item.status || item.cardStatus || item.state || (item.assigned ? 'assigned' : 'available')),
+          assignedTo: item.assignedTo || item.studentName || item.ownerName || '',
+          studentId: item.studentId || item.student_id || item.ownerId || '',
+          assignedAt: item.assignedAt || item.createdAt || new Date().toISOString(),
+          expiresAt: item.expiresAt || item.expiryDate || item.expiredAt || null
+        };
+      }).filter(Boolean);
+
+      if (normalized.length) {
+        pool = normalized;
+      } else {
+        pool = buildFallbackPool();
       }
-      return cards;
     }
 
-    function addActivity(text, kind = "info") {
-      activityLog.unshift({ text, kind, time: new Date().toISOString() });
-      if (activityLog.length > 10) activityLog = activityLog.slice(0, 10);
-      renderActivityLog();
+    function updatePoolSummaryCards() {
+      const summary = deriveSummaryFromPool();
+      const totalPool = summary.total || 0;
+      const usedPool = summary.used || 0;
+      const expiredPool = summary.expired || 0;
+      const assignedPool = summary.assigned || 0;
+      const availablePool = summary.available || 0;
+
+      const availablePercent = totalPool ? Math.round((availablePool / totalPool) * 100) : 0;
+      document.getElementById('statAvailable').textContent = String(availablePool);
+      document.getElementById('statAssigned').textContent = String(assignedPool);
+      document.getElementById('statUsed').textContent = String(usedPool);
+      document.getElementById('statExpired').textContent = String(expiredPool);
+
+      document.getElementById('poolAvailableLabel').textContent = String(availablePool);
+      document.getElementById('poolAssignedLabel').textContent = String(assignedPool);
+      document.getElementById('poolUsedLabel').textContent = String(usedPool);
+      document.getElementById('poolExpiredLabel').textContent = String(expiredPool);
+      document.getElementById('poolChartFill').style.height = `${Math.min(availablePercent, 100)}%`;
+
+      document.getElementById('statAvailable').setAttribute('title', `${availablePool} unassigned codes in the purchased pool`);
+      document.getElementById('statAssigned').setAttribute('title', `${assignedPool} currently assigned cards`);
+      document.getElementById('statUsed').setAttribute('title', `${usedPool} used/exhausted cards`);
+      document.getElementById('statExpired').setAttribute('title', `${expiredPool} expired or retired cards`);
     }
 
-    function renderActivityLog() {
-      const host = $("activityLog");
-      if (!activityLog.length) {
-        host.innerHTML = `<div class="p-4 rounded-xl bg-slate-50 border border-slate-200">No activity logged yet.</div>`;
+    function getPoolAndStudentsSummary() {
+      const poolSummary = deriveSummaryFromPool();
+      const activeStudents = students.filter(student => {
+        const state = cardStateFromStudent(student);
+        return state.status === 'active';
+      }).length;
+
+      const expiredStudents = students.filter(student => {
+        const state = cardStateFromStudent(student);
+        return state.status === 'expired';
+      }).length;
+
+      const totalStudents = students.length;
+      const activeCount = activeStudents + expiredStudents;
+      const assignedCount = students.filter(student => {
+        const scratch = String(student.scratchCard || '').trim();
+        return scratch.length > 0;
+      }).length;
+
+      return {
+        active: activeCount,
+        expired: expiredStudents,
+        total: totalStudents,
+        assigned: assignedCount
+      };
+    }
+
+    function renderPoolList() {
+      const list = document.getElementById('poolList');
+      list.innerHTML = '';
+
+      if (!pool.length) {
+        list.innerHTML = `<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">No cards in the purchased pool yet. Purchase a pool to get started.</div>`;
         return;
       }
-      host.innerHTML = activityLog.map((entry) => {
-        const styles = {
-          success: "bg-emerald-50 border-emerald-200 text-emerald-800",
-          info: "bg-blue-50 border-blue-200 text-blue-800",
-          warning: "bg-amber-50 border-amber-200 text-amber-800",
-          error: "bg-rose-50 border-rose-200 text-rose-800"
-        }[entry.kind] || "bg-slate-50 border-slate-200 text-slate-700";
 
-        return `
-          <div class="p-3.5 rounded-xl border ${styles} flex items-center justify-between gap-2 text-xs">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid ${entry.kind === "success" ? "fa-circle-check" : entry.kind === "error" ? "fa-circle-xmark" : entry.kind === "warning" ? "fa-triangle-exclamation" : "fa-circle-info"}"></i>
-              <span class="font-extrabold">${esc(entry.text)}</span>
-            </div>
-            <span class="text-[10px] opacity-75 font-semibold">${formatDate(entry.time)}</span>
+      pool.sort((a, b) => String(a.code).localeCompare(String(b.code)));
+
+      pool.forEach(item => {
+        const status = normalizeStatusCode(item.status);
+        const isAvailable = status === 'available';
+        const isAssigned = status === 'assigned';
+        const isUsed = status === 'used';
+        const isExpired = status === 'expired';
+
+        const tagClass = getPoolStatusClass(status);
+        const tagLabel = getPoolStatusLabel(status);
+
+        const actions = `
+          <div class="flex items-center gap-2">
+            <button class="btn btn-secondary text-[10px] px-2 py-1" data-action="copy" data-code="${esc(item.code)}"><i class="fa-solid fa-copy"></i> Copy</button>
+            ${isAvailable ? `<button class="btn btn-primary text-[10px] px-2 py-1" data-action="assign-direct" data-code="${esc(item.code)}"><i class="fa-solid fa-user-plus"></i> Assign</button>` : ''}
+            ${isAssigned ? `<button class="btn btn-warning text-[10px] px-2 py-1" data-action="revoke" data-code="${esc(item.code)}"><i class="fa-solid fa-rotate-left"></i> Revoke</button>` : ''}
+            ${isExpired ? `<button class="btn btn-danger text-[10px] px-2 py-1" data-action="reactivate" data-code="${esc(item.code)}"><i class="fa-solid fa-rotate-right"></i> Reactivate</button>` : ''}
+            ${isUsed ? `<button class="btn btn-subtle text-[10px] px-2 py-1" data-action="replace" data-code="${esc(item.code)}"><i class="fa-solid fa-arrows-rotate"></i> Replace</button>` : ''}
           </div>
         `;
-      }).join("");
+
+        list.insertAdjacentHTML('beforeend', `
+          <div class="rounded-xl border border-slate-200 p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center font-extrabold text-slate-700">${esc(item.code.slice(0,2))}</div>
+                <div>
+                  <div class="font-extrabold text-slate-800">${esc(item.code)}</div>
+                  <div class="text-[10px] text-slate-500">${item.assignedTo ? `Assigned to ${esc(item.assignedTo)}` : 'Available for assignment'}</div>
+                </div>
+              </div>
+              <div class="status ${tagClass}">${tagLabel}</div>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-2">
+              <div class="text-[10px] text-slate-500">${item.assignedTo ? `Owner: ${esc(item.assignedTo)}` : 'Ready for assignment'}</div>
+              <div class="text-[10px] text-slate-500">${item.expiresAt ? `Expires: ${new Date(item.expiresAt).toLocaleString()}` : 'No expiry set'}</div>
+            </div>
+            ${actions}
+          </div>
+        `);
+      });
+    }
+
+    function renderHistoryList() {
+      const historyList = document.getElementById('historyList');
+      historyList.innerHTML = '';
+
+      if (!students.length) {
+        historyList.innerHTML = `<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">No activity yet.</div>`;
+        return;
+      }
+
+      const recentEvents = [];
+
+      students.forEach(student => {
+        const cardState = cardStateFromStudent(student);
+        if (!student.scratchCard) return;
+
+        recentEvents.push({
+          date: student.updatedAt || new Date().toISOString(),
+          student: studentName(student),
+          regNo: student.regNo,
+          card: student.scratchCard,
+          status: cardState.status,
+          label: cardState.label
+        });
+      });
+
+      recentEvents.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const latest = recentEvents.slice(0, 6);
+
+      latest.forEach(item => {
+        const statusClass = {
+          active: 'status-active',
+          used: 'status-warning',
+          expired: 'status-danger',
+          unassigned: 'status-muted'
+        }[item.status] || 'status-muted';
+
+        historyList.insertAdjacentHTML('beforeend', `
+          <div class="rounded-xl border border-slate-200 p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="font-extrabold text-slate-800">${esc(item.student)}</div>
+                <div class="text-[10px] text-slate-500">${esc(item.regNo)} • ${esc(item.card)} • ${new Date(item.date).toLocaleString()}</div>
+              </div>
+              <div class="status ${statusClass}">${item.label}</div>
+            </div>
+          </div>
+        `);
+      });
+    }
+
+    function renderRows() {
+      const q = $('searchInput').value.trim().toLowerCase();
+      const cl = $('classFilter').value;
+      const se = $('sessionFilter').value;
+      const st = $('statusFilter').value;
+
+      filtered = students.filter(student => {
+        const cardState = cardStateFromStudent(student);
+        const scratch = String(student.scratchCard || '').trim();
+        const haystack = [
+          studentName(student),
+          student.regNo || '',
+          scratch,
+          className(student),
+          sessionName(student)
+        ].join(' ').toLowerCase();
+
+        const matchesQuery = !q || haystack.includes(q);
+        const matchesClass = !cl || className(student) === cl;
+        const matchesSession = !se || sessionName(student) === se;
+        const matchesStatus = !st || (() => {
+          if (st === 'active') return cardState.status === 'active';
+          if (st === 'used') return cardState.status === 'used';
+          if (st === 'expired') return cardState.status === 'expired';
+          if (st === 'unassigned') return cardState.status === 'unassigned';
+          return true;
+        })();
+
+        return matchesQuery && matchesClass && matchesSession && matchesStatus;
+      });
+
+      const start = (page - 1) * pageSize;
+      const rows = filtered.slice(start, start + pageSize);
+
+      document.getElementById('resultCount').textContent = `${filtered.length.toLocaleString()} matching students`;
+      document.getElementById('pageInfo').textContent = `${filtered.length ? `${start + 1}-${Math.min(start + rows.length, filtered.length)}` : '0'} / ${filtered.length}`;
+
+      const tableBody = document.getElementById('studentRows');
+      tableBody.innerHTML = '';
+
+      if (!rows.length) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="p-10 text-center text-slate-400">No matching students found.</td></tr>`;
+        return;
+      }
+
+      rows.forEach(student => {
+        const cardState = cardStateFromStudent(student);
+        const scratch = String(student.scratchCard || '').trim();
+        const usesRemaining = Math.max(0, CARD_LIMIT - Number(student.scratchCardUsage || 0));
+        const actionButtons = `
+          <td class="p-3">
+            <div class="flex flex-wrap gap-2">
+              <button class="btn btn-secondary text-[10px] px-2 py-1 action-copy" data-id="${studentId(student)}"><i class="fa-solid fa-copy"></i> Copy</button>
+              <button class="btn btn-primary text-[10px] px-2 py-1 action-assign" data-id="${studentId(student)}"><i class="fa-solid fa-user-plus"></i> Assign</button>
+              <button class="btn btn-warning text-[10px] px-2 py-1 action-replace" data-id="${studentId(student)}"><i class="fa-solid fa-arrows-rotate"></i> Replace</button>
+              <button class="btn btn-danger text-[10px] px-2 py-1 action-expire" data-id="${studentId(student)}"><i class="fa-solid fa-clock-rotate-left"></i> Expire</button>
+            </div>
+          </td>
+        `;
+
+        const row = document.createElement('tr');
+        row.className = 'student-row';
+        row.innerHTML = `
+          <td class="p-3"><input type="checkbox" class="row-check" data-id="${studentId(student)}" /></td>
+          <td class="p-3">
+            <div class="font-extrabold text-slate-800">${esc(studentName(student))}</div>
+            <div class="text-[10px] text-slate-500">${esc(student.class || student.className || '')}</div>
+          </td>
+          <td class="p-3">${esc(student.regNo || '')}</td>
+          <td class="p-3">${esc(className(student))}</td>
+          <td class="p-3">
+            <div class="font-bold text-slate-700">${esc(scratch || '—')}</div>
+            <div class="text-[10px] text-slate-500">${scratch ? `Uses left: ${usesRemaining}` : 'No card assigned'}</div>
+          </td>
+          <td class="p-3">
+            <div class="status ${{
+              active: 'status-active',
+              used: 'status-warning',
+              expired: 'status-danger',
+              unassigned: 'status-muted'
+            }[cardState.status] || 'status-muted'}">${cardState.label}</div>
+          </td>
+          <td class="p-3">${Number(student.scratchCardUsage || 0)}</td>
+          <td class="p-3">${actionButtons}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    function updateStats() {
+      const summary = getPoolAndStudentsSummary();
+      const poolSummary = deriveSummaryFromPool();
+      document.getElementById('statAvailable').textContent = String(poolSummary.available || 0);
+      document.getElementById('statAssigned').textContent = String(poolSummary.assigned || 0);
+      document.getElementById('statUsed').textContent = String(poolSummary.used || 0);
+      document.getElementById('statExpired').textContent = String(poolSummary.expired || 0);
+    }
+
+    function defaultSchoolConfig() {
+      return {
+        name: 'School Portal',
+        logo: '',
+        timezone: 'Africa/Lagos',
+        paymentRate: 150
+      };
+    }
+
+    function ensureFallbackPool() {
+      if (!pool.length) {
+        pool = buildFallbackPool();
+      }
     }
 
     function populateFilters() {
-      const classes = [...new Set(students.map(className).filter(Boolean))].sort();
-      const sessions = [...new Set(students.map(sessionName).filter(Boolean))].sort();
+      const classes = [...new Set(students.map(className).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const sessions = [...new Set(students.map(sessionName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-      $("classFilter").innerHTML = '<option value="">All classes</option>' + classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
-      $("sessionFilter").innerHTML = '<option value="">All sessions</option>' + sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+      $('classFilter').innerHTML = '<option value="">All classes</option>' + classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      $('sessionFilter').innerHTML = '<option value="">All sessions</option>' + sessions.map(s => `<option value="${esc(s)}">${esc(s)}">${esc(s)}</option>`).join('');
     }
 
     function applyFilters() {
-      const q = $("searchInput").value.trim().toLowerCase();
-      const cFilter = $("classFilter").value;
-      const sFilter = $("sessionFilter").value;
-      const statusFilter = $("statusFilter").value;
-      const uFilter = $("usageFilter").value;
+      renderRows();
+    }
 
-      filteredStudents = students.filter(student => {
-        const hay = `${studentName(student)} ${student.regNo||""} ${className(student)} ${sessionName(student)}`.toLowerCase();
-        const state = getStudentCardState(student);
-        const usage = Number(student.scratchCardUsage || 0);
+    function syncPoolWithStudents() {
+      pool = pool.length ? pool : buildFallbackPool();
+      const assignedCodes = new Set(students.filter(s => s.scratchCard).map(s => s.scratchCard));
+      pool = pool.map(item => {
+        const code = String(item.code || '').trim().toUpperCase();
+        const matchedStudent = students.find(s => String(s.scratchCard || '').trim().toUpperCase() === code);
+        if (!matchedStudent) {
+          if (item.status === 'assigned') return { ...item, status: 'available' };
+          return item;
+        }
 
-        const matchQ = !q || hay.includes(q);
-        const matchC = !cFilter || className(student) === cFilter;
-        const matchS = !sFilter || sessionName(student) === sFilter;
-        const matchStatus = !statusFilter || state === statusFilter;
-
-        let matchU = true;
-        if (uFilter === "0") matchU = usage === 0 && Boolean(student.scratchCard);
-        if (uFilter === "1-4") matchU = usage >= 1 && usage <= 4;
-        if (uFilter === "5") matchU = usage >= 5;
-
-        return matchQ && matchC && matchS && matchStatus && matchU;
+        const state = cardStateFromStudent(matchedStudent);
+        const nextStatus = state.status === 'expired' ? 'expired' : state.status === 'used' ? 'used' : 'assigned';
+        return { ...item, status: nextStatus, assignedTo: studentName(matchedStudent), studentId: studentId(matchedStudent), expiresAt: item.expiresAt || null };
       });
-
-      page = 1;
-      renderStudentTable();
     }
 
-    function calcStats() {
-      const totalStudents = students.length;
-      const poolAvailable = poolCards.filter(c => !c.assignedTo && !isCardExpired(c.expiryDate)).length;
-      const assignedActive = students.filter(s => getStudentCardState(s) === "active").length;
-      const usedExpired = students.filter(s => ["expired", "used"].includes(getStudentCardState(s))).length;
-      const revenue = poolCards.length * CARD_UNIT_PRICE;
-
-      $("statTotalStudents").textContent = totalStudents.toLocaleString();
-      $("statPoolAvailable").textContent = poolAvailable.toLocaleString();
-      $("statAssignedActive").textContent = assignedActive.toLocaleString();
-      $("statUsedExpired").textContent = usedExpired.toLocaleString();
-      $("statRevenue").textContent = formatMoney(revenue);
-
-      $("poolSummaryAvailable").textContent = poolAvailable.toLocaleString();
-      $("poolSummaryActive").textContent = assignedActive.toLocaleString();
-      $("poolSummaryExpired").textContent = usedExpired.toLocaleString();
-    }
-
-    function renderStudentTable() {
-      calcStats();
-      const start = (page - 1) * pageSize;
-      const rows = filteredStudents.slice(start, start + pageSize);
-
-      $("resultCount").textContent = `Showing ${filteredStudents.length.toLocaleString()} matching student records`;
-      $("pageInfo").textContent = filteredStudents.length ? `Showing ${start + 1}–${Math.min(start + pageSize, filteredStudents.length)} of ${filteredStudents.length}` : "No student records";
-      $("prevPage").disabled = page <= 1;
-      $("nextPage").disabled = start + pageSize >= filteredStudents.length;
-
-      if (!rows.length) {
-        $("studentRows").innerHTML = `<tr><td colspan="9" class="p-10 text-center text-slate-400 font-bold">No matching student scratch-card records found.</td></tr>`;
-        return;
-      }
-
-      $("studentRows").innerHTML = rows.map(student => {
-        const id = String(studentId(student));
-        const state = getStudentCardState(student);
-        const usage = Number(student.scratchCardUsage || 0);
-        const cardCode = student.scratchCard || "";
-        const isSelected = selected.has(id);
-
-        let statusBadge = '<span class="status pending"><span class="dot pending"></span> Unassigned</span>';
-        if (state === "active") statusBadge = '<span class="status active"><span class="dot active"></span> Active</span>';
-        if (state === "expired") statusBadge = '<span class="status expired"><span class="dot expired"></span> Expired</span>';
-        if (state === "used") statusBadge = '<span class="status used"><span class="dot used"></span> Exhausted (5/5)</span>';
-
-        return `
-          <tr class="student-row">
-            <td class="p-3"><input type="checkbox" class="row-check rounded border-slate-300" data-id="${esc(id)}" ${isSelected ? 'checked' : ''}></td>
-            <td class="p-3">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-extrabold text-xs">
-                  ${(studentName(student).charAt(0) || "S").toUpperCase()}
-                </div>
-                <div>
-                  <p class="font-extrabold text-slate-900">${esc(studentName(student))}</p>
-                </div>
-              </div>
-            </td>
-            <td class="p-3 font-mono text-slate-600 font-bold">${esc(student.regNo || "—")}</td>
-            <td class="p-3 font-semibold">${esc(className(student) || "—")}</td>
-            <td class="p-3">
-              ${cardCode ? `<span class="font-mono font-bold tracking-wider text-slate-800 bg-slate-100 px-2 py-1 rounded">${esc(cardCode)}</span>` : '<span class="muted">—</span>'}
-            </td>
-            <td class="p-3 font-bold">${cardCode ? `${usage} / 5` : '—'}</td>
-            <td class="p-3">${statusBadge}</td>
-            <td class="p-3 text-slate-500 font-semibold">${formatDate(student.assignedAt)}</td>
-            <td class="p-3 text-right">
-              <div class="flex items-center justify-end gap-1.5">
-                ${cardCode ? `
-                  <button class="btn btn-ghost text-blue-600 p-2" onclick="reissueStudentCard('${esc(id)}')" title="Reissue Card"><i class="fa-solid fa-arrows-rotate"></i></button>
-                  <button class="btn btn-ghost text-rose-600 p-2" onclick="clearStudentCard('${esc(id)}')" title="Clear Card"><i class="fa-solid fa-trash-can"></i></button>
-                ` : `
-                  <button class="btn btn-primary py-1 px-3 text-[11px]" onclick="quickAssignToStudent('${esc(id)}')"><i class="fa-solid fa-plus"></i> Assign</button>
-                `}
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join("");
-
-      $("selectAll").checked = rows.length > 0 && rows.every(s => selected.has(String(studentId(s))));
-    }
-
-    function renderPoolTable() {
-      const availableCards = poolCards.filter(c => !c.assignedTo);
-      if (!availableCards.length) {
-        $("poolRows").innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400 font-bold">No unassigned cards in pool. Click 'Purchase Cards' to add stock.</td></tr>`;
-        return;
-      }
-
-      $("poolRows").innerHTML = availableCards.map(card => {
-        const expired = isCardExpired(card.expiryDate);
-        return `
-          <tr>
-            <td class="p-3 font-mono font-extrabold text-slate-800">${esc(card.code)}</td>
-            <td class="p-3">${expired ? '<span class="status expired"><span class="dot expired"></span> Expired</span>' : '<span class="status pool"><span class="dot pool"></span> Available</span>'}</td>
-            <td class="p-3 text-slate-500">${formatDate(card.purchasedAt)}</td>
-            <td class="p-3 text-slate-400 italic">Unassigned</td>
-            <td class="p-3 text-slate-500">${formatDate(card.expiryDate)}</td>
-            <td class="p-3 text-right">
-              <button class="btn btn-ghost text-rose-600 py-1 px-2.5 text-[11px]" onclick="removePoolCard('${esc(card.code)}')"><i class="fa-solid fa-trash-can"></i> Remove</button>
-            </td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    function updatePurchaseTotal() {
-      const qty1 = Number($("purchaseQty").value || 0);
-      const qty2 = Number($("purchaseModalQty").value || 0);
-      
-      $("purchaseTotal").textContent = formatMoney(qty1 * CARD_UNIT_PRICE);
-      $("purchaseModalTotal").textContent = formatMoney(qty2 * CARD_UNIT_PRICE);
-    }
-
-    function purchaseCards(qty) {
-      if (!qty || qty <= 0) {
-        toast("Please enter a valid card quantity.", "warning");
-        return;
-      }
-
-      const newCards = [];
-      for (let i = 0; i < qty; i++) {
-        newCards.push({
-          id: `card-${Date.now()}-${i}`,
-          code: makeCardCode(),
-          status: "available",
-          assignedTo: null,
-          purchasedAt: new Date().toISOString(),
-          expiryDate: new Date(Date.now() + 90 * 86400000).toISOString()
-        });
-      }
-
-      poolCards = [...newCards, ...poolCards];
-      savePoolToStorage();
-      addActivity(`Purchased ${qty} scratch cards (${formatMoney(qty * CARD_UNIT_PRICE)}) into inventory.`, "success");
-      toast(`Successfully purchased ${qty} scratch cards!`, "success");
-      renderPoolTable();
-      renderStudentTable();
-    }
-
-    async function saveStudentCard(student, cardCode) {
-      const id = studentId(student);
-      const expiry = cardCode ? new Date(Date.now() + 90 * 86400000).toISOString() : null;
-      try {
-        await api(`${API_ROOT}/student/${encodeURIComponent(id)}`, {
-          method: 'PUT',
-          body: JSON.stringify({ scratchCard: cardCode, scratchCardUsage: 0, scratchCardExpiry: expiry })
-        });
-      } catch (e) {
-        console.warn("Backend sync optional:", e.message);
-      }
-      student.scratchCard = cardCode;
-      student.scratchCardUsage = 0;
-      student.scratchCardExpiry = expiry;
-      student.assignedAt = cardCode ? new Date().toISOString() : null;
-    }
-
-    async function assignCardToStudent(studentIdValue, cardCode) {
+    function openAssignModal(studentIdValue) {
       const student = students.find(s => String(studentId(s)) === String(studentIdValue));
       if (!student) return;
 
-      const poolCard = poolCards.find(c => c.code === cardCode);
-      if (poolCard) {
-        poolCard.assignedTo = studentName(student);
-        savePoolToStorage();
+      const assignStudentName = document.getElementById('assignStudentName');
+      const assignPoolSelect = document.getElementById('assignPoolSelect');
+      const assignFallbackCode = document.getElementById('assignFallbackCode');
+
+      assignStudentName.textContent = `${studentName(student)} (${student.regNo || 'Unknown'})`;
+      assignPoolSelect.innerHTML = '';
+
+      const availablePool = pool.filter(item => normalizeStatusCode(item.status) === 'available');
+      if (availablePool.length) {
+        assignPoolSelect.innerHTML = availablePool.map(item => `<option value="${esc(item.code)}">${esc(item.code)}</option>`).join('');
+      } else {
+        assignPoolSelect.innerHTML = '<option value="">No available cards in the pool</option>';
       }
 
-      await saveStudentCard(student, cardCode);
-      addActivity(`Assigned scratch card ${cardCode} to ${studentName(student)}.`, "success");
-      toast(`Card ${cardCode} assigned to ${studentName(student)}.`, "success");
-      renderStudentTable();
-      renderPoolTable();
+      assignFallbackCode.value = '';
+      document.getElementById('assignModal').classList.add('show');
     }
 
-    async function clearStudentCard(studentIdValue) {
-      confirmAction("Clear Scratch Card?", "This will remove the assigned scratch card from this student record.", async () => {
-        const student = students.find(s => String(studentId(s)) === String(studentIdValue));
+    function closeAssignModal() {
+      document.getElementById('assignModal').classList.remove('show');
+    }
+
+    function closePurchaseModal() {
+      document.getElementById('purchaseModal').classList.remove('show');
+    }
+
+    function purchasePool() {
+      const qty = Number(document.getElementById('purchaseQty').value);
+      if (!qty || qty < 1) {
+        toast('Please enter a valid number of cards to purchase.', 'warning');
+        return;
+      }
+
+      const total = qty * CARD_PRICE;
+      const confirmMessage = `Purchase ${qty} card${qty > 1 ? 's' : ''} for ${formatCurrency(total)}?`;
+      const confirmAction = () => {
+        const generated = [];
+        for (let i = 0; i < qty; i++) {
+          const code = secureCode(8);
+          generated.push({
+            id: `pool-${Date.now()}-${i}`,
+            code,
+            status: 'available',
+            assignedTo: '',
+            studentId: '',
+            assignedAt: new Date().toISOString(),
+            expiresAt: null
+          });
+        }
+
+        pool = [...pool, ...generated];
+        syncPoolWithStudents();
+        renderPoolList();
+        updateStats();
+        toast(`${qty} scratch cards added to the school pool for ${formatCurrency(total)}.`, 'success');
+
+        const qtyField = document.getElementById('purchaseQty');
+        qtyField.value = qty;
+        document.getElementById('purchaseTotal').textContent = formatCurrency(total);
+        closePurchaseModal();
+      };
+
+      showConfirm('Purchase pool?', confirmMessage, confirmAction);
+    }
+
+    function showConfirm(title, message, action) {
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmMessage').textContent = message;
+      document.getElementById('confirmYes').onclick = () => {
+        document.getElementById('confirmYes').disabled = true;
+        try {
+          action();
+        } catch (err) {
+          toast(err.message, 'error');
+        } finally {
+          document.getElementById('confirmYes').disabled = false;
+        }
+      };
+      document.getElementById('confirmModal').classList.add('show');
+    }
+
+    function secureCode(length) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const bytes = new Uint8Array(length);
+      if (!window.crypto || !window.crypto.getRandomValues) {
+        for (let i = 0; i < length; i++) bytes[i] = i % 10;
+        return Array.from(bytes, b => chars[b % chars.length]).join('');
+      }
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, b => chars[b % chars.length]).join('');
+    }
+
+    function assignCodeToStudent(student, code) {
+      const target = students.find(s => String(studentId(s)) === String(studentId(student)));
+      if (!target) return;
+
+      const matches = pool.find(item => String(item.code).toUpperCase() === String(code).toUpperCase());
+      if (matches) {
+        matches.status = 'assigned';
+        matches.assignedTo = studentName(target);
+        matches.studentId = studentId(target);
+        matches.assignedAt = new Date().toISOString();
+      } else {
+        const newPoolItem = {
+          id: `generated-${Date.now()}`,
+          code,
+          status: 'assigned',
+          assignedTo: studentName(target),
+          studentId: studentId(target),
+          assignedAt: new Date().toISOString(),
+          expiresAt: null
+        };
+        pool.push(newPoolItem);
+      }
+
+      target.scratchCard = code;
+      target.scratchCardUsage = Number(target.scratchCardUsage || 0);
+      target.cardStatus = 'active';
+      target.updatedAt = new Date().toISOString();
+
+      const existing = pool.some(item => item.code.toUpperCase() === code.toUpperCase() && item.status === 'assigned' && item.studentId === studentId(target));
+      if (!existing) {
+        pool = pool.map(item => item.code.toUpperCase() === code.toUpperCase() ? { ...item, status: 'assigned', assignedTo: studentName(target), studentId: studentId(target) } : item);
+      }
+
+      renderPoolList();
+      renderRows();
+      updateStats();
+      toast(`Card ${code} assigned to ${studentName(target)}.`, 'success');
+    }
+
+    function bulkAssignFromPool() {
+      const selectedStudentIds = [...selected];
+      if (!selectedStudentIds.length) {
+        toast('Select at least one student first.', 'warning');
+        return;
+      }
+
+      const available = pool.filter(item => normalizeStatusCode(item.status) === 'available');
+      if (!available.length) {
+        toast('Purchase more cards from the pool first.', 'warning');
+        return;
+      }
+
+      const targets = students.filter(student => selectedStudentIds.includes(String(studentId(student))));
+      const limit = Math.min(available.length, targets.length);
+
+      for (let i = 0; i < limit; i++) {
+        const code = available[i].code;
+        const target = targets[i];
+        assignCodeToStudent(target, code);
+      }
+
+      if (limit < targets.length) {
+        toast(`Only ${limit} of ${targets.length} students were assigned because the pool is low.`, 'warning');
+      } else {
+        toast(`${limit} scratch cards assigned from the pool.`, 'success');
+      }
+    }
+
+    function clearSelected() {
+      const ids = [...selected];
+      if (!ids.length) {
+        toast('Select at least one student first.', 'warning');
+        return;
+      }
+
+      ids.forEach(id => {
+        const student = students.find(s => String(studentId(s)) === String(id));
         if (!student) return;
-
-        const code = student.scratchCard;
-        if (code) {
-          const poolCard = poolCards.find(c => c.code === code);
-          if (poolCard) poolCard.assignedTo = null;
-          savePoolToStorage();
-        }
-
-        await saveStudentCard(student, "");
-        addActivity(`Cleared scratch card for ${studentName(student)}.`, "warning");
-        toast(`Scratch card cleared.`, "success");
-        renderStudentTable();
-        renderPoolTable();
+        student.scratchCard = '';
+        student.cardStatus = 'unassigned';
+        student.scratchCardUsage = 0;
       });
+
+      pool = pool.map(item => {
+        if (item.studentId && item.studentId === ids.find(id => item.studentId === id)) return { ...item, status: 'available', assignedTo: '', studentId: '' };
+        return item;
+      });
+
+      renderPoolList();
+      renderRows();
+      updateStats();
+      toast(`${ids.length} student card${ids.length > 1 ? 's' : ''} cleared.`, 'success');
     }
 
-    async function reissueStudentCard(studentIdValue) {
-      confirmAction("Reissue Scratch Card?", "This will generate a fresh card from the pool for this student.", async () => {
-        const avail = poolCards.find(c => !c.assignedTo && !isCardExpired(c.expiryDate));
-        if (!avail) {
-          toast("No available cards in pool! Purchase more cards first.", "warning");
-          return;
-        }
-        await assignCardToStudent(studentIdValue, avail.code);
-      });
+    function markExpired(studentIdValue) {
+      const student = students.find(s => String(studentId(s)) === String(studentIdValue));
+      if (!student) return;
+
+      student.cardStatus = 'expired';
+      student.scratchCardExpired = true;
+      student.scratchCardUsage = 5;
+      student.updatedAt = new Date().toISOString();
+
+      const poolItem = pool.find(item => item.studentId === studentId(student));
+      if (poolItem) {
+        poolItem.status = 'expired';
+        poolItem.assignedTo = studentName(student);
+      }
+
+      renderPoolList();
+      renderRows();
+      updateStats();
+      toast(`${studentName(student)}'s scratch card has been marked expired.`, 'warning');
     }
 
-    function quickAssignToStudent(studentIdValue) {
-      const avail = poolCards.find(c => !c.assignedTo && !isCardExpired(c.expiryDate));
-      if (!avail) {
-        toast("No available cards in pool! Purchase more cards first.", "warning");
+    function assignOne(id) {
+      const student = students.find(s => String(studentId(s)) === String(id));
+      if (!student) return;
+
+      openAssignModal(id);
+    }
+
+    function replaceStudentCard(studentIdValue) {
+      const student = students.find(s => String(studentId(s)) === String(studentIdValue));
+      if (!student) return;
+
+      const available = pool.filter(item => normalizeStatusCode(item.status) === 'available');
+      if (!available.length) {
+        toast('No available cards remain in the pool. Purchase more cards to replace this student’s card.', 'warning');
         return;
       }
-      assignCardToStudent(studentIdValue, avail.code);
-    }
 
-    function removePoolCard(code) {
-      confirmAction("Remove Card?", `Remove card ${code} from your available inventory pool?`, () => {
-        poolCards = poolCards.filter(c => c.code !== code);
-        savePoolToStorage();
-        toast(`Card ${code} removed from pool.`, "info");
-        renderPoolTable();
-        renderStudentTable();
-      });
-    }
+      const replacement = available[0];
+      const target = student;
+      const current = String(student.scratchCard || '').trim();
 
-    function openAssignModal() {
-      const availStudents = students.filter(s => !s.scratchCard);
-      const availCards = poolCards.filter(c => !c.assignedTo && !isCardExpired(c.expiryDate));
-
-      $("assignStudentSelect").innerHTML = availStudents.length 
-        ? availStudents.map(s => `<option value="${esc(studentId(s))}">${esc(studentName(s))} (${esc(s.regNo||"No Reg")})</option>`).join("")
-        : '<option value="">No unassigned students</option>';
-
-      $("assignCardSelect").innerHTML = availCards.length
-        ? availCards.map(c => `<option value="${esc(c.code)}">${esc(c.code)}</option>`).join("")
-        : '<option value="">No cards in pool</option>';
-
-      $("assignModal").classList.add("show");
-    }
-
-    function closeModal(id) {
-      $(id)?.classList.remove("show");
-    }
-
-    function confirmAction(title, message, action) {
-      $("confirmTitle").textContent = title;
-      $("confirmMessage").textContent = message;
-      $("confirmModal").classList.add("show");
-      $("confirmYes").onclick = async () => {
-        await action();
-        closeModal("confirmModal");
-      };
-    }
-
-    function exportCSV() {
-      if (!filteredStudents.length) {
-        toast("No student records available to export.", "warning");
+      if (!current) {
+        toast('This student does not have an active card to replace.', 'warning');
         return;
       }
-      const data = [
-        ["Student Name", "Registration Number", "Class", "Academic Session", "Scratch Card Code", "Usage Count", "Status", "Assigned Date"],
-        ...filteredStudents.map(s => [
-          studentName(s), s.regNo || "", className(s), sessionName(s), s.scratchCard || "", s.scratchCardUsage || 0, getStudentCardState(s), s.assignedAt || ""
-        ])
-      ];
 
-      const csv = data.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `scratch-card-inventory.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast("CSV Export downloaded.", "success");
+      if (replacement.code === current) {
+        toast('This is already the current card for the student.', 'warning');
+        return;
+      }
+
+      const old = pool.find(item => item.studentId === studentId(target));
+      if (old) {
+        old.status = 'available';
+        old.assignedTo = '';
+        old.studentId = '';
+      }
+
+      replacement.status = 'assigned';
+      replacement.assignedTo = studentName(target);
+      replacement.studentId = studentId(target);
+
+      target.scratchCard = replacement.code;
+      target.cardStatus = 'active';
+      target.scratchCardUsage = 0;
+      target.updatedAt = new Date().toISOString();
+
+      renderPoolList();
+      renderRows();
+      updateStats();
+      toast(`Replacement card ${replacement.code} assigned to ${studentName(target)}.`, 'success');
     }
 
-    function bindEvents() {
-      $("purchaseQty").oninput = updatePurchaseTotal;
-      $("purchaseModalQty").oninput = updatePurchaseTotal;
+    function reissueExpiredCard(studentIdValue) {
+      const student = students.find(s => String(studentId(s)) === String(studentIdValue));
+      if (!student) return;
 
-      $("confirmPurchaseBtn").onclick = () => purchaseCards(Number($("purchaseQty").value));
-      $("confirmPurchaseModalBtn").onclick = () => {
-        purchaseCards(Number($("purchaseModalQty").value));
-        closeModal("purchaseModal");
-      };
+      const available = pool.filter(item => normalizeStatusCode(item.status) === 'available');
+      if (!available.length) {
+        toast('There are no available cards in the pool to reactivate this student.', 'warning');
+        return;
+      }
 
-      $("purchaseBtn").onclick = () => $("purchaseModal").classList.add("show");
-      $("openAssignModalBtn").onclick = openAssignModal;
+      const availableCode = available[0];
+      student.scratchCard = availableCode.code;
+      student.cardStatus = 'active';
+      student.scratchCardUsage = 0;
+      student.scratchCardExpired = false;
+      student.updatedAt = new Date().toISOString();
 
-      $("confirmAssignBtn").onclick = async () => {
-        const studentIdVal = $("assignStudentSelect").value;
-        const cardCode = $("assignCardSelect").value;
-        if (!studentIdVal || !cardCode) {
-          toast("Please select both a student and a card code.", "warning");
-          return;
+      const poolItem = pool.find(item => item.studentId === studentId(student));
+      if (poolItem) {
+        poolItem.status = 'available';
+        poolItem.assignedTo = '';
+        poolItem.studentId = '';
+      }
+
+      const newPoolItem = pool.find(item => item.code.toUpperCase() === availableCode.code.toUpperCase());
+      if (newPoolItem) {
+        newPoolItem.status = 'assigned';
+        newPoolItem.assignedTo = studentName(student);
+        newPoolItem.studentId = studentId(student);
+      }
+
+      renderPoolList();
+      renderRows();
+      updateStats();
+      toast(`Expired card reissued to ${studentName(student)}.`, 'success');
+    }
+
+    function bindTableEvents() {
+      document.getElementById('studentRows').addEventListener('click', (event) => {
+        const button = event.target.closest('button');
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const action = button.classList.contains('action-assign') ? 'assign' : button.dataset.action || '';
+        if (!button.dataset.id && !button.dataset.action) return;
+
+        if (action === 'assign' || button.classList.contains('action-assign')) {
+          assignOne(id);
+        } else if (action === 'copy' || button.classList.contains('action-copy')) {
+          const student = students.find(s => String(studentId(s)) === String(id));
+          if (!student) return;
+          const scratch = String(student.scratchCard || '').trim();
+          if (!scratch) return toast('This student has no scratch card assigned yet.', 'warning');
+          navigator.clipboard?.writeText(scratch).then(() => toast('Card copied to clipboard.', 'success')).catch(() => toast('Card copied (manual fallback).', 'warning'));
+        } else if (action === 'replace' || button.classList.contains('action-replace')) {
+          replaceStudentCard(id);
+        } else if (action === 'expire' || button.classList.contains('action-expire')) {
+          showConfirm('Mark as expired?', 'This will mark the student card as expired and remove it from active use.', () => {
+            markExpired(id);
+          });
+        } else if (action === 'reissue' || button.classList.contains('action-reissue')) {
+          reissueExpiredCard(id);
+        } else if (action === 'reactivate' || button.dataset.action === 'reactivate') {
+          const code = button.dataset.code;
+          const student = students.find(s => String(student.scratchCard || '').trim().toUpperCase() === String(code).toUpperCase());
+          if (!student) return toast('This card is not assigned to any student.', 'warning');
+          reissueExpiredCard(studentId(student));
+        } else if (action === 'revoke' || button.dataset.code) {
+          const code = button.dataset.code;
+          const student = students.find(s => String(student.scratchCard || '').trim().toUpperCase() === String(code).toUpperCase());
+          if (!student) return toast('This card is not assigned to any student.', 'warning');
+          student.scratchCard = '';
+          student.cardStatus = 'unassigned';
+          student.scratchCardUsage = 0;
+          pool = pool.map(item => item.code.toUpperCase() === code.toUpperCase() ? { ...item, status: 'available', assignedTo: '', studentId: '' } : item);
+          renderPoolList();
+          renderRows();
+          updateStats();
+          toast(`Card ${code} revoked from ${studentName(student)}.`, 'success');
         }
-        await assignCardToStudent(studentIdVal, cardCode);
-        closeModal("assignModal");
-      };
-
-      $("bulkAssignBtn").onclick = async () => {
-        if (!selected.size) { toast("Select at least one student first.", "warning"); return; }
-        const availCards = poolCards.filter(c => !c.assignedTo && !isCardExpired(c.expiryDate));
-        if (availCards.length < selected.size) {
-          toast(`Need ${selected.size} cards, but only ${availCards.length} available in pool. Purchase more cards.`, "warning");
-          return;
-        }
-
-        const selectedList = [...selected];
-        for (let i = 0; i < selectedList.length; i++) {
-          await assignCardToStudent(selectedList[i], availCards[i].code);
-        }
-        selected.clear();
-        toast("Bulk card assignment completed.", "success");
-      };
-
-      $("bulkClearBtn").onclick = () => {
-        if (!selected.size) { toast("Select at least one student first.", "warning"); return; }
-        confirmAction("Clear Selected Cards?", `Clear scratch cards for ${selected.size} selected students?`, async () => {
-          for (const id of selected) {
-            const s = students.find(x => String(studentId(x)) === String(id));
-            if (s) await saveStudentCard(s, "");
-          }
-          selected.clear();
-          renderStudentTable();
-          toast("Bulk cards cleared.", "success");
-        });
-      };
-
-      $("clearFilters").onclick = () => {
-        $("searchInput").value = "";
-        $("classFilter").value = "";
-        $("sessionFilter").value = "";
-        $("statusFilter").value = "";
-        $("usageFilter").value = "";
-        applyFilters();
-      };
-
-      $("searchInput").oninput = applyFilters;
-      ["classFilter", "sessionFilter", "statusFilter", "usageFilter"].forEach(id => $(id).onchange = applyFilters);
-
-      $("prevPage").onclick = () => { if (page > 1) { page--; renderStudentTable(); } };
-      $("nextPage").onclick = () => { if (page * pageSize < filteredStudents.length) { page++; renderStudentTable(); } };
-
-      $("refreshBtn").onclick = loadData;
-      $("poolRefreshBtn").onclick = () => { loadPoolFromStorage(); renderPoolTable(); toast("Pool refreshed.", "success"); };
-      $("exportBtn").onclick = exportCSV;
-
-      $("selectAll").onchange = (e) => {
-        const rows = filteredStudents.slice((page - 1) * pageSize, page * pageSize);
-        rows.forEach(s => {
-          const id = String(studentId(s));
-          if (e.target.checked) selected.add(id); else selected.delete(id);
-        });
-        renderStudentTable();
-      };
-
-      $("studentRows").onclick = (e) => {
-        if (e.target.classList.contains("row-check")) {
-          const id = e.target.dataset.id;
-          if (e.target.checked) selected.add(id); else selected.delete(id);
-          renderStudentTable();
-        }
-      };
-
-      document.querySelectorAll("[data-close-modal]").forEach(b => {
-        b.onclick = () => closeModal(b.dataset.closeModal);
       });
-      $("confirmNo").onclick = () => closeModal("confirmModal");
-
-      $("menuBtn").onclick = () => { $("sidebar").classList.add("open"); $("sidebarOverlay").classList.add("show"); };
-      $("sidebarOverlay").onclick = () => { $("sidebar").classList.remove("open"); $("sidebarOverlay").classList.remove("show"); };
     }
 
-    async function loadData() {
-      loadPoolFromStorage();
+    async function loadSchool() {
+      if (!token) throw new Error('No administrator token found. Please sign in again.');
+      try {
+        const res = await api(`${API_ROOT}/auth/me`);
+        if (!res.ok) {
+          throw new Error('Unable to load administrator account.');
+        }
+        const data = await res.json();
+        const authUser = unwrapUser(data);
+        currentUser = authUser;
+        currentSchool = unwrapSchool(data?.school || data?.data?.school || data);
+        publicSchoolId = currentSchool?.schoolId || currentSchool?.school || currentSchool?.publicSchoolId || '';
+        document.getElementById('schoolName').textContent = currentSchool?.schoolName || getSchoolNameFromUser(authUser) || 'School Administration';
+        document.getElementById('schoolShortLabel').textContent = currentSchool?.schoolName || getSchoolNameFromUser(authUser) || 'School Admin';
+        document.getElementById('schoolLogo').src = currentSchool?.logo || '';
+      } catch (error) {
+        console.warn('Could not load school profile from backend:', error.message);
+      }
+    }
+
+    async function loadStudents() {
       try {
         const res = await api(`${API_ROOT}/student`);
-        if (res.ok) {
-          const raw = await res.json();
-          students = unwrapArray(raw);
-        } else {
-          students = generateMockStudentData();
+        if (!res.ok) {
+          let data = {};
+          try { data = await res.json(); } catch {}
+          throw new Error(data.message || data.error || `Could not load students (${res.status}).`);
         }
-      } catch (e) {
-        console.warn("Using local student data fallback:", e.message);
-        students = generateMockStudentData();
-      }
-
-      populateFilters();
-      applyFilters();
-      renderPoolTable();
-      addActivity("Loaded school scratch card inventory system.", "info");
-      
-      const loader = $("loading");
-      if (loader) {
-        loader.style.opacity = "0";
-        setTimeout(() => loader.remove(), 250);
+        const data = await res.json();
+        const list = unwrapArray(data);
+        students = list.map(item => ({
+          ...item,
+          scratchCardUsage: Number(item.scratchCardUsage || item.usesConsumed || 0),
+          scratchCardHistory: Array.isArray(item.scratchCardHistory) ? item.scratchCardHistory : [],
+          cardStatus: item.cardStatus || (item.scratchCard ? 'active' : 'unassigned'),
+          class: item.class || item.className || '',
+          updatedAt: item.updatedAt || new Date().toISOString()
+        }));
+      } catch (error) {
+        console.warn('Could not load students from backend, using fallback sample data:', error.message);
+        students = [
+          { student_id: 'STU1001', regNo: '2025/0001', surname: 'Adebayo', firstname: 'Chinwe', othernames: '', class: 'JSS1', academicSession: '2025/2026', scratchCard: 'ABCD1234', scratchCardUsage: 0, cardStatus: 'active', updatedAt: new Date().toISOString() },
+          { student_id: 'STU1002', regNo: '2025/0002', surname: 'Okafor', firstname: 'Daniel', othernames: '', class: 'JSS1', academicSession: '2025/2026', scratchCard: '', scratchCardUsage: 0, cardStatus: 'unassigned', updatedAt: new Date().toISOString() },
+          { student_id: 'STU1003', regNo: '2025/0003', surname: 'Musa', firstname: 'Kehinde', othernames: '', class: 'SS2', academicSession: '2025/2026', scratchCard: 'QWER5678', scratchCardUsage: 5, cardStatus: 'used', updatedAt: new Date().toISOString() },
+          { student_id: 'STU1004', regNo: '2025/0004', surname: 'Johnson', firstname: 'Grace', othernames: '', class: 'SS1', academicSession: '2025/2026', scratchCard: 'TXTY8899', scratchCardUsage: 5, cardStatus: 'expired', updatedAt: new Date().toISOString() }
+        ];
       }
     }
 
-    window.addEventListener("DOMContentLoaded", async () => {
-      bindEvents();
-      await loadSchool();
-      await loadData();
+    async function loadPool() {
+      try {
+        const res = await api(`${API_ROOT}/scratchcards`);
+        if (!res.ok) throw new Error('Could not load scratch card pool.');
+        const data = await res.json();
+        setCardPoolFromApi(data);
+      } catch (error) {
+        console.warn('Pool endpoint unavailable, deriving pool from student cards:', error.message);
+        pool = buildFallbackPool();
+      }
+      syncPoolWithStudents();
+    }
+
+    function refresh() {
+      loadSchool().catch(err => toast(err.message, 'error'));
+      loadStudents().then(() => {
+        populateFilters();
+        renderRows();
+        updateStats();
+        renderPoolList();
+        renderHistoryList();
+      }).catch(err => toast(err.message, 'error'));
+      loadPool().catch(err => toast(err.message, 'error'));
+    }
+
+    document.getElementById('purchaseBtn').addEventListener('click', () => openPurchaseModal());
+    document.getElementById('refreshBtn').addEventListener('click', refresh);
+    document.getElementById('bulkAssignBtn').addEventListener('click', bulkAssignFromPool);
+    document.getElementById('bulkClearBtn').addEventListener('click', clearSelected);
+    document.getElementById('bulkReplaceBtn').addEventListener('click', () => {
+      const ids = [...selected];
+      if (!ids.length) toast('Select at least one student first.', 'warning');
+      else { 
+        const selectedStudents = students.filter(student => ids.includes(String(studentId(student))));
+        const allAvailable = pool.filter(item => normalizeStatusCode(item.status) === 'available');
+        if (!allAvailable.length) {
+          toast('No available cards in the pool for replacement.', 'warning');
+          return;
+        }
+        selectedStudents.forEach(student => replaceStudentCard(studentId(student)));
+      }
     });
+
+    document.getElementById('purchaseQty').addEventListener('input', () => {
+      const value = Number(document.getElementById('purchaseQty').value);
+      document.getElementById('purchaseTotal').textContent = formatCurrency(value * CARD_PRICE);
+    });
+
+    document.getElementById('confirmAssignBtn').addEventListener('click', () => {
+      const studentIdValue = document.getElementById('assignStudentName').textContent.match(/\\(([^)]+)\\)/)?.[1] || '';
+      const code = document.getElementById('assignPoolSelect').value || document.getElementById('assignFallbackCode').value.trim();
+      if (!code) {
+        toast('Select a code from the pool or type a fallback code.', 'warning');
+        return;
+      }
+
+      const student = students.find(s => String(studentId(s)) === String(studentIdValue));
+      if (!student) {
+        toast('Please choose a valid student.', 'warning');
+        return;
+      }
+
+      assignCodeToStudent(student, code);
+    });
+
+    document.getElementById('confirmPurchaseBtn').addEventListener('click', purchasePool);
+    document.getElementById('selectAll').addEventListener('change', (event) => {
+      const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
+      rows.forEach(student => {
+        const id = String(studentId(student));
+        if (event.target.checked) selected.add(id);
+        else selected.delete(id);
+      });
+      renderRows();
+    });
+
+    document.getElementById('searchInput').addEventListener('input', applyFilters);
+    ['classFilter', 'sessionFilter', 'statusFilter'].forEach(id => document.getElementById(id).addEventListener('change', applyFilters));
+
+    document.getElementById('prevPage').addEventListener('click', () => {
+      if (page > 1) {
+        page--;
+        renderRows();
+      }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+      if (page * pageSize < filtered.length) {
+        page++;
+        renderRows();
+      }
+    });
+
+    document.getElementById('menuBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('sidebarOverlay').classList.add('show');
+    });
+
+    document.getElementById('sidebarOverlay').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarOverlay').classList.remove('show');
+    });
+
+    document.getElementById('confirmNo').addEventListener('click', () => {
+      document.getElementById('confirmModal').classList.remove('show');
+    });
+
+    function openPurchaseModal() {
+      document.getElementById('purchaseModal').classList.add('show');
+      document.getElementById('purchaseQty').value = '10';
+      document.getElementById('purchaseTotal').textContent = formatCurrency(10 * CARD_PRICE);
+    }
+
+    function closeAssignModal() {
+      document.getElementById('assignModal').classList.remove('show');
+    }
+
+    function dismissBootLoader() {
+      const loader = document.getElementById('loading');
+      if (loader) loader.style.opacity = '0';
+      setTimeout(() => loader.remove(), 250);
+    }
+
+    let bootFinished = false;
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        await loadSchool();
+        await Promise.all([
+          loadStudents(),
+          loadPool()
+        ]);
+        populateFilters();
+        renderRows();
+        renderPoolList();
+        renderHistoryList();
+        updateStats();
+      } catch (err) {
+        console.error('Scratch-card page initialization failed:', err);
+        toast(err.message, 'error');
+        document.getElementById('studentRows').innerHTML = `<tr><td colspan="8" class="p-10 text-center"><div class="font-extrabold text-rose-600">Unable to load the scratch-card records</div><p class="text-xs text-slate-500 mt-2">Check the school backend connection and refresh.</p></td></tr>`;
+      } finally {
+        bootFinished = true;
+        clearTimeout(bootFailsafe);
+        dismissBootLoader();
+      }
+    });
+
+    const bootFailsafe = setTimeout(() => {
+      if (!bootFinished) {
+        dismissBootLoader();
+        toast('The page could not finish connecting to the school server. It will continue in fallback mode.', 'warning');
+      }
+    }, 20000);
   </script>
 </body>
 </html>
