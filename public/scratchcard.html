@@ -337,7 +337,7 @@
               <select id="statusFilter" class="field">
                 <option value="">All statuses</option>
                 <option value="active">Active assigned</option>
-                <option value="pending">Unassigned</option>
+                <option value="unassigned">Unassigned</option>
                 <option value="expired">Expired</option>
                 <option value="used">Exhausted (5/5 uses)</option>
               </select>
@@ -579,7 +579,7 @@
 <script>
 'use strict';
 
-// ===== API CONFIGURATION =====
+// ===== GLOBAL CONFIG & STATE =====
 const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
 const API_ROOT = `${BACKEND_URL}/api`;
 const CARD_PRICE_NAIRA = 150;
@@ -603,10 +603,10 @@ let selectedStudents = new Set();
 let poolCards = [];
 let purchases = [];
 let activityLog = [];
+
 let page = 1;
 let poolPage = 1;
 let activityPage = 1;
-let isLoading = false;
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -638,22 +638,7 @@ function formatDate(value) {
         minute: '2-digit'
       });
 }
-function unwrapStudents(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.students)) return payload.students;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.students)) return payload.data.students;
-  if (Array.isArray(payload?.data?.data)) return payload.data.data;
-  return [];
-}
 
-function unwrapCards(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.cards)) return payload.cards;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.cards)) return payload.data.cards;
-  return [];
-}
 function toast(message, type = 'success') {
   const host = $('toastHost');
   if (!host) return;
@@ -681,20 +666,6 @@ function toast(message, type = 'success') {
   element.append(iconElement, textElement);
   host.appendChild(element);
   setTimeout(() => element.remove(), 4500);
-}
-
-function getSchoolSubdomain() {
-  const hostname = location.hostname.toLowerCase();
-
-  for (const baseDomain of BASE_DOMAINS) {
-    const suffix = `.${baseDomain}`;
-    if (hostname.endsWith(suffix)) {
-      const subdomain = hostname.slice(0, -suffix.length);
-      if (subdomain && !subdomain.includes('.')) return subdomain;
-    }
-  }
-
-  return localStorage.getItem('schoolSubdomain') || '';
 }
 
 function getHeaders(extra = {}) {
@@ -764,6 +735,7 @@ function unwrapStudents(data) {
   if (Array.isArray(data?.students)) return data.students;
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.data?.students)) return data.data.students;
+  if (Array.isArray(data?.data?.data)) return data.data.data;
   return [];
 }
 
@@ -776,15 +748,13 @@ function unwrapPool(data) {
 }
 
 function studentIdentifier(student) {
-  return student.student_id || student._id || student.regNo || '';
+  return student.student_id || student._id || student.id || student.regNo || '';
 }
 
 function studentDisplayName(student) {
-  return [
-    student.surname,
-    student.firstname,
-    student.othernames
-  ].filter(Boolean).join(' ') || student.name || 'Unnamed student';
+  return [student.surname, student.firstname, student.othernames]
+    .filter(Boolean)
+    .join(' ') || student.name || 'Unnamed student';
 }
 
 function getClassName(student) {
@@ -805,8 +775,8 @@ function getStudentCardStatus(student) {
   const card = String(student.scratchCard || '').trim();
   if (!card) return 'unassigned';
 
-  const expiry = student.scratchCardExpiry || student.expiryDate;
-  if (expiry && new Date(expiry).getTime() <= Date.now()) return 'expired';
+  const expiresAt = student.scratchCardExpiry || student.expiryDate;
+  if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) return 'expired';
 
   const latestHistory = Array.isArray(student.scratchCardHistory)
     ? student.scratchCardHistory[student.scratchCardHistory.length - 1]
@@ -815,19 +785,6 @@ function getStudentCardStatus(student) {
   if (student.cardStatus === 'expired' || latestHistory?.status === 'expired') return 'expired';
   if (getCardUsage(student) >= CARD_LIMIT) return 'used';
   return 'active';
-}
-
-function getStatusLabel(status) {
-  return ({
-    active: 'Active',
-    unassigned: 'Unassigned',
-    expired: 'Expired',
-    used: 'Exhausted',
-    available: 'Available',
-    assigned: 'Assigned',
-    revoked: 'Revoked',
-    replaced: 'Replaced'
-  })[status] || status;
 }
 
 function statusClass(status) {
@@ -844,34 +801,41 @@ function statusClass(status) {
   })[status] || 'status pending';
 }
 
-function setBusy(button, busy, label = 'Working…') {
-  if (!button) return () => {};
-
-  const originalHtml = button.dataset.originalHtml || button.innerHTML;
-  if (!button.dataset.originalHtml) button.dataset.originalHtml = originalHtml;
-
-  if (busy) {
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    button.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>${esc(label)}</span>`;
-  } else {
-    button.disabled = false;
-    button.removeAttribute('aria-busy');
-    button.innerHTML = originalHtml;
-  }
-
-  return () => setBusy(button, false);
+function getStatusLabel(status) {
+  return ({
+    active: 'Active',
+    unassigned: 'Unassigned',
+    available: 'Available',
+    assigned: 'Assigned',
+    expired: 'Expired',
+    used: 'Exhausted',
+    exhausted: 'Exhausted',
+    revoked: 'Revoked',
+    replaced: 'Replaced'
+  })[status] || status;
 }
 
-async function withBusy(button, label, action) {
-  if (button?.disabled) return;
+function withBusy(button, label, action) {
+  if (!button || button.disabled) return Promise.resolve();
 
-  const release = setBusy(button, true, label);
-  try {
-    return await action();
-  } finally {
-    release();
-  }
+  const originalHTML = button.dataset.originalHtml || button.innerHTML;
+  if (!button.dataset.originalHtml) button.dataset.originalHtml = originalHTML;
+
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>${esc(label)}</span>`;
+
+  return Promise.resolve()
+    .then(action)
+    .catch(error => {
+      console.error('Action failed:', error);
+      toast(error.message || 'Action failed.', 'error');
+    })
+    .finally(() => {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.innerHTML = originalHTML;
+    });
 }
 
 function addActivity(text, kind = 'info') {
@@ -884,12 +848,6 @@ function addActivity(text, kind = 'info') {
   renderActivityLog();
 }
 
-function resolveSchoolDetails(data) {
-  const school = data?.school || data?.data?.school || {};
-  const user = data?.user || data?.data?.user || data || {};
-  return { school, user };
-}
-
 async function loadCurrentSchool() {
   if (!token) throw new Error('No administrator login token found. Please sign in again.');
 
@@ -900,41 +858,19 @@ async function loadCurrentSchool() {
     throw new Error(result.error || result.message || 'Unable to load your school profile.');
   }
 
-  const resolved = resolveSchoolDetails(result);
-  currentUser = resolved.user;
-  currentSchool = resolved.school;
+  currentUser = result.user || result.data?.user || result;
+  currentSchool = result.school || result.data?.school || currentUser?.school || {};
 
-  publicSchoolId =
-    currentSchool.schoolId ||
-    currentUser.schoolId ||
-    currentUser.school?.schoolId ||
-    '';
+  publicSchoolId = currentSchool.schoolId || currentUser.schoolId || '';
 
-  if (!publicSchoolId) {
-    throw new Error('Your account does not contain a school ID.');
-  }
-
-  const schoolName =
-    currentSchool.schoolName ||
-    currentSchool.name ||
-    currentUser.schoolName ||
-    'School Administration';
-
-  const nameElement = $('schoolName');
-  const pillElement = $('schoolPill');
-  const adminNameElement = $('schoolAdminName');
-  const roleElement = $('schoolAdminRole');
-  const logoElement = $('schoolLogo');
-
-  if (nameElement) nameElement.textContent = schoolName;
-  if (pillElement) pillElement.textContent = schoolName;
-  if (adminNameElement) adminNameElement.textContent =
-    currentUser.name || currentUser.fullName || currentUser.email || 'School Administrator';
-  if (roleElement) roleElement.textContent = currentUser.role || 'Administrator';
+  const schoolName = currentSchool.schoolName || currentSchool.name || currentUser.schoolName || 'School Administration';
+  if ($('schoolName')) $('schoolName').textContent = schoolName;
+  if ($('schoolPill')) $('schoolPill').textContent = schoolName;
+  if ($('schoolAdminName')) $('schoolAdminName').textContent = currentUser.name || currentUser.fullName || currentUser.email || 'School Administrator';
+  if ($('schoolAdminRole')) $('schoolAdminRole').textContent = currentUser.role || 'Administrator';
 
   const logo = currentSchool.logoUrl || currentSchool.branding?.logo || '';
-  if (logoElement && logo) logoElement.src = logo;
-  else if (logoElement) logoElement.removeAttribute('src');
+  if ($('schoolLogo') && logo) $('schoolLogo').src = logo;
 
   document.title = `Scratch Cards | ${schoolName}`;
 }
@@ -978,8 +914,8 @@ async function loadPool() {
 
   poolCards = cards.map(card => ({
     id: card.id || card._id,
-    code: String(card.code || card.cardCode || '').toUpperCase(),
-    status: String(card.status || 'available').toLowerCase(),
+    code: String(card.code || card.cardCode || '').trim().toUpperCase(),
+    status: String(card.status || 'available').trim().toLowerCase(),
     assignedStudent: card.assignedStudent || null,
     assignedAt: card.assignedAt || null,
     expiresAt: card.expiresAt || null,
@@ -987,8 +923,6 @@ async function loadPool() {
     createdAt: card.createdAt || null,
     usedCount: Number(card.usedCount || 0)
   })).filter(card => card.code);
-
-  return poolCards;
 }
 
 async function loadPurchases() {
@@ -1000,52 +934,23 @@ async function loadPurchases() {
   }
 
   purchases = Array.isArray(result.data) ? result.data : [];
+  activityLog = [...purchases].sort((a, b) =>
+    new Date(b.paidAt || b.createdAt || 0) - new Date(a.paidAt || a.createdAt || 0)
+  );
 }
 
-function getActivityFromData() {
-  const events = [];
-
-  purchases.forEach(purchase => {
-    events.push({
-      time: purchase.paidAt || purchase.createdAt,
-      kind: purchase.paymentStatus === 'paid' ? 'success' : 'warning',
-      message: `${purchase.quantity} card purchase · ${purchase.provider || 'gateway'} · ${purchase.paymentStatus || 'pending'}`
-    });
-  });
-
-  poolCards.forEach(card => {
-    if (card.status === 'assigned') {
-      events.push({
-        time: card.assignedAt || card.createdAt,
-        kind: 'info',
-        message: `Card ${card.code} assigned${card.assignedStudent?.name ? ` to ${card.assignedStudent.name}` : ''}`
-      });
-    } else if (card.status === 'expired') {
-      events.push({
-        time: card.expiresAt || card.createdAt,
-        kind: 'warning',
-        message: `Card ${card.code} expired`
-      });
-    }
-  });
-
-  activityLog = events
-    .filter(event => event.time)
-    .sort((a, b) => new Date(b.time) - new Date(a.time));
-}
-
-async function refreshData() {
-  await Promise.all([
-    loadStudents(),
-    loadPool(),
-    loadPurchases()
-  ]);
-
+async function loadAllData() {
+  await loadCurrentSchool();
+  await Promise.all([loadStudents(), loadPool(), loadPurchases()]);
   populateFilters();
   applyFilters();
   renderPoolTable();
   renderActivityLog();
   updateStatistics();
+}
+
+async function refreshData() {
+  await loadAllData();
 }
 
 function populateFilters() {
@@ -1141,20 +1046,16 @@ function renderStudentTable() {
 
   const start = (page - 1) * PAGE_SIZE;
   const rows = filteredStudents.slice(start, start + PAGE_SIZE);
-  const resultCount = $('resultCount');
-  const pageInfo = $('pageInfo');
-  const previous = $('prevPage');
-  const next = $('nextPage');
-  const tbody = $('studentRows');
 
-  if (resultCount) resultCount.textContent = `${filteredStudents.length.toLocaleString()} matching student records`;
-  if (pageInfo) {
+  if ($('resultCount')) $('resultCount').textContent = `${filteredStudents.length.toLocaleString()} matching student records`;
+  if ($('pageInfo')) {
     const first = filteredStudents.length ? start + 1 : 0;
-    pageInfo.textContent = `Showing ${first}–${Math.min(start + rows.length, filteredStudents.length)} of ${filteredStudents.length}`;
+    $('pageInfo').textContent = `Showing ${first}–${Math.min(start + rows.length, filteredStudents.length)} of ${filteredStudents.length}`;
   }
-  if (previous) previous.disabled = page <= 1;
-  if (next) next.disabled = start + PAGE_SIZE >= filteredStudents.length;
+  if ($('prevPage')) $('prevPage').disabled = page <= 1;
+  if ($('nextPage')) $('nextPage').disabled = start + PAGE_SIZE >= filteredStudents.length;
 
+  const tbody = $('studentRows');
   if (!tbody) return;
 
   if (!rows.length) {
@@ -1172,16 +1073,16 @@ function renderStudentTable() {
 
     let buttons = '';
     if (!cardCode) {
-      buttons = `<button type="button" class="btn btn-primary btn-small" data-action="assign-student" data-id="${esc(id)}"><i class="fa-solid fa-ticket"></i> Assign</button>`;
+      buttons = `<button type="button" class="btn btn-primary text-[10px] py-1 px-2" data-action="assign-student" data-id="${esc(id)}"><i class="fa-solid fa-ticket"></i> Assign</button>`;
     } else if (status === 'expired' || status === 'used') {
       buttons = `
-        <button type="button" class="btn btn-warning btn-small" data-action="replace-student" data-id="${esc(id)}"><i class="fa-solid fa-arrows-rotate"></i> Replace</button>
-        <button type="button" class="btn btn-secondary btn-small" data-action="copy-student" data-id="${esc(id)}"><i class="fa-solid fa-copy"></i></button>
+        <button type="button" class="btn btn-warning text-[10px] py-1 px-2" data-action="replace-student" data-id="${esc(id)}"><i class="fa-solid fa-arrows-rotate"></i> Replace</button>
+        <button type="button" class="btn btn-ghost border-slate-200 text-[10px] py-1 px-2" data-action="copy-student" data-id="${esc(id)}"><i class="fa-solid fa-copy"></i></button>
       `;
     } else {
       buttons = `
-        <button type="button" class="btn btn-warning btn-small" data-action="expire-student" data-id="${esc(id)}"><i class="fa-solid fa-clock-rotate-left"></i> Expire</button>
-        <button type="button" class="btn btn-secondary btn-small" data-action="copy-student" data-id="${esc(id)}"><i class="fa-solid fa-copy"></i></button>
+        <button type="button" class="btn btn-warning text-[10px] py-1 px-2" data-action="expire-student" data-id="${esc(id)}"><i class="fa-solid fa-clock-rotate-left"></i> Expire</button>
+        <button type="button" class="btn btn-ghost border-slate-200 text-[10px] py-1 px-2" data-action="copy-student" data-id="${esc(id)}"><i class="fa-solid fa-copy"></i></button>
       `;
     }
 
@@ -1239,9 +1140,9 @@ function renderPoolTable() {
 
     let action = '';
     if (status === 'available') {
-      action = `<button type="button" class="btn btn-danger btn-small" data-action="revoke-pool" data-id="${esc(card.id)}"><i class="fa-solid fa-ban"></i> Revoke</button>`;
+      action = `<button type="button" class="btn btn-danger text-[10px] py-1 px-2" data-action="revoke-pool" data-id="${esc(card.id)}"><i class="fa-solid fa-ban"></i> Revoke</button>`;
     } else if (status === 'assigned') {
-      action = `<button type="button" class="btn btn-warning btn-small" data-action="expire-pool" data-id="${esc(card.id)}"><i class="fa-solid fa-clock"></i> Expire</button>`;
+      action = `<button type="button" class="btn btn-warning text-[10px] py-1 px-2" data-action="expire-pool" data-id="${esc(card.id)}"><i class="fa-solid fa-clock"></i> Expire</button>`;
     } else {
       action = '<span class="text-[10px] text-slate-400">No action</span>';
     }
@@ -1267,853 +1168,32 @@ function renderActivityLog() {
   const rows = activityLog.slice(start, start + 5);
 
   if (!rows.length) {
-    host.innerHTML = '<div class="p-4 rounded-xl bg-slate-50 border border-slate-200">No purchase activity returned by the server.</div>';
+    host.innerHTML = '<div class="p-4 rounded-xl bg-slate-50 border border-slate-200">No purchase or activity logs returned.</div>';
     if ($('activityPageInfo')) $('activityPageInfo').textContent = 'No activity logs';
     if ($('prevActivityPage')) $('prevActivityPage').disabled = true;
     if ($('nextActivityPage')) $('nextActivityPage').disabled = true;
     return;
   }
 
-  host.innerHTML = rows.map(item => `
-    <div class="p-3.5 rounded-xl border ${item.paymentStatus === 'paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'} flex items-center justify-between gap-2 text-xs">
-      <div>
-        <div class="font-extrabold">${esc(item.quantity)} cards · ${esc(item.provider || 'payment')}</div>
-        <div class="text-[10px]">${esc(item.reference)} · ${esc(item.paymentStatus)} · ${esc(item.fulfillmentStatus)}</div>
-      </div>
-      <span class="text-[10px] opacity-75 font-semibold">${formatDate(item.paidAt || item.createdAt)}</span>
-    </div>
-  `).join('');
-
-  if ($('activityPageInfo')) {
-    $('activityPageInfo').textContent = `Showing ${start + 1}–${Math.min(start + rows.length, activityLog.length)} of ${activityLog.length}`;
-  }
-  if ($('prevActivityPage')) $('prevActivityPage').disabled = activityPage <= 1;
-  if ($('nextActivityPage')) $('nextActivityPage').disabled = start + 5 >= activityLog.length;
-}
-
-function makePurchaseProviderSelect() {
-  let select = $('paymentProvider');
-  if (select) return select;
-
-  const purchaseModal = $('purchaseModal');
-  const quickPurchase = $('purchaseQty')?.closest('.card-panel');
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'mb-3';
-  wrapper.innerHTML = `
-    <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5" for="paymentProvider">Payment gateway</label>
-    <select id="paymentProvider" class="field">
-      <option value="paystack">Paystack</option>
-      <option value="flutterwave">Flutterwave</option>
-    </select>
-  `;
-
-  if (purchaseModal) {
-    const body = purchaseModal.querySelector('.p-5.space-y-4');
-    if (body) body.insertBefore(wrapper, body.firstChild);
-  } else if (quickPurchase) {
-    const qty = $('purchaseQty')?.closest('div');
-    if (qty) qty.parentNode.insertBefore(wrapper, qty);
-  }
-
-  return $('paymentProvider');
-}
-
-function openPurchaseModal() {
-  const modal = $('purchaseModal');
-  if (modal) {
-    modal.classList.add('show');
-    makePurchaseProviderSelect();
-    updatePurchaseTotal();
-    return;
-  }
-
-  const qty = $('purchaseQty');
-  if (qty) qty.focus();
-  makePurchaseProviderSelect();
-  toast('Choose a payment gateway and quantity, then purchase the pool.', 'info');
-}
-
-function closePurchaseModal() {
-  $('purchaseModal')?.classList.remove('show');
-}
-
-function updatePurchaseTotal() {
-  const quantity = Number($('purchaseModalQty')?.value || $('purchaseQty')?.value || 0);
-  const total = quantity * CARD_PRICE_NAIRA;
-
-  if ($('purchaseTotal')) $('purchaseTotal').textContent = formatMoney(total);
-  if ($('purchaseModalTotal')) $('purchaseModalTotal').textContent = formatMoney(total);
-}
-
-function getPurchaseQuantity() {
-  return Number($('purchaseModalQty')?.value || $('purchaseQty')?.value || 0);
-}
-
-async function startPurchase(button) {
-  const quantity = getPurchaseQuantity();
-  const provider = $('paymentProvider')?.value || 'paystack';
-
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1000) {
-    toast('Enter a whole number between 1 and 1,000.', 'warning');
-    return;
-  }
-
-  await withBusy(button, 'Starting checkout…', async () => {
-    const callbackUrl = new URL(location.href);
-    callbackUrl.searchParams.set('scratchPaymentReturn', '1');
-
-    const response = await api(`${API_ROOT}/scratch-cards/purchases/initiate`, {
-      method: 'POST',
-      body: JSON.stringify({
-        quantity,
-        provider,
-        callbackUrl: callbackUrl.toString()
-      })
-    });
-
-    const result = await readJson(response);
-    if (!response.ok || !result.success || !result.data?.checkoutUrl) {
-      throw new Error(result.error || result.message || 'Could not start payment checkout.');
-    }
-
-    closePurchaseModal();
-    location.assign(result.data.checkoutUrl);
-  });
-}
-
-async function verifyPaymentReturn() {
-  const params = new URLSearchParams(location.search);
-  const reference =
-    params.get('reference') ||
-    params.get('trxref') ||
-    params.get('tx_ref');
-
-  const isReturn = params.get('scratchPaymentReturn') === '1' || !!reference;
-  if (!isReturn || !reference) return;
-
-  const response = await api(`${API_ROOT}/scratch-cards/purchases/${encodeURIComponent(reference)}/verify`);
-  const result = await readJson(response);
-
-  if (response.status === 202) {
-    toast(result.error || 'Payment received; card pool fulfillment is still processing. Refresh shortly.', 'warning');
-  } else if (!response.ok || !result.success) {
-    throw new Error(result.error || result.message || 'Payment could not be verified.');
-  } else {
-    toast('Payment verified. Your purchased cards are now in the school pool.', 'success');
-  }
-
-  const cleanUrl = new URL(location.href);
-  ['scratchPaymentReturn', 'reference', 'trxref', 'tx_ref', 'transaction_id', 'status'].forEach(key => cleanUrl.searchParams.delete(key));
-  history.replaceState({}, document.title, cleanUrl.toString());
-}
-
-async function assignCard(studentIdentifier, cardCode, replaceExisting = false, button = null) {
-  if (!studentIdentifier || !cardCode) {
-    toast('Choose a student and an available pool card.', 'warning');
-    return;
-  }
-
-  await withBusy(button, 'Assigning…', async () => {
-    const response = await api(`${API_ROOT}/scratch-cards/assign`, {
-      method: 'POST',
-      body: JSON.stringify({
-        studentId: studentIdentifier,
-        cardCode,
-        replaceExisting
-      })
-    });
-
-    const result = await readJson(response);
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || result.message || 'Card assignment failed.');
-    }
-
-    addActivity(`Assigned card ${cardCode} to ${result.data?.student?.regNo || studentIdentifier}.`, 'success');
-    await refreshData();
-    closeAssignModal();
-    toast('Scratch card assigned and saved.', 'success');
-  });
-}
-
-function openAssignModal(studentIdentifier = '') {
-  const studentSelect = $('assignStudentSelect');
-  const cardSelect = $('assignCardSelect');
-
-  if (!studentSelect || !cardSelect) {
-    toast('Assignment dialog is unavailable in this page markup.', 'error');
-    return;
-  }
-
-  const assignableStudents = students.filter(student => {
-    const status = getStudentCardStatus(student);
-    return status === 'unassigned' || status === 'expired' || status === 'used';
-  });
-
-  studentSelect.innerHTML =
-    '<option value="">Select a student</option>' +
-    assignableStudents.map(student => `
-      <option value="${esc(studentIdentifier(student))}" ${String(studentIdentifier(student)) === String(studentIdentifier) ? 'selected' : ''}>
-        ${esc(studentDisplayName(student))} · ${esc(student.regNo || '')}
-      </option>
-    `).join('');
-
-  const availableCards = poolCards.filter(card => card.status === 'available');
-  cardSelect.innerHTML = availableCards.length
-    ? availableCards.map(card => `<option value="${esc(card.code)}">${esc(card.code)} · expires ${formatDate(card.expiresAt)}</option>`).join('')
-    : '<option value="">No available cards in pool</option>';
-
-  $('assignModal')?.classList.add('show');
-}
-
-function closeAssignModal() {
-  $('assignModal')?.classList.remove('show');
-}
-
-async function bulkAssignSelected(button) {
-  const targets = students.filter(student => selectedStudents.has(String(studentIdentifier(student))));
-  if (!targets.length) {
-    toast('Select at least one student first.', 'warning');
-    return;
-  }
-
-  const cards = poolCards.filter(card => card.status === 'available');
-  if (!cards.length) {
-    toast('No available cards in the pool. Purchase cards first.', 'warning');
-    return;
-  }
-
-  const eligible = targets.filter(student => {
-    const status = getStudentCardStatus(student);
-    return status === 'unassigned' || status === 'expired' || status === 'used';
-  });
-
-  if (!eligible.length) {
-    toast('The selected students already have active cards.', 'warning');
-    return;
-  }
-
-  if (eligible.length > cards.length) {
-    toast(`Only ${cards.length} cards are available; assigning to that many selected students.`, 'warning');
-  }
-
-  await withBusy(button, 'Assigning cards…', async () => {
-    let successes = 0;
-    const failures = [];
-    const count = Math.min(eligible.length, cards.length);
-
-    for (let index = 0; index < count; index++) {
-      const student = eligible[index];
-      const card = cards[index];
-
-      try {
-        const response = await api(`${API_ROOT}/scratch-cards/assign`, {
-          method: 'POST',
-          body: JSON.stringify({
-            studentId: studentIdentifier(student),
-            cardCode: card.code,
-            replaceExisting: Boolean(student.scratchCard)
-          })
-        });
-
-        const result = await readJson(response);
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || result.message || `HTTP ${response.status}`);
-        }
-
-        successes++;
-      } catch (error) {
-        failures.push(`${student.regNo || studentIdentifier(student)}: ${error.message}`);
-      }
-    }
-
-    selectedStudents.clear();
-    await refreshData();
-
-    if (failures.length) {
-      console.error('Some scratch-card assignments failed:', failures);
-      toast(`${successes} assigned; ${failures.length} failed. Check the browser console for details.`, 'warning');
-    } else {
-      toast(`${successes} scratch card${successes === 1 ? '' : 's'} assigned successfully.`, 'success');
-    }
-  });
-}
-
-async function purchaseCards(button) {
-  const quantity = Number($('purchaseQty')?.value || $('purchaseModalQty')?.value || 0);
-  const provider = $('paymentProvider')?.value || 'paystack';
-
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1000) {
-    toast('Enter a whole number between 1 and 1,000.', 'warning');
-    return;
-  }
-
-  await withBusy(button, 'Starting payment…', async () => {
-    const callbackUrl = new URL(location.href);
-    callbackUrl.searchParams.set('scratchPaymentReturn', '1');
-
-    const response = await api(`${API_ROOT}/scratch-cards/purchases/initiate`, {
-      method: 'POST',
-      body: JSON.stringify({
-        quantity,
-        provider,
-        callbackUrl: callbackUrl.toString()
-      })
-    });
-
-    const result = await readJson(response);
-    if (!response.ok || !result.success || !result.data?.checkoutUrl) {
-      throw new Error(result.error || result.message || 'Could not initiate payment.');
-    }
-
-    location.assign(result.data.checkoutUrl);
-  });
-}
-
-async function expirePoolCard(cardId, button) {
-  if (!confirm('Mark this card as expired? It will no longer be assignable.')) return;
-
-  await withBusy(button, 'Updating…', async () => {
-    const response = await api(`${API_ROOT}/scratch-cards/pool/${encodeURIComponent(cardId)}/expire`, {
-      method: 'POST',
-      body: JSON.stringify({})
-    });
-
-    const result = await readJson(response);
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || result.message || 'Could not expire card.');
-    }
-
-    addActivity('A scratch card was marked expired.', 'warning');
-    await refreshData();
-    toast('Card marked expired.', 'success');
-  });
-}
-
-async function revokePoolCard(cardId, button) {
-  if (!confirm('Revoke this card? This action disables it and cannot be undone.')) return;
-
-  await withBusy(button, 'Revoking…', async () => {
-    const response = await api(`${API_ROOT}/scratch-cards/pool/${encodeURIComponent(cardId)}/revoke`, {
-      method: 'POST',
-      body: JSON.stringify({})
-    });
-
-    const result = await readJson(response);
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || result.message || 'Could not revoke card.');
-    }
-
-    addActivity('A scratch card was revoked.', 'warning');
-    await refreshData();
-    toast('Card revoked.', 'success');
-  });
-}
-
-async function refreshData() {
-  await Promise.all([
-    loadStudents(),
-    loadPool(),
-    loadPurchases()
-  ]);
-
-  populateFilters();
-  applyFilters();
-  renderPoolTable();
-  renderActivityLog();
-  updateStatistics();
-}
-
-async function loadStudents() {
-  const response = await api(`${API_ROOT}/student`);
-  const result = await readJson(response);
-
-  if (!response.ok) {
-    throw new Error(result.error || result.message || `Could not load students (${response.status}).`);
-  }
-
-  students = unwrapStudents(result).map(student => ({
-    ...student,
-    scratchCardUsage: Number(student.scratchCardUsage || student.usesConsumed || 0),
-    scratchCardHistory: Array.isArray(student.scratchCardHistory) ? student.scratchCardHistory : []
-  }));
-}
-
-async function loadPool() {
-  const cards = [];
-  let pageNumber = 1;
-  let pages = 1;
-
-  do {
-    const url = new URL(`${API_ROOT}/scratch-cards/pool`);
-    url.searchParams.set('page', String(pageNumber));
-    url.searchParams.set('limit', String(POOL_PAGE_SIZE));
-
-    const response = await api(url.toString());
-    const result = await readJson(response);
-
-    if (!response.ok) {
-      throw new Error(result.error || result.message || `Could not load card pool (${response.status}).`);
-    }
-
-    cards.push(...unwrapPool(result));
-    pages = Number(result.pagination?.pages || 1);
-    pageNumber++;
-  } while (pageNumber <= pages);
-
-  poolCards = cards.map(card => ({
-    id: card.id || card._id,
-    code: String(card.code || card.cardCode || '').trim().toUpperCase(),
-    status: String(card.status || 'available').trim().toLowerCase(),
-    assignedStudent: card.assignedStudent || null,
-    assignedAt: card.assignedAt || null,
-    expiresAt: card.expiresAt || null,
-    purchaseId: card.purchaseId || null,
-    createdAt: card.createdAt || null,
-    usedCount: Number(card.usedCount || 0)
-  })).filter(card => card.code);
-}
-
-async function loadPurchases() {
-  const response = await api(`${API_ROOT}/scratch-cards/purchases`);
-  const result = await readJson(response);
-
-  if (!response.ok) {
-    throw new Error(result.error || result.message || `Could not load purchase history (${response.status}).`);
-  }
-
-  purchases = Array.isArray(result.data) ? result.data : [];
-  activityLog = [...purchases].sort((a, b) =>
-    new Date(b.paidAt || b.createdAt || 0) - new Date(a.paidAt || a.createdAt || 0)
-  );
-}
-
-function unwrapStudents(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.students)) return data.students;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.data?.students)) return data.data.students;
-  return [];
-}
-
-function unwrapPool(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.cards)) return data.cards;
-  if (Array.isArray(data?.data?.cards)) return data.data.cards;
-  return [];
-}
-
-function studentIdentifier(student) {
-  return student.student_id || student._id || student.regNo || '';
-}
-
-function studentDisplayName(student) {
-  return [student.surname, student.firstname, student.othernames]
-    .filter(Boolean)
-    .join(' ') || student.name || 'Unnamed student';
-}
-
-function getClassName(student) {
-  return typeof student.class === 'object'
-    ? (student.class?.name || '')
-    : (student.class || student.className || '');
-}
-
-function getSessionName(student) {
-  return student.academicSession || student.session || student.academic_session || '';
-}
-
-function getCardUsage(student) {
-  return Math.max(0, Number(student.scratchCardUsage || student.usesConsumed || 0));
-}
-
-function getStudentCardStatus(student) {
-  const card = String(student.scratchCard || '').trim();
-  if (!card) return 'unassigned';
-
-  const expiresAt = student.scratchCardExpiry || student.expiryDate;
-  if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) return 'expired';
-
-  const latestHistory = Array.isArray(student.scratchCardHistory)
-    ? student.scratchCardHistory[student.scratchCardHistory.length - 1]
-    : null;
-
-  if (student.cardStatus === 'expired' || latestHistory?.status === 'expired') return 'expired';
-  if (getCardUsage(student) >= CARD_LIMIT) return 'used';
-  return 'active';
-}
-
-function statusClass(status) {
-  return ({
-    active: 'status active',
-    unassigned: 'status pending',
-    available: 'status pool',
-    assigned: 'status active',
-    expired: 'status expired',
-    used: 'status used',
-    exhausted: 'status used',
-    revoked: 'status expired',
-    replaced: 'status pending'
-  })[status] || 'status pending';
-}
-
-function getStatusLabel(status) {
-  return ({
-    active: 'Active',
-    unassigned: 'Unassigned',
-    available: 'Available',
-    assigned: 'Assigned',
-    expired: 'Expired',
-    used: 'Exhausted',
-    exhausted: 'Exhausted',
-    revoked: 'Revoked',
-    replaced: 'Replaced'
-  })[status] || status;
-}
-
-function renderStudentTable() {
-  const start = (page - 1) * PAGE_SIZE;
-  const rows = filteredStudents.slice(start, start + PAGE_SIZE);
-
-  if ($('resultCount')) $('resultCount').textContent = `${filteredStudents.length.toLocaleString()} matching student records`;
-  if ($('pageInfo')) {
-    const first = filteredStudents.length ? start + 1 : 0;
-    $('pageInfo').textContent = `Showing ${first}–${Math.min(start + rows.length, filteredStudents.length)} of ${filteredStudents.length}`;
-  }
-  if ($('prevPage')) $('prevPage').disabled = page <= 1;
-  if ($('nextPage')) $('nextPage').disabled = start + PAGE_SIZE >= filteredStudents.length;
-
-  const tbody = $('studentRows');
-  if (!tbody) return;
-
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="p-10 text-center text-slate-400 font-bold">No matching student scratch-card records found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = rows.map(student => {
-    const id = String(studentIdentifier(student));
-    const state = getStudentCardStatus(student);
-    const cardCode = String(student.scratchCard || '').trim();
-    const usage = getCardUsage(student);
-    const assignedAt = student.scratchCardAssignedAt || student.updatedAt || null;
-
-    let actions = '';
-    if (!cardCode) {
-      actions = `<button type="button" class="btn btn-primary text-[10px] py-1 px-2" data-action="assign-student" data-id="${esc(id)}"><i class="fa-solid fa-ticket"></i> Assign</button>`;
-    } else if (state === 'expired' || state === 'used') {
-      actions = `
-        <button type="button" class="btn btn-warning text-[10px] py-1 px-2" data-action="replace-student" data-id="${esc(id)}"><i class="fa-solid fa-arrows-rotate"></i> Replace</button>
-        <button type="button" class="btn btn-secondary text-[10px] py-1 px-2" data-action="copy-student" data-id="${esc(id)}"><i class="fa-solid fa-copy"></i></button>
-      `;
-    } else {
-      actions = `
-        <button type="button" class="btn btn-warning text-[10px] py-1 px-2" data-action="expire-student" data-id="${esc(id)}"><i class="fa-solid fa-clock"></i> Expire</button>
-        <button type="button" class="btn btn-secondary text-[10px] py-1 px-2" data-action="copy-student" data-id="${esc(id)}"><i class="fa-solid fa-copy"></i></button>
+  host.innerHTML = rows.map(item => {
+    if (item.text) {
+      return `
+        <div class="p-3.5 rounded-xl border bg-slate-50 border-slate-200 text-slate-800 flex items-center justify-between gap-2 text-xs">
+          <div class="font-bold"><i class="fa-solid fa-circle-info mr-1 text-blue-500"></i> ${esc(item.text)}</div>
+          <span class="text-[10px] opacity-75 font-semibold">${formatDate(item.time)}</span>
+        </div>
       `;
     }
-
     return `
-      <tr class="student-row">
-        <td class="p-3">
-          <input type="checkbox" class="row-check rounded border-slate-300" data-id="${esc(id)}" ${selectedStudents.has(id) ? 'checked' : ''}>
-        </td>
-        <td class="p-3">
-          <div class="font-extrabold text-slate-900">${esc(studentDisplayName(student))}</div>
-          <div class="text-[10px] text-slate-400">${esc(student.student_id || '')}</div>
-        </td>
-        <td class="p-3 font-mono text-slate-600 font-bold">${esc(student.regNo || '—')}</td>
-        <td class="p-3 font-semibold">${esc(getClassName(student) || '—')}</td>
-        <td class="p-3 font-mono font-bold">${cardCode ? esc(cardCode) : '<span class="text-slate-400">—</span>'}</td>
-        <td class="p-3 font-bold">${cardCode ? `${usage}/${CARD_LIMIT}` : '—'}</td>
-        <td class="p-3">
-          <span class="${statusClass(state)}"><span class="dot ${state}"></span>${getStatusLabel(state)}</span>
-          <div class="text-[10px] text-slate-400 mt-1">${student.scratchCardExpiry ? `Expires ${formatDate(student.scratchCardExpiry)}` : ''}</div>
-        </td>
-        <td class="p-3 text-slate-500">${formatDate(assignedAt)}</td>
-        <td class="p-3 text-right"><div class="flex justify-end gap-1.5">${actions}</div></td>
-      </tr>
-    `;
-  }).join('');
-
-  const visibleIds = rows.map(student => String(studentIdentifier(student)));
-  if ($('selectAll')) {
-    $('selectAll').checked = visibleIds.length > 0 && visibleIds.every(id => selectedStudents.has(id));
-  }
-}
-
-async function loadCurrentSchool() {
-  if (!token) throw new Error('No administrator token found. Please sign in again.');
-
-  const response = await api(`${API_ROOT}/auth/me`);
-  const result = await readJson(response);
-
-  if (!response.ok) {
-    throw new Error(result.error || result.message || 'Could not load the current school.');
-  }
-
-  currentUser = result.user || result.data?.user || result;
-  currentSchool = result.school || result.data?.school || currentUser?.school || {};
-
-  publicSchoolId = currentSchool.schoolId || currentUser.schoolId || '';
-
-  const schoolName = currentSchool.schoolName || currentSchool.name || currentUser.schoolName || 'School Administration';
-  if ($('schoolName')) $('schoolName').textContent = schoolName;
-  if ($('schoolPill')) $('schoolPill').textContent = schoolName;
-  if ($('schoolAdminName')) $('schoolAdminName').textContent = currentUser.name || currentUser.fullName || 'School Administrator';
-  if ($('schoolAdminRole')) $('schoolAdminRole').textContent = currentUser.role || 'Administrator';
-
-  const logo = currentSchool.logoUrl || currentSchool.branding?.logo || '';
-  if ($('schoolLogo') && logo) $('schoolLogo').src = logo;
-
-  document.title = `Scratch Cards | ${schoolName}`;
-}
-
-async function loadStudents() {
-  const response = await api(`${API_ROOT}/student`);
-  const result = await readJson(response);
-
-  if (!response.ok) {
-    throw new Error(result.error || result.message || `Could not load students (${response.status}).`);
-  }
-
-  const rawStudents = unwrapStudents(result);
-  students = rawStudents.map(student => ({
-    ...student,
-    scratchCardUsage: Number(student.scratchCardUsage || student.usesConsumed || 0),
-    scratchCardHistory: Array.isArray(student.scratchCardHistory) ? student.scratchCardHistory : []
-  }));
-}
-
-async function loadPool() {
-  const allCards = [];
-  let requestedPage = 1;
-  let totalPages = 1;
-
-  do {
-    const url = new URL(`${API_ROOT}/scratch-cards/pool`);
-    url.searchParams.set('page', String(requestedPage));
-    url.searchParams.set('limit', String(POOL_PAGE_SIZE));
-
-    const response = await api(url.toString());
-    const result = await readJson(response);
-
-    if (!response.ok) {
-      throw new Error(result.error || result.message || `Could not load scratch-card pool (${response.status}).`);
-    }
-
-    allCards.push(...unwrapCards(result));
-    totalPages = Number(result.pagination?.pages || 1);
-    requestedPage += 1;
-  } while (requestedPage <= totalPages);
-
-  poolCards = allCards.map(card => ({
-    id: card.id || card._id,
-    code: String(card.code || card.cardCode || '').trim().toUpperCase(),
-    status: String(card.status || 'available').trim().toLowerCase(),
-    assignedStudent: card.assignedStudent || null,
-    assignedAt: card.assignedAt || null,
-    expiresAt: card.expiresAt || null,
-    purchaseId: card.purchaseId || null,
-    createdAt: card.createdAt || null,
-    usedCount: Number(card.usedCount || 0)
-  })).filter(card => card.code);
-}
-
-async function loadPurchases() {
-  const response = await api(`${API_ROOT}/scratch-cards/purchases`);
-  const result = await readJson(response);
-
-  if (!response.ok) {
-    throw new Error(result.error || result.message || `Could not load purchases (${response.status}).`);
-  }
-
-  purchases = Array.isArray(result.data) ? result.data : [];
-  activityLog = purchases.sort((a, b) =>
-    new Date(b.paidAt || b.createdAt || 0) - new Date(a.paidAt || a.createdAt || 0)
-  );
-}
-
-async function loadAllData() {
-  await loadCurrentSchool();
-  await Promise.all([loadStudents(), loadPool(), loadPurchases()]);
-  populateFilters();
-  applyFilters();
-  renderPoolTable();
-  renderActivityLog();
-  updateStatistics();
-}
-
-async function refreshData() {
-  return withBusy($('refreshBtn'), 'Refreshing…', async () => {
-    await loadAllData();
-    toast('Scratch-card data refreshed.', 'success');
-  });
-}
-
-function populateFilters() {
-  const classes = [...new Set(students.map(getClassName).filter(Boolean))].sort();
-  const sessions = [...new Set(students.map(getSessionName).filter(Boolean))].sort();
-
-  const classFilter = $('classFilter');
-  const sessionFilter = $('sessionFilter');
-
-  if (classFilter) {
-    const previous = classFilter.value;
-    classFilter.innerHTML =
-      '<option value="">All classes</option>' +
-      classes.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
-    classFilter.value = previous;
-  }
-
-  if (sessionFilter) {
-    const previous = sessionFilter.value;
-    sessionFilter.innerHTML =
-      '<option value="">All sessions</option>' +
-      sessions.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join('');
-    sessionFilter.value = previous;
-  }
-}
-
-function applyFilters() {
-  const query = $('searchInput')?.value.trim().toLowerCase() || '';
-  const selectedClass = $('classFilter')?.value || '';
-  const selectedSession = $('sessionFilter')?.value || '';
-  const selectedStatus = $('statusFilter')?.value || '';
-  const selectedUsage = $('usageFilter')?.value || '';
-
-  filteredStudents = students.filter(student => {
-    const state = getStudentCardStatus(student);
-    const usage = getCardUsage(student);
-    const haystack = [
-      studentDisplayName(student),
-      student.regNo || '',
-      student.student_id || '',
-      student.scratchCard || '',
-      getClassName(student),
-      getSessionName(student)
-    ].join(' ').toLowerCase();
-
-    const matchesSearch = !query || haystack.includes(query);
-    const matchesClass = !selectedClass || getClassName(student) === selectedClass;
-    const matchesSession = !selectedSession || getSessionName(student) === selectedSession;
-    const matchesStatus = !selectedStatus || state === selectedStatus;
-
-    let matchesUsage = true;
-    if (selectedUsage === '0') matchesUsage = usage === 0;
-    if (selectedUsage === '1-4') matchesUsage = usage >= 1 && usage <= 4;
-    if (selectedUsage === '5') matchesUsage = usage >= CARD_LIMIT;
-
-    return matchesSearch && matchesClass && matchesSession && matchesStatus && matchesUsage;
-  });
-
-  page = 1;
-  renderStudentTable();
-}
-
-function calculateSummary() {
-  return {
-    totalStudents: students.length,
-    available: poolCards.filter(card => card.status === 'available').length,
-    assigned: poolCards.filter(card => card.status === 'assigned').length,
-    used: poolCards.filter(card => ['used', 'exhausted'].includes(card.status)).length,
-    expired: poolCards.filter(card => card.status === 'expired').length,
-    revenue: purchases
-      .filter(purchase => purchase.paymentStatus === 'paid')
-      .reduce((sum, purchase) => sum + Number(purchase.amountNaira || 0), 0)
-  };
-}
-
-function updateStatistics() {
-  const summary = calculateSummary();
-
-  if ($('statTotalStudents')) $('statTotalStudents').textContent = summary.totalStudents.toLocaleString();
-  if ($('statPoolAvailable')) $('statPoolAvailable').textContent = summary.available.toLocaleString();
-  if ($('statAssignedActive')) $('statAssignedActive').textContent = summary.assigned.toLocaleString();
-  if ($('statUsedExpired')) $('statUsedExpired').textContent = (summary.used + summary.expired).toLocaleString();
-  if ($('statRevenue')) $('statRevenue').textContent = formatMoney(summary.revenue);
-
-  if ($('poolSummaryAvailable')) $('poolSummaryAvailable').textContent = summary.available.toLocaleString();
-  if ($('poolSummaryActive')) $('poolSummaryActive').textContent = summary.assigned.toLocaleString();
-  if ($('poolSummaryExpired')) $('poolSummaryExpired').textContent = (summary.used + summary.expired).toLocaleString();
-}
-
-function renderPoolTable() {
-  const tbody = $('poolRows');
-  if (!tbody) return;
-
-  const start = (poolPage - 1) * POOL_PAGE_SIZE;
-  const rows = poolCards.slice(start, start + POOL_PAGE_SIZE);
-
-  if ($('poolPageInfo')) {
-    $('poolPageInfo').textContent =
-      `Showing ${poolCards.length ? start + 1 : 0}–${Math.min(start + rows.length, poolCards.length)} of ${poolCards.length} cards`;
-  }
-  if ($('prevPoolPage')) $('prevPoolPage').disabled = poolPage <= 1;
-  if ($('nextPoolPage')) $('nextPoolPage').disabled = start + POOL_PAGE_SIZE >= poolCards.length;
-
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-slate-400 font-bold">No purchased card pool found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = rows.map(card => {
-    const status = ['available', 'assigned', 'used', 'expired', 'replaced', 'revoked'].includes(card.status)
-      ? card.status
-      : 'available';
-
-    const assignedStudent = card.assignedStudent;
-    const assignedName = typeof assignedStudent === 'string'
-      ? assignedStudent
-      : assignedStudent?.name || '';
-
-    let actions = '';
-    if (status === 'available') {
-      actions = `<button type="button" class="btn btn-danger btn-small" data-action="revoke-pool" data-id="${esc(card.id)}"><i class="fa-solid fa-ban"></i> Revoke</button>`;
-    } else if (status === 'assigned') {
-      actions = `<button type="button" class="btn btn-warning btn-small" data-action="expire-pool" data-id="${esc(card.id)}"><i class="fa-solid fa-clock"></i> Expire</button>`;
-    } else {
-      actions = '<span class="text-[10px] text-slate-400">No action</span>';
-    }
-
-    return `
-      <tr class="student-row">
-        <td class="p-3 font-mono font-extrabold text-slate-800">${esc(card.code)}</td>
-        <td class="p-3"><span class="${statusClass(status)}"><span class="dot ${status}"></span>${esc(getStatusLabel(status))}</span></td>
-        <td class="p-3 text-slate-500">${formatDate(card.createdAt)}</td>
-        <td class="p-3 text-slate-600">${esc(assignedName || 'Unassigned')}</td>
-        <td class="p-3 text-slate-500">${formatDate(card.expiresAt)}</td>
-        <td class="p-3 text-right">${actions}</td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function renderActivityLog() {
-  const host = $('activityLog');
-  if (!host) return;
-
-  const start = (activityPage - 1) * 5;
-  const rows = activityLog.slice(start, start + 5);
-
-  if (!rows.length) {
-    host.innerHTML = '<div class="p-4 rounded-xl bg-slate-50 border border-slate-200">No purchase activity returned by the server.</div>';
-    if ($('activityPageInfo')) $('activityPageInfo').textContent = 'No activity logs';
-    if ($('prevActivityPage')) $('prevActivityPage').disabled = true;
-    if ($('nextActivityPage')) $('nextActivityPage').disabled = true;
-    return;
-  }
-
-  host.innerHTML = rows.map(item => `
-    <div class="p-3.5 rounded-xl border ${item.paymentStatus === 'paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'} flex items-center justify-between gap-2 text-xs">
-      <div>
-        <div class="font-extrabold">${esc(item.quantity)} cards · ${esc(item.provider || 'payment')}</div>
-        <div class="text-[10px]">${esc(item.reference)} · ${esc(item.paymentStatus)} · ${esc(item.fulfillmentStatus)}</div>
+      <div class="p-3.5 rounded-xl border ${item.paymentStatus === 'paid' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'} flex items-center justify-between gap-2 text-xs">
+        <div>
+          <div class="font-extrabold">${esc(item.quantity)} cards · ${esc(item.provider || 'payment')}</div>
+          <div class="text-[10px]">${esc(item.reference || 'Ref')} · ${esc(item.paymentStatus || 'Status')} · ${esc(item.fulfillmentStatus || 'Fulfillment')}</div>
+        </div>
+        <span class="text-[10px] opacity-75 font-semibold">${formatDate(item.paidAt || item.createdAt)}</span>
       </div>
-      <span class="text-[10px] opacity-75 font-semibold">${formatDate(item.paidAt || item.createdAt)}</span>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   if ($('activityPageInfo')) {
     $('activityPageInfo').textContent = `Showing ${start + 1}–${Math.min(start + rows.length, activityLog.length)} of ${activityLog.length}`;
@@ -2136,9 +1216,9 @@ function makePurchaseProviderSelect() {
     </select>
   `;
 
-  const quantityInput = $('purchaseQty');
   const modalQuantityInput = $('purchaseModalQty');
-  const insertionPoint = modalQuantityInput?.closest('div') || quantityInput?.closest('div');
+  const quickQuantityInput = $('purchaseQty');
+  const insertionPoint = modalQuantityInput?.closest('div') || quickQuantityInput?.closest('div');
   if (insertionPoint?.parentNode) insertionPoint.parentNode.insertBefore(wrapper, insertionPoint);
 
   return $('paymentProvider');
@@ -2221,7 +1301,7 @@ async function verifyPaymentReturn() {
   const panel = $('paymentConfirmation');
   panel?.classList.add('show');
   document.body.style.overflow = 'hidden';
-  $('paymentReference').textContent = reference || 'Not supplied';
+  if ($('paymentReference')) $('paymentReference').textContent = reference || 'Not supplied';
   $('paymentRetryBtn')?.classList.add('hidden');
   setPaymentConfirmation('checking', 'Verifying your payment',
     'Please wait while we confirm the transaction securely with the payment provider.',
@@ -2270,17 +1350,25 @@ function setPaymentConfirmation(state, title, description, paymentStatus, fulfil
     failed: { icon: 'fa-xmark', box: 'bg-rose-50 text-rose-600', eyebrow: 'Payment unsuccessful', title: 'text-rose-700', status: 'text-rose-700' }
   };
   const style = styles[state] || styles.processing;
-  $('paymentStatusIcon').className = `payment-status-icon ${style.box}`;
-  $('paymentStatusIcon').innerHTML = `<i class="fa-solid ${style.icon}"></i>`;
-  $('paymentEyebrow').textContent = style.eyebrow;
-  $('paymentTitle').className = `mt-2 text-2xl font-extrabold ${style.title}`;
-  $('paymentTitle').textContent = title;
-  $('paymentDescription').textContent = description;
-  $('paymentStatusText').className = `font-extrabold ${style.status}`;
-  $('paymentStatusText').textContent = paymentStatus;
-  $('paymentFulfillmentText').className = `font-extrabold ${style.status}`;
-  $('paymentFulfillmentText').textContent = fulfillmentStatus;
-  $('paymentExtraMessage').textContent = extra || '';
+  if ($('paymentStatusIcon')) {
+    $('paymentStatusIcon').className = `payment-status-icon ${style.box}`;
+    $('paymentStatusIcon').innerHTML = `<i class="fa-solid ${style.icon}"></i>`;
+  }
+  if ($('paymentEyebrow')) $('paymentEyebrow').textContent = style.eyebrow;
+  if ($('paymentTitle')) {
+    $('paymentTitle').className = `mt-2 text-2xl font-extrabold ${style.title}`;
+    $('paymentTitle').textContent = title;
+  }
+  if ($('paymentDescription')) $('paymentDescription').textContent = description;
+  if ($('paymentStatusText')) {
+    $('paymentStatusText').className = `font-extrabold ${style.status}`;
+    $('paymentStatusText').textContent = paymentStatus;
+  }
+  if ($('paymentFulfillmentText')) {
+    $('paymentFulfillmentText').className = `font-extrabold ${style.status}`;
+    $('paymentFulfillmentText').textContent = fulfillmentStatus;
+  }
+  if ($('paymentExtraMessage')) $('paymentExtraMessage').textContent = extra || '';
 }
 
 async function refreshDataAfterPayment() {
@@ -2290,7 +1378,7 @@ async function refreshDataAfterPayment() {
 
 async function retryPaymentVerification() {
   const reference = $('paymentReference')?.textContent;
-  if (!reference || reference === 'Not supplied') return;
+  if (!reference || reference === 'Not supplied' || reference === '—') return;
   const url = new URL(location.href);
   url.searchParams.set('reference', reference);
   url.searchParams.set('payment_type', 'scratch_card_pool');
@@ -2303,8 +1391,8 @@ function closePaymentConfirmation() {
   document.body.style.overflow = '';
 }
 
-async function assignCard(studentIdentifier, cardCode, replaceExisting = false, button = null) {
-  if (!studentIdentifier || !cardCode) {
+async function assignCard(studentId, cardCode, replaceExisting = false, button = null) {
+  if (!studentId || !cardCode) {
     toast('Choose a student and an available pool card.', 'warning');
     return;
   }
@@ -2313,7 +1401,7 @@ async function assignCard(studentIdentifier, cardCode, replaceExisting = false, 
     const response = await api(`${API_ROOT}/scratch-cards/assign`, {
       method: 'POST',
       body: JSON.stringify({
-        studentId: studentIdentifier,
+        studentId,
         cardCode,
         replaceExisting
       })
@@ -2324,13 +1412,14 @@ async function assignCard(studentIdentifier, cardCode, replaceExisting = false, 
       throw new Error(result.error || result.message || 'Card assignment failed.');
     }
 
+    addActivity(`Assigned card ${cardCode} to student.`, 'success');
     toast('Scratch card assigned and saved.', 'success');
     await refreshData();
     closeAssignModal();
   });
 }
 
-function openAssignModal(studentIdentifier = '') {
+function openAssignModal(targetStudentId = '') {
   if (!$('assignModal') || !$('assignStudentSelect') || !$('assignCardSelect')) {
     toast('Assignment dialog is unavailable in this page markup.', 'error');
     return;
@@ -2338,13 +1427,13 @@ function openAssignModal(studentIdentifier = '') {
 
   const eligibleStudents = students.filter(student => {
     const status = getStudentCardStatus(student);
-    return status === 'unassigned' || status === 'expired' || status === 'used';
+    return status === 'unassigned' || status === 'expired' || status === 'used' || String(studentIdentifier(student)) === String(targetStudentId);
   });
 
   $('assignStudentSelect').innerHTML =
     '<option value="">Select a student</option>' +
     eligibleStudents.map(student => `
-      <option value="${esc(studentIdentifier(student))}" ${String(studentIdentifier(student)) === String(studentIdentifier) ? 'selected' : ''}>
+      <option value="${esc(studentIdentifier(student))}" ${String(studentIdentifier(student)) === String(targetStudentId) ? 'selected' : ''}>
         ${esc(studentDisplayName(student))} · ${esc(student.regNo || '')}
       </option>
     `).join('');
@@ -2421,9 +1510,47 @@ async function bulkAssignSelected(button) {
       console.error('Scratch-card assignment failures:', failures);
       toast(`${successCount} assigned; ${failures.length} failed. Check the browser console.`, 'warning');
     } else {
-      toast(`${successCount} scratch cards assigned successfully.`, 'success');
+      toast(`${successCount} scratch card${successCount === 1 ? '' : 's'} assigned successfully.`, 'success');
     }
   });
+}
+
+function clearSelectedStudents() {
+  if (selectedStudents.size === 0) {
+    toast('No students selected.', 'info');
+    return;
+  }
+  selectedStudents.clear();
+  renderStudentTable();
+  toast('Selection cleared.', 'info');
+}
+
+function exportCSV() {
+  if (!filteredStudents.length) {
+    toast('No student records to export.', 'warning');
+    return;
+  }
+
+  const headers = ['Student Name', 'Reg No', 'Class', 'Card Code', 'Usage', 'Status', 'Assigned Date'];
+  const rows = filteredStudents.map(student => [
+    `"${studentDisplayName(student).replace(/"/g, '""')}"`,
+    `"${(student.regNo || '').replace(/"/g, '""')}"`,
+    `"${(getClassName(student) || '').replace(/"/g, '""')}"`,
+    `"${(student.scratchCard || '').replace(/"/g, '""')}"`,
+    `"${getCardUsage(student)}/${CARD_LIMIT}"`,
+    `"${getStatusLabel(getStudentCardStatus(student))}"`,
+    `"${formatDate(student.scratchCardAssignedAt || student.updatedAt)}"`
+  ]);
+
+  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `scratch_cards_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  toast('Exported student cards CSV.', 'success');
 }
 
 async function expirePoolCard(cardId, button) {
@@ -2440,6 +1567,7 @@ async function expirePoolCard(cardId, button) {
       throw new Error(result.error || result.message || 'Could not expire card.');
     }
 
+    addActivity('A scratch card was marked expired.', 'warning');
     await refreshData();
     toast('Card marked as expired.', 'success');
   });
@@ -2459,43 +1587,30 @@ async function revokePoolCard(cardId, button) {
       throw new Error(result.error || result.message || 'Could not revoke card.');
     }
 
+    addActivity('A scratch card was revoked.', 'warning');
     await refreshData();
     toast('Card revoked.', 'success');
   });
 }
 
-function withBusy(button, label, action) {
-  if (!button || button.disabled) return Promise.resolve();
-
-  const originalHTML = button.dataset.originalHtml || button.innerHTML;
-  if (!button.dataset.originalHtml) button.dataset.originalHtml = originalHTML;
-
-  button.disabled = true;
-  button.setAttribute('aria-busy', 'true');
-  button.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>${esc(label)}</span>`;
-
-  return Promise.resolve()
-    .then(action)
-    .catch(error => {
-      console.error('Action failed:', error);
-      toast(error.message || 'Action failed.', 'error');
-    })
-    .finally(() => {
-      button.disabled = false;
-      button.removeAttribute('aria-busy');
-      button.innerHTML = originalHTML;
-    });
-}
-
 function setupActionHandlers() {
   $('paymentRetryBtn')?.addEventListener('click', event => withBusy(event.currentTarget, 'Checking…', retryPaymentVerification));
   $('paymentCloseBtn')?.addEventListener('click', closePaymentConfirmation);
-  $('purchaseBtn')?.addEventListener('click', event => openPurchaseModal(event.currentTarget));
+  $('purchaseBtn')?.addEventListener('click', () => openPurchaseModal());
   $('confirmPurchaseBtn')?.addEventListener('click', event => startPurchase(event.currentTarget));
   $('confirmPurchaseModalBtn')?.addEventListener('click', event => startPurchase(event.currentTarget));
-  $('refreshBtn')?.addEventListener('click', event => withBusy(event.currentTarget, 'Refreshing…', refreshData));
-  $('poolRefreshBtn')?.addEventListener('click', event => withBusy(event.currentTarget, 'Refreshing…', refreshData));
+  $('refreshBtn')?.addEventListener('click', event => withBusy(event.currentTarget, 'Refreshing…', async () => {
+    await refreshData();
+    toast('Scratch-card data refreshed.', 'success');
+  }));
+  $('poolRefreshBtn')?.addEventListener('click', event => withBusy(event.currentTarget, 'Refreshing…', async () => {
+    await refreshData();
+    toast('Scratch-card pool refreshed.', 'success');
+  }));
+  $('openAssignModalBtn')?.addEventListener('click', () => openAssignModal());
   $('bulkAssignBtn')?.addEventListener('click', event => bulkAssignSelected(event.currentTarget));
+  $('bulkClearBtn')?.addEventListener('click', () => clearSelectedStudents());
+  $('exportBtn')?.addEventListener('click', () => exportCSV());
 
   $('purchaseQty')?.addEventListener('input', updatePurchaseTotal);
   $('purchaseModalQty')?.addEventListener('input', updatePurchaseTotal);
@@ -2506,11 +1621,11 @@ function setupActionHandlers() {
   });
 
   $('clearFilters')?.addEventListener('click', event => withBusy(event.currentTarget, 'Clearing…', async () => {
-    $('searchInput').value = '';
-    $('classFilter').value = '';
-    $('sessionFilter').value = '';
-    $('statusFilter').value = '';
-    $('usageFilter').value = '';
+    if ($('searchInput')) $('searchInput').value = '';
+    if ($('classFilter')) $('classFilter').value = '';
+    if ($('sessionFilter')) $('sessionFilter').value = '';
+    if ($('statusFilter')) $('statusFilter').value = '';
+    if ($('usageFilter')) $('usageFilter').value = '';
     applyFilters();
   }));
 
@@ -2568,11 +1683,7 @@ function setupActionHandlers() {
     const id = button.dataset.id;
     const action = button.dataset.action;
 
-    if (action === 'assign-student') {
-      openAssignModal(id);
-    } else if (action === 'replace-student') {
-      const student = students.find(item => String(studentIdentifier(item)) === String(id));
-      if (!student) return;
+    if (action === 'assign-student' || action === 'replace-student') {
       openAssignModal(id);
     } else if (action === 'expire-student') {
       const student = students.find(item => String(studentIdentifier(item)) === String(id));
@@ -2631,6 +1742,7 @@ async function initialize() {
 
   if (!token) {
     toast('Sign in before managing scratch cards.', 'error');
+    $('loading')?.remove();
     return;
   }
 
@@ -2642,10 +1754,10 @@ async function initialize() {
     console.error('Scratch-card initialization failed:', error);
     toast(error.message || 'Could not load scratch-card information.', 'error');
     if ($('studentRows')) {
-      $('studentRows').innerHTML = `<tr><td colspan="9" class="p-10 text-center text-rose-600">${esc(error.message || 'Could not load students.')}</td></tr>`;
+      $('studentRows').innerHTML = `<tr><td colspan="9" class="p-10 text-center text-rose-600 font-bold">${esc(error.message || 'Could not load students.')}</td></tr>`;
     }
     if ($('poolRows')) {
-      $('poolRows').innerHTML = `<tr><td colspan="6" class="p-10 text-center text-rose-600">${esc(error.message || 'Could not load card pool.')}</td></tr>`;
+      $('poolRows').innerHTML = `<tr><td colspan="6" class="p-10 text-center text-rose-600 font-bold">${esc(error.message || 'Could not load card pool.')}</td></tr>`;
     }
   } finally {
     $('loading')?.remove();
