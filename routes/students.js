@@ -13,7 +13,10 @@ const Student = require('../models/Student');
 // Utility: Extract schoolId from req.user for all roles (including superadmin)
 function getSchoolId(req) {
   if (!req.user) return null;
-  return req.user.schoolId || null;
+  // Keep school context consistent with the results routes. Some authenticated
+  // admin sessions expose the tenant as `school` rather than `schoolId`.
+  const school = req.user.schoolId || req.user.school || null;
+  return school && typeof school === 'object' ? (school._id || null) : school;
 }
 
 // Utility: Force school filtering on queries
@@ -865,9 +868,20 @@ router.put('/:studentId', authMiddleware, adminAuth, upload.single('photo'), asy
       });
     }
 
+    // Admin pages may identify a student by the public student ID,
+    // registration number, or MongoDB document ID. Resolve all three while
+    // keeping the lookup strictly inside the authenticated school.
+    const studentLookup = [
+      { student_id: studentId },
+      { regNo: studentId }
+    ];
+    if (mongoose.Types.ObjectId.isValid(String(studentId))) {
+      studentLookup.push({ _id: new mongoose.Types.ObjectId(studentId) });
+    }
+
     const student = await Student.findOne({
       schoolId,
-      $or: [{ student_id: studentId }, { regNo: studentId }]
+      $or: studentLookup
     });
 
     if (!student) {
@@ -937,6 +951,7 @@ router.put('/:studentId', authMiddleware, adminAuth, upload.single('photo'), asy
 
         student.scratchCard = newCard;
         student.scratchCardUsage = 0;
+        student.scratchCardAssignedAt = new Date();
       }
     }
 
