@@ -429,6 +429,13 @@
               </tbody>
             </table>
           </div>
+          <div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p id="poolPageInfo" class="text-[10px] text-slate-400"></p>
+            <div class="flex items-center gap-2">
+              <button id="prevPoolPage" class="btn btn-ghost" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
+              <button id="nextPoolPage" class="btn btn-ghost" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+          </div>
         </section>
 
         <section class="card-panel p-4 md:p-5">
@@ -441,6 +448,13 @@
 
           <div id="activityLog" class="space-y-2 text-xs text-slate-600">
             <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">No activity logged yet.</div>
+          </div>
+          <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
+            <p id="activityPageInfo" class="text-[10px] text-slate-400"></p>
+            <div class="flex items-center gap-2">
+              <button id="prevActivityPage" class="btn btn-ghost" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
+              <button id="nextActivityPage" class="btn btn-ghost" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
           </div>
         </section>
       </div>
@@ -550,8 +564,16 @@
     let selected = new Set();
     let poolCards = [];
     let activityLog = [];
+
+    // Pagination State
     let page = 1;
     const pageSize = 12;
+
+    let poolPage = 1;
+    const poolPageSize = 8;
+
+    let activityPage = 1;
+    const activityPageSize = 5;
 
     const $ = (id) => document.getElementById(id);
     const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (m) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
@@ -729,7 +751,7 @@
 
     function addActivity(text, kind = "info") {
       activityLog.unshift({ text, kind, time: new Date().toISOString() });
-      if (activityLog.length > 10) activityLog = activityLog.slice(0, 10);
+      activityPage = 1;
       renderActivityLog();
     }
 
@@ -737,9 +759,20 @@
       const host = $("activityLog");
       if (!activityLog.length) {
         host.innerHTML = `<div class="p-4 rounded-xl bg-slate-50 border border-slate-200">No activity logged yet.</div>`;
+        $("activityPageInfo").textContent = "No activity logs";
+        $("prevActivityPage").disabled = true;
+        $("nextActivityPage").disabled = true;
         return;
       }
-      host.innerHTML = activityLog.map((entry) => {
+
+      const start = (activityPage - 1) * activityPageSize;
+      const rows = activityLog.slice(start, start + activityPageSize);
+
+      $("activityPageInfo").textContent = `Showing ${start + 1}–${Math.min(start + activityPageSize, activityLog.length)} of ${activityLog.length}`;
+      $("prevActivityPage").disabled = activityPage <= 1;
+      $("nextActivityPage").disabled = start + activityPageSize >= activityLog.length;
+
+      host.innerHTML = rows.map((entry) => {
         const styles = {
           success: "bg-emerald-50 border-emerald-200 text-emerald-800",
           info: "bg-blue-50 border-blue-200 text-blue-800",
@@ -881,12 +914,23 @@
 
     function renderPoolTable() {
       const availableCards = poolCards.filter(c => !c.assignedTo);
+
       if (!availableCards.length) {
         $("poolRows").innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400 font-bold">No unassigned cards in pool. Click 'Purchase Cards' to add stock.</td></tr>`;
+        $("poolPageInfo").textContent = "No cards available";
+        $("prevPoolPage").disabled = true;
+        $("nextPoolPage").disabled = true;
         return;
       }
 
-      $("poolRows").innerHTML = availableCards.map(card => {
+      const start = (poolPage - 1) * poolPageSize;
+      const rows = availableCards.slice(start, start + poolPageSize);
+
+      $("poolPageInfo").textContent = `Showing ${start + 1}–${Math.min(start + poolPageSize, availableCards.length)} of ${availableCards.length}`;
+      $("prevPoolPage").disabled = poolPage <= 1;
+      $("nextPoolPage").disabled = start + poolPageSize >= availableCards.length;
+
+      $("poolRows").innerHTML = rows.map(card => {
         const expired = isCardExpired(card.expiryDate);
         return `
           <tr>
@@ -933,6 +977,7 @@
       savePoolToStorage();
       addActivity(`Purchased ${qty} scratch cards (${formatMoney(qty * CARD_UNIT_PRICE)}) into inventory.`, "success");
       toast(`Successfully purchased ${qty} scratch cards!`, "success");
+      poolPage = 1;
       renderPoolTable();
       renderStudentTable();
     }
@@ -1138,11 +1183,41 @@
       $("searchInput").oninput = applyFilters;
       ["classFilter", "sessionFilter", "statusFilter", "usageFilter"].forEach(id => $(id).onchange = applyFilters);
 
+      // Student Table Pagination Controls
       $("prevPage").onclick = () => { if (page > 1) { page--; renderStudentTable(); } };
       $("nextPage").onclick = () => { if (page * pageSize < filteredStudents.length) { page++; renderStudentTable(); } };
 
+      // Pool Table Pagination Controls
+      $("prevPoolPage").onclick = () => {
+        if (poolPage > 1) {
+          poolPage--;
+          renderPoolTable();
+        }
+      };
+      $("nextPoolPage").onclick = () => {
+        const availableCards = poolCards.filter(c => !c.assignedTo);
+        if (poolPage * poolPageSize < availableCards.length) {
+          poolPage++;
+          renderPoolTable();
+        }
+      };
+
+      // Activity Log Pagination Controls
+      $("prevActivityPage").onclick = () => {
+        if (activityPage > 1) {
+          activityPage--;
+          renderActivityLog();
+        }
+      };
+      $("nextActivityPage").onclick = () => {
+        if (activityPage * activityPageSize < activityLog.length) {
+          activityPage++;
+          renderActivityLog();
+        }
+      };
+
       $("refreshBtn").onclick = loadData;
-      $("poolRefreshBtn").onclick = () => { loadPoolFromStorage(); renderPoolTable(); toast("Pool refreshed.", "success"); };
+      $("poolRefreshBtn").onclick = () => { loadPoolFromStorage(); poolPage = 1; renderPoolTable(); toast("Pool refreshed.", "success"); };
       $("exportBtn").onclick = exportCSV;
 
       $("selectAll").onchange = (e) => {
