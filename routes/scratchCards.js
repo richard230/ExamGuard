@@ -130,6 +130,29 @@ function safeEqual(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
+// Structured diagnostics for Render logs. Never include API keys, authorization
+// headers, card codes, customer email addresses, or full webhook payloads.
+function paymentLog(event, details = {}) {
+  const record = {
+    event,
+    timestamp: new Date().toISOString(),
+    ...details
+  };
+  console.log(`[ScratchCards][${event}] ${JSON.stringify(record)}`);
+}
+
+function errorDetails(error) {
+  return {
+    message: error?.message || String(error),
+    name: error?.name || 'Error',
+    code: error?.code || null,
+    statusCode: error?.statusCode || null,
+    providerHttpStatus: error?.providerHttpStatus || null,
+    providerCode: error?.providerCode || null,
+    stack: error?.stack || null
+  };
+}
+
 async function parseProviderResponse(response) {
   const text = await response.text();
   let payload;
@@ -146,7 +169,7 @@ async function parseProviderResponse(response) {
       payload.error ||
       `Payment provider request failed (${response.status}).`
     );
-    error.statusCode = response.status >= 400 && response.status < 600 ? 502 : 502;
+    error.statusCode = 502;
     error.providerHttpStatus = response.status;
     error.providerCode = payload.code || payload.type || null;
     throw error;
@@ -264,27 +287,100 @@ async function verifyPaystack(purchase) {
     throw error;
   }
 
-  const response = await fetch(
-    `https://api.paystack.co/transaction/verify/${encodeURIComponent(purchase.reference)}`,
-    { headers: { Authorization: `Bearer ${secret}` } }
+  const expectedAmount = Number(
+    purchase.amountSubunits != null
+      ? purchase.amountSubunits
+      : Number(purchase.amountNaira || 0) * 100
   );
-  const result = await parseProviderResponse(response);
-  const transaction = result.data;
+  const expectedCurrency = String(purchase.currency || CURRENCY).trim().toUpperCase();
+  const expectedReference = String(purchase.reference || '').trim();
+  const verifyUrl = `https://api.paystack.co/transaction/verify/${encodeURIComponent(expectedReference)}`;
 
-  const verified =
-    result.status === true &&
-    transaction?.status === 'success' &&
-    transaction?.reference === purchase.reference &&
-    transaction?.currency === CURRENCY &&
-    Number(transaction?.amount) === purchase.amountSubunits;
+  paymentLog('PaystackVerificationStarted', {
+    reference: expectedReference,
+    purchaseId: String(purchase._id),
+    schoolId: String(purchase.schoolId),
+    expectedAmountSubunits: expectedAmount,
+    expectedCurrency,
+    purchasePaymentStatus: purchase.paymentStatus,
+    provider: purchase.provider
+  });
+
+  let response;
+  try {
+    response = await fetch(verifyUrl, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${secret}`, Accept: 'application/json' }
+    });
+  } catch (error) {
+    paymentLog('PaystackVerificationNetworkError', {
+      reference: expectedReference,
+      purchaseId: String(purchase._id),
+      error: errorDetails(error)
+    });
+    throw error;
+  }
+
+  let result;
+  try {
+    result = await parseProviderResponse(response);
+  } catch (error) {
+    paymentLog('PaystackVerificationHttpError', {
+      reference: expectedReference,
+      purchaseId: String(purchase._id),
+      providerHttpStatus: response.status,
+      error: errorDetails(error)
+    });
+    throw error;
+  }
+
+  const transaction = result?.data || null;
+  const actualReference = String(transaction?.reference || '').trim();
+  const actualStatus = String(transaction?.status || '').trim().toLowerCase();
+  const actualCurrency = String(transaction?.currency || '').trim().toUpperCase();
+  const actualAmount = Number(transaction?.amount);
+  const checks = {
+    providerAccepted: result?.status === true,
+    transactionPresent: Boolean(transaction),
+    statusIsSuccess: actualStatus === 'success',
+    referenceMatches: actualReference === expectedReference,
+    currencyMatches: actualCurrency === expectedCurrency,
+    amountMatches: Number.isFinite(actualAmount) && actualAmount === expectedAmount
+  };
+  const verified = Object.values(checks).every(Boolean);
+
+  const diagnostics = {
+    reference: expectedReference,
+    purchaseId: String(purchase._id),
+    schoolId: String(purchase.schoolId),
+    providerHttpStatus: response.status,
+    providerAccepted: result?.status === true,
+    providerMessage: result?.message || null,
+    transactionId: transaction?.id != null ? String(transaction.id) : null,
+    returnedReference: actualReference || null,
+    returnedStatus: actualStatus || null,
+    returnedAmountSubunits: Number.isFinite(actualAmount) ? actualAmount : null,
+    expectedAmountSubunits: expectedAmount,
+    returnedCurrency: actualCurrency || null,
+    expectedCurrency,
+    checks,
+    verified
+  };
+
+  paymentLog(verified ? 'PaystackVerificationSucceeded' : 'PaystackVerificationRejected', diagnostics);
 
   if (!verified) {
-    return { verified: false, providerResponse: transaction || result };
+    return {
+      verified: false,
+      diagnostics,
+      providerResponse: transaction || result
+    };
   }
 
   return {
     verified: true,
     transactionId: String(transaction.id || ''),
+    diagnostics,
     providerResponse: transaction
   };
 }
@@ -471,7 +567,7 @@ function purchaseResponse(purchase) {
 function getSchoolPortalBaseUrl(school) {
   const customDomain = String(school?.customDomain || '').trim();
   const subdomain = String(school?.subdomain || '').trim();
-  const baseDomain = String(process.env.EXAMGUARD_BASE_DOMAIN || 'examguard.com.ng')
+  const baseDomain = String(process.env.GOLDLINCSCHOOLS_BASE_DOMAIN || 'goldlincschools.com.ng')
     .trim().replace(/^https?:\/\//i, '').replace(/\/$/, '');
 
   // Custom domains are read from the trusted School record, never from callback query parameters.
@@ -491,11 +587,11 @@ function getSchoolPortalBaseUrl(school) {
     return `https://${subdomain.toLowerCase()}.${baseDomain}`;
   }
 
-  const fallback = String(process.env.EXAMGUARD_FRONTEND_URL || 'https://examguard.com.ng').trim();
+  const fallback = String(process.env.GOLDLINCSCHOOLS_FRONTEND_URL || 'https://goldlincschools.com.ng').trim();
   try {
     return new URL(fallback).origin;
   } catch (_) {
-    return 'https://examguard.com.ng';
+    return 'https://goldlincschools.com.ng';
   }
 }
 
@@ -553,12 +649,33 @@ router.get('/payment/callback', async (req, res) => {
     if (purchase.paymentStatus !== 'paid') {
       const verification = await verifyGatewayPayment(purchase);
       if (!verification.verified) {
+        paymentLog('CallbackVerificationRejected', {
+          reference,
+          purchaseId: String(purchase._id),
+          schoolId: String(school._id),
+          provider: purchase.provider,
+          diagnostics: verification.diagnostics || null
+        });
         return redirectAfterScratchCardPayment(
-          res, school, 'failed', reference,
-          'Payment has not been confirmed. If you were debited, contact the school administrator.'
+          res, school, 'processing', reference,
+          'Your payment is being reconciled. Do not pay again; contact the school administrator if your account was debited.'
         );
       }
       await markPurchasePaid(purchase, verification);
+      paymentLog('CallbackPaymentMarkedPaid', {
+        reference,
+        purchaseId: String(purchase._id),
+        schoolId: String(school._id),
+        provider: purchase.provider,
+        transactionId: verification.transactionId || null
+      });
+      paymentLog('PurchaseMarkedPaid', {
+        reference: purchase.reference,
+        purchaseId: String(purchase._id),
+        schoolId: String(school._id),
+        provider: purchase.provider,
+        transactionId: verification.transactionId || null
+      });
     }
 
     const fulfillment = await fulfillPaidPurchase(purchase._id);
@@ -576,7 +693,7 @@ router.get('/payment/callback', async (req, res) => {
       `${latestPurchase.quantity} scratch cards are ready for use.`
     );
   } catch (error) {
-    console.error('Scratch-card payment callback error:', error);
+    paymentLog('PaymentCallbackError', { reference, error: errorDetails(error) });
     try {
       const purchase = await ScratchCardPurchase.findOne({ reference });
       const school = purchase
@@ -621,13 +738,25 @@ router.post('/webhooks/paystack', async (req, res) => {
 
     // Never fulfil from webhook payload alone. Verify the reference directly with Paystack.
     const verification = await verifyPaystack(purchase);
-    if (!verification.verified) return res.json({ received: true });
+    if (!verification.verified) {
+      paymentLog('PaystackWebhookVerificationRejected', {
+        reference,
+        purchaseId: String(purchase._id),
+        diagnostics: verification.diagnostics || null
+      });
+      return res.json({ received: true, verified: false });
+    }
 
     await markPurchasePaid(purchase, verification);
+    paymentLog('PaystackWebhookPaymentMarkedPaid', {
+      reference,
+      purchaseId: String(purchase._id),
+      transactionId: verification.transactionId || null
+    });
     await fulfillPaidPurchase(purchase._id);
     return res.json({ received: true });
   } catch (error) {
-    console.error('Paystack scratch-card webhook error:', error);
+    paymentLog('PaystackWebhookError', { error: errorDetails(error) });
     return res.status(500).json({ error: 'Unable to process payment webhook.' });
   }
 });
@@ -894,11 +1023,21 @@ router.get('/purchases/:reference/verify', async (req, res) => {
       const verification = await verifyGatewayPayment(purchase);
 
       if (!verification.verified) {
+        paymentLog('PurchaseVerificationRejected', {
+          reference: purchase.reference,
+          purchaseId: String(purchase._id),
+          schoolId: String(school._id),
+          provider: purchase.provider,
+          paymentStatus: purchase.paymentStatus,
+          fulfillmentStatus: purchase.fulfillmentStatus,
+          diagnostics: verification.diagnostics || null
+        });
         return res.status(402).json({
           success: false,
           paymentStatus: purchase.paymentStatus,
           fulfillmentStatus: purchase.fulfillmentStatus,
-          error: 'Payment has not been verified as successful.'
+          verification: verification.diagnostics || null,
+          error: 'Payment provider did not return all expected verification details. Check server logs for the exact failed condition.'
         });
       }
 
@@ -922,7 +1061,10 @@ router.get('/purchases/:reference/verify', async (req, res) => {
       data: purchaseResponse(updatedPurchase)
     });
   } catch (error) {
-    console.error('Scratch-card purchase verification error:', error);
+    paymentLog('PurchaseVerificationError', {
+      reference: String(req.params.reference || ''),
+      error: errorDetails(error)
+    });
     return res.status(error.statusCode || 500).json({
       success: false,
       error: error.message || 'Unable to verify purchase.'
