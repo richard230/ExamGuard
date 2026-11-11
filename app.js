@@ -62,7 +62,12 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
+app.use(express.json({
+  limit: '20mb',
+  verify: (req, res, buffer) => {
+    req.rawBody = Buffer.from(buffer);
+  }
+}));
 /* ================= Middleware ================= */
 
 app.use(express.json({ limit: '20mb' }));
@@ -110,7 +115,7 @@ const apiKeysRoute = require('./routes/apiKeys');
 const universalUploadRoute = require('./routes/universalUpload');
 const verificationRoute = require('./routes/verification');
 const cbtAuthRoutes = require('./routes/cbt-auth');
-
+const scratchCardsRoute = require('./routes/scratchCards');
 /* ================= Route Mounting ================= */
 
 // API Keys Management
@@ -119,7 +124,7 @@ app.use('/api/cbt/auth', cbtAuthRoutes);
 // Demo Requests & Schools Management
 app.use('/api/demo-requests', demoRequestsRoute);
 app.use('/api/schools', schoolsRoute);
-
+app.use('/api/scratch-cards', scratchCardsRoute);
 // ✅ NEW: Universal Cloud Sync & Upload
 app.use('/api/cloud', universalUploadRoute);
 // Cloud/Universal Upload Routes
