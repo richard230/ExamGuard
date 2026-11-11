@@ -415,6 +415,8 @@ router.get('/', authMiddleware, async (req, res) => {
         othernames: d.othernames || '',
         regNo: d.regNo,
         scratchCard: d.scratchCard,
+        scratchCardUsage: Number(d.scratchCardUsage || 0),
+        scratchCardHistory: Array.isArray(d.scratchCardHistory) ? d.scratchCardHistory : [],
         class: d.class,
         classArm: d.classArm,
         gender: d.gender,
@@ -848,14 +850,29 @@ router.get('/:regNo/skills-report', async (req, res) => {
 });
 
 // --- Update student by student_id or regNo (admin only) ---
-router.put('/:studentId', upload.single('photo'), async (req, res) => {
+// Scratch-card assignments are deliberately handled here so they are saved
+// to MongoDB and recorded in scratchCardHistory. Clients cannot overwrite
+// scratchCardUsage or scratchCardHistory directly.
+router.put('/:studentId', authMiddleware, adminAuth, upload.single('photo'), async (req, res) => {
   try {
     const { studentId } = req.params;
-    let student = await Student.findOne({ student_id: studentId });
-    if (!student) {
-      student = await Student.findOne({ regNo: studentId });
+    const schoolId = getSchoolId(req);
+
+    if (!schoolId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is not assigned to a school.'
+      });
     }
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const student = await Student.findOne({
+      schoolId,
+      $or: [{ student_id: studentId }, { regNo: studentId }]
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, error: 'Student not found in this school.' });
+    }
 
     const allowedFields = [
       "surname", "firstname", "othernames", "dob", "gender", "nationality", "state", "lga", "address",
@@ -863,36 +880,131 @@ router.put('/:studentId', upload.single('photo'), async (req, res) => {
       "parentName", "parentRelationship", "parentPhone", "parentEmail", "parentAddress", "parentOccupation",
       "studentEmail", "studentPhone", "religion", "bloodGroup", "genotype", "medical"
     ];
-    const updates = {};
+
     for (const key of allowedFields) {
-      if (key in req.body) updates[key] = req.body[key];
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        student[key] = req.body[key];
+      }
+    }
+
+    // Assign or replace a scratch card only when the request explicitly
+    // includes the scratchCard property. Empty values are rejected.
+    if (Object.prototype.hasOwnProperty.call(req.body, 'scratchCard')) {
+      const newCard = String(req.body.scratchCard || '').trim().toUpperCase();
+
+      if (!/^[A-Z0-9]{8}$/.test(newCard)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Scratch card must contain exactly 8 letters or numbers.'
+        });
+      }
+
+      const duplicate = await Student.findOne({
+        schoolId,
+        scratchCard: newCard,
+        _id: { $ne: student._id }
+      }).select('_id');
+
+      if (duplicate) {
+        return res.status(409).json({
+          success: false,
+          error: 'This scratch card is already assigned to another student in this school.'
+        });
+      }
+
+      const previousCard = String(student.scratchCard || '').trim().toUpperCase();
+
+      if (previousCard !== newCard) {
+        if (!Array.isArray(student.scratchCardHistory)) {
+          student.scratchCardHistory = [];
+        }
+
+        // Mark any currently active historical card as replaced.
+        student.scratchCardHistory.forEach(entry => {
+          if (entry.status === 'active') {
+            entry.status = 'replaced';
+            if (!entry.exhaustedAt) entry.exhaustedAt = new Date();
+          }
+        });
+
+        student.scratchCardHistory.push({
+          cardCode: newCard,
+          usedCount: 0,
+          assignedAt: new Date(),
+          exhaustedAt: null,
+          status: 'active'
+        });
+
+        student.scratchCard = newCard;
+        student.scratchCardUsage = 0;
+      }
     }
 
     if (req.file) {
-      updates.photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      student.photoBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     }
-    updates.updatedAt = new Date();
 
-    await Student.updateOne({ _id: student._id }, { $set: updates });
-    res.json({ message: "Student updated successfully!" });
+    student.updatedAt = new Date();
+    await student.save();
+
+    return res.json({
+      success: true,
+      message: 'Student updated successfully!',
+      student: {
+        student_id: student.student_id,
+        regNo: student.regNo,
+        scratchCard: student.scratchCard || '',
+        scratchCardUsage: Number(student.scratchCardUsage || 0),
+        scratchCardHistory: Array.isArray(student.scratchCardHistory) ? student.scratchCardHistory : []
+      }
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message || "Unknown server error." });
+    console.error('[UPDATE STUDENT ERROR]', err);
+
+    if (err && err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        error: 'A duplicate value already exists for this school.'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Unknown server error.'
+    });
   }
 });
 
-// --- DELETE student by student_id or regNo ---
-router.delete('/:studentId', async (req, res) => {
+// --- DELETE student by student_id or regNo (school admin only) ---
+router.delete('/:studentId', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { studentId } = req.params;
-    let student = await Student.findOne({ student_id: studentId });
-    if (!student) {
-      student = await Student.findOne({ regNo: studentId });
+    const schoolId = getSchoolId(req);
+
+    if (!schoolId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is not assigned to a school.'
+      });
     }
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-    await Student.deleteOne({ _id: student._id });
-    res.json({ message: "Student deleted successfully!" });
+
+    const student = await Student.findOne({
+      schoolId,
+      $or: [{ student_id: studentId }, { regNo: studentId }]
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, error: 'Student not found in this school.' });
+    }
+
+    await Student.deleteOne({ _id: student._id, schoolId });
+    return res.json({ success: true, message: 'Student deleted successfully!' });
   } catch (err) {
-    res.status(500).json({ error: err.message || "Unknown server error." });
+    console.error('[DELETE STUDENT ERROR]', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Unknown server error.'
+    });
   }
 });
 
