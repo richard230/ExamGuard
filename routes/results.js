@@ -1,6 +1,5 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const crypto = require('crypto');
 const router = express.Router();
 const apiKeyAuth = require('../middleware/apiKeyAuth');
 const Result = require('../models/Result');
@@ -973,82 +972,66 @@ router.get('/check', async (req, res) => {
       schoolId
     );
 
-    // Generate a replacement code in advance. The conditional update below
-    // applies it only when this request atomically claims the fifth use.
-    let usageUpdate = null;
-    let replacementCode = '';
+    // Atomically consume exactly one use. The fifth successful check exhausts
+    // this card; it never creates, assigns, or exposes a replacement card.
     const nextUsageExpression = {
       $add: [{ $ifNull: ['$scratchCardUsage', 0] }, 1]
     };
     const reachesLimitExpression = { $gte: [nextUsageExpression, 5] };
 
-    for (let attempt = 0; attempt < 4 && !usageUpdate; attempt++) {
-      replacementCode = crypto.randomBytes(6).toString('hex').toUpperCase();
-      try {
-        const updateResult = await Student.collection.findOneAndUpdate(
-          {
-            _id: student._id,
-            schoolId,
-            scratchCard: storedCard,
-            $expr: { $lt: [{ $ifNull: ['$scratchCardUsage', 0] }, 5] }
-          },
-          [
-            {
-              $set: {
-                scratchCardUsage: {
-                  $cond: [reachesLimitExpression, 0, nextUsageExpression]
-                },
-                scratchCard: {
-                  $cond: [reachesLimitExpression, { $literal: replacementCode }, '$scratchCard']
-                },
-                scratchCardHistory: {
-                  $cond: [
-                    reachesLimitExpression,
-                    {
-                      $concatArrays: [
-                        { $ifNull: ['$scratchCardHistory', []] },
-                        [{
-                          cardCode: '$scratchCard',
-                          usedCount: 5,
-                          assignedAt: { $ifNull: ['$scratchCardAssignedAt', null] },
-                          exhaustedAt: '$$NOW',
-                          status: 'exhausted'
-                        }]
-                      ]
-                    },
-                    { $ifNull: ['$scratchCardHistory', []] }
+    const updateResult = await Student.collection.findOneAndUpdate(
+      {
+        _id: student._id,
+        schoolId,
+        scratchCard: storedCard,
+        $expr: { $lt: [{ $ifNull: ['$scratchCardUsage', 0] }, 5] }
+      },
+      [
+        {
+          $set: {
+            scratchCardUsage: nextUsageExpression,
+            scratchCardHistory: {
+              $cond: [
+                reachesLimitExpression,
+                {
+                  $concatArrays: [
+                    { $ifNull: ['$scratchCardHistory', []] },
+                    [{
+                      cardCode: '$scratchCard',
+                      usedCount: 5,
+                      assignedAt: { $ifNull: ['$scratchCardAssignedAt', null] },
+                      exhaustedAt: '$$NOW',
+                      status: 'exhausted'
+                    }]
                   ]
-                }
-              }
+                },
+                { $ifNull: ['$scratchCardHistory', []] }
+              ]
             }
-          ],
-          { returnDocument: 'after' }
-        );
+          }
+        }
+      ],
+      { returnDocument: 'after' }
+    );
 
-        usageUpdate = updateResult && Object.prototype.hasOwnProperty.call(updateResult, 'value')
-          ? updateResult.value
-          : updateResult;
-      } catch (updateError) {
-        // A duplicate key is extraordinarily unlikely, but retry with a new
-        // cryptographically random code if the school's unique card index hits.
-        if (updateError && updateError.code === 11000) continue;
-        throw updateError;
-      }
-    }
+    const usageUpdate = updateResult && Object.prototype.hasOwnProperty.call(updateResult, 'value')
+      ? updateResult.value
+      : updateResult;
 
     if (!usageUpdate) {
       return res.status(409).json({
-        error: 'This scratch card has already reached its usage limit or has been replaced. Please use your current card.'
+        code: 'SCRATCH_CARD_EXHAUSTED',
+        exhausted: true,
+        error: 'This scratch card has been exhausted. Please renew it to check another result.'
       });
     }
 
-    const cardWasReplaced = String(usageUpdate.scratchCard || '') !== storedCard;
     const usedCount = Number(usageUpdate.scratchCardUsage || 0);
+    const isExhausted = usedCount >= 5;
     reportData.scratchCardInfo = {
-      cardReplaced: cardWasReplaced,
-      usedCount: cardWasReplaced ? 5 : usedCount,
-      usesRemaining: cardWasReplaced ? 5 : Math.max(0, 5 - usedCount),
-      ...(cardWasReplaced ? { newScratchCard: usageUpdate.scratchCard } : {})
+      exhausted: isExhausted,
+      usedCount: Math.min(usedCount, 5),
+      usesRemaining: Math.max(0, 5 - usedCount)
     };
 
     return res.json(reportData);
