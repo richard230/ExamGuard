@@ -100,6 +100,28 @@
         #editStudentModal.active {
             display: flex !important;
         }
+
+        #notificationHost {
+            position: fixed; top: 1rem; right: 1rem; z-index: 100000;
+            display: flex; flex-direction: column; gap: .65rem;
+            width: min( calc(100vw - 2rem), 390px); pointer-events: none;
+        }
+        .app-toast {
+            pointer-events: auto; display: flex; align-items: flex-start; gap: .75rem;
+            padding: .9rem 1rem; border: 1px solid #e2e8f0; border-radius: 16px;
+            background: #fff; color: #1e293b; box-shadow: 0 18px 45px rgba(15,23,42,.16);
+            animation: toastIn .22s ease-out;
+        }
+        .app-toast .toast-icon { width: 2rem; height: 2rem; flex: 0 0 2rem; display:grid; place-items:center; border-radius: 10px; font-weight:800; }
+        .app-toast.success .toast-icon { background:#dcfce7; color:#15803d; }
+        .app-toast.error .toast-icon { background:#fee2e2; color:#b91c1c; }
+        .app-toast.info .toast-icon { background:#dbeafe; color:#1d4ed8; }
+        .app-toast .toast-close { margin-left:auto; color:#94a3b8; font-size:1.15rem; line-height:1; }
+        #appConfirmModal { display:none; position:fixed; inset:0; z-index:100001; background:rgba(15,23,42,.58); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:1rem; }
+        #appConfirmModal.active { display:flex; }
+        @keyframes toastIn { from { opacity:0; transform:translateY(-8px) } to { opacity:1; transform:translateY(0) } }
+        @media(max-width:520px) { #notificationHost { top:.7rem; right:.7rem; width:calc(100vw - 1.4rem); } }
+
     </style>
 </head>
 <body class="h-full font-sans antialiased text-slate-800 bg-slate-50 selection:bg-brand-500 selection:text-white">
@@ -193,7 +215,7 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <div id="topbarSchoolName" class="muted-small text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 hidden sm:block">Loading School...</div>
-                    <button class="btn ghost px-3.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition" onclick="alert('Logout')">
+                    <button class="btn ghost px-3.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition" onclick="showToast('Use the sign-out option in your account menu to end this session.', 'info')">
                         <i class="fa fa-sign-out-alt mr-1"></i> Sign out
                     </button>
                 </div>
@@ -310,13 +332,6 @@
                                         <th class="py-3 px-3">Reg No</th>
                                         <th class="py-3 px-3">Scratch Card</th>
                                         <th class="py-3 px-3">Gender</th>
-                                        <th class="py-3 px-3">DOB</th>
-                                        <th class="py-3 px-3">Parent</th>
-                                        <th class="py-3 px-3">Contact</th>
-                                        <th class="py-3 px-3">Nationality</th>
-                                        <th class="py-3 px-3">State</th>
-                                        <th class="py-3 px-3">LGA</th>
-                                        <th class="py-3 px-3">Previous School</th>
                                         <th class="py-3 px-3">Admission Date</th>
                                         <th class="py-3 px-3">Academic Session</th>
                                         <th class="py-3 px-3 text-right">Actions</th>
@@ -324,7 +339,7 @@
                                 </thead>
                                 <tbody id="students-table-body" class="divide-y divide-slate-100 text-xs text-slate-700">
                                     <tr>
-                                        <td colspan="20" class="py-8 text-center text-slate-400 font-medium">No students found.</td>
+                                        <td colspan="13" class="py-8 text-center text-slate-400 font-medium">No students found.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -414,6 +429,27 @@
         </div>
     </div>
 
+
+    <!-- Centralized app notifications and confirmation dialog -->
+    <div id="notificationHost" aria-live="polite" aria-atomic="false"></div>
+    <div id="appConfirmModal" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle">
+        <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="p-5">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center"><i class="fa fa-circle-question"></i></div>
+                    <div class="min-w-0">
+                        <h3 id="appConfirmTitle" class="font-extrabold text-slate-900">Please confirm</h3>
+                        <p id="appConfirmMessage" class="text-sm text-slate-600 mt-1 leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+                <button type="button" id="appConfirmCancel" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100">Cancel</button>
+                <button type="button" id="appConfirmAccept" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700">Continue</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Flowbite JS -->
     <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
 
@@ -440,6 +476,67 @@
             .replace(/>/g,'&gt;')
             .replace(/"/g,'&quot;')
             .replace(/'/g,'&#039;');
+    }
+
+
+    function showToast(message, type = 'info', duration = 3600) {
+        const host = document.getElementById('notificationHost');
+        if (!host) return;
+        const toast = document.createElement('div');
+        toast.className = `app-toast ${['success','error','info'].includes(type) ? type : 'info'}`;
+        const icon = type === 'success' ? '✓' : type === 'error' ? '!' : 'i';
+        const title = type === 'success' ? 'Success' : type === 'error' ? 'Something went wrong' : 'Notice';
+        const iconEl = document.createElement('span');
+        iconEl.className = 'toast-icon';
+        iconEl.textContent = icon;
+        const content = document.createElement('div');
+        content.className = 'min-w-0 flex-1';
+        const heading = document.createElement('div');
+        heading.className = 'text-xs font-extrabold';
+        heading.textContent = title;
+        const body = document.createElement('div');
+        body.className = 'text-xs text-slate-600 mt-1 leading-relaxed break-words';
+        body.textContent = String(message || '');
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'toast-close';
+        close.setAttribute('aria-label','Dismiss notification');
+        close.textContent = '×';
+        close.onclick = () => toast.remove();
+        content.append(heading, body);
+        toast.append(iconEl, content, close);
+        host.appendChild(toast);
+        window.setTimeout(() => toast.remove(), duration);
+    }
+
+    function showConfirm(message, options = {}) {
+        const modal = document.getElementById('appConfirmModal');
+        const messageEl = document.getElementById('appConfirmMessage');
+        const accept = document.getElementById('appConfirmAccept');
+        const cancel = document.getElementById('appConfirmCancel');
+        if (!modal || !messageEl || !accept || !cancel) return Promise.resolve(false);
+        messageEl.textContent = String(message || 'Are you sure?');
+        accept.textContent = options.confirmText || 'Continue';
+        accept.className = `px-4 py-2 rounded-xl text-xs font-bold text-white ${options.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-brand-600 hover:bg-brand-700'}`;
+        modal.classList.add('active');
+        return new Promise(resolve => {
+            const finish = value => {
+                modal.classList.remove('active');
+                accept.removeEventListener('click', onAccept);
+                cancel.removeEventListener('click', onCancel);
+                modal.removeEventListener('click', onBackdrop);
+                document.removeEventListener('keydown', onKey);
+                resolve(value);
+            };
+            const onAccept = () => finish(true);
+            const onCancel = () => finish(false);
+            const onBackdrop = event => { if (event.target === modal) finish(false); };
+            const onKey = event => { if (event.key === 'Escape') finish(false); };
+            accept.addEventListener('click', onAccept);
+            cancel.addEventListener('click', onCancel);
+            modal.addEventListener('click', onBackdrop);
+            document.addEventListener('keydown', onKey);
+        });
     }
 
     function decodeJwtPayload(jwt) {
@@ -830,7 +927,7 @@
             renderStudentsTable();
             renderStudentsStats();
 
-            if (error.message) alert(error.message);
+            if (error.message) showToast(error.message, 'error');
         } finally {
             showTableSpinner(false);
         }
@@ -938,7 +1035,7 @@
         const pageData = filteredData.slice(start,start + pageSize);
 
         if (!pageData.length) {
-            tbody.innerHTML = '<tr><td colspan="20" class="py-8 text-center text-slate-400 font-medium">No students found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" class="py-8 text-center text-slate-400 font-medium">No students found.</td></tr>';
             renderPagination(0);
             return;
         }
@@ -976,19 +1073,6 @@
                     <td class="py-3 px-3">
                         <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold ${gender.toLowerCase().startsWith('m') ? 'bg-blue-50 text-blue-700' : 'bg-pink-50 text-pink-700'}">${escapeHTML(gender)}</span>
                     </td>
-                    <td class="py-3 px-3">${formatDate(stu.dob)}</td>
-                    <td class="py-3 px-3">
-                        <div class="font-bold text-slate-800">${escapeHTML(stu.parentName || '')}</div>
-                        <div class="text-[11px] text-slate-400">${escapeHTML(stu.parentPhone || '')}</div>
-                    </td>
-                    <td class="py-3 px-3">
-                        <div class="text-slate-700">${escapeHTML(stu.studentEmail || '')}</div>
-                        <div class="text-[11px] text-slate-400">${escapeHTML(stu.studentPhone || '')}</div>
-                    </td>
-                    <td class="py-3 px-3">${escapeHTML(stu.nationality || '')}</td>
-                    <td class="py-3 px-3">${escapeHTML(stu.state || '')}</td>
-                    <td class="py-3 px-3">${escapeHTML(stu.lga || '')}</td>
-                    <td class="py-3 px-3">${escapeHTML(stu.previousSchool || '')}</td>
                     <td class="py-3 px-3">${formatDate(stu.admissionDate)}</td>
                     <td class="py-3 px-3">${escapeHTML(stu.academicSession || stu.session || '')}</td>
                     <td class="py-3 px-3 text-right">
@@ -1013,18 +1097,18 @@
         const promptText = isActive
             ? 'Deactivate this student account? Any unused subscription time will be retained.'
             : 'Activate this student? A new or expired one-month subscription costs ₦200 from the school wallet. Reactivation during a valid subscription is free.';
-        if (!confirm(promptText)) return;
+        if (!(await showConfirm(promptText, {confirmText: isActive ? 'Deactivate' : 'Activate', danger: isActive}))) return;
         try {
             const response = await apiFetch(`${API_ROOT}/student/${encodeURIComponent(studentId)}/${action}`, { method: 'PATCH' });
             const result = await response.json().catch(() => ({}));
             if (!response.ok || result.success === false) throw new Error(result.error || result.message || 'Unable to update account status.');
-            alert(result.message || 'Student account updated.');
+            showToast(result.message || 'Student account updated.', 'success');
             if (typeof fetchStudents === 'function') await fetchStudents();
             else if (typeof loadStudents === 'function') await loadStudents();
             else renderStudentsTable();
         } catch (error) {
             console.error('Student account status update failed:', error);
-            alert(error.message || 'Unable to update student account.');
+            showToast(error.message || 'Unable to update student account.', 'error');
         }
     }
 
@@ -1079,7 +1163,7 @@
         );
 
         if (!student) {
-            alert('Student not found.');
+            showToast('Student not found.', 'error');
             return;
         }
 
@@ -1089,7 +1173,7 @@
     window.deleteStudent = async function(encodedStudentId) {
         const studentId = decodeURIComponent(encodedStudentId);
 
-        if (!confirm('Are you sure you want to delete this student?')) return;
+        if (!(await showConfirm('Are you sure you want to delete this student? This action cannot be undone.', {confirmText: 'Delete student', danger: true}))) return;
 
         showTableSpinner(true);
 
@@ -1112,9 +1196,9 @@
             renderStudentsTable();
             renderStudentsStats();
 
-            alert('Student deleted successfully.');
+            showToast('Student deleted successfully.', 'success');
         } catch (error) {
-            alert(error.message || 'Unable to delete student.');
+            showToast(error.message || 'Unable to delete student.', 'error');
         } finally {
             showTableSpinner(false);
         }
@@ -1204,12 +1288,12 @@
 
                 Object.assign(stu,editData);
 
-                alert('Student updated successfully.');
+                showToast('Student updated successfully.', 'success');
                 renderStudentsTable();
                 renderStudentsStats();
                 closeEditModal();
             } catch (error) {
-                alert(error.message || 'Unable to update student.');
+                showToast(error.message || 'Unable to update student.', 'error');
             } finally {
                 if (spinner) spinner.classList.add('hidden');
             }
@@ -1225,12 +1309,12 @@
 
     window.downloadAllStudentsPDF = function() {
         if (!filteredData.length) {
-            alert('No students to download.');
+            showToast('There are no students to download.', 'info');
             return;
         }
 
         if (!window.jspdf?.jsPDF) {
-            alert('PDF library is not available.');
+            showToast('PDF export is unavailable because the PDF library did not load.', 'error');
             return;
         }
 
@@ -1373,7 +1457,7 @@
             })
             .catch(error => {
                 console.error('Students page initialization failed:',error);
-                alert(error.message || 'Unable to initialize the school portal.');
+                showToast(error.message || 'Unable to initialize the school portal.', 'error', 6000);
             })
             .finally(() => {
                 if (spinner) {
