@@ -4,182 +4,299 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fees Management</title>
+  
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS & Libraries -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
           colors: {
             brand: {
               50: '#eff6ff',
               100: '#dbeafe',
               500: '#3b82f6',
               600: '#2563eb',
-              700: '#1d4ed8'
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
             }
           }
         }
       }
-    };
+    }
   </script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    canvas { touch-action: none; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-800">
-  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-      <div>
-        <p id="schoolName" class="text-xs font-semibold uppercase tracking-wide text-brand-600">School Fees</p>
-        <h1 class="text-xl font-extrabold text-slate-900">Fees Management</h1>
-      </div>
-      <a href="admin.html" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:bg-slate-50">
-        <i class="fa-solid fa-arrow-left mr-2"></i>Dashboard
-      </a>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+<!-- LOADING OVERLAY -->
+<div id="loading" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md transition-opacity">
+  <div class="flex flex-col items-center rounded-3xl bg-white p-8 shadow-2xl border border-slate-100">
+    <div class="relative flex h-14 w-14 items-center justify-center">
+      <div class="absolute h-full w-full animate-ping rounded-full bg-brand-500/20"></div>
+      <i class="fa-solid fa-circle-notch fa-spin text-3xl text-brand-600"></i>
     </div>
-  </header>
+    <p class="mt-4 font-semibold text-slate-700">Loading school account...</p>
+    <p class="text-xs text-slate-400 mt-1">Fetching records & configuration</p>
+  </div>
+</div>
 
-  <main class="mx-auto max-w-7xl space-y-6 px-4 py-6">
-    <div id="pageMsg" class="hidden rounded-xl border p-3 text-sm"></div>
-
-    <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <div class="rounded-2xl border bg-white p-5">
-        <p class="text-xs font-bold uppercase text-slate-400">Total fees</p>
-        <b id="total" class="mt-2 block text-2xl">₦0</b>
-      </div>
-      <div class="rounded-2xl border bg-white p-5">
-        <p class="text-xs font-bold uppercase text-slate-400">Paid</p>
-        <b id="paid" class="mt-2 block text-2xl text-emerald-600">₦0</b>
-      </div>
-      <div class="rounded-2xl border bg-white p-5">
-        <p class="text-xs font-bold uppercase text-slate-400">Outstanding</p>
-        <b id="outstanding" class="mt-2 block text-2xl text-rose-600">₦0</b>
-      </div>
-      <div class="rounded-2xl border bg-white p-5">
-        <p class="text-xs font-bold uppercase text-slate-400">Waived</p>
-        <b id="waived" class="mt-2 block text-2xl text-amber-600">₦0</b>
-      </div>
-    </section>
-
-    <section class="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-      <div class="mb-5">
-        <h2 class="font-bold text-slate-900">Payment receiving methods</h2>
-        <p class="mt-1 text-sm text-slate-500">
-          Choose how families can pay school fees. Gateway payments require an acknowledged monitoring agreement.
-        </p>
+<!-- SIDEBAR -->
+<aside id="sidebar" class="fixed left-0 top-0 z-50 h-screen w-72 -translate-x-full border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-300 ease-in-out md:translate-x-0">
+  <div class="flex h-full flex-col justify-between">
+    <div>
+      <div class="flex items-center gap-3.5 border-b border-slate-800 p-5">
+        <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-800 ring-2 ring-slate-700">
+          <img id="schoolLogo" class="h-full w-full object-contain">
+          <span id="schoolFallback" class="hidden font-bold text-brand-400 text-base">SC</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <b id="schoolName" class="block truncate text-sm font-bold text-white">School</b>
+          <span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Fees Portal
+          </span>
+        </div>
       </div>
 
-      <form id="paymentForm" class="space-y-4">
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label class="flex cursor-pointer gap-3 rounded-xl border p-4 hover:border-brand-500">
-            <input type="checkbox" name="receiving" value="bank_transfer" class="mt-1">
-            <span>
-              <b class="block text-sm">Direct bank transfer</b>
-              <small class="text-slate-500">Pay to the school's account</small>
-            </span>
-          </label>
-          <label class="flex cursor-pointer gap-3 rounded-xl border p-4 hover:border-brand-500">
-            <input type="checkbox" name="receiving" value="onsite" class="mt-1">
-            <span>
-              <b class="block text-sm">On-site payment</b>
-              <small class="text-slate-500">Payment made physically at school</small>
-            </span>
-          </label>
-          <label class="flex cursor-pointer gap-3 rounded-xl border p-4 hover:border-brand-500">
-            <input type="checkbox" name="receiving" value="paystack" class="mt-1">
-            <span>
-              <b class="block text-sm">Paystack</b>
-              <small class="text-slate-500">Online payment gateway</small>
-            </span>
-          </label>
-          <label class="flex cursor-pointer gap-3 rounded-xl border p-4 hover:border-brand-500">
-            <input type="checkbox" name="receiving" value="flutterwave" class="mt-1">
-            <span>
-              <b class="block text-sm">Flutterwave</b>
-              <small class="text-slate-500">Online payment gateway</small>
-            </span>
-          </label>
+      <nav class="space-y-1.5 p-3.5 text-sm font-medium">
+        <a href="admin.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-house w-5 text-center text-slate-500"></i> Dashboard
+        </a>
+        <a href="admission.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-graduation-cap w-5 text-center text-slate-500"></i> Admission
+        </a>
+        <a href="people.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-users w-5 text-center text-slate-500"></i> People
+        </a>
+        <a href="academics.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-book-open w-5 text-center text-slate-500"></i> Academics
+        </a>
+        <a href="admin-cbt.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-laptop-code w-5 text-center text-slate-500"></i> CBT Configuration
+        </a>
+        <a href="results.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-file-invoice w-5 text-center text-slate-500"></i> Results
+        </a>
+        <a href="finance.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-wallet w-5 text-center text-slate-500"></i> Finance
+        </a>
+        <a href="adminfees.html" class="flex items-center gap-3 rounded-xl bg-brand-600 px-3.5 py-2.5 font-semibold text-white shadow-lg shadow-brand-600/30">
+          <i class="fa-solid fa-credit-card w-5 text-center"></i> Fees
+        </a>
+        <a href="attendance.html" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <i class="fa-solid fa-calendar-days w-5 text-center text-slate-500"></i> Attendance
+        </a>
+      </nav>
+    </div>
+
+    <div class="border-t border-slate-800 p-4">
+      <div class="flex items-center gap-3 rounded-xl bg-slate-800/60 p-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/20 font-bold text-brand-400 text-xs">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-slate-400">Signed in as</p>
+          <b id="adminName" class="block truncate text-xs font-semibold text-white">Admin</b>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div id="overlay" class="fixed inset-0 z-40 hidden bg-slate-900/60 backdrop-blur-sm md:hidden"></div>
+
+<header class="fixed left-0 right-0 top-0 z-30 border-b border-slate-200/80 bg-white/80 backdrop-blur-md md:left-72">
+  <div class="flex h-16 items-center justify-between px-4 md:px-8">
+    <div class="flex items-center gap-3">
+      <button id="hamburger" class="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 active:scale-95 md:hidden">
+        <i class="fa-solid fa-bars text-lg"></i>
+      </button>
+      <div>
+        <h1 class="text-base font-bold text-slate-900">Fees Management</h1>
+        <span id="headerName" class="hidden text-xs font-medium text-slate-500 sm:block">Manage school fees & payment records</span>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <button class="relative rounded-xl border border-slate-200/80 p-2 text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800">
+        <i class="fa-regular fa-bell text-base"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-600"></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="min-h-screen px-4 pb-28 pt-20 md:ml-72 md:px-8 md:pb-10 md:pt-22">
+  <div class="mx-auto max-w-7xl space-y-6">
+    
+    <!-- STATS OVERVIEW -->
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Fees</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <i class="fa-solid fa-wallet text-sm"></i>
+          </div>
+        </div>
+        <b id="total" class="mt-3 block text-2xl font-extrabold text-slate-900">₦0</b>
+      </div>
+      
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Paid</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <i class="fa-solid fa-circle-check text-sm"></i>
+          </div>
+        </div>
+        <b id="paid" class="mt-3 block text-2xl font-extrabold text-emerald-600">₦0</b>
+      </div>
+      
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Outstanding</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+            <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+          </div>
+        </div>
+        <b id="outstanding" class="mt-3 block text-2xl font-extrabold text-rose-600">₦0</b>
+      </div>
+      
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Waived</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <i class="fa-solid fa-shield-halved text-sm"></i>
+          </div>
+        </div>
+        <b id="waived" class="mt-3 block text-2xl font-extrabold text-amber-600">₦0</b>
+      </div>
+    </div>
+
+    <!-- PAYMENT RECEIVING METHOD CONFIGURATION SECTION -->
+    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+            <i class="fa-solid fa-credit-card text-xs"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Payment Receiving Configuration</h2>
+            <p class="text-xs text-slate-500">Configure how student fees are collected and routed</p>
+          </div>
+        </div>
+        <span id="configStatusBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Not Configured</span>
+      </div>
+
+      <form id="paymentConfigForm" class="space-y-4">
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Method Type</label>
+            <select id="paymentMethodType" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:border-brand-600 focus:outline-none">
+              <option value="direct">Direct Bank Transfer</option>
+              <option value="onsite">On-Site / Physical Transfer</option>
+              <option value="gateway">Payment Gateway (Paystack / Flutterwave)</option>
+            </select>
+          </div>
+
+          <div id="bankDetailsWrap" class="sm:col-span-2 grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Bank Name</label>
+              <input id="bankName" placeholder="e.g. First Bank" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Account Number</label>
+              <input id="accountNumber" placeholder="0123456789" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+            </div>
+          </div>
         </div>
 
-        <div id="bankFields" class="hidden grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
-          <label class="text-xs font-semibold">
-            Bank name
-            <input id="bankName" class="mt-1 w-full rounded-lg border p-2.5 text-sm" placeholder="Bank">
-          </label>
-          <label class="text-xs font-semibold">
-            Account name
-            <input id="accountName" class="mt-1 w-full rounded-lg border p-2.5 text-sm" placeholder="School account name">
-          </label>
-          <label class="text-xs font-semibold">
-            Account number
-            <input id="accountNumber" class="mt-1 w-full rounded-lg border p-2.5 text-sm" inputmode="numeric" placeholder="Account number">
-          </label>
+        <div id="gatewayNoticeWrap" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 flex items-center justify-between">
+          <span><i class="fa-solid fa-circle-exclamation mr-2"></i> Using Payment Gateways requires signing an ExamGuard Monitoring Consent Agreement.</span>
+          <button type="button" onclick="openConsentModal()" class="rounded-lg bg-amber-600 px-3 py-1.5 font-bold text-white hover:bg-amber-700">Review & Sign Agreement</button>
         </div>
 
-        <div id="onsiteFields" class="hidden rounded-xl bg-slate-50 p-4">
-          <label class="text-xs font-semibold">
-            On-site payment instructions
-            <textarea id="onsiteInstructions" rows="2" class="mt-1 w-full rounded-lg border p-2.5 text-sm" placeholder="Where and when families can pay in person"></textarea>
-          </label>
+        <!-- Manual Offline Form Section -->
+        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <b class="text-xs font-bold text-slate-800 block">Offline / Manual Agreement Form</b>
+              <span class="text-xs text-slate-500">Download the physical sign-off form, fill and re-upload scanned copy if required.</span>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="downloadManualForm()" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                <i class="fa-solid fa-download mr-1.5 text-brand-600"></i> Download Form Template
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Upload Filled & Signed Form (PDF/Image)</label>
+            <input type="file" id="manualFormFile" accept=".pdf,image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100">
+          </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3 border-t pt-4">
-          <button class="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-700">
-            <i class="fa-solid fa-floppy-disk mr-2"></i>Save payment methods
-          </button>
-          <button type="button" id="agreementOpen" class="hidden rounded-xl border border-brand-200 px-4 py-2.5 text-sm font-bold text-brand-700 hover:bg-brand-50">
-            Review gateway consent
-          </button>
-          <span id="agreementStatus" class="text-xs text-slate-500"></span>
-        </div>
-
-        <p class="text-xs leading-relaxed text-slate-400">
-          Gateway monitoring agreement and any uploaded form are kept in this browser for this school.
-          Do not enter secret gateway keys here.
-        </p>
+        <button type="submit" class="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700">
+          Save Payment Configuration
+        </button>
       </form>
+      <div id="paymentConfigMsg" class="hidden"></div>
     </section>
 
-    <section class="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-      <div class="mb-5">
-        <h2 class="font-bold text-slate-900">Set up class fees</h2>
-        <p class="mt-1 text-sm text-slate-500">
-          Select the session and its terms from your school's academic records.
-        </p>
+    <!-- SET UP CLASS/TERM FEES -->
+    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <div class="mb-5 flex items-center gap-2.5 border-b border-slate-100 pb-4">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+          <i class="fa-solid fa-sliders text-xs"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Set Up Class/Term Fees</h2>
+          <p class="text-xs text-slate-500">Configure fee structures for specific classes and academic sessions</p>
+        </div>
       </div>
 
       <form id="setupForm" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <label class="text-xs font-bold uppercase text-slate-500">
-          Class
-          <select id="classId" required class="mt-1.5 w-full rounded-xl border bg-slate-50 px-3 py-3 text-sm font-medium">
-            <option value="">Loading classes...</option>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Class</label>
+          <select id="classId" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none">
+            <option value="">Select Class</option>
           </select>
-        </label>
+        </div>
 
-        <label class="text-xs font-bold uppercase text-slate-500">
-          Session
-          <select id="session" required class="mt-1.5 w-full rounded-xl border bg-slate-50 px-3 py-3 text-sm font-medium">
-            <option value="">Loading sessions...</option>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Term</label>
+          <select id="termSelect" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none">
+            <option value="">Select Term</option>
           </select>
-        </label>
+        </div>
 
-        <label class="text-xs font-bold uppercase text-slate-500">
-          Term
-          <select id="term" required disabled class="mt-1.5 w-full rounded-xl border bg-slate-50 px-3 py-3 text-sm font-medium">
-            <option value="">Select a session first</option>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Session</label>
+          <select id="sessionSelect" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none">
+            <option value="">Select Session</option>
           </select>
-        </label>
+        </div>
 
-        <label class="text-xs font-bold uppercase text-slate-500">
-          Fee type
-          <select id="type" required class="mt-1.5 w-full rounded-xl border bg-slate-50 px-3 py-3 text-sm font-medium">
-            <option value="">Select type</option>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Fee Type</label>
+          <select id="type" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none">
+            <option value="">Select Type</option>
             <option>Tuition</option>
             <option>Hostel</option>
             <option>Transport</option>
@@ -188,746 +305,787 @@
             <option>Examination</option>
             <option>Other</option>
           </select>
-        </label>
+        </div>
 
-        <label class="text-xs font-bold uppercase text-slate-500">
-          Amount (₦)
-          <input id="amount" type="number" min="1" step="0.01" required class="mt-1.5 w-full rounded-xl border bg-slate-50 px-3 py-3 text-sm" placeholder="0.00">
-        </label>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Amount (₦)</label>
+          <input id="amount" type="number" min="0" required placeholder="0.00" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none">
+        </div>
 
-        <label class="text-xs font-bold uppercase text-slate-500">
-          Due date
-          <input id="due" type="date" required class="mt-1.5 w-full rounded-xl border bg-slate-50 px-3 py-3 text-sm">
-        </label>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Due Date</label>
+          <input id="due" type="date" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none">
+        </div>
 
-        <button class="rounded-xl bg-emerald-600 py-3 font-bold text-white hover:bg-emerald-700 sm:col-span-2 lg:col-span-3">
-          <i class="fa-solid fa-plus mr-2"></i>Set up fee structure
+        <button class="sm:col-span-2 lg:col-span-3 mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 font-semibold text-white shadow-lg shadow-emerald-600/20 transition-all hover:from-emerald-700 hover:to-teal-700">
+          <i class="fa-solid fa-plus-circle text-sm"></i> Set Up Fee Structure
         </button>
       </form>
-      <div id="setupMsg" class="hidden mt-3 rounded-xl border p-3 text-sm"></div>
+      <div id="setupMsg" class="hidden"></div>
     </section>
 
-    <section class="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 class="font-bold text-slate-900">All fee records</h2>
-          <p class="text-sm text-slate-500">Search, filter, update, and export payment records.</p>
+    <!-- SEARCH STUDENT FEES -->
+    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <div class="mb-4 flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+          <i class="fa-solid fa-magnifying-glass text-xs"></i>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <input id="feeSearch" placeholder="Search records" class="rounded-xl border px-3 py-2 text-sm">
-          <select id="feeStatus" class="rounded-xl border px-3 py-2 text-sm">
-            <option value="">All statuses</option>
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Search Student Fees</h2>
+          <p class="text-xs text-slate-500">Quickly look up payment breakdown for an individual student</p>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+          <i class="fa-solid fa-search text-sm"></i>
+        </div>
+        <input id="studentInput" placeholder="Type student name or email..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-10 pr-4 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:border-brand-600 focus:outline-none">
+        <div id="studentResults" class="absolute left-0 right-0 top-full z-20 mt-2 hidden max-h-80 overflow-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl"></div>
+      </div>
+    </section>
+
+    <section id="studentCard" class="hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all">
+      <div id="studentDetails"></div>
+    </section>
+
+    <!-- ALL FEES TABLE SECTION -->
+    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">All Fee Records</h2>
+          <p class="text-xs text-slate-500">Comprehensive log of all fees, statuses, and options to filter or export.</p>
+        </div>
+
+        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          <div class="relative flex-1 sm:w-60">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <i class="fa-solid fa-magnifying-glass text-xs"></i>
+            </div>
+            <input id="feeSearch" placeholder="Search records..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-3 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+          </div>
+
+          <select id="feeStatus" class="rounded-xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+            <option value="">All Statuses</option>
             <option>Paid</option>
             <option>Unpaid</option>
-            <option>Partial</option>
             <option>Waived</option>
+            <option>Partial</option>
           </select>
-          <button id="exportBtn" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-            <i class="fa-solid fa-download mr-1"></i>Export CSV
+
+          <button onclick="exportFees()" class="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800">
+            <i class="fa-solid fa-download text-xs"></i> Export CSV
           </button>
         </div>
       </div>
 
-      <div class="overflow-x-auto rounded-xl border">
-        <table class="w-full min-w-[850px] text-left text-sm">
-          <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+      <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+        <table class="w-full min-w-[950px] text-left text-sm text-slate-600">
+          <thead class="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/80">
             <tr>
-              <th class="p-3">Student</th>
-              <th class="p-3">Class</th>
-              <th class="p-3">Term / Session</th>
-              <th class="p-3">Fee</th>
-              <th class="p-3">Amount</th>
-              <th class="p-3">Status</th>
-              <th class="p-3">Method</th>
-              <th class="p-3">Due</th>
-              <th class="p-3">Action</th>
+              <th class="py-3.5 px-4">Student</th>
+              <th class="py-3.5 px-4">Class</th>
+              <th class="py-3.5 px-4">Term</th>
+              <th class="py-3.5 px-4">Session</th>
+              <th class="py-3.5 px-4">Fee Type</th>
+              <th class="py-3.5 px-4">Amount</th>
+              <th class="py-3.5 px-4">Status</th>
+              <th class="py-3.5 px-4">Method</th>
+              <th class="py-3.5 px-4">Due Date</th>
+              <th class="py-3.5 px-4 text-center">Action</th>
             </tr>
           </thead>
-          <tbody id="feesBody">
-            <tr><td colspan="9" class="p-8 text-center text-slate-400">Loading records...</td></tr>
-          </tbody>
+          <tbody id="feesBody" class="divide-y divide-slate-100 bg-white"></tbody>
         </table>
       </div>
     </section>
-  </main>
 
-  <div id="consentModal" class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto bg-slate-950/60 p-4">
-    <div class="my-auto w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
-      <div class="flex items-center justify-between border-b p-5">
-        <div>
-          <h2 class="font-bold text-slate-900">Payment gateway monitoring consent</h2>
-          <p class="text-xs text-slate-500">Review and sign on behalf of your school</p>
-        </div>
-        <button type="button" id="consentClose" class="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Close">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
+  </div>
+</main>
 
-      <form id="consentForm" class="space-y-4 p-5">
-        <div class="rounded-xl bg-brand-50 p-4 text-sm leading-6 text-slate-700">
-          <b>Authorization:</b> I authorize ExamGuard to monitor payment notifications and transaction
-          status for the selected gateway(s) to help reconcile school fee payments. I understand that
-          gateway accounts and settlement remain subject to the school's gateway provider agreement,
-          and that this consent does not authorize ExamGuard to collect or store my secret API keys.
-          I may withdraw this authorization by disabling the gateway method.
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="text-xs font-semibold">
-            Authorized signatory name
-            <input id="signerName" required class="mt-1 w-full rounded-lg border p-2.5 text-sm" maxlength="120">
-          </label>
-          <label class="text-xs font-semibold">
-            Role / title
-            <input id="signerTitle" required class="mt-1 w-full rounded-lg border p-2.5 text-sm" maxlength="100" placeholder="Principal / Bursar">
-          </label>
-        </div>
-
-        <label class="flex items-start gap-2 text-sm">
-          <input id="consentCheck" type="checkbox" required class="mt-1">
-          <span>I have authority to accept this agreement for the school and agree to the monitoring terms above.</span>
-        </label>
-
-        <div>
-          <div class="mb-1 flex items-center justify-between">
-            <label class="text-xs font-semibold">Draw signature</label>
-            <button type="button" id="clearSignature" class="text-xs font-semibold text-brand-700">Clear</button>
-          </div>
-          <canvas id="signatureCanvas" width="900" height="180" class="h-32 w-full rounded-xl border bg-white"></canvas>
-          <p class="mt-1 text-xs text-slate-400">Sign using a mouse, touch screen, or stylus.</p>
-        </div>
-
-        <div class="rounded-xl border border-dashed p-4">
-          <p class="text-sm font-semibold">Already filled out the paper form?</p>
-          <p class="mb-3 text-xs text-slate-500">
-            Download a printable form, complete and sign it, then upload the scan or photo here.
-          </p>
-          <div class="flex flex-wrap gap-2">
-            <button type="button" id="downloadAgreement" class="rounded-lg border px-3 py-2 text-xs font-bold">
-              <i class="fa-solid fa-file-arrow-down mr-1"></i>Download form
-            </button>
-            <label class="cursor-pointer rounded-lg border px-3 py-2 text-xs font-bold">
-              <i class="fa-solid fa-upload mr-1"></i><span id="uploadLabel">Upload signed form</span>
-              <input id="signedUpload" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" class="hidden">
-            </label>
-          </div>
-        </div>
-
-        <div id="consentMsg" class="hidden rounded-lg border p-3 text-sm"></div>
-
-        <div class="flex justify-end gap-2">
-          <button type="button" id="cancelConsent" class="rounded-xl border px-4 py-2.5 text-sm font-semibold">Cancel</button>
-          <button class="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white">Accept and save consent</button>
-        </div>
-      </form>
+<!-- CONSENT AGREEMENT MODAL -->
+<div id="consentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+  <div class="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-100 p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <h3 class="text-base font-bold text-slate-900"><i class="fa-solid fa-file-contract text-brand-600 mr-2"></i> ExamGuard Payment Monitoring Consent</h3>
+      <button onclick="closeConsentModal()" class="rounded-full p-2 text-slate-400 hover:bg-slate-100"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="max-h-64 overflow-y-auto text-xs text-slate-600 space-y-2 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200">
+      <p>By selecting a third-party payment gateway (Paystack / Flutterwave), you hereby authorize <b>ExamGuard</b> to securely monitor, log, and reconcile school fee transactions incoming to your institutional accounts.</p>
+      <p>ExamGuard shall act as the authorized telemetry bridge to confirm fee settlements instantly and update student clearance ledgers automatically in real time.</p>
+    </div>
+    <label class="flex items-center gap-3 pt-2 cursor-pointer">
+      <input type="checkbox" id="consentCheckbox" class="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300">
+      <span class="text-xs font-bold text-slate-800">I agree and authorize ExamGuard to monitor payment transactions on behalf of the institution.</span>
+    </label>
+    <div class="flex justify-end gap-3 pt-3">
+      <button type="button" onclick="closeConsentModal()" class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600">Cancel</button>
+      <button type="button" onclick="confirmConsent()" class="rounded-xl bg-brand-600 px-5 py-2 text-xs font-semibold text-white shadow-md hover:bg-brand-700">Confirm Agreement</button>
     </div>
   </div>
+</div>
 
-  <div id="feeModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-950/60 p-4">
-    <form id="feeForm" class="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl">
-      <div class="flex justify-between">
-        <h2 class="font-bold">Update fee record</h2>
-        <button type="button" id="closeFee" class="text-slate-500"><i class="fa-solid fa-xmark"></i></button>
+<!-- UPDATE FEE MODAL -->
+<div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+  <div class="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-100 transition-all">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <i class="fa-solid fa-pen-to-square text-xs"></i>
+        </div>
+        <h3 class="text-base font-bold text-slate-900">Update Fee Record</h3>
       </div>
+      <button onclick="closeModal()" class="rounded-full p-2 text-slate-400 hover:bg-slate-100"><i class="fa-solid fa-xmark text-base"></i></button>
+    </div>
+
+    <form id="feeForm" class="space-y-4 p-6">
       <input id="studentId" type="hidden">
       <input id="feeId" type="hidden">
 
-      <label class="block text-xs font-semibold">
-        Status
-        <select id="status" required class="mt-1 w-full rounded-lg border p-2.5">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Status</label>
+        <select id="status" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+          <option value="">Select Status</option>
           <option>Paid</option>
           <option>Partial</option>
           <option>Waived</option>
           <option>Unpaid</option>
         </select>
-      </label>
+      </div>
 
-      <label id="paidWrap" class="hidden text-xs font-semibold">
-        Paid amount
-        <input id="paidAmount" type="number" min="0" class="mt-1 w-full rounded-lg border p-2.5">
-      </label>
+      <div id="paidWrap" class="hidden">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Paid Amount (₦)</label>
+        <input id="paidInputModal" type="number" min="0" placeholder="0.00" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+      </div>
 
-      <label class="block text-xs font-semibold">
-        Payment method
-        <input id="method" class="mt-1 w-full rounded-lg border p-2.5" placeholder="Cash, transfer, gateway...">
-      </label>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Method</label>
+        <select id="method" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+          <option value="">Select Method</option>
+          <option>Cash</option>
+          <option>Bank Transfer</option>
+          <option>Mobile Money</option>
+          <option>Check</option>
+          <option>Scholarship</option>
+          <option>Waived</option>
+        </select>
+      </div>
 
-      <label class="block text-xs font-semibold">
-        Reference
-        <input id="reference" class="mt-1 w-full rounded-lg border p-2.5">
-      </label>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Reference</label>
+        <input id="ref" placeholder="Transaction ID or Receipt #" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+      </div>
 
-      <div id="feeMsg" class="hidden rounded-lg border p-3 text-sm"></div>
+      <div id="reasonWrap" class="hidden">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Waive Reason</label>
+        <input id="reason" placeholder="State reason for waiver" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+      </div>
 
-      <div class="flex gap-2">
-        <button class="flex-1 rounded-xl bg-brand-600 p-3 font-bold text-white">Save update</button>
-        <button type="button" id="deleteFee" class="rounded-xl border border-rose-200 px-4 font-bold text-rose-600">Delete</button>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Notes</label>
+        <input id="notes" placeholder="Additional details..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
+      </div>
+
+      <div id="modalMsg" class="hidden"></div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button class="flex-1 rounded-xl bg-brand-600 py-3 font-semibold text-white shadow-lg shadow-brand-600/20 hover:bg-brand-700">Update Status</button>
+        <button type="button" id="deleteBtn" class="flex-1 rounded-xl border border-rose-200 bg-rose-50 py-3 font-semibold text-rose-600 hover:bg-rose-100">Delete Fee</button>
       </div>
     </form>
   </div>
+</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
 <script>
 const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
-const API = BACKEND_URL + '/api';
+const API_ROOT = BACKEND_URL + '/api';
+const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || API_ROOT + '/schools/config';
 
-let token = localStorage.getItem('adminToken') ||
-  localStorage.getItem('token') ||
-  localStorage.getItem('authToken');
-let school = null;
-let schoolDbId = '';
-let terms = [];
-let sessions = [];
-let feesData = [];
-let drawn = false;
-let uploadedAgreement = '';
+let token = localStorage.getItem('adminToken') || localStorage.getItem('token') || localStorage.getItem('authToken');
+let currentSchool = null;
+let publicSchoolId = '';
+let allFees = [];
+let currentFeeId = null;
+let consentSigned = false;
 
 const $ = id => document.getElementById(id);
-const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;'
-}[char]));
-const money = value => '₦' + Number(value || 0).toLocaleString();
+const money = v => '₦' + Number(v || 0).toLocaleString();
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function headers(extra = {}) {
   return {
     ...(token ? { Authorization: 'Bearer ' + token } : {}),
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    ...(school?.schoolId ? { 'X-School-Code': school.schoolId } : {}),
+    ...(publicSchoolId ? { 'X-School-Code': publicSchoolId } : {}),
     ...extra
   };
 }
 
-async function api(url, options = {}) {
-  return fetch(url, {
-    ...options,
-    headers: headers(options.headers || {})
-  });
+async function api(url, opt = {}) {
+  return fetch(url, { ...opt, headers: headers(opt.headers || {}) });
 }
 
-function showMsg(id, text, ok = true) {
-  const element = $(id);
-  element.textContent = text;
-  element.className = 'mt-3 rounded-xl border p-3 text-sm ' +
-    (ok
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      : 'border-rose-200 bg-rose-50 text-rose-700');
+function initials(n) {
+  return (n || 'School').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') || 'SC';
 }
 
-async function readJson(response) {
-  const data = await response.json();
-  if (!response.ok || data.success === false) {
-    throw Error(data.error || data.message || `Request failed (${response.status})`);
+function brand(s) {
+  currentSchool = s || {};
+  let b = currentSchool.branding || {};
+  let n = currentSchool.schoolName || currentSchool.name || 'School';
+  let logo = currentSchool.logoUrl || b.logo || b.logoUrl || b.lightLogo || b.darkLogo || '';
+  
+  $('schoolName').textContent = n;
+  $('headerName').textContent = n + ' • Fees Management';
+  document.title = n + ' | Fees Management';
+  $('schoolLogo').src = logo;
+  $('schoolFallback').textContent = initials(n);
+  
+  if (!logo) {
+    $('schoolLogo').classList.add('hidden');
+    $('schoolFallback').classList.remove('hidden');
+  } else {
+    $('schoolLogo').classList.remove('hidden');
+    $('schoolFallback').classList.add('hidden');
   }
-  return data;
 }
 
-async function loadSchool() {
-  if (!token) throw Error('Please sign in again.');
-
-  const response = await fetch(API + '/auth/me', {
-    headers: {
-      Authorization: 'Bearer ' + token,
-      Accept: 'application/json'
+function subdomain() {
+  let s = localStorage.getItem('schoolSubdomain');
+  if (s) return s.toLowerCase();
+  let h = location.hostname.toLowerCase();
+  for (let b of [(window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng'), 'examguard.com.ng']) {
+    let x = '.' + b;
+    if (h.endsWith(x)) {
+      let q = h.slice(0, -x.length);
+      if (q && q !== 'www') return q;
     }
-  });
-  const result = await readJson(response);
-  const user = result.user || result.data?.user || result;
-  const current = result.school || result.data?.school || user.school;
-
-  if (!current?._id || !user.schoolId || String(current._id) !== String(user.schoolId)) {
-    throw Error('Could not verify your school account.');
   }
-
-  school = current;
-  schoolDbId = current._id;
-  $('schoolName').textContent = current.schoolName || current.name || 'School Fees';
+  return '';
 }
 
-async function loadAcademic() {
-  const [sessionResponse, termResponse] = await Promise.all([
-    api(API + '/academics/sessions'),
-    api(API + '/academics/terms')
-  ]);
-
-  sessions = await sessionResponse.json();
-  terms = await termResponse.json();
-
-  if (!Array.isArray(sessions) || !Array.isArray(terms)) {
-    throw Error('Unable to load sessions or terms.');
-  }
-
-  $('session').innerHTML =
-    '<option value="">Select session</option>' +
-    sessions.map(session =>
-      `<option value="${esc(session.name)}" data-id="${esc(session._id)}">${esc(session.name)}</option>`
-    ).join('');
-
-  populateTerms();
-}
-
-function populateTerms() {
-  const sessionId = $('session').selectedOptions[0]?.dataset.id;
-  const selectedTerm = $('term').value;
-
-  const filteredTerms = terms.filter(term => {
-    const relatedSession = term.sessionId || term.session?._id || term.session;
-    return String(relatedSession) === String(sessionId);
-  });
-
-  $('term').disabled = !sessionId;
-  $('term').innerHTML =
-    `<option value="">${sessionId ? 'Select term' : 'Select a session first'}</option>` +
-    filteredTerms.map(term =>
-      `<option value="${esc(term.name)}">${esc(term.name)}</option>`
-    ).join('');
-
-  if (filteredTerms.some(term => term.name === selectedTerm)) {
-    $('term').value = selectedTerm;
-  }
-}
-
-async function loadClasses() {
-  const data = await readJson(await api(API + '/fees/meta/classes'));
-  $('classId').innerHTML =
-    '<option value="">Select class</option>' +
-    (data.classes || []).map(className =>
-      `<option value="${esc(className)}">${esc(className)}</option>`
-    ).join('');
-}
-
-function fillPaymentConfig() {
-  const config = school?.paymentConfig || {};
-  const saved = JSON.parse(localStorage.getItem('feesReceiving:' + schoolDbId) || '{}');
-  const methods = saved.methods || [];
-
-  document.querySelectorAll('[name="receiving"]').forEach(checkbox => {
-    checkbox.checked = methods.includes(checkbox.value);
-  });
-
-  $('bankName').value =
-    config.bankName || config.bankTransferDetails?.[0]?.bankName || '';
-  $('accountName').value =
-    config.accountName || config.bankTransferDetails?.[0]?.accountName || '';
-  $('accountNumber').value =
-    config.accountNumber || config.bankTransferDetails?.[0]?.accountNumber || '';
-  $('onsiteInstructions').value = saved.onsiteInstructions || '';
-
-  togglePaymentFields();
-
-  const consent = saved.agreement;
-  $('agreementStatus').textContent = consent
-    ? `Consent recorded for ${consent.providerLabel} on ${new Date(consent.signedAt).toLocaleDateString()}`
-    : 'No gateway consent recorded';
-}
-
-function togglePaymentFields() {
-  const methods = [...document.querySelectorAll('[name="receiving"]:checked')]
-    .map(checkbox => checkbox.value);
-
-  $('bankFields').classList.toggle('hidden', !methods.includes('bank_transfer'));
-  $('onsiteFields').classList.toggle('hidden', !methods.includes('onsite'));
-  $('agreementOpen').classList.toggle(
-    'hidden',
-    !methods.some(method => ['paystack', 'flutterwave'].includes(method))
-  );
-}
-
-async function savePayments(event) {
-  event.preventDefault();
-
-  const methods = [...document.querySelectorAll('[name="receiving"]:checked')]
-    .map(checkbox => checkbox.value);
-  const saved = JSON.parse(localStorage.getItem('feesReceiving:' + schoolDbId) || '{}');
-
-  if (methods.some(method => ['paystack', 'flutterwave'].includes(method)) && !saved.agreement) {
-    openConsent();
-    return;
-  }
-
-  const bank = {
-    bankName: $('bankName').value.trim(),
-    accountName: $('accountName').value.trim(),
-    accountNumber: $('accountNumber').value.trim(),
-    sortCode: ''
-  };
-
-  if (methods.includes('bank_transfer') && (!bank.bankName || !bank.accountName || !bank.accountNumber)) {
-    showMsg('pageMsg', 'Enter bank name, account name, and account number.', false);
-    return;
-  }
-
+async function school() {
+  if (!token) throw Error('No authentication token found. Please sign in again.');
+  let host = subdomain();
   try {
-    const paymentConfig = {
-      ...(school.paymentConfig || {}),
-      enabledGateways: methods.filter(method => ['paystack', 'flutterwave'].includes(method)),
-      bankName: bank.bankName,
-      accountName: bank.accountName,
-      accountNumber: bank.accountNumber,
-      bankTransferDetails: methods.includes('bank_transfer') ? [bank] : []
-    };
-
-    const response = await api(`${API}/schools/${encodeURIComponent(schoolDbId)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ paymentConfig })
-    });
-    await readJson(response);
-
-    saved.methods = methods;
-    saved.onsiteInstructions = $('onsiteInstructions').value.trim();
-    localStorage.setItem('feesReceiving:' + schoolDbId, JSON.stringify(saved));
-
-    school.paymentConfig = paymentConfig;
-    showMsg('pageMsg', 'Payment receiving methods saved.');
-    fillPaymentConfig();
-  } catch (error) {
-    showMsg('pageMsg', error.message, false);
+    let r = await fetch(API_ROOT + '/auth/me', { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+    if (!r.ok) throw Error('Account request failed (HTTP ' + r.status + ')');
+    let x = await r.json();
+    let u = x.user || x.data?.user || x;
+    let s = x.school || x.data?.school || u.school;
+    
+    if (!u.schoolId || !s?._id || String(u.schoolId) !== String(s._id)) throw Error('Authenticated school configuration is invalid.');
+    
+    currentSchool = s;
+    publicSchoolId = s.schoolId || '';
+    localStorage.setItem('currentSchool', JSON.stringify(s));
+    if (publicSchoolId) localStorage.setItem('schoolId', publicSchoolId);
+    
+    brand(s);
+    $('adminName').textContent = u.name || u.fullName || u.email || 'Admin';
+  } catch (e) {
+    if (!host) throw e;
+    let r = await fetch(SCHOOL_CONFIG_ENDPOINT + '?subdomain=' + encodeURIComponent(host));
+    if (!r.ok) throw e;
+    let x = await r.json();
+    let s = x.school || x.data || x;
+    if (!s?._id) throw e;
+    currentSchool = s;
+    publicSchoolId = s.schoolId || '';
+    localStorage.setItem('schoolSubdomain', host);
+    brand(s);
   }
 }
 
-function openConsent() {
-  const method = [...document.querySelectorAll('[name="receiving"]:checked')]
-    .find(checkbox => ['paystack', 'flutterwave'].includes(checkbox.value))?.value;
+function msg(id, t, ok = true) {
+  let e = $(id);
+  e.className = 'mt-4 rounded-xl p-3.5 text-sm font-medium border ' + (ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200');
+  e.innerHTML = (ok ? '<i class="fa-solid fa-circle-check mr-2"></i>' : '<i class="fa-solid fa-triangle-exclamation mr-2"></i>') + t;
+  e.classList.remove('hidden');
+}
 
-  if (!method) {
-    showMsg('pageMsg', 'Select Paystack or Flutterwave to review gateway consent.', false);
-    return;
+// Fetch Sessions and Terms dynamically from Backend
+async function loadSessionsAndTerms() {
+  try {
+    const [sessRes, termRes] = await Promise.all([
+      api(API_ROOT + '/sessions'),
+      api(API_ROOT + '/terms')
+    ]);
+    const sessions = await sessRes.json();
+    const terms = await termRes.json();
+
+    if (Array.isArray(sessions)) {
+      $('sessionSelect').innerHTML = '<option value="">Select Session</option>' + sessions.map(s => `<option value="${s.name}">${esc(s.name)}</option>`).join('');
+    }
+    if (Array.isArray(terms)) {
+      $('termSelect').innerHTML = '<option value="">Select Term</option>' + terms.map(t => `<option value="${t.name}">${esc(t.name)}</option>`).join('');
+    }
+  } catch (e) {
+    console.error('Failed to load sessions/terms', e);
   }
+}
 
-  $('consentModal').dataset.provider = method;
+async function loadPaymentConfig() {
+  try {
+    let r = await api(API_ROOT + '/payment-config');
+    let d = await r.json();
+    if (d.success && d.paymentConfig) {
+      let cfg = d.paymentConfig;
+      $('paymentMethodType').value = cfg.method || 'direct';
+      $('bankName').value = cfg.bankDetails?.bankName || '';
+      $('accountNumber').value = cfg.bankDetails?.accountNumber || '';
+      consentSigned = Boolean(cfg.consentSigned);
+      updatePaymentMethodUI();
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function updatePaymentMethodUI() {
+  let val = $('paymentMethodType').value;
+  let isGateway = val === 'gateway';
+  $('gatewayNoticeWrap').classList.toggle('hidden', !isGateway);
+  if (isGateway && !consentSigned) {
+    $('configStatusBadge').textContent = 'Pending Gateway Consent';
+    $('configStatusBadge').className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700';
+  } else {
+    $('configStatusBadge').textContent = 'Configured (' + val.toUpperCase() + ')';
+    $('configStatusBadge').className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700';
+  }
+}
+
+$('paymentMethodType').addEventListener('change', updatePaymentMethodUI);
+
+function openConsentModal() {
+  $('consentCheckbox').checked = consentSigned;
   $('consentModal').classList.remove('hidden');
   $('consentModal').classList.add('flex');
-  $('signerName').value = school?.adminName || '';
-  clearCanvas();
 }
 
-function closeConsent() {
+function closeConsentModal() {
   $('consentModal').classList.add('hidden');
   $('consentModal').classList.remove('flex');
 }
 
-const canvas = $('signatureCanvas');
-const context = canvas.getContext('2d');
-
-function clearCanvas() {
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.strokeStyle = '#0f172a';
-  context.lineWidth = 3;
-  context.lineCap = 'round';
-  drawn = false;
-}
-
-function canvasCoords(event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: (event.clientX - rect.left) * canvas.width / rect.width,
-    y: (event.clientY - rect.top) * canvas.height / rect.height
-  };
-}
-
-canvas.addEventListener('pointerdown', event => {
-  canvas.setPointerCapture(event.pointerId);
-  const point = canvasCoords(event);
-  context.beginPath();
-  context.moveTo(point.x, point.y);
-  drawn = true;
-});
-
-canvas.addEventListener('pointermove', event => {
-  if (event.buttons !== 1) return;
-  const point = canvasCoords(event);
-  context.lineTo(point.x, point.y);
-  context.stroke();
-});
-
-$('clearSignature').onclick = clearCanvas;
-
-function agreementFormHtml() {
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>ExamGuard Gateway Monitoring Consent</title>
-<style>
-body{font:16px Arial;max-width:760px;margin:40px auto;line-height:1.6;color:#172033}
-h1{color:#1d4ed8}
-.line{border-bottom:1px solid #222;height:42px;margin:8px 0 20px}
-small{color:#555}
-</style>
-</head>
-<body>
-<h1>ExamGuard Payment Gateway Monitoring Consent</h1>
-<p><b>School:</b> ${esc(school?.schoolName || '')}</p>
-<p><b>Gateway:</b> ______________________________</p>
-<p>I authorize ExamGuard to monitor payment notifications and transaction status for the selected gateway(s) to help reconcile school fee payments. I understand that gateway accounts and settlement remain subject to the school's gateway provider agreement, and that this consent does not authorize ExamGuard to collect or store my secret API keys. I may withdraw this authorization by disabling the gateway method.</p>
-<p>I confirm that I am authorized to accept this agreement for the school.</p>
-<p>Authorized signatory name:</p><div class="line"></div>
-<p>Role / title:</p><div class="line"></div>
-<p>Signature:</p><div class="line"></div>
-<p>Date:</p><div class="line"></div>
-<small>Complete and sign this form, then upload the scan/photo in the Fees Management consent window.</small>
-</body>
-</html>`;
-}
-
-function downloadForm() {
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([agreementFormHtml()], { type: 'text/html' }));
-  link.download = 'examguard-gateway-monitoring-consent.html';
-  link.click();
-  URL.revokeObjectURL(link.href);
-}
-
-$('signedUpload').addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  if (file.size > 3 * 1024 * 1024) {
-    showMsg('consentMsg', 'Signed form must be 3 MB or smaller.', false);
-    event.target.value = '';
+function confirmConsent() {
+  if (!$('consentCheckbox').checked) {
+    alert('You must check the agreement box to proceed with Gateway integration.');
     return;
   }
+  consentSigned = true;
+  updatePaymentMethodUI();
+  closeConsentModal();
+}
 
-  uploadedAgreement = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+function downloadManualForm() {
+  let text = `EXAMGUARD MONITORING & PAYMENT RECEIVING CONSENT FORM\n\nSchool Name: ${currentSchool?.schoolName || 'Institution'}\nSchool ID: ${publicSchoolId}\n\n1. I/We authorize ExamGuard to monitor financial inflows.\n2. All electronic transfer records will be reconciled via automated webhooks.\n\nAuthorized Signature: ______________________\nDate: ______________________`;
+  let blob = new Blob([text], { type: 'text/plain' });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement('a');
+  a.href = url;
+  a.download = 'ExamGuard_Payment_Consent_Template.txt';
+  a.click();
+}
 
-  $('uploadLabel').textContent = file.name;
-});
-
-$('consentForm').addEventListener('submit', event => {
-  event.preventDefault();
-
-  if (!drawn && !uploadedAgreement) {
-    showMsg('consentMsg', 'Please draw a signature or upload the completed form.', false);
+async function savePaymentConfig(e) {
+  e.preventDefault();
+  if ($('paymentMethodType').value === 'gateway' && !consentSigned) {
+    alert('Please sign the ExamGuard monitoring consent form agreement before saving gateway configuration.');
+    openConsentModal();
     return;
   }
-
-  const provider = $('consentModal').dataset.provider;
-  const saved = JSON.parse(localStorage.getItem('feesReceiving:' + schoolDbId) || '{}');
-
-  saved.agreement = {
-    provider,
-    providerLabel: provider === 'paystack' ? 'Paystack' : 'Flutterwave',
-    signerName: $('signerName').value.trim(),
-    signerTitle: $('signerTitle').value.trim(),
-    signedAt: new Date().toISOString(),
-    signature: drawn ? canvas.toDataURL('image/png') : '',
-    uploadedForm: uploadedAgreement
-  };
-
-  localStorage.setItem('feesReceiving:' + schoolDbId, JSON.stringify(saved));
-  showMsg('pageMsg', 'Gateway consent recorded. Save payment methods to apply your selection.');
-  closeConsent();
-  fillPaymentConfig();
-});
-
-async function setupFee(event) {
-  event.preventDefault();
 
   try {
-    const body = {
+    let body = {
+      method: $('paymentMethodType').value,
+      bankDetails: {
+        bankName: $('bankName').value,
+        accountNumber: $('accountNumber').value
+      },
+      consentSigned
+    };
+
+    let r = await api(API_ROOT + '/payment-config', { method: 'POST', body: JSON.stringify(body) });
+    let d = await r.json();
+    if (!d.success) throw Error(d.error || 'Failed to save config');
+    msg('paymentConfigMsg', 'Payment configuration successfully updated!', true);
+    updatePaymentMethodUI();
+  } catch (err) {
+    msg('paymentConfigMsg', err.message, false);
+  }
+}
+
+$('paymentConfigForm').addEventListener('submit', savePaymentConfig);
+
+async function classes() {
+  try {
+    let r = await api(API_ROOT + '/fees/meta/classes');
+    let d = await r.json();
+    if (d.success) {
+      $('classId').innerHTML = '<option value="">Select Class</option>' + d.classes.map(x => '<option>' + esc(x) + '</option>').join('');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function setup(e) {
+  e.preventDefault();
+  msg('setupMsg', 'Setting up fee structure...', true);
+  try {
+    let body = {
       classId: $('classId').value,
-      session: $('session').value,
-      term: $('term').value,
+      term: $('termSelect').value,
+      session: $('sessionSelect').value,
       type: $('type').value,
       amount: $('amount').value,
       dueDate: $('due').value
     };
-
-    await readJson(await api(API + '/fees/class-setup', {
-      method: 'POST',
-      body: JSON.stringify(body)
-    }));
-
-    showMsg('setupMsg', 'Fee structure set up successfully.');
-    event.target.reset();
-    populateTerms();
-    await Promise.all([loadFees(), loadStats()]);
-  } catch (error) {
-    showMsg('setupMsg', error.message, false);
+    let r = await api(API_ROOT + '/fees/class-setup', { method: 'POST', body: JSON.stringify(body) });
+    let d = await r.json();
+    
+    if (!d.success) throw Error(d.error || 'Unable to set up fee');
+    
+    msg('setupMsg', d.message || 'Fee setup successful', true);
+    e.target.reset();
+    await Promise.all([fees(), stats()]);
+  } catch (x) {
+    msg('setupMsg', x.message, false);
   }
 }
 
-async function loadFees() {
+let timer;
+function search(e) {
+  clearTimeout(timer);
+  let q = e.target.value.trim();
+  let box = $('studentResults');
+  
+  if (q.length < 2) {
+    box.classList.add('hidden');
+    return;
+  }
+  
+  timer = setTimeout(async () => {
+    try {
+      let r = await api(API_ROOT + '/fees/search/student?query=' + encodeURIComponent(q));
+      let d = await r.json();
+      
+      box.innerHTML = d.success && d.results?.length
+        ? d.results.slice(0, 10).map(s => `
+            <button class="flex w-full items-center justify-between rounded-xl p-3 text-left transition-all hover:bg-slate-50 border-b border-slate-100 last:border-0" onclick='student(${JSON.stringify(s.id)},${JSON.stringify(s.name)},${JSON.stringify(s.class || "N/A")})'>
+              <div>
+                <b class="block text-sm font-semibold text-slate-800">${esc(s.name)}</b>
+                <div class="text-xs text-slate-400 mt-0.5">${esc(s.id)} • ${esc(s.class || 'N/A')}</div>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-slate-400 block">Outstanding</span>
+                <b class="text-xs font-bold text-rose-600">${money(s.outstandingFees)}</b>
+              </div>
+            </button>
+          `).join('')
+        : '<div class="p-4 text-center text-sm text-slate-500">No matching students found</div>';
+      
+      box.classList.remove('hidden');
+    } catch (x) {
+      box.innerHTML = '<div class="p-4 text-center text-sm text-rose-600">Search failed.</div>';
+      box.classList.remove('hidden');
+    }
+  }, 300);
+}
+
+function badge(s) {
+  s = s || 'Unpaid';
+  let c = s === 'Paid'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : s === 'Waived'
+    ? 'bg-amber-50 text-amber-700 border-amber-200'
+    : s === 'Partial'
+    ? 'bg-sky-50 text-sky-700 border-sky-200'
+    : 'bg-rose-50 text-rose-700 border-rose-200';
+    
+  return `<span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${c}">
+            <span class="h-1.5 w-1.5 rounded-full ${s === 'Paid' ? 'bg-emerald-500' : s === 'Waived' ? 'bg-amber-500' : s === 'Partial' ? 'bg-sky-500' : 'bg-rose-500'}"></span>
+            ${esc(s)}
+          </span>`;
+}
+
+async function student(id, name, cls) {
   try {
-    const data = await readJson(await api(API + '/fees?limit=500'));
-    feesData = data.fees || [];
-    renderFees();
-  } catch (error) {
-    $('feesBody').innerHTML =
-      `<tr><td colspan="9" class="p-8 text-center text-rose-600">${esc(error.message)}</td></tr>`;
+    let r = await api(API_ROOT + '/fees/student/' + encodeURIComponent(id));
+    let d = await r.json();
+    if (!d.success) throw Error(d.error || 'Unable to load fees');
+    
+    let s = d.summary || {};
+    let h = `
+      <div class="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-user-graduate text-brand-600"></i> ${esc(name)}
+          </h2>
+          <p class="text-xs text-slate-500">Class: ${esc(cls)} • ID: ${esc(id)}</p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 mb-6">
+        <div class="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5">
+          <span class="text-xs text-slate-400 font-medium">Total Fees</span>
+          <b class="block text-lg font-extrabold text-slate-800 mt-0.5">${money(s.total)}</b>
+        </div>
+        <div class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3.5">
+          <span class="text-xs text-emerald-600 font-medium">Paid</span>
+          <b class="block text-lg font-extrabold text-emerald-700 mt-0.5">${money(s.paid)}</b>
+        </div>
+        <div class="rounded-xl border border-rose-100 bg-rose-50/40 p-3.5">
+          <span class="text-xs text-rose-600 font-medium">Outstanding</span>
+          <b class="block text-lg font-extrabold text-rose-700 mt-0.5">${money(s.due)}</b>
+        </div>
+        <div class="rounded-xl border border-amber-100 bg-amber-50/40 p-3.5">
+          <span class="text-xs text-amber-600 font-medium">Waived</span>
+          <b class="block text-lg font-extrabold text-amber-700 mt-0.5">${money(s.waived)}</b>
+        </div>
+      </div>
+    `;
+
+    if (!d.fees?.length) {
+      h += '<p class="py-8 text-center text-sm font-medium text-slate-400">No fee records found for this student.</p>';
+    } else {
+      h += `
+        <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+          <table class="w-full min-w-[650px] text-sm text-slate-600">
+            <thead class="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200">
+              <tr>
+                <th class="p-3.5 text-left">Type</th>
+                <th class="p-3.5 text-left">Amount</th>
+                <th class="p-3.5 text-left">Status</th>
+                <th class="p-3.5 text-left">Due</th>
+                <th class="p-3.5 text-left">Method</th>
+                <th class="p-3.5 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+              ${d.fees.map(f => `
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                  <td class="p-3.5 font-semibold text-slate-800">${esc(f.type)}</td>
+                  <td class="p-3.5 font-semibold">${money(f.amount)}</td>
+                  <td class="p-3.5">${badge(f.status)}</td>
+                  <td class="p-3.5 text-slate-500">${esc(f.dueDate || '—')}</td>
+                  <td class="p-3.5 text-slate-500">${esc(f.paymentMethod || '—')}</td>
+                  <td class="p-3.5 text-center">
+                    <button onclick="openModal('${id}','${f._id}')" class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700">Update</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    $('studentDetails').innerHTML = h;
+    $('studentCard').classList.remove('hidden');
+    $('studentResults').classList.add('hidden');
+  } catch (e) {
+    alert(e.message);
   }
 }
 
-function renderFees() {
-  const query = $('feeSearch').value.toLowerCase();
-  const status = $('feeStatus').value.toLowerCase();
+async function fees() {
+  let tb = $('feesBody');
+  tb.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading fee records...</td></tr>';
+  try {
+    let r = await api(API_ROOT + '/fees');
+    let d = await r.json();
+    if (!d.success) throw Error(d.error || 'Unable to load fees');
+    allFees = d.fees || [];
+    render();
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-rose-600 font-medium">' + esc(e.message) + '</td></tr>';
+  }
+}
 
-  const rows = feesData.filter(fee =>
-    (!query || [
-      fee.student?.name,
-      fee.student?.id,
-      fee.student?.class,
-      fee.term,
-      fee.session,
-      fee.type,
-      fee.status,
-      fee.paymentMethod
-    ].join(' ').toLowerCase().includes(query)) &&
-    (!status || String(fee.status || 'Unpaid').toLowerCase() === status)
+function render() {
+  let q = $('feeSearch').value.toLowerCase();
+  let st = $('feeStatus').value.toLowerCase();
+  
+  let rows = allFees.filter(f => 
+    (!q || [f.student?.name, f.student?.class, f.term, f.session, f.type, f.status, f.paymentMethod].join(' ').toLowerCase().includes(q)) &&
+    (!st || String(f.status || 'Unpaid').toLowerCase() === st)
   );
 
   $('feesBody').innerHTML = rows.length
-    ? rows.map(fee => `
-      <tr class="border-t hover:bg-slate-50">
-        <td class="p-3 font-semibold">${esc(fee.student?.name || 'N/A')}</td>
-        <td class="p-3">${esc(fee.student?.class || '—')}</td>
-        <td class="p-3">${esc(fee.term || '—')} / ${esc(fee.session || '—')}</td>
-        <td class="p-3">${esc(fee.type || '—')}</td>
-        <td class="p-3 font-bold">${money(fee.amount)}</td>
-        <td class="p-3">${esc(fee.status || 'Unpaid')}</td>
-        <td class="p-3">${esc(fee.paymentMethod || '—')}</td>
-        <td class="p-3">${esc(fee.dueDate || '—')}</td>
-        <td class="p-3">
-          <button class="rounded-lg border px-3 py-1 text-xs font-bold"
-            onclick="openFee('${esc(fee.student?.id || '')}','${esc(fee.feeId || '')}')">Update</button>
-        </td>
-      </tr>
-    `).join('')
-    : '<tr><td colspan="9" class="p-8 text-center text-slate-400">No fee records found.</td></tr>';
+    ? rows.map(f => `
+        <tr class="hover:bg-slate-50/60 transition-colors">
+          <td class="py-3.5 px-4 font-bold text-slate-900">${esc(f.student?.name || 'N/A')}</td>
+          <td class="py-3.5 px-4 text-slate-600">${esc(f.student?.class || '—')}</td>
+          <td class="py-3.5 px-4 text-slate-600">${esc(f.term || '—')}</td>
+          <td class="py-3.5 px-4 text-slate-600">${esc(f.session || '—')}</td>
+          <td class="py-3.5 px-4 font-semibold text-slate-800">${esc(f.type || '—')}</td>
+          <td class="py-3.5 px-4 font-extrabold text-slate-900">${money(f.amount)}</td>
+          <td class="py-3.5 px-4">${badge(f.status)}</td>
+          <td class="py-3.5 px-4 text-slate-500">${esc(f.paymentMethod || '—')}</td>
+          <td class="py-3.5 px-4 text-slate-500">${esc(f.dueDate || '—')}</td>
+          <td class="py-3.5 px-4 text-center">
+            <button onclick="openModal('${f.student?.id || ''}','${f.feeId || ''}')" class="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-all hover:border-brand-600 hover:text-brand-600">
+              <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="10" class="p-8 text-center text-slate-400 font-medium">No fee records found.</td></tr>';
 }
 
-async function loadStats() {
+async function stats() {
   try {
-    const data = await readJson(await api(API + '/fees/stats/all'));
-    const stats = data.statistics || {};
-    $('total').textContent = money(stats.totalFees);
-    $('paid').textContent = money(stats.paidFees);
-    $('outstanding').textContent = money(stats.outstandingFees);
-    $('waived').textContent = money(stats.waivedFees);
-  } catch (error) {
-    console.warn(error);
+    let r = await api(API_ROOT + '/fees/stats/all');
+    let d = await r.json();
+    let s = d.statistics || {};
+    if (d.success) {
+      $('total').textContent = money(s.totalFees);
+      $('paid').textContent = money(s.paidFees);
+      $('outstanding').textContent = money(s.outstandingFees);
+      $('waived').textContent = money(s.waivedFees);
+    }
+  } catch (e) {
+    console.error(e);
   }
 }
 
-function openFee(studentId, feeId) {
-  $('studentId').value = studentId;
-  $('feeId').value = feeId;
-  $('feeModal').classList.remove('hidden');
-  $('feeModal').classList.add('flex');
+function openModal(s, f) {
+  currentFeeId = f;
+  $('studentId').value = s;
+  $('feeId').value = f;
+  $('status').value = '';
+  $('method').value = '';
+  $('ref').value = '';
+  if ($('paidInputModal')) $('paidInputModal').value = '';
+  $('reason').value = '';
+  $('notes').value = '';
+  $('paidWrap').classList.add('hidden');
+  $('reasonWrap').classList.add('hidden');
+  $('modalMsg').classList.add('hidden');
+  
+  $('modal').classList.remove('hidden');
+  $('modal').classList.add('flex');
 }
 
-function closeFee() {
-  $('feeModal').classList.add('hidden');
-  $('feeModal').classList.remove('flex');
+function closeModal() {
+  $('modal').classList.add('hidden');
+  $('modal').classList.remove('flex');
+  currentFeeId = null;
 }
 
-$('feeForm').addEventListener('submit', async event => {
-  event.preventDefault();
-
-  const studentId = $('studentId').value;
-  const feeId = $('feeId').value;
-
+async function updateFee(e) {
+  e.preventDefault();
+  let s = $('studentId').value;
+  let f = $('feeId').value;
+  let body = {
+    status: $('status').value,
+    paymentMethod: $('method').value,
+    paymentRef: $('ref').value,
+    paidAmount: $('paidInputModal') ? $('paidInputModal').value : '',
+    waiveReason: $('reason').value,
+    notes: $('notes').value
+  };
+  
   try {
-    const body = {
-      status: $('status').value,
-      paymentMethod: $('method').value,
-      paymentRef: $('reference').value,
-      paidAmount: $('paidAmount').value
-    };
-
-    await readJson(await api(
-      `${API}/fees/student/${encodeURIComponent(studentId)}/fee/${encodeURIComponent(feeId)}`,
-      { method: 'PUT', body: JSON.stringify(body) }
-    ));
-
-    closeFee();
-    await Promise.all([loadFees(), loadStats()]);
-  } catch (error) {
-    showMsg('feeMsg', error.message, false);
+    let r = await api(`${API_ROOT}/fees/student/${encodeURIComponent(s)}/fee/${encodeURIComponent(f)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+    let d = await r.json();
+    
+    if (!d.success) throw Error(d.error || 'Update failed');
+    
+    msg('modalMsg', 'Fee status updated successfully', true);
+    await Promise.all([fees(), stats()]);
+    setTimeout(closeModal, 600);
+  } catch (x) {
+    msg('modalMsg', x.message, false);
   }
-});
+}
 
-$('deleteFee').onclick = async () => {
-  if (!confirm('Delete this fee record?')) return;
-
+async function delFee() {
+  let s = $('studentId').value;
+  let f = $('feeId').value;
+  if (!s || !f || !confirm('Are you sure you want to delete this fee record?')) return;
   try {
-    const studentId = $('studentId').value;
-    const feeId = $('feeId').value;
-
-    await readJson(await api(
-      `${API}/fees/student/${encodeURIComponent(studentId)}/fee/${encodeURIComponent(feeId)}`,
-      { method: 'DELETE' }
-    ));
-
-    closeFee();
-    await Promise.all([loadFees(), loadStats()]);
-  } catch (error) {
-    showMsg('feeMsg', error.message, false);
+    let r = await api(`${API_ROOT}/fees/student/${encodeURIComponent(s)}/fee/${encodeURIComponent(f)}`, { method: 'DELETE' });
+    let d = await r.json();
+    if (!d.success) throw Error(d.error || 'Delete failed');
+    closeModal();
+    await Promise.all([fees(), stats()]);
+  } catch (e) {
+    alert(e.message);
   }
-};
+}
 
 function exportFees() {
-  const rows = [
-    ['Student', 'Class', 'Term', 'Session', 'Fee Type', 'Amount', 'Status', 'Method', 'Due Date'],
-    ...feesData.map(fee => [
-      fee.student?.name || 'N/A',
-      fee.student?.class || '',
-      fee.term || '',
-      fee.session || '',
-      fee.type || '',
-      fee.amount || 0,
-      fee.status || 'Unpaid',
-      fee.paymentMethod || '',
-      fee.dueDate || ''
-    ])
-  ];
-
-  const csv = rows.map(row =>
-    row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(',')
-  ).join('\n');
-
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  link.download = 'fees_' + new Date().toISOString().slice(0, 10) + '.csv';
-  link.click();
-  URL.revokeObjectURL(link.href);
+  let h = ['Student', 'Class', 'Term', 'Session', 'Fee Type', 'Amount', 'Status', 'Method', 'Due Date'];
+  let rows = allFees.map(f => [
+    f.student?.name || 'N/A',
+    f.student?.class || '',
+    f.term || '',
+    f.session || '',
+    f.type || '',
+    f.amount || 0,
+    f.status || 'Unpaid',
+    f.paymentMethod || '',
+    f.dueDate || ''
+  ]);
+  
+  let csv = [h, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'fees_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
 }
 
-$('session').addEventListener('change', populateTerms);
-$('setupForm').addEventListener('submit', setupFee);
-$('paymentForm').addEventListener('submit', savePayments);
-document.querySelectorAll('[name="receiving"]').forEach(checkbox =>
-  checkbox.addEventListener('change', togglePaymentFields)
-);
-$('agreementOpen').onclick = openConsent;
-$('consentClose').onclick = closeConsent;
-$('cancelConsent').onclick = closeConsent;
-$('downloadAgreement').onclick = downloadForm;
-$('feeSearch').addEventListener('input', renderFees);
-$('feeStatus').addEventListener('change', renderFees);
-$('exportBtn').onclick = exportFees;
-$('closeFee').onclick = closeFee;
-$('status').addEventListener('change', event =>
-  $('paidWrap').classList.toggle('hidden', event.target.value !== 'Partial')
-);
+$('setupForm').addEventListener('submit', setup);
+$('studentInput').addEventListener('input', search);
+$('feeSearch').addEventListener('input', render);
+$('feeStatus').addEventListener('change', render);
 
-(async () => {
+$('status').addEventListener('change', e => {
+  $('paidWrap').classList.toggle('hidden', e.target.value !== 'Partial');
+  $('reasonWrap').classList.toggle('hidden', e.target.value !== 'Waived');
+});
+
+$('feeForm').addEventListener('submit', updateFee);
+$('deleteBtn').addEventListener('click', delFee);
+
+$('hamburger').onclick = () => {
+  $('sidebar').classList.remove('-translate-x-full');
+  $('overlay').classList.remove('hidden');
+};
+
+$('overlay').onclick = () => {
+  $('sidebar').classList.add('-translate-x-full');
+  $('overlay').classList.add('hidden');
+};
+
+async function init() {
   try {
-    await loadSchool();
-    fillPaymentConfig();
-    await Promise.all([loadAcademic(), loadClasses(), loadFees(), loadStats()]);
-  } catch (error) {
-    showMsg('pageMsg', error.message, false);
+    await school();
+    await Promise.allSettled([loadSessionsAndTerms(), loadPaymentConfig(), classes(), fees(), stats()]);
+    $('loading').classList.add('opacity-0');
+    setTimeout(() => $('loading').remove(), 300);
+  } catch (e) {
+    $('loading').innerHTML = `
+      <div class="p-8 text-center bg-white rounded-3xl shadow-2xl max-w-sm border border-slate-100">
+        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 mx-auto mb-3">
+          <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+        </div>
+        <b class="text-base text-slate-900 block">Unable to load school account</b>
+        <p class="mt-1 text-xs text-slate-500">${esc(e.message)}</p>
+        <button onclick="location.reload()" class="mt-5 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-brand-700">Retry</button>
+      </div>`;
   }
-})();
+}
+
+init();
 </script>
 </body>
 </html>
