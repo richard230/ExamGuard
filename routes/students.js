@@ -10,6 +10,35 @@ const adminAuth = require('../middleware/adminAuth');
 const { authMiddleware } = require('./auth');
 const Student = require('../models/Student');
 
+// School wallet ledger model; schema matches the finance backend collection.
+const SchoolWalletSchema = new mongoose.Schema({
+  schoolId: { type: String, required: true, unique: true, index: true },
+  currency: { type: String, default: 'NGN' },
+  balance: { type: Number, default: 0, min: 0 },
+  totalCredited: { type: Number, default: 0, min: 0 },
+  totalDebited: { type: Number, default: 0, min: 0 },
+  transactions: [{
+    type: { type: String, enum: ['credit', 'debit'], required: true },
+    source: { type: String, enum: ['direct_transfer', 'paystack', 'adjustment', 'expense', 'student_activation'], required: true },
+    amount: { type: Number, required: true, min: 0 },
+    status: { type: String, enum: ['pending', 'completed', 'rejected'], default: 'pending' },
+    reference: { type: String, required: true },
+    payerName: String, payerEmail: String, description: String,
+    createdAt: { type: Date, default: Date.now }, verifiedAt: Date,
+    verifiedBy: String, metadata: mongoose.Schema.Types.Mixed
+  }]
+}, { timestamps: true, collection: 'schoolwallets' });
+const SchoolWallet = mongoose.models.SchoolWallet || mongoose.model('SchoolWallet', SchoolWalletSchema);
+
+function addOneCalendarMonth(date) {
+  const result = new Date(date);
+  const day = result.getDate();
+  result.setMonth(result.getMonth() + 1);
+  if (result.getDate() < day) result.setDate(0);
+  return result;
+}
+
+
 // Utility: Extract schoolId from req.user for all roles (including superadmin)
 function getSchoolId(req) {
   if (!req.user) return null;
@@ -605,6 +634,14 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    if (student.subscriptionEndDate && new Date(student.subscriptionEndDate) <= new Date()) {
+      return res.status(403).json({
+        success: false,
+        code: 'STUDENT_SUBSCRIPTION_EXPIRED',
+        error: 'Your student account subscription has expired. Please contact your school administrator to renew it.'
+      });
+    }
+
     const token = jwt.sign(
       { id: student._id, regNo: student.regNo, role: 'student' },
       process.env.JWT_SECRET,
@@ -878,66 +915,82 @@ router.get('/:regNo/skills-report', async (req, res) => {
 });
 
 // --- Manually activate an inactive student account (school admin only) ---
+// ₦200 activates an account for one calendar month. Restoring a manually
+// deactivated account during its unexpired paid period does not charge again.
 router.patch('/:studentId/activate', authMiddleware, adminAuth, async (req, res) => {
+  let walletDebited = false;
+  let walletReference = null;
+  const activationFee = 200;
   try {
     const schoolId = getSchoolId(req);
-    if (!schoolId) {
-      return res.status(403).json({
-        success: false,
-        error: 'Your account is not assigned to a school.'
-      });
-    }
-
-    const { studentId } = req.params;
-    const lookup = [
-      { student_id: studentId },
-      { regNo: studentId }
-    ];
-    if (mongoose.Types.ObjectId.isValid(String(studentId))) {
-      lookup.push({ _id: new mongoose.Types.ObjectId(studentId) });
-    }
-
+    if (!schoolId) return res.status(403).json({ success: false, error: 'Your account is not assigned to a school.' });
+    const studentId = req.params.studentId;
+    const lookup = [{ student_id: studentId }, { regNo: studentId }];
+    if (mongoose.Types.ObjectId.isValid(String(studentId))) lookup.push({ _id: new mongoose.Types.ObjectId(studentId) });
     const student = await Student.findOne({ schoolId, $or: lookup });
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        error: 'Student not found in this school.'
-      });
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found in this school.' });
+
+    const now = new Date();
+    const paidUntil = student.subscriptionEndDate ? new Date(student.subscriptionEndDate) : null;
+    const subscriptionValid = !!paidUntil && paidUntil > now;
+    if (student.accountStatus === 'active' && subscriptionValid) {
+      return res.json({ success: true, message: 'Student account is already active.', accountStatus: 'active', subscriptionStatus: 'active', subscriptionEndDate: paidUntil, charged: 0 });
     }
 
-    if (String(student.accountStatus || 'active').toLowerCase() === 'active') {
-      return res.json({
-        success: true,
-        message: 'This student account is already active.',
-        accountStatus: 'active',
-        student: {
-          student_id: student.student_id,
-          regNo: student.regNo,
-          accountStatus: 'active'
-        }
-      });
+    let startDate = student.subscriptionStartDate;
+    let endDate = student.subscriptionEndDate;
+    if (!subscriptionValid) {
+      walletReference = `STU-ACT-${Date.now()}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
+      const debit = await SchoolWallet.updateOne(
+        { schoolId: String(schoolId), balance: { $gte: activationFee } },
+        { $inc: { balance: -activationFee, totalDebited: activationFee },
+          $push: { transactions: { type: 'debit', source: 'student_activation', amount: activationFee, status: 'completed', reference: walletReference, description: `One-month activation: ${student.firstname || ''} ${student.surname || ''}`.trim(), createdAt: now, verifiedAt: now, verifiedBy: String(req.user?._id || req.user?.id || 'admin'), metadata: { studentId: String(student._id), student_id: student.student_id, regNo: student.regNo } } } }
+      );
+      if (debit.modifiedCount !== 1) {
+        const wallet = await SchoolWallet.findOne({ schoolId: String(schoolId) }).lean();
+        return res.status(400).json({ success: false, error: `Insufficient school wallet balance. ₦200 is required. Current balance: ₦${Number(wallet?.balance || 0).toLocaleString()}.` });
+      }
+      walletDebited = true;
+      startDate = now;
+      endDate = addOneCalendarMonth(now);
     }
 
     student.accountStatus = 'active';
-    student.updatedAt = new Date();
+    student.subscriptionStatus = 'active';
+    student.subscriptionStartDate = startDate || now;
+    student.subscriptionEndDate = endDate;
     await student.save();
-
-    return res.json({
-      success: true,
-      message: 'Student account activated successfully.',
-      accountStatus: student.accountStatus,
-      student: {
-        student_id: student.student_id,
-        regNo: student.regNo,
-        accountStatus: student.accountStatus
-      }
-    });
+    return res.json({ success: true, message: walletDebited ? 'Student activated. ₦200 has been deducted for one month.' : 'Student account reactivated using the remaining valid subscription.', accountStatus: 'active', subscriptionStatus: 'active', subscriptionStartDate: student.subscriptionStartDate, subscriptionEndDate: student.subscriptionEndDate, charged: walletDebited ? 200 : 0 });
   } catch (err) {
+    if (walletDebited && walletReference) {
+      try {
+        await SchoolWallet.updateOne(
+          { schoolId: String(getSchoolId(req)), 'transactions.reference': walletReference },
+          { $inc: { balance: activationFee, totalDebited: -activationFee },
+            $set: { 'transactions.$.status': 'rejected', 'transactions.$.description': 'Activation failed; wallet debit reversed.' } }
+        );
+      } catch (refundErr) { console.error('[STUDENT ACTIVATION REFUND ERROR]', refundErr); }
+    }
     console.error('[ACTIVATE STUDENT ERROR]', err);
-    return res.status(500).json({
-      success: false,
-      error: err.message || 'Unable to activate student account.'
-    });
+    return res.status(500).json({ success: false, error: err.message || 'Unable to activate student account.' });
+  }
+});
+
+router.patch('/:studentId/deactivate', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const schoolId = getSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, error: 'Your account is not assigned to a school.' });
+    const studentId = req.params.studentId;
+    const lookup = [{ student_id: studentId }, { regNo: studentId }];
+    if (mongoose.Types.ObjectId.isValid(String(studentId))) lookup.push({ _id: new mongoose.Types.ObjectId(studentId) });
+    const student = await Student.findOne({ schoolId, $or: lookup });
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found in this school.' });
+    student.accountStatus = 'inactive';
+    await student.save();
+    return res.json({ success: true, message: 'Student account deactivated. Any unused subscription time is retained.', accountStatus: 'inactive', subscriptionEndDate: student.subscriptionEndDate || null });
+  } catch (err) {
+    console.error('[DEACTIVATE STUDENT ERROR]', err);
+    return res.status(500).json({ success: false, error: err.message || 'Unable to deactivate student account.' });
   }
 });
 
