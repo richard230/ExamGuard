@@ -368,7 +368,9 @@
   const API = {
     school: ['/auth/me', '/schools/me', '/school/me'],
     student: ['/students/me'],
-    dashboard: ['/e-classroom/dashboard', '/students/me/e-classroom']
+    // The Student Dashboard confirms these existing endpoints. There is no
+    // confirmed E-Classroom dashboard endpoint on the deployed backend.
+    assignments: '/assignments/me'
   };
 
   function getToken() {
@@ -474,16 +476,29 @@
     return payload?.dashboard || payload?.data?.dashboard || payload?.data || payload || null;
   }
 
+  let bootFinished = false;
+
   function setBoot(title, status, progress) {
-    $('bootTitle').textContent = title;
-    $('bootStatus').textContent = status;
-    $('bootProgress').style.width = `${Math.max(5, Math.min(100, progress))}%`;
+    const titleEl = $('bootTitle');
+    const statusEl = $('bootStatus');
+    const progressEl = $('bootProgress');
+    if (titleEl) titleEl.textContent = title;
+    if (statusEl) statusEl.textContent = status;
+    if (progressEl) progressEl.style.width = `${Math.max(5, Math.min(100, progress))}%`;
   }
 
   function finishBoot() {
+    // Idempotent: init may reach both catch and finally, and the overlay may
+    // already have been removed by an earlier call.
+    if (bootFinished) return;
+    bootFinished = true;
+    setBoot('Ready', 'Your classroom is ready.', 100);
     const overlay = $('bootOverlay');
-    overlay.classList.add('opacity-0', 'pointer-events-none');
-    setTimeout(() => overlay.remove(), 350);
+    if (!overlay) return;
+    requestAnimationFrame(() => {
+      if (overlay.isConnected) overlay.classList.add('opacity-0', 'pointer-events-none');
+    });
+    setTimeout(() => { if (overlay.isConnected) overlay.remove(); }, 350);
   }
 
   function showToast(message) {
@@ -774,29 +789,46 @@
   }
 
   async function resolveDashboard() {
-    setBoot('Loading classroom', 'Preparing courses, tasks and resources…', 78);
+    setBoot('Loading classroom', 'Preparing your learning information…', 78);
 
-    if (!state.studentId) return;
-
-    const cached = studentCacheRead(state.schoolId, state.studentId)?.data;
-    if (cached?.dashboard) {
-      renderDashboard(cached.dashboard);
-      setBoot('Ready', 'Refreshing your latest classroom activity…', 90);
+    if (!state.studentId) {
+      renderDashboard({});
+      return;
     }
 
+    const cached = studentCacheRead(state.schoolId, state.studentId)?.data;
+    const profile = state.student && typeof state.student === 'object' ? state.student : {};
+    const baseDashboard = {
+      ...profile,
+      courses: Array.isArray(profile.courses) ? profile.courses : [],
+      resources: Array.isArray(profile.resources) ? profile.resources : [],
+      todaySchedule: Array.isArray(profile.todaySchedule) ? profile.todaySchedule :
+                     Array.isArray(profile.schedule) ? profile.schedule : []
+    };
+
+    // Show cached data immediately, then refresh only through an endpoint that
+    // is already used by the working Student Dashboard (/api/assignments/me).
+    if (cached?.dashboard) renderDashboard(cached.dashboard);
+    else renderDashboard(baseDashboard);
+
     try {
-      const payload = await tryCandidates(API.dashboard);
-      const dashboard = unwrapDashboard(payload);
+      const response = await apiFetch(API.assignments);
+      if (!response.ok) throw new Error(`Assignments request failed: ${response.status}`);
+      const payload = await response.json();
+      const assignments = Array.isArray(payload) ? payload :
+        Array.isArray(payload?.assignments) ? payload.assignments :
+        Array.isArray(payload?.data?.assignments) ? payload.data.assignments :
+        Array.isArray(payload?.data) ? payload.data : [];
+
+      const dashboard = { ...baseDashboard, ...(cached?.dashboard || {}), assignments };
       renderDashboard(dashboard);
       studentCacheWrite(state.schoolId, state.studentId, {
         student: state.student,
         dashboard
       });
     } catch (err) {
-      if (!cached?.dashboard) {
-        renderDashboard({});
-        showToast('Classroom data could not be refreshed right now.');
-      }
+      console.warn('Classroom assignments unavailable; showing available profile/cache data:', err);
+      if (!cached?.dashboard) renderDashboard(baseDashboard);
     }
   }
 
