@@ -1107,15 +1107,48 @@
                 }
 
                 if (response.ok && data?.token) {
+                    // Students with explicitly inactive, suspended, disabled or
+                    // blocked accounts must not receive a usable portal session.
+                    // Do not treat a missing status field as inactive because some
+                    // existing login responses omit it; the API should also enforce
+                    // this rule before issuing a token.
+                    const authenticatedUser = data.user || {};
+                    const accountStatus = String(
+                        authenticatedUser.status ||
+                        authenticatedUser.accountStatus ||
+                        authenticatedUser.account_status ||
+                        ''
+                    ).trim().toLowerCase();
+                    const explicitlyInactive =
+                        authenticatedUser.isActive === false ||
+                        authenticatedUser.active === false ||
+                        authenticatedUser.is_active === false ||
+                        ['inactive', 'suspended', 'disabled', 'deactivated', 'blocked', 'pending'].includes(accountStatus);
+                    const authenticatedRole = String(
+                        authenticatedUser.role || data.role || currentPortal || ''
+                    ).trim().toLowerCase();
+
+                    if (authenticatedRole === 'student' && explicitlyInactive) {
+                        // Clear any stale session so an old token cannot be reused
+                        // by this browser after an inactive-account login attempt.
+                        ['token', 'authToken', 'user', 'userRole', 'keepLoggedIn'].forEach(key => localStorage.removeItem(key));
+                        showErrorToast(
+                            accountStatus === 'suspended'
+                                ? 'Your student account is suspended. Please contact your school administrator.'
+                                : 'Your student account is inactive. Please contact your school administrator to reactivate it.'
+                        );
+                        return;
+                    }
+
                     saveLoginSession(
                         data.token,
-                        data.user,
-                        data.user?.role,
+                        authenticatedUser,
+                        authenticatedUser.role || data.role,
                         keepLoggedIn
                     );
 
                     showSuccessToast();
-                    redirectUser(data.user?.role);
+                    redirectUser(authenticatedUser.role || data.role);
                 } else {
                     showErrorToast(data?.error || data?.message || 'Invalid login credentials.');
                 }
