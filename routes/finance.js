@@ -288,34 +288,62 @@ router.get('/school-wallet/funding/paystack/verify', authMiddleware, adminAuth, 
     if (!reference) return res.status(400).json({ success: false, error: 'Payment reference is required.' });
     if (!process.env.PAYSTACK_SECRET_KEY) return res.status(503).json({ success: false, error: 'Paystack is not configured.' });
 
+    console.info('[SchoolWallet] Paystack verification requested', { schoolId: req.schoolId, reference });
     const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId, 'transactions.reference': reference });
-    if (!wallet) return res.status(404).json({ success: false, error: 'Wallet funding reference not found.' });
-    const transaction = wallet.transactions.find(t => t.reference === reference);
+    if (!wallet) {
+      console.warn('[SchoolWallet] Verification reference not found in this school wallet', { schoolId: req.schoolId, reference });
+      return res.status(404).json({ success: false, error: 'This payment reference is not recorded in the current school wallet.' });
+    }
+    const transaction = wallet.transactions.find(t => String(t.reference) === reference);
+    if (!transaction) return res.status(404).json({ success: false, error: 'Wallet transaction was not found.' });
+    if (transaction.source !== 'paystack') {
+      return res.status(400).json({ success: false, error: 'This transaction is not a Paystack payment. Bank transfers must be confirmed against the school bank statement.' });
+    }
     if (transaction.status === 'completed') {
-      return res.json({ success: true, alreadyVerified: true, balance: wallet.balance, transaction });
+      return res.json({ success: true, alreadyVerified: true, credited: false, balance: wallet.balance, transaction });
+    }
+    if (transaction.status === 'rejected') {
+      return res.status(409).json({ success: false, error: 'This transaction has been rejected and cannot be credited.' });
     }
 
     const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` }
+      method: 'GET',
+      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, Accept: 'application/json' }
     });
-    const payload = await response.json();
-    const paidAmount = Number(payload.data?.amount || 0) / 100;
-    if (!response.ok || !payload.status || payload.data?.status !== 'success' ||
-        payload.data?.reference !== reference || Math.round(paidAmount * 100) !== Math.round(transaction.amount * 100) ||
-        payload.data?.metadata?.schoolId !== req.schoolId) {
-      return res.status(400).json({ success: false, error: payload.message || 'Payment could not be verified.' });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.status || !payload.data) {
+      console.error('[SchoolWallet] Paystack verification API error', { httpStatus: response.status, message: payload.message, reference });
+      return res.status(502).json({ success: false, error: payload.message || `Paystack verification service returned HTTP ${response.status}.` });
+    }
+    const paystackData = payload.data;
+    const paidAmountKobo = Number(paystackData.amount);
+    const expectedAmountKobo = Math.round(Number(transaction.amount) * 100);
+    const metadataSchoolId = paystackData.metadata?.schoolId;
+    const metadataMatches = metadataSchoolId == null || String(metadataSchoolId) === String(req.schoolId);
+    const referenceMatches = String(paystackData.reference || '') === reference;
+    const amountMatches = Number.isFinite(paidAmountKobo) && paidAmountKobo === expectedAmountKobo;
+    const currencyMatches = !paystackData.currency || String(paystackData.currency).toUpperCase() === 'NGN';
+    if (String(paystackData.status || '').toLowerCase() !== 'success' || !referenceMatches || !amountMatches || !currencyMatches || !metadataMatches) {
+      console.warn('[SchoolWallet] Paystack transaction did not pass validation', {
+        reference, paystackStatus: paystackData.status, referenceMatches, amountMatches,
+        currencyMatches, metadataMatches, expectedAmountKobo, paidAmountKobo,
+        metadataSchoolId: metadataSchoolId == null ? null : String(metadataSchoolId), schoolId: String(req.schoolId)
+      });
+      return res.status(409).json({ success: false, error: 'Paystack has not confirmed a matching successful payment for this reference. Check the reference, amount, currency and school, then retry.' });
     }
 
-    // Conditional update makes the credit idempotent for concurrent verification calls.
+    // Atomic conditional update prevents duplicate credits if the user taps Verify more than once.
     const result = await SchoolWallet.updateOne(
-      { schoolId: req.schoolId, transactions: { $elemMatch: { reference, status: 'pending' } } },
+      { schoolId: req.schoolId, transactions: { $elemMatch: { reference, source: 'paystack', status: 'pending' } } },
       {
         $inc: { balance: transaction.amount, totalCredited: transaction.amount },
-        $set: { 'transactions.$.status': 'completed', 'transactions.$.verifiedAt': new Date() }
+        $set: { 'transactions.$.status': 'completed', 'transactions.$.verifiedAt': new Date(), 'transactions.$.metadata.paystackTransactionId': paystackData.id }
       }
     );
     const updated = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
-    res.json({ success: true, credited: result.modifiedCount === 1, balance: updated?.balance || 0 });
+    const credited = result.modifiedCount === 1;
+    console.info('[SchoolWallet] Paystack verification finished', { schoolId: req.schoolId, reference, credited, balance: updated?.balance || 0 });
+    res.json({ success: true, credited, alreadyVerified: !credited, balance: updated?.balance || 0, reference });
   } catch (err) {
     console.error('Paystack verification failed:', err);
     res.status(500).json({ success: false, error: err.message });
