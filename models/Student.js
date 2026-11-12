@@ -76,7 +76,9 @@ const StudentSchema = new mongoose.Schema(
       trim: true,
       index: true
     },
-    subscriptionStatus: String,
+    subscriptionStatus: { type: String, enum: ['active', 'expired'], default: 'expired', index: true },
+    subscriptionStartDate: { type: Date, default: null },
+    subscriptionEndDate: { type: Date, default: null },
     firstname: {
       type: String,
       required: true,
