@@ -1328,6 +1328,9 @@
       };
       if (!Number.isFinite(payload.amount) || payload.amount < 100) return showToast('Enter a valid amount of at least ₦100.', 'error');
       try {
+        // Paystack redirects back to this page with ?reference=...&trxref=...
+        // Keep the callback on the same origin so the signed-in page can verify it.
+        payload.callbackUrl = `${window.location.origin}${window.location.pathname}`;
         const response = await apiFetch(`${API_ROOT}/finance/school-wallet/funding/paystack/initialize`, {method:'POST',body:JSON.stringify(payload)});
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.message || `Paystack initialization failed (${response.status})`);
@@ -1337,6 +1340,34 @@
         window.location.assign(checkoutUrl);
       } catch (error) {
         showErrorModal(error.message || 'Paystack checkout could not be started. Ensure Paystack is configured on the backend.', 'Payment could not start');
+      }
+    }
+
+    async function handlePaystackReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const reference = params.get('reference') || params.get('trxref');
+      if (!reference) return;
+
+      // Remove the callback query immediately to avoid accidental re-verification
+      // if the user refreshes or shares the page URL.
+      const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+      showSection('wallet');
+      const status = document.getElementById('schoolWalletStatus');
+      if (status) status.textContent = 'Payment returned from Paystack. Verifying transaction…';
+
+      try {
+        const response = await apiFetch(`${API_ROOT}/finance/school-wallet/funding/paystack/verify?reference=${encodeURIComponent(reference)}`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || result.message || `Payment verification failed (${response.status}).`);
+        }
+        await fetchSchoolWallet();
+        showToast(result.alreadyVerified ? 'Paystack payment was already verified.' : 'Payment verified and school wallet credited.');
+        if (status) status.textContent = 'Paystack payment verified successfully.';
+      } catch (error) {
+        await fetchSchoolWallet();
+        showErrorModal(error.message || 'Payment was returned but could not be verified. Refresh the wallet or contact support with the payment reference.', 'Payment verification pending', reference);
       }
     }
 
@@ -1817,6 +1848,7 @@ function setupSearch(inputId, tableId) {
         await loadAdminIdentity();
         await refreshFinance();
         loadSavedSettings();
+        await handlePaystackReturn();
 
         setupSearch('feeSearch', 'feeTableBody');
         setupSearch('invoiceSearch', 'invoiceTableBody');
