@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="School E-Classroom — a secure digital learning environment for students.">
+  <title>E-Classroom | Student Learning</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+          boxShadow: {
+            soft: '0 10px 35px rgba(15, 23, 42, .07)'
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+    html { scroll-behavior: smooth; }
+    body { min-height: 100vh; }
+    .glass { background: rgba(255,255,255,.82); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .hero-grid {
+      background-image:
+        linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .card-hover { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 16px 42px rgba(15,23,42,.10); }
+    .skeleton {
+      position: relative; overflow: hidden; color: transparent !important;
+      background: #e2e8f0 !important; border-color: #e2e8f0 !important;
+    }
+    .skeleton::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent);
+      animation: shimmer 1.35s infinite;
+    }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .skeleton::after { animation: none; }
+      .card-hover { transition: none; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-900 antialiased">
+
+<!-- Boot: school context first, then student context -->
+<div id="bootOverlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 px-6 transition-opacity duration-300">
+  <div class="w-full max-w-sm text-center">
+    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+      <div class="h-7 w-7 animate-spin rounded-full border-2 border-white/20 border-t-white"></div>
+    </div>
+    <p id="bootTitle" class="mt-5 text-sm font-extrabold text-white">Loading school</p>
+    <p id="bootStatus" class="mt-1 text-xs text-white/60">Preparing your learning environment…</p>
+    <div class="mx-auto mt-4 h-1.5 w-48 overflow-hidden rounded-full bg-white/10">
+      <div id="bootProgress" class="h-full w-1/4 rounded-full bg-white transition-all duration-500"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile navigation -->
+<div id="mobileBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 backdrop-blur-sm lg:hidden"></div>
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-[290px] -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:translate-x-0">
+  <div class="flex h-20 items-center gap-3 border-b border-slate-100 px-5">
+    <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+      <img id="schoolLogo" src="mainlogo.png" alt="School logo" class="h-full w-full object-cover"
+           onerror="this.style.display='none';document.getElementById('logoFallback').classList.remove('hidden')">
+      <span id="logoFallback" class="hidden text-sm font-extrabold text-indigo-600">EC</span>
+    </div>
+    <div class="min-w-0">
+      <p id="schoolName" class="truncate text-sm font-extrabold">E-Classroom</p>
+      <p class="text-xs font-medium text-slate-500">Digital learning</p>
+    </div>
+    <button id="closeSidebar" class="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Close navigation">
+      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto px-3 py-5">
+    <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Learning</p>
+    <div id="navLearning" class="space-y-1">
+      <a data-route="e-classroom.html" href="e-classroom.html" class="nav-link flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-bold text-indigo-700">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-indigo-100 text-indigo-700">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/><path d="m8 8 3 2-3 2V8ZM13 16h4"/></svg>
+        </span>
+        Classroom
+      </a>
+      <a data-route="my-courses.html" href="my-courses.html" class="nav-link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V5Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+        </span>
+        My Courses
+      </a>
+      <a data-route="assignments.html" href="assignments.html" class="nav-link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8v4H8z"/><path d="M6 5H5a2 2 0 0 0-2 2v13h18V7a2 2 0 0 0-2-2h-1"/><path d="m7 13 2 2 5-5"/></svg>
+        </span>
+        Assignments
+      </a>
+      <a data-route="classroom-calendar.html" href="classroom-calendar.html" class="nav-link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        </span>
+        Calendar
+      </a>
+    </div>
+
+    <p class="px-3 pb-2 pt-6 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Academic</p>
+    <div class="space-y-1">
+      <a href="resources.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/></svg>
+        </span>
+        Resources
+      </a>
+      <a href="check-result.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+        </span>
+        Results
+      </a>
+    </div>
+
+    <p class="px-3 pb-2 pt-6 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Support</p>
+    <div class="space-y-1">
+      <a href="messages.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.9-4.3A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+        </span>
+        Messages
+      </a>
+      <a href="student-dashboard.html" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-7h6v7"/></svg>
+        </span>
+        Student Portal
+      </a>
+    </div>
+  </nav>
+
+  <div class="border-t border-slate-100 p-3">
+    <div class="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+      <img id="studentAvatarSide" src="avatar.jpg" alt="Student" loading="lazy" class="h-9 w-9 rounded-full object-cover ring-2 ring-white"
+           onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+      <div class="min-w-0 flex-1">
+        <p id="studentNameSide" class="truncate text-xs font-bold text-slate-800">Student</p>
+        <p id="studentClassSide" class="truncate text-[11px] text-slate-500">Learner</p>
+      </div>
+    </div>
+    <button id="logoutBtn" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100">
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M21 19V5a2 2 0 0 0-2-2h-6"/></svg>
+      Sign out
+    </button>
+  </div>
+</aside>
+
+<div class="min-h-screen lg:pl-[290px]">
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
+    <div class="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <div class="flex min-w-0 items-center gap-3">
+        <button id="openSidebar" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 lg:hidden" aria-label="Open menu">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-extrabold text-slate-900 sm:text-base">E-Classroom</p>
+          <p id="headerSchool" class="truncate text-[11px] font-medium text-slate-500 sm:text-xs">Digital learning environment</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="ai-study-padi.html" class="hidden rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800 sm:inline-flex">AI Study Padi</a>
+        <button id="headerLogout" class="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 sm:inline-flex">Sign out</button>
+        <img id="headerAvatar" src="avatar.jpg" alt="Student" loading="lazy" class="h-9 w-9 rounded-full object-cover ring-2 ring-slate-100"
+             onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1600px] px-4 py-5 pb-28 sm:px-6 lg:px-8 lg:pb-10">
+
+    <!-- HERO -->
+    <section class="relative overflow-hidden rounded-[1.75rem] bg-slate-950 shadow-soft">
+      <div class="hero-grid absolute inset-0 opacity-60"></div>
+      <div class="absolute -right-28 -top-28 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl"></div>
+      <div class="absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl"></div>
+
+      <div class="relative grid gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[1.35fr_.65fr] lg:items-center lg:px-10">
+        <div>
+          <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/80">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+            Secure digital learning
+          </div>
+          <h1 class="max-w-3xl text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
+            Learn, collaborate and stay on track.
+          </h1>
+          <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+            Your central classroom for lessons, assignments, resources, live sessions and academic communication — available wherever you learn.
+          </p>
+
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="my-courses.html" class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-extrabold text-slate-950 shadow-sm hover:bg-slate-100">
+              Explore my courses
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a href="assignments.html" class="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-white/10">
+              View assignments
+            </a>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div class="flex items-center gap-3">
+            <img id="heroAvatar" src="avatar.jpg" alt="Student" class="h-12 w-12 rounded-full object-cover ring-2 ring-white/10"
+                 onerror="this.src='https://ui-avatars.com/api/?name=Student&background=4f46e5&color=fff'">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-slate-400">Welcome back</p>
+              <p id="studentName" class="truncate text-lg font-extrabold text-white">Student</p>
+              <p id="studentClass" class="truncate text-xs text-slate-400">Loading academic profile…</p>
+            </div>
+          </div>
+          <div class="mt-5 grid grid-cols-3 gap-2">
+            <div class="rounded-xl bg-white/5 p-3 text-center">
+              <p id="statCourses" class="text-lg font-black text-white">—</p>
+              <p class="mt-0.5 text-[10px] font-semibold text-slate-400">Courses</p>
+            </div>
+            <div class="rounded-xl bg-white/5 p-3 text-center">
+              <p id="statTasks" class="text-lg font-black text-white">—</p>
+              <p class="mt-0.5 text-[10px] font-semibold text-slate-400">Tasks</p>
+            </div>
+            <div class="rounded-xl bg-white/5 p-3 text-center">
+              <p id="statResources" class="text-lg font-black text-white">—</p>
+              <p class="mt-0.5 text-[10px] font-semibold text-slate-400">Resources</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK ACCESS -->
+    <section class="mt-6">
+      <div class="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-extrabold uppercase tracking-[.16em] text-indigo-600">Quick access</p>
+          <h2 class="mt-1 text-xl font-black tracking-tight text-slate-900">Your learning workspace</h2>
+        </div>
+        <a href="my-courses.html" class="text-xs font-bold text-indigo-600 hover:text-indigo-700">View all</a>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <a href="my-courses.html" class="card-hover group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V5Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+            </span>
+            <svg class="h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+          <h3 class="mt-4 text-sm font-extrabold">My Courses</h3>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Open lessons, modules and course activity.</p>
+        </a>
+
+        <a href="assignments.html" class="card-hover group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-amber-50 text-amber-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8v4H8z"/><path d="M6 5H5a2 2 0 0 0-2 2v13h18V7a2 2 0 0 0-2-2h-1"/><path d="m7 13 2 2 5-5"/></svg>
+            </span>
+            <svg class="h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+          <h3 class="mt-4 text-sm font-extrabold">Assignments</h3>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Track pending work, submissions and feedback.</p>
+        </a>
+
+        <a href="resources.html" class="card-hover group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/><path d="M8 12h8M8 15h5"/></svg>
+            </span>
+            <svg class="h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+          <h3 class="mt-4 text-sm font-extrabold">Resources</h3>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Access notes, documents, videos and study materials.</p>
+        </a>
+
+        <a href="classroom-calendar.html" class="card-hover group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <span class="grid h-11 w-11 place-items-center rounded-xl bg-sky-50 text-sky-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            </span>
+            <svg class="h-4 w-4 text-slate-300 transition group-hover:translate-x-1 group-hover:text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+          <h3 class="mt-4 text-sm font-extrabold">Class Calendar</h3>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Keep up with lessons, deadlines and live sessions.</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- MAIN DASHBOARD -->
+    <section class="mt-6 grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
+
+      <!-- Activity -->
+      <div class="space-y-6">
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 class="text-sm font-extrabold">Continue learning</h2>
+              <p class="mt-0.5 text-xs text-slate-500">Pick up where you left off.</p>
+            </div>
+            <a href="my-courses.html" class="text-xs font-bold text-indigo-600">All courses</a>
+          </div>
+          <div id="courseList" class="divide-y divide-slate-100">
+            <div class="p-5"><div class="skeleton h-5 w-40 rounded"></div><div class="skeleton mt-2 h-3 w-64 rounded"></div></div>
+            <div class="p-5"><div class="skeleton h-5 w-32 rounded"></div><div class="skeleton mt-2 h-3 w-52 rounded"></div></div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 class="text-sm font-extrabold">Upcoming work</h2>
+              <p class="mt-0.5 text-xs text-slate-500">Deadlines that need your attention.</p>
+            </div>
+            <a href="assignments.html" class="text-xs font-bold text-indigo-600">View assignments</a>
+          </div>
+          <div id="assignmentList" class="divide-y divide-slate-100">
+            <div class="p-5"><div class="skeleton h-5 w-44 rounded"></div><div class="skeleton mt-2 h-3 w-60 rounded"></div></div>
+            <div class="p-5"><div class="skeleton h-5 w-36 rounded"></div><div class="skeleton mt-2 h-3 w-48 rounded"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right rail -->
+      <div class="space-y-6">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-extrabold">Today</h2>
+              <p id="todayDate" class="mt-0.5 text-xs text-slate-500">Loading date…</p>
+            </div>
+            <span class="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </span>
+          </div>
+          <div id="todaySchedule" class="mt-4 space-y-2">
+            <div class="skeleton h-12 rounded-xl"></div>
+            <div class="skeleton h-12 rounded-xl"></div>
+            <div class="skeleton h-12 rounded-xl"></div>
+          </div>
+          <a href="classroom-calendar.html" class="mt-4 inline-flex text-xs font-bold text-indigo-600">Open calendar →</a>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-center gap-3">
+            <span class="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M5 8h14M7 16h10"/></svg>
+            </span>
+            <div>
+              <h2 class="text-sm font-extrabold">Study tools</h2>
+              <p class="text-xs text-slate-500">Tools that support independent learning.</p>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-2 gap-2">
+            <a href="ai-study-padi.html" class="rounded-xl border border-slate-200 p-3 hover:border-violet-200 hover:bg-violet-50">
+              <p class="text-xs font-extrabold">AI Study Padi</p>
+              <p class="mt-1 text-[10px] leading-4 text-slate-500">Study assistance</p>
+            </a>
+            <a href="resources.html" class="rounded-xl border border-slate-200 p-3 hover:border-emerald-200 hover:bg-emerald-50">
+              <p class="text-xs font-extrabold">Library</p>
+              <p class="mt-1 text-[10px] leading-4 text-slate-500">Learning resources</p>
+            </a>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5">
+          <div class="flex items-start gap-3">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-indigo-600 shadow-sm">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+            </span>
+            <div>
+              <p class="text-xs font-extrabold text-indigo-950">Learn responsibly</p>
+              <p class="mt-1 text-xs leading-5 text-indigo-900/70">Keep your account secure and submit your own work. Your classroom is designed to support learning, not replace it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature directory -->
+    <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div class="max-w-2xl">
+        <p class="text-xs font-extrabold uppercase tracking-[.16em] text-indigo-600">Classroom directory</p>
+        <h2 class="mt-1 text-xl font-black tracking-tight">Everything you need in one place</h2>
+        <p class="mt-2 text-xs leading-5 text-slate-500 sm:text-sm">Use the classroom as your academic hub. Each area can be connected to the corresponding page or service in your school platform.</p>
+      </div>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a href="live-classes.html" class="rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/40">
+          <p class="text-sm font-extrabold">Live Classes</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Join scheduled virtual lessons and online sessions.</p>
+        </a>
+        <a href="discussion.html" class="rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/40">
+          <p class="text-sm font-extrabold">Class Discussions</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Participate in moderated academic conversations.</p>
+        </a>
+        <a href="my-courses.html" class="rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/40">
+          <p class="text-sm font-extrabold">Course Modules</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Move through structured lessons and learning activities.</p>
+        </a>
+        <a href="submissions.html" class="rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/40">
+          <p class="text-sm font-extrabold">Submissions</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Review submitted work and available feedback.</p>
+        </a>
+        <a href="classroom-calendar.html" class="rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/40">
+          <p class="text-sm font-extrabold">Academic Calendar</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500">See important dates, deadlines and school activities.</p>
+        </a>
+        <a href="messages.html" class="rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/40">
+          <p class="text-sm font-extrabold">Teacher Messages</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500">Stay connected with teachers and school staff.</p>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-5 text-[11px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <p><span id="footerSchool">School</span> · E-Classroom</p>
+      <div class="flex flex-wrap gap-4">
+        <a href="help.html" class="hover:text-slate-900">Help</a>
+        <a href="privacy.html" class="hover:text-slate-900">Privacy</a>
+        <a href="terms.html" class="hover:text-slate-900">Terms</a>
+        <a href="accessibility.html" class="hover:text-slate-900">Accessibility</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- Mobile bottom shortcuts -->
+<div class="fixed bottom-4 right-4 z-40 flex items-center gap-2 lg:hidden">
+  <a href="ai-study-padi.html" aria-label="Open AI Study Padi" class="grid h-12 w-12 place-items-center rounded-full bg-slate-950 text-white shadow-lg ring-4 ring-white/80">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6M9 7h.01M15 7h.01"/></svg>
+  </a>
+  <a href="live-classes.html" aria-label="Open Live Classes" class="grid h-12 w-12 place-items-center rounded-full bg-indigo-600 text-white shadow-lg ring-4 ring-white/80">
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>
+  </a>
+</div>
+
+<div id="toast" class="pointer-events-none fixed bottom-5 left-1/2 z-[110] hidden -translate-x-1/2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-bold text-white shadow-xl"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /*
+    E-Classroom integration contract
+    --------------------------------
+    The page is tenant-safe by design:
+      1. Resolve authenticated school first.
+      2. Cache school configuration under a school-specific key.
+      3. Resolve student second.
+      4. Cache student dashboard under school + student keys.
+      5. Never use a generic global student/school cache.
+
+    Expected API candidates can be adjusted in the arrays below without
+    changing the UI.
+  */
+
+  // Keep authentication consistent with the existing Student Portal.
+  // The portal uses the deployed API plus the student's bearer token.
+  const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
+  const API_ROOT = `${BACKEND_URL}/api`;
+
+  const API = {
+    school: ['/auth/me', '/schools/me', '/school/me'],
+    student: ['/students/me'],
+    dashboard: ['/e-classroom/dashboard', '/students/me/e-classroom']
+  };
+
+  function getToken() {
+    return localStorage.getItem('student_token') ||
+           localStorage.getItem('studentToken') ||
+           localStorage.getItem('token') ||
+           localStorage.getItem('authToken') || '';
+  }
+
+  function authHeaders(extra = {}) {
+    const headers = { Accept: 'application/json', ...extra };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    // Preserve the tenant identifier used by the existing Student Portal.
+    const schoolId = localStorage.getItem('publicSchoolId') ||
+                     localStorage.getItem('schoolId') || '';
+    if (schoolId) headers['X-School-Code'] = schoolId;
+
+    return headers;
+  }
+
+  async function apiFetch(path, options = {}) {
+    const headers = authHeaders(options.headers || {});
+    return fetch(`${API_ROOT}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers
+    });
+  }
+
+  const ROUTES = {
+    aiStudyPadi: window.AI_STUDY_PADI_URL || 'ai-study-padi.html',
+    liveClasses: window.E_CLASSROOM_LIVE_URL || 'live-classes.html'
+  };
+
+  const state = {
+    school: null,
+    student: null,
+    dashboard: null,
+    schoolId: null,
+    studentId: null
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function safeParse(value) {
+    try { return JSON.parse(value); } catch { return null; }
+  }
+
+  function storageKey(type, id) {
+    return `eclassroom:${type}:${String(id || 'unknown')}`;
+  }
+
+  function getSchoolId(obj) {
+    return obj?._id || obj?.id || obj?.schoolId || obj?.school?._id || obj?.school?.id || obj?.user?.schoolId || null;
+  }
+
+  function getStudentId(obj) {
+    return obj?._id || obj?.id || obj?.studentId || obj?.student?._id || obj?.student?.id || obj?.user?.studentId || null;
+  }
+
+  async function fetchJson(url, options = {}) {
+    // API candidates are API-relative paths, not page-relative URLs.
+    const requestUrl = /^https?:\/\//i.test(url) ? url : `${API_ROOT}${url}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeout || 12000);
+    let res;
+    try {
+      const requestOptions = { ...options };
+      delete requestOptions.timeout;
+      res = await fetch(requestUrl, {
+        credentials: 'include',
+        ...requestOptions,
+        signal: options.signal || controller.signal,
+        headers: authHeaders(options.headers || {})
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json();
+  }
+
+  async function tryCandidates(urls) {
+    let lastError = null;
+    for (const url of urls) {
+      try { return await fetchJson(url); }
+      catch (err) { lastError = err; }
+    }
+    throw lastError || new Error('Request failed');
+  }
+
+  function unwrapSchool(payload) {
+    return payload?.school || payload?.data?.school || payload?.data || payload?.user?.school || payload || null;
+  }
+
+  function unwrapStudent(payload) {
+    return payload?.student || payload?.data?.student || payload?.data || payload?.user?.student || payload || null;
+  }
+
+  function unwrapDashboard(payload) {
+    return payload?.dashboard || payload?.data?.dashboard || payload?.data || payload || null;
+  }
+
+  function setBoot(title, status, progress) {
+    $('bootTitle').textContent = title;
+    $('bootStatus').textContent = status;
+    $('bootProgress').style.width = `${Math.max(5, Math.min(100, progress))}%`;
+  }
+
+  function finishBoot() {
+    const overlay = $('bootOverlay');
+    overlay.classList.add('opacity-0', 'pointer-events-none');
+    setTimeout(() => overlay.remove(), 350);
+  }
+
+  function showToast(message) {
+    const el = $('toast');
+    el.textContent = message;
+    el.classList.remove('hidden');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => el.classList.add('hidden'), 2600);
+  }
+
+  function schoolCacheRead(id) {
+    return id ? safeParse(localStorage.getItem(storageKey('school', id))) : null;
+  }
+
+  function schoolCacheWrite(id, data) {
+    if (!id || !data) return;
+    localStorage.setItem(storageKey('school', id), JSON.stringify({
+      cachedAt: Date.now(), data
+    }));
+  }
+
+  function studentCacheRead(schoolId, studentId) {
+    return schoolId && studentId ? safeParse(localStorage.getItem(storageKey('student', `${schoolId}:${studentId}`))) : null;
+  }
+
+  function studentCacheWrite(schoolId, studentId, data) {
+    if (!schoolId || !studentId || !data) return;
+    localStorage.setItem(storageKey('student', `${schoolId}:${studentId}`), JSON.stringify({
+      cachedAt: Date.now(), data
+    }));
+  }
+
+  function extractName(obj) {
+    return obj?.name || obj?.schoolName || obj?.institutionName || obj?.profile?.schoolName || 'School';
+  }
+
+  function extractLogo(obj) {
+    return obj?.logo || obj?.logoUrl || obj?.schoolLogo || obj?.branding?.logo || obj?.settings?.logo || '';
+  }
+
+  function applySchool(school) {
+    const name = extractName(school);
+    const logo = extractLogo(school);
+
+    $('schoolName').textContent = name;
+    $('headerSchool').textContent = `${name} · Digital learning environment`;
+    $('footerSchool').textContent = name;
+    document.title = `${name} | E-Classroom`;
+
+    if (logo) {
+      $('schoolLogo').src = logo;
+      $('schoolLogo').style.display = '';
+      $('logoFallback').classList.add('hidden');
+    }
+
+    const primary = school?.primaryColor || school?.branding?.primaryColor || school?.theme?.primaryColor;
+    if (primary) {
+      document.documentElement.style.setProperty('--school-primary', primary);
+    }
+  }
+
+  function avatarUrl(student) {
+    return student?.photo || student?.avatar || student?.profileImage || student?.image || '';
+  }
+
+  function applyStudent(student) {
+    const fullName =
+      student?.fullName ||
+      student?.name ||
+      [student?.firstName, student?.lastName].filter(Boolean).join(' ') ||
+      'Student';
+
+    const className =
+      student?.className ||
+      student?.class ||
+      student?.grade ||
+      student?.currentClass ||
+      'Learner';
+
+    $('studentName').textContent = fullName;
+    $('studentClass').textContent = className;
+    $('studentNameSide').textContent = fullName;
+    $('studentClassSide').textContent = className;
+
+    const avatar = avatarUrl(student);
+    if (avatar) {
+      ['studentAvatarSide','headerAvatar','heroAvatar'].forEach(id => $(id).src = avatar);
+    }
+  }
+
+  function setStats(data) {
+    const courses = data?.courses || data?.courseList || [];
+    const assignments = data?.assignments || data?.upcomingAssignments || [];
+    const resources = data?.resources || data?.materials || [];
+    $('statCourses').textContent = Array.isArray(courses) ? courses.length : (data?.courseCount ?? '—');
+    $('statTasks').textContent = Array.isArray(assignments) ? assignments.length : (data?.assignmentCount ?? '—');
+    $('statResources').textContent = Array.isArray(resources) ? resources.length : (data?.resourceCount ?? '—');
+  }
+
+  function renderCourses(data) {
+    const list = $('courseList');
+    const courses = Array.isArray(data?.courses) ? data.courses : [];
+    if (!courses.length) {
+      list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">No courses available yet.</p><p class="mt-1 text-xs text-slate-500">Your enrolled courses will appear here when they are published.</p></div>`;
+      return;
+    }
+    list.innerHTML = courses.slice(0, 5).map((course, i) => {
+      const title = course?.name || course?.title || `Course ${i + 1}`;
+      const teacher = course?.teacherName || course?.teacher || 'Course instructor';
+      const href = course?.url || course?.link || `course.html?id=${encodeURIComponent(course?._id || course?.id || '')}`;
+      const progress = Number(course?.progress ?? 0);
+      return `
+        <a href="${href}" class="block p-5 hover:bg-slate-50">
+          <div class="flex items-start gap-4">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-xs font-black text-indigo-600">${String(i + 1).padStart(2,'0')}</span>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="truncate text-sm font-extrabold text-slate-900">${escapeHtml(title)}</p>
+                <span class="text-[10px] font-bold text-slate-400">${Number.isFinite(progress) ? `${Math.max(0, Math.min(100, progress))}%` : ''}</span>
+              </div>
+              <p class="mt-1 text-xs text-slate-500">${escapeHtml(teacher)}</p>
+              <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full rounded-full bg-indigo-600" style="width:${Math.max(0, Math.min(100, progress || 0))}%"></div>
+              </div>
+            </div>
+          </div>
+        </a>`;
+    }).join('');
+  }
+
+  function renderAssignments(data) {
+    const list = $('assignmentList');
+    const items = Array.isArray(data?.assignments) ? data.assignments : [];
+    if (!items.length) {
+      list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">You are all caught up.</p><p class="mt-1 text-xs text-slate-500">New assignments and deadlines will appear here.</p></div>`;
+      return;
+    }
+    list.innerHTML = items.slice(0, 5).map(item => {
+      const title = item?.title || item?.name || 'Assignment';
+      const course = item?.courseName || item?.course || 'Course';
+      const due = item?.dueDate || item?.deadline || item?.due;
+      const dueText = due ? formatDate(due) : 'Deadline not specified';
+      const href = item?.url || item?.link || `assignment.html?id=${encodeURIComponent(item?._id || item?.id || '')}`;
+      return `
+        <a href="${href}" class="block p-5 hover:bg-slate-50">
+          <div class="flex items-center gap-4">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8v4H8z"/><path d="M6 5H5a2 2 0 0 0-2 2v13h18V7a2 2 0 0 0-2-2h-1"/><path d="m7 13 2 2 5-5"/></svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-extrabold">${escapeHtml(title)}</p>
+              <p class="mt-1 text-xs text-slate-500">${escapeHtml(course)} · Due ${escapeHtml(dueText)}</p>
+            </div>
+            <svg class="h-4 w-4 shrink-0 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+        </a>`;
+    }).join('');
+  }
+
+  function renderSchedule(data) {
+    const target = $('todaySchedule');
+    const schedule = Array.isArray(data?.todaySchedule) ? data.todaySchedule :
+                     Array.isArray(data?.schedule) ? data.schedule : [];
+    if (!schedule.length) {
+      target.innerHTML = `<div class="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">No classes or sessions scheduled for today.</div>`;
+      return;
+    }
+    target.innerHTML = schedule.slice(0, 5).map(item => `
+      <a href="${item?.url || item?.link || 'classroom-calendar.html'}" class="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-slate-50">
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-[10px] font-black text-slate-600">${escapeHtml(item?.time || '—')}</span>
+        <div class="min-w-0">
+          <p class="truncate text-xs font-extrabold">${escapeHtml(item?.title || item?.subject || 'Class session')}</p>
+          <p class="truncate text-[10px] text-slate-500">${escapeHtml(item?.teacher || item?.room || 'Classroom')}</p>
+        </div>
+      </a>`).join('');
+  }
+
+  function formatDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+    }[ch]));
+  }
+
+  function renderDashboard(data) {
+    state.dashboard = data || {};
+    setStats(state.dashboard);
+    renderCourses(state.dashboard);
+    renderAssignments(state.dashboard);
+    renderSchedule(state.dashboard);
+  }
+
+  async function resolveSchool() {
+    setBoot('Loading school', 'Preparing your school workspace…', 20);
+
+    const known = window.CURRENT_SCHOOL || window.currentSchool || window.schoolConfig || null;
+    if (known) {
+      state.school = known;
+      state.schoolId = getSchoolId(known) || localStorage.getItem('currentSchoolId') || localStorage.getItem('publicSchoolId') || null;
+      applySchool(known);
+      return known;
+    }
+
+    // School branding is helpful but must never prevent the student page from opening.
+    const lastSchoolId = localStorage.getItem('currentSchoolId') || localStorage.getItem('publicSchoolId') || localStorage.getItem('schoolId');
+    const cached = lastSchoolId ? schoolCacheRead(lastSchoolId)?.data : null;
+    if (cached) {
+      state.school = cached;
+      state.schoolId = String(lastSchoolId);
+      applySchool(cached);
+    }
+
+    try {
+      const payload = await fetchJson('/auth/me', { timeout: 5000 });
+      const school = unwrapSchool(payload?.school || payload?.data?.school || payload?.user?.school || payload);
+      if (school && (getSchoolId(school) || school.name || school.schoolName)) {
+        state.school = school;
+        state.schoolId = String(getSchoolId(school) || lastSchoolId || '');
+        if (state.schoolId) {
+          localStorage.setItem('currentSchoolId', state.schoolId);
+          schoolCacheWrite(state.schoolId, school);
+        }
+        applySchool(school);
+        return school;
+      }
+    } catch (err) {
+      console.warn('School context unavailable; continuing with student profile:', err);
+    }
+
+    return state.school;
+  }
+
+  async function resolveStudent() {
+    setBoot('Loading student', 'Getting your academic profile…', 55);
+
+    const cached = state.schoolId ? safeParse(localStorage.getItem('lastStudentForSchool:' + state.schoolId)) : null;
+    const known = window.CURRENT_STUDENT || window.currentStudent || null;
+
+    if (known) {
+      state.student = known;
+      state.studentId = getStudentId(known);
+      if (state.studentId) localStorage.setItem('lastStudentForSchool:' + state.schoolId, JSON.stringify({ id: state.studentId }));
+      applyStudent(known);
+      const cachedDashboard = state.studentId ? studentCacheRead(state.schoolId, state.studentId)?.data : null;
+      if (cachedDashboard) renderDashboard(cachedDashboard);
+    } else if (cached?.id) {
+      const cachedStudent = studentCacheRead(state.schoolId, cached.id)?.data?.student;
+      if (cachedStudent) {
+        state.student = cachedStudent;
+        state.studentId = cached.id;
+        applyStudent(cachedStudent);
+        renderDashboard(studentCacheRead(state.schoolId, cached.id)?.data?.dashboard || {});
+      }
+    }
+
+    try {
+      const payload = await tryCandidates(API.student);
+      const student = unwrapStudent(payload);
+      const studentId = getStudentId(student);
+      if (!studentId) throw new Error('Student identity was not returned.');
+
+      state.student = student;
+      state.studentId = String(studentId);
+
+      // The Student Portal's /students/me response is the authoritative source
+      // for the signed-in learner and often includes the tenant's school object.
+      const studentSchool = student?.school || student?.data?.school || null;
+      if (studentSchool) {
+        state.school = studentSchool;
+        state.schoolId = String(getSchoolId(studentSchool) || student?.schoolId || state.schoolId || localStorage.getItem('publicSchoolId') || '');
+        applySchool(studentSchool);
+      }
+      if (state.schoolId) localStorage.setItem('lastStudentForSchool:' + state.schoolId, JSON.stringify({ id: state.studentId }));
+      applyStudent(student);
+      return student;
+    } catch (err) {
+      if (state.student) {
+        showToast('Your saved learning profile is being shown while we reconnect.');
+        return state.student;
+      }
+      throw err;
+    }
+  }
+
+  async function resolveDashboard() {
+    setBoot('Loading classroom', 'Preparing courses, tasks and resources…', 78);
+
+    if (!state.studentId) return;
+
+    const cached = studentCacheRead(state.schoolId, state.studentId)?.data;
+    if (cached?.dashboard) {
+      renderDashboard(cached.dashboard);
+      setBoot('Ready', 'Refreshing your latest classroom activity…', 90);
+    }
+
+    try {
+      const payload = await tryCandidates(API.dashboard);
+      const dashboard = unwrapDashboard(payload);
+      renderDashboard(dashboard);
+      studentCacheWrite(state.schoolId, state.studentId, {
+        student: state.student,
+        dashboard
+      });
+    } catch (err) {
+      if (!cached?.dashboard) {
+        renderDashboard({});
+        showToast('Classroom data could not be refreshed right now.');
+      }
+    }
+  }
+
+  function setupNavigation() {
+    const sidebar = $('sidebar');
+    const backdrop = $('mobileBackdrop');
+
+    function open() {
+      sidebar.classList.remove('-translate-x-full');
+      backdrop.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+    function close() {
+      sidebar.classList.add('-translate-x-full');
+      backdrop.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    $('openSidebar').addEventListener('click', open);
+    $('closeSidebar').addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    document.querySelectorAll('.nav-link').forEach(link => link.addEventListener('click', close));
+
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') close();
+    });
+  }
+
+  function setupLogout() {
+    async function logout() {
+      // Logout is only executed when the student explicitly clicks Sign out.
+      // Never call this during classroom initialization.
+      try {
+        await apiFetch('/auth/logout', { method: 'POST' });
+      } catch (_) {}
+
+      // Do not purge school branding/configuration.
+      if (state.schoolId && state.studentId) {
+        localStorage.removeItem(storageKey('student', `${state.schoolId}:${state.studentId}`));
+      }
+
+      // Match the existing Student Portal logout behavior.
+      [
+        'student_token','studentToken','token','authToken',
+        'schoolSubdomain','publicSchoolId','schoolId'
+      ].forEach(key => localStorage.removeItem(key));
+
+      window.location.href = 'login.html';
+    }
+
+    $('logoutBtn').addEventListener('click', logout);
+    $('headerLogout').addEventListener('click', logout);
+  }
+
+  function setupDate() {
+    $('todayDate').textContent = new Intl.DateTimeFormat(undefined, {
+      weekday: 'long', month: 'long', day: 'numeric'
+    }).format(new Date());
+  }
+
+  function configureRoutes() {
+    document.querySelectorAll('a[href="ai-study-padi.html"]').forEach(a => a.href = ROUTES.aiStudyPadi);
+    document.querySelectorAll('a[href="live-classes.html"]').forEach(a => a.href = ROUTES.liveClasses);
+  }
+
+  async function init() {
+    setupNavigation();
+    setupLogout();
+    setupDate();
+    configureRoutes();
+
+    try {
+      // School lookup is non-blocking/fail-soft; student identity is primary.
+      await resolveSchool();
+      await resolveStudent();
+      finishBoot();
+      // Dashboard data is secondary and has its own timeout/fallback.
+      await resolveDashboard();
+    } catch (err) {
+      console.error('E-Classroom initialization failed:', err);
+      showToast('Some classroom information is unavailable. You can still use the Student Portal.');
+      const portal = document.querySelector('a[href="student-dashboard.html"]');
+      if (portal) {
+        portal.textContent = 'Return to Student Portal';
+        portal.classList.remove('hidden');
+      }
+      // Critical fix: always dismiss the full-screen boot overlay on failure.
+      finishBoot();
+    } finally {
+      finishBoot();
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
