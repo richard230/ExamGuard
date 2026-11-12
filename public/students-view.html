@@ -864,10 +864,9 @@
                 stu.status ||
                 '';
 
-            const studentSubscriptionStatus =
-                stu.subscriptionStatus ||
-                stu.subscription_status ||
-                '';
+            const subscriptionEnd = stu.subscriptionEndDate || stu.subscription_end_date || stu.subscriptionExpiry || null;
+            const subscriptionExpired = !subscriptionEnd || new Date(subscriptionEnd).getTime() <= Date.now();
+            const studentSubscriptionStatus = subscriptionExpired ? 'expired' : 'active';
 
             if (
                 classVal &&
@@ -994,6 +993,7 @@
                     <td class="py-3 px-3">${escapeHTML(stu.academicSession || stu.session || '')}</td>
                     <td class="py-3 px-3 text-right">
                         <div class="action-buttons flex items-center justify-end gap-1.5">
+                            <button class="px-2 py-1 rounded-lg ${String(stu.accountStatus || stu.status || 'inactive').toLowerCase() === 'active' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'} border text-[10px] font-bold" title="${String(stu.accountStatus || stu.status || 'inactive').toLowerCase() === 'active' ? 'Deactivate account' : 'Activate account (₦200 if subscription expired)'}" onclick="toggleStudentAccount('${encodeURIComponent(studentId)}','${String(stu.accountStatus || stu.status || 'inactive').toLowerCase()}')">${String(stu.accountStatus || stu.status || 'inactive').toLowerCase() === 'active' ? 'Deactivate' : 'Activate'}</button>
                             <button class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 transition flex items-center justify-center text-xs font-bold" title="Edit" onclick="editStudent('${encodeURIComponent(studentId)}')">✎</button>
                             <button class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition flex items-center justify-center text-xs font-bold" title="Delete" onclick="deleteStudent('${encodeURIComponent(studentId)}')">🗑</button>
                         </div>
@@ -1004,6 +1004,28 @@
 
         renderPagination(totalPages);
         renderStudentsStats();
+    }
+
+    async function toggleStudentAccount(encodedId, currentStatus) {
+        const studentId = decodeURIComponent(encodedId);
+        const isActive = String(currentStatus).toLowerCase() === 'active';
+        const action = isActive ? 'deactivate' : 'activate';
+        const promptText = isActive
+            ? 'Deactivate this student account? Any unused subscription time will be retained.'
+            : 'Activate this student? A new or expired one-month subscription costs ₦200 from the school wallet. Reactivation during a valid subscription is free.';
+        if (!confirm(promptText)) return;
+        try {
+            const response = await apiFetch(`${API_ROOT}/student/${encodeURIComponent(studentId)}/${action}`, { method: 'PATCH' });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || result.success === false) throw new Error(result.error || result.message || 'Unable to update account status.');
+            alert(result.message || 'Student account updated.');
+            if (typeof fetchStudents === 'function') await fetchStudents();
+            else if (typeof loadStudents === 'function') await loadStudents();
+            else renderStudentsTable();
+        } catch (error) {
+            console.error('Student account status update failed:', error);
+            alert(error.message || 'Unable to update student account.');
+        }
     }
 
     function renderPagination(totalPages) {
