@@ -366,11 +366,12 @@
   const API_ROOT = `${BACKEND_URL}/api`;
 
   const API = {
-    school: ['/auth/me', '/schools/me', '/school/me'],
+    school: ['/auth/me'],
     student: ['/students/me'],
-    // The Student Dashboard confirms these existing endpoints. There is no
-    // confirmed E-Classroom dashboard endpoint on the deployed backend.
-    assignments: '/assignments/me'
+    // The deployed Student Portal contract exposes assignments separately.
+    // E-Classroom-specific dashboard routes are not registered on this backend.
+    assignments: ['/assignments/me'],
+    classes: ['/academics/classes']
   };
 
   function getToken() {
@@ -451,7 +452,14 @@
     } finally {
       clearTimeout(timeout);
     }
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const body = await res.json();
+        detail = body?.error || body?.message || '';
+      } catch (_) {}
+      throw new Error(`${res.status} ${res.statusText}${detail ? `: ${detail}` : ''}`);
+    }
     return res.json();
   }
 
@@ -469,36 +477,49 @@
   }
 
   function unwrapStudent(payload) {
-    return payload?.student || payload?.data?.student || payload?.data || payload?.user?.student || payload || null;
+    // /api/students/me in the Student Portal returns the student profile
+    // directly. Keep support for wrapped responses without losing that shape.
+    return payload?.student || payload?.data?.student || payload?.user?.student || payload?.data || payload || null;
+  }
+
+  function unwrapAssignments(payload) {
+    // The established Student Portal contract returns an array from
+    // GET /api/assignments/me. Also accept the documented wrapped variants.
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.assignments)) return payload.assignments;
+    if (Array.isArray(payload?.data?.assignments)) return payload.data.assignments;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  }
+
+  function studentClassName(student) {
+    const value = student?.class || student?.className || student?.currentClass || student?.grade;
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    if (value && typeof value === 'object') {
+      return value.name || value.className || value.title || value.label || value.grade || 'Learner';
+    }
+    return 'Learner';
   }
 
   function unwrapDashboard(payload) {
     return payload?.dashboard || payload?.data?.dashboard || payload?.data || payload || null;
   }
 
-  let bootFinished = false;
-
   function setBoot(title, status, progress) {
-    const titleEl = $('bootTitle');
-    const statusEl = $('bootStatus');
-    const progressEl = $('bootProgress');
-    if (titleEl) titleEl.textContent = title;
-    if (statusEl) statusEl.textContent = status;
-    if (progressEl) progressEl.style.width = `${Math.max(5, Math.min(100, progress))}%`;
+    $('bootTitle').textContent = title;
+    $('bootStatus').textContent = status;
+    $('bootProgress').style.width = `${Math.max(5, Math.min(100, progress))}%`;
   }
 
   function finishBoot() {
-    // Idempotent: init may reach both catch and finally, and the overlay may
-    // already have been removed by an earlier call.
-    if (bootFinished) return;
-    bootFinished = true;
-    setBoot('Ready', 'Your classroom is ready.', 100);
     const overlay = $('bootOverlay');
-    if (!overlay) return;
-    requestAnimationFrame(() => {
-      if (overlay.isConnected) overlay.classList.add('opacity-0', 'pointer-events-none');
-    });
-    setTimeout(() => { if (overlay.isConnected) overlay.remove(); }, 350);
+    // Initialization may call this from both try/catch and finally.
+    // Make it safe when the overlay has already been removed.
+    if (!overlay || !overlay.isConnected) return;
+    overlay.classList.add('opacity-0', 'pointer-events-none');
+    window.setTimeout(() => {
+      if (overlay.isConnected) overlay.remove();
+    }, 350);
   }
 
   function showToast(message) {
@@ -571,12 +592,9 @@
       [student?.firstName, student?.lastName].filter(Boolean).join(' ') ||
       'Student';
 
-    const className =
-      student?.className ||
-      student?.class ||
-      student?.grade ||
-      student?.currentClass ||
-      'Learner';
+    // The profile endpoint is the source of truth for the learner's class.
+    // class may be a plain string or a populated Class object.
+    const className = studentClassName(student);
 
     $('studentName').textContent = fullName;
     $('studentClass').textContent = className;
@@ -585,7 +603,10 @@
 
     const avatar = avatarUrl(student);
     if (avatar) {
-      ['studentAvatarSide','headerAvatar','heroAvatar'].forEach(id => $(id).src = avatar);
+      ['studentAvatarSide','headerAvatar','heroAvatar'].forEach(id => {
+        const image = $(id);
+        if (image) image.src = avatar;
+      });
     }
   }
 
@@ -598,18 +619,70 @@
     $('statResources').textContent = Array.isArray(resources) ? resources.length : (data?.resourceCount ?? '—');
   }
 
+  function teacherDisplay(teacher) {
+    if (!teacher) return 'Teacher not assigned';
+    if (typeof teacher === 'string') return teacher;
+    const name = [teacher.first_name, teacher.last_name].filter(Boolean).join(' ').trim();
+    return name || teacher.name || teacher.fullName || teacher.email || 'Teacher not assigned';
+  }
+
+  function unwrapClasses(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.classes)) return payload.classes;
+    if (Array.isArray(payload?.data?.classes)) return payload.data.classes;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  }
+
+  function classIdentity(student) {
+    const value = student?.class || student?.className || student?.currentClass || student?.grade;
+    if (value && typeof value === 'object') {
+      return {
+        id: String(value._id || value.id || value.classId || ''),
+        name: String(value.name || value.className || value.title || value.label || value.grade || '')
+      };
+    }
+    return { id: '', name: String(value ?? '').trim() };
+  }
+
+  function subjectsForStudentClass(classes, student) {
+    const identity = classIdentity(student);
+    if (!identity.id && !identity.name) return { classRecord: null, subjects: [] };
+    const classRecord = classes.find(item => identity.id && String(item?._id || item?.id) === identity.id)
+      || classes.find(item => identity.name && String(item?.name || '').trim().toLowerCase() === identity.name.toLowerCase());
+    if (!classRecord) return { classRecord: null, subjects: [] };
+    const subjects = (Array.isArray(classRecord.subjects) ? classRecord.subjects : []).map(entry => {
+      const subject = entry?.subject && typeof entry.subject === 'object' ? entry.subject : null;
+      const subjectId = subject?._id || subject?.id || entry?.subject || entry?._id || '';
+      const name = subject?.name || subject?.title || entry?.name || entry?.subjectName || (typeof entry?.subject === 'string' ? entry.subject : '');
+      if (!name) return null;
+      return {
+        _id: String(subjectId || ''),
+        name: String(name),
+        teacherName: teacherDisplay(entry?.teacher),
+        teacher: entry?.teacher,
+        classId: String(classRecord._id || classRecord.id || ''),
+        className: classRecord.name || identity.name
+      };
+    }).filter(Boolean);
+    return { classRecord, subjects };
+  }
+
   function renderCourses(data) {
     const list = $('courseList');
     const courses = Array.isArray(data?.courses) ? data.courses : [];
     if (!courses.length) {
-      list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">No courses available yet.</p><p class="mt-1 text-xs text-slate-500">Your enrolled courses will appear here when they are published.</p></div>`;
+      const message = data?.courseLoadError
+        ? 'Your class subjects could not be loaded right now. Please refresh to try again.'
+        : 'No subjects have been assigned to your class yet.';
+      list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">No courses available</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(message)}</p></div>`;
       return;
     }
-    list.innerHTML = courses.slice(0, 5).map((course, i) => {
-      const title = course?.name || course?.title || `Course ${i + 1}`;
-      const teacher = course?.teacherName || course?.teacher || 'Course instructor';
-      const href = course?.url || course?.link || `course.html?id=${encodeURIComponent(course?._id || course?.id || '')}`;
-      const progress = Number(course?.progress ?? 0);
+    list.innerHTML = courses.map((course, i) => {
+      const title = course?.name || course?.title || `Subject ${i + 1}`;
+      const teacher = course?.teacherName || teacherDisplay(course?.teacher);
+      const subjectId = course?._id || course?.id || '';
+      const href = `my-courses.html${subjectId ? `?subject=${encodeURIComponent(subjectId)}` : ''}`;
       return `
         <a href="${href}" class="block p-5 hover:bg-slate-50">
           <div class="flex items-start gap-4">
@@ -617,13 +690,11 @@
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="truncate text-sm font-extrabold text-slate-900">${escapeHtml(title)}</p>
-                <span class="text-[10px] font-bold text-slate-400">${Number.isFinite(progress) ? `${Math.max(0, Math.min(100, progress))}%` : ''}</span>
+                <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-700">Subject</span>
               </div>
               <p class="mt-1 text-xs text-slate-500">${escapeHtml(teacher)}</p>
-              <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div class="h-full rounded-full bg-indigo-600" style="width:${Math.max(0, Math.min(100, progress || 0))}%"></div>
-              </div>
             </div>
+            <span class="text-slate-300" aria-hidden="true">→</span>
           </div>
         </a>`;
     }).join('');
@@ -636,22 +707,34 @@
       list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">You are all caught up.</p><p class="mt-1 text-xs text-slate-500">New assignments and deadlines will appear here.</p></div>`;
       return;
     }
+
     list.innerHTML = items.slice(0, 5).map(item => {
       const title = item?.title || item?.name || 'Assignment';
-      const course = item?.courseName || item?.course || 'Course';
+      const subject = item?.subject;
+      const course = typeof subject === 'string' ? subject :
+        (subject?.name || subject?.title || item?.courseName || item?.course || 'General');
       const due = item?.dueDate || item?.deadline || item?.due;
-      const dueText = due ? formatDate(due) : 'Deadline not specified';
-      const href = item?.url || item?.link || `assignment.html?id=${encodeURIComponent(item?._id || item?.id || '')}`;
+      const dueText = due ? formatDate(due) : 'No deadline';
+      const status = String(item?.status || (item?.submitted ? 'Submitted' : 'Pending'));
+      const statusKey = status.toLowerCase();
+      const statusClass = statusKey === 'reviewed' ? 'bg-emerald-50 text-emerald-700' :
+        statusKey === 'overdue' ? 'bg-rose-50 text-rose-700' :
+        statusKey === 'submitted' ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700';
+      const assignmentId = item?._id || item?.id || '';
+      const href = item?.url || item?.link || `assignments.html${assignmentId ? `?assignment=${encodeURIComponent(assignmentId)}` : ''}`;
+      const scoreText = item?.score !== undefined && item?.score !== null
+        ? ` · Score ${escapeHtml(item.score)}${item?.totalScore !== undefined && item?.totalScore !== null ? `/${escapeHtml(item.totalScore)}` : ''}` : '';
       return `
-        <a href="${href}" class="block p-5 hover:bg-slate-50">
+        <a href="${escapeHtml(href)}" class="block p-5 hover:bg-slate-50">
           <div class="flex items-center gap-4">
             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8v4H8z"/><path d="M6 5H5a2 2 0 0 0-2 2v13h18V7a2 2 0 0 0-2-2h-1"/><path d="m7 13 2 2 5-5"/></svg>
             </span>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-extrabold">${escapeHtml(title)}</p>
-              <p class="mt-1 text-xs text-slate-500">${escapeHtml(course)} · Due ${escapeHtml(dueText)}</p>
+              <p class="mt-1 truncate text-xs text-slate-500">${escapeHtml(course)} · Due ${escapeHtml(dueText)}${scoreText}</p>
             </div>
+            <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${statusClass}">${escapeHtml(status)}</span>
             <svg class="h-4 w-4 shrink-0 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
           </div>
         </a>`;
@@ -775,6 +858,8 @@
         state.school = studentSchool;
         state.schoolId = String(getSchoolId(studentSchool) || student?.schoolId || state.schoolId || localStorage.getItem('publicSchoolId') || '');
         applySchool(studentSchool);
+      } else if (student?.schoolId) {
+        state.schoolId = String(student.schoolId?._id || student.schoolId);
       }
       if (state.schoolId) localStorage.setItem('lastStudentForSchool:' + state.schoolId, JSON.stringify({ id: state.studentId }));
       applyStudent(student);
@@ -789,7 +874,7 @@
   }
 
   async function resolveDashboard() {
-    setBoot('Loading classroom', 'Preparing your learning information…', 78);
+    setBoot('Loading classroom', 'Preparing courses, tasks and resources…', 78);
 
     if (!state.studentId) {
       renderDashboard({});
@@ -797,39 +882,62 @@
     }
 
     const cached = studentCacheRead(state.schoolId, state.studentId)?.data;
-    const profile = state.student && typeof state.student === 'object' ? state.student : {};
-    const baseDashboard = {
-      ...profile,
-      courses: Array.isArray(profile.courses) ? profile.courses : [],
-      resources: Array.isArray(profile.resources) ? profile.resources : [],
-      todaySchedule: Array.isArray(profile.todaySchedule) ? profile.todaySchedule :
-                     Array.isArray(profile.schedule) ? profile.schedule : []
+    const student = state.student || {};
+
+    // /students/me is the authoritative student profile and may already
+    // contain enrolled courses, resources and schedule information.
+    const dashboard = {
+      courses: [],
+      assignments: [],
+      resources: Array.isArray(student.resources) ? student.resources :
+                 Array.isArray(student.materials) ? student.materials : [],
+      todaySchedule: Array.isArray(student.todaySchedule) ? student.todaySchedule :
+                     Array.isArray(student.schedule) ? student.schedule : []
     };
 
-    // Show cached data immediately, then refresh only through an endpoint that
-    // is already used by the working Student Dashboard (/api/assignments/me).
-    if (cached?.dashboard) renderDashboard(cached.dashboard);
-    else renderDashboard(baseDashboard);
+    if (cached?.dashboard) {
+      Object.assign(dashboard, cached.dashboard);
+      renderDashboard(dashboard);
+      setBoot('Ready', 'Refreshing your latest classroom activity…', 90);
+    }
 
     try {
-      const response = await apiFetch(API.assignments);
-      if (!response.ok) throw new Error(`Assignments request failed: ${response.status}`);
-      const payload = await response.json();
-      const assignments = Array.isArray(payload) ? payload :
-        Array.isArray(payload?.assignments) ? payload.assignments :
-        Array.isArray(payload?.data?.assignments) ? payload.data.assignments :
-        Array.isArray(payload?.data) ? payload.data : [];
-
-      const dashboard = { ...baseDashboard, ...(cached?.dashboard || {}), assignments };
-      renderDashboard(dashboard);
-      studentCacheWrite(state.schoolId, state.studentId, {
-        student: state.student,
-        dashboard
-      });
+      // Academics exposes school classes with their populated subject and
+      // teacher records. Match the authenticated student's class locally.
+      const classPayload = await tryCandidates(API.classes);
+      const classes = unwrapClasses(classPayload);
+      const matched = subjectsForStudentClass(classes, student);
+      dashboard.courses = matched.subjects;
+      if (matched.classRecord?.name) {
+        $('studentClass').textContent = matched.classRecord.name;
+        $('studentClassSide').textContent = matched.classRecord.name;
+      }
     } catch (err) {
-      console.warn('Classroom assignments unavailable; showing available profile/cache data:', err);
-      if (!cached?.dashboard) renderDashboard(baseDashboard);
+      console.warn('Class subjects are temporarily unavailable:', err);
+      dashboard.courses = [];
+      dashboard.courseLoadError = true;
     }
+
+    try {
+      // This is an established Student Portal endpoint. Do not call the
+      // unregistered /e-classroom/dashboard or /students/me/e-classroom routes.
+      const payload = await tryCandidates(API.assignments);
+      dashboard.assignments = unwrapAssignments(payload);
+    } catch (err) {
+      console.warn('Assignments are temporarily unavailable:', err);
+      if (Array.isArray(cached?.dashboard?.assignments)) {
+        dashboard.assignments = cached.dashboard.assignments;
+        showToast('Showing your saved assignments while we reconnect.');
+      } else {
+        showToast('Assignments could not be loaded. Please try again shortly.');
+      }
+    }
+
+    renderDashboard(dashboard);
+    studentCacheWrite(state.schoolId, state.studentId, {
+      student: state.student,
+      dashboard
+    });
   }
 
   function setupNavigation() {
