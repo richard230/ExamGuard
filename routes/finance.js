@@ -97,10 +97,8 @@ const SchoolWalletSchema = new mongoose.Schema({
   totalDebited: { type: Number, default: 0, min: 0 },
   transactions: [{
     type: { type: String, enum: ['credit', 'debit'], required: true },
-    source: { type: String, enum: ['direct_transfer', 'paystack', 'adjustment', 'expense'], required: true },
-    amount: { type: Number, required: true, min: 0 }, // Net amount credited to the school wallet
-    chargedAmount: { type: Number, min: 0 }, // Gross amount paid by customer, when reported by Paystack
-    paymentFee: { type: Number, min: 0 }, // Paystack fee, when reported by Paystack
+    source: { type: String, enum: ['direct_transfer', 'paystack', 'adjustment', 'expense', 'student_activation'], required: true },
+    amount: { type: Number, required: true, min: 0 },
     status: { type: String, enum: ['pending', 'completed', 'rejected'], default: 'pending' },
     reference: { type: String, required: true },
     payerName: String,
@@ -247,9 +245,7 @@ router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminA
         metadata: {
           purpose: 'school_wallet_funding',
           schoolId: req.schoolId,
-          schoolIdentifier: String(school.schoolId || school._id),
-          walletCreditAmount: amount,
-          walletCreditAmountKobo: Math.round(amount * 100)
+          schoolIdentifier: String(school.schoolId || school._id)
         }
       })
     });
@@ -267,12 +263,7 @@ router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminA
           reference, payerEmail: email,
           description: 'Paystack wallet funding',
           createdAt: new Date(),
-          metadata: {
-            accessCode: payload.data.access_code,
-            walletCreditAmount: amount,
-            walletCreditAmountKobo: Math.round(amount * 100),
-            paystackRequestedAmountKobo: Math.round(amount * 100)
-          }
+          metadata: { accessCode: payload.data.access_code }
         }}
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
@@ -325,63 +316,34 @@ router.get('/school-wallet/funding/paystack/verify', authMiddleware, adminAuth, 
       return res.status(502).json({ success: false, error: payload.message || `Paystack verification service returned HTTP ${response.status}.` });
     }
     const paystackData = payload.data;
-    // The amount requested for wallet credit is the net value entered by the
-    // school. Paystack may add its customer-paid processing fee at checkout.
-    // In that case data.amount can be gross while requested_amount remains the
-    // original amount. Verify the requested/net amount (or amount less fees),
-    // but never credit the fee-inclusive gross amount to the school wallet.
     const paidAmountKobo = Number(paystackData.amount);
-    const expectedAmountKobo = Number(transaction.metadata?.walletCreditAmountKobo) || Math.round(Number(transaction.amount) * 100);
-    const requestedAmountKobo = Number(paystackData.requested_amount);
-    const feeAmountKobo = Number(paystackData.fees);
-    const hasRequestedAmount = paystackData.requested_amount !== undefined && paystackData.requested_amount !== null && Number.isFinite(requestedAmountKobo);
-    const requestedAmountMatches = hasRequestedAmount && requestedAmountKobo === expectedAmountKobo;
-    const grossLessFeeMatches = Number.isFinite(paidAmountKobo) && Number.isFinite(feeAmountKobo) && paidAmountKobo - feeAmountKobo === expectedAmountKobo;
-    const amountMatches = hasRequestedAmount
-      ? requestedAmountMatches
-      : (Number.isFinite(paidAmountKobo) && paidAmountKobo === expectedAmountKobo) || grossLessFeeMatches;
+    const expectedAmountKobo = Math.round(Number(transaction.amount) * 100);
     const metadataSchoolId = paystackData.metadata?.schoolId;
     const metadataMatches = metadataSchoolId == null || String(metadataSchoolId) === String(req.schoolId);
     const referenceMatches = String(paystackData.reference || '') === reference;
+    const amountMatches = Number.isFinite(paidAmountKobo) && paidAmountKobo === expectedAmountKobo;
     const currencyMatches = !paystackData.currency || String(paystackData.currency).toUpperCase() === 'NGN';
     if (String(paystackData.status || '').toLowerCase() !== 'success' || !referenceMatches || !amountMatches || !currencyMatches || !metadataMatches) {
       console.warn('[SchoolWallet] Paystack transaction did not pass validation', {
         reference, paystackStatus: paystackData.status, referenceMatches, amountMatches,
-        currencyMatches, metadataMatches, expectedAmountKobo, requestedAmountKobo: hasRequestedAmount ? requestedAmountKobo : null,
-        paidAmountKobo, feeAmountKobo: Number.isFinite(feeAmountKobo) ? feeAmountKobo : null,
+        currencyMatches, metadataMatches, expectedAmountKobo, paidAmountKobo,
         metadataSchoolId: metadataSchoolId == null ? null : String(metadataSchoolId), schoolId: String(req.schoolId)
       });
-      return res.status(409).json({ success: false, error: 'Paystack confirmed a transaction, but its requested wallet amount, reference, currency or school did not match this funding request. No wallet credit was made.' });
+      return res.status(409).json({ success: false, error: 'Paystack has not confirmed a matching successful payment for this reference. Check the reference, amount, currency and school, then retry.' });
     }
-    const grossChargedAmount = Number.isFinite(paidAmountKobo) ? paidAmountKobo / 100 : null;
-    const paystackFee = Number.isFinite(feeAmountKobo) ? feeAmountKobo / 100 : null;
 
     // Atomic conditional update prevents duplicate credits if the user taps Verify more than once.
     const result = await SchoolWallet.updateOne(
       { schoolId: req.schoolId, transactions: { $elemMatch: { reference, source: 'paystack', status: 'pending' } } },
       {
         $inc: { balance: transaction.amount, totalCredited: transaction.amount },
-        $set: {
-          'transactions.$.status': 'completed',
-          'transactions.$.verifiedAt': new Date(),
-          'transactions.$.chargedAmount': grossChargedAmount,
-          'transactions.$.paymentFee': paystackFee,
-          'transactions.$.metadata.paystackTransactionId': paystackData.id,
-          'transactions.$.metadata.paystackRequestedAmountKobo': hasRequestedAmount ? requestedAmountKobo : null,
-          'transactions.$.metadata.paystackChargedAmountKobo': Number.isFinite(paidAmountKobo) ? paidAmountKobo : null,
-          'transactions.$.metadata.paystackFeeKobo': Number.isFinite(feeAmountKobo) ? feeAmountKobo : null
-        }
+        $set: { 'transactions.$.status': 'completed', 'transactions.$.verifiedAt': new Date(), 'transactions.$.metadata.paystackTransactionId': paystackData.id }
       }
     );
     const updated = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
     const credited = result.modifiedCount === 1;
     console.info('[SchoolWallet] Paystack verification finished', { schoolId: req.schoolId, reference, credited, balance: updated?.balance || 0 });
-    res.json({
-      success: true, credited, alreadyVerified: !credited, balance: updated?.balance || 0, reference,
-      walletCreditAmount: Number(transaction.amount),
-      paystackChargedAmount: grossChargedAmount,
-      paystackFee
-    });
+    res.json({ success: true, credited, alreadyVerified: !credited, balance: updated?.balance || 0, reference });
   } catch (err) {
     console.error('Paystack verification failed:', err);
     res.status(500).json({ success: false, error: err.message });
