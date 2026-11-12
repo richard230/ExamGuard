@@ -68,7 +68,14 @@ const StudentSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-    accountStatus: String,
+    accountStatus: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active',
+      lowercase: true,
+      trim: true,
+      index: true
+    },
     subscriptionStatus: String,
     firstname: {
       type: String,
