@@ -92,7 +92,7 @@
   <nav class="flex-1 overflow-y-auto px-3 py-5">
     <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Learning</p>
     <div id="navLearning" class="space-y-1">
-      <a data-route="e-classroom-1.html" href="e-classroom-1.html" class="nav-link flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-bold text-indigo-700">
+      <a data-route="e-classroom.html" href="e-classroom.html" class="nav-link flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-bold text-indigo-700">
         <span class="grid h-8 w-8 place-items-center rounded-lg bg-indigo-100 text-indigo-700">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/><path d="m8 8 3 2-3 2V8ZM13 16h4"/></svg>
         </span>
@@ -461,34 +461,36 @@
 (() => {
   'use strict';
 
+  /*
+    E-Classroom integration contract
+    --------------------------------
+    The page is tenant-safe by design:
+      1. Resolve authenticated school first.
+      2. Cache school configuration under a school-specific key.
+      3. Resolve student second.
+      4. Cache student dashboard under school + student keys.
+      5. Never use a generic global student/school cache.
+
+    Expected API candidates can be adjusted in the arrays below without
+    changing the UI.
+  */
+
+  // Keep authentication consistent with the existing Student Portal.
+  // The portal uses the deployed API plus the student's bearer token.
   const BACKEND_URL = window.BACKEND_URL || 'https://examguard-8rxe.onrender.com';
   const API_ROOT = `${BACKEND_URL}/api`;
 
   const API = {
-    school: ['/schools/config', '/schools/me', '/auth/me'],
-    student: ['/students/me', '/auth/me'],
+    school: ['/auth/me', '/schools/me', '/school/me'],
+    student: ['/students/me'],
     dashboard: ['/e-classroom/dashboard', '/students/me/e-classroom']
   };
 
   function getToken() {
-    return localStorage.getItem('studentToken') ||
-           localStorage.getItem('student_token') ||
+    return localStorage.getItem('student_token') ||
+           localStorage.getItem('studentToken') ||
            localStorage.getItem('token') ||
            localStorage.getItem('authToken') || '';
-  }
-
-  function getSubdomain() {
-    let host = localStorage.getItem('schoolSubdomain');
-    if (host) return host.toLowerCase();
-    let h = location.hostname.toLowerCase();
-    for (let b of ['goldlincschools.com.ng', 'examguard.com.ng']) {
-      let x = '.' + b;
-      if (h.endsWith(x)) {
-        let q = h.slice(0, -x.length);
-        if (q && q !== 'www') return q;
-      }
-    }
-    return '';
   }
 
   function authHeaders(extra = {}) {
@@ -496,15 +498,57 @@
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const schoolCode = localStorage.getItem('schoolId') ||
-                       localStorage.getItem('publicSchoolId') || '';
-    if (schoolCode) headers['X-School-Code'] = schoolCode;
+    // Preserve the tenant identifier used by the existing Student Portal.
+    const schoolId = localStorage.getItem('publicSchoolId') ||
+                     localStorage.getItem('schoolId') || '';
+    if (schoolId) headers['X-School-Code'] = schoolId;
 
     return headers;
   }
 
+  async function apiFetch(path, options = {}) {
+    const headers = authHeaders(options.headers || {});
+    return fetch(`${API_ROOT}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers
+    });
+  }
+
+  const ROUTES = {
+    aiStudyPadi: window.AI_STUDY_PADI_URL || 'ai-study-padi.html',
+    liveClasses: window.E_CLASSROOM_LIVE_URL || 'live-classes.html'
+  };
+
+  const state = {
+    school: null,
+    student: null,
+    dashboard: null,
+    schoolId: null,
+    studentId: null
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function safeParse(value) {
+    try { return JSON.parse(value); } catch { return null; }
+  }
+
+  function storageKey(type, id) {
+    return `eclassroom:${type}:${String(id || 'unknown')}`;
+  }
+
+  function getSchoolId(obj) {
+    return obj?._id || obj?.id || obj?.schoolId || obj?.school?._id || obj?.school?.id || obj?.user?.schoolId || null;
+  }
+
+  function getStudentId(obj) {
+    return obj?._id || obj?.id || obj?.studentId || obj?.student?._id || obj?.student?.id || obj?.user?.studentId || null;
+  }
+
   async function fetchJson(url, options = {}) {
-    const requestUrl = url.startsWith('http') ? url : `${API_ROOT}${url}`;
+    // API candidates are API-relative paths, not page-relative URLs.
+    const requestUrl = /^https?:\\/\\//i.test(url) ? url : `${API_ROOT}${url}`;
     const res = await fetch(requestUrl, {
       credentials: 'include',
       ...options,
@@ -514,17 +558,13 @@
     return res.json();
   }
 
-  async function tryCandidates(urls, query = '') {
+  async function tryCandidates(urls) {
     let lastError = null;
     for (const url of urls) {
-      try {
-        const fullUrl = query ? `${url}${url.includes('?') ? '&' : '?'}${query}` : url;
-        return await fetchJson(fullUrl);
-      } catch (err) {
-        lastError = err;
-      }
+      try { return await fetchJson(url); }
+      catch (err) { lastError = err; }
     }
-    throw lastError || new Error('All request candidates failed');
+    throw lastError || new Error('Request failed');
   }
 
   function unwrapSchool(payload) {
@@ -540,73 +580,102 @@
   }
 
   function setBoot(title, status, progress) {
-    const t = $('bootTitle');
-    const s = $('bootStatus');
-    const p = $('bootProgress');
-    if (t) t.textContent = title;
-    if (s) s.textContent = status;
-    if (p) p.style.width = `${Math.max(5, Math.min(100, progress))}%`;
+    $('bootTitle').textContent = title;
+    $('bootStatus').textContent = status;
+    $('bootProgress').style.width = `${Math.max(5, Math.min(100, progress))}%`;
   }
 
   function finishBoot() {
     const overlay = $('bootOverlay');
-    if (!overlay) return;
     overlay.classList.add('opacity-0', 'pointer-events-none');
     setTimeout(() => overlay.remove(), 350);
   }
 
   function showToast(message) {
     const el = $('toast');
-    if (!el) return;
     el.textContent = message;
     el.classList.remove('hidden');
     clearTimeout(showToast.timer);
     showToast.timer = setTimeout(() => el.classList.add('hidden'), 2600);
   }
 
+  function schoolCacheRead(id) {
+    return id ? safeParse(localStorage.getItem(storageKey('school', id))) : null;
+  }
+
+  function schoolCacheWrite(id, data) {
+    if (!id || !data) return;
+    localStorage.setItem(storageKey('school', id), JSON.stringify({
+      cachedAt: Date.now(), data
+    }));
+  }
+
+  function studentCacheRead(schoolId, studentId) {
+    return schoolId && studentId ? safeParse(localStorage.getItem(storageKey('student', `${schoolId}:${studentId}`))) : null;
+  }
+
+  function studentCacheWrite(schoolId, studentId, data) {
+    if (!schoolId || !studentId || !data) return;
+    localStorage.setItem(storageKey('student', `${schoolId}:${studentId}`), JSON.stringify({
+      cachedAt: Date.now(), data
+    }));
+  }
+
+  function extractName(obj) {
+    return obj?.name || obj?.schoolName || obj?.institutionName || obj?.profile?.schoolName || 'School';
+  }
+
+  function extractLogo(obj) {
+    return obj?.logo || obj?.logoUrl || obj?.schoolLogo || obj?.branding?.logo || obj?.settings?.logo || '';
+  }
+
   function applySchool(school) {
-    const name = school?.name || school?.schoolName || school?.institutionName || 'E-Classroom';
-    const logo = school?.logoUrl || school?.logo || school?.branding?.logo || '';
+    const name = extractName(school);
+    const logo = extractLogo(school);
 
-    const elName = $('schoolName');
-    const elHeader = $('headerSchool');
-    const elFooter = $('footerSchool');
-    const elLogo = $('schoolLogo');
-    const elFallback = $('logoFallback');
-
-    if (elName) elName.textContent = name;
-    if (elHeader) elHeader.textContent = `${name} · Digital learning environment`;
-    if (elFooter) elFooter.textContent = name;
+    $('schoolName').textContent = name;
+    $('headerSchool').textContent = `${name} · Digital learning environment`;
+    $('footerSchool').textContent = name;
     document.title = `${name} | E-Classroom`;
 
-    if (logo && elLogo) {
-      elLogo.src = logo;
-      elLogo.style.display = '';
-      if (elFallback) elFallback.classList.add('hidden');
+    if (logo) {
+      $('schoolLogo').src = logo;
+      $('schoolLogo').style.display = '';
+      $('logoFallback').classList.add('hidden');
+    }
+
+    const primary = school?.primaryColor || school?.branding?.primaryColor || school?.theme?.primaryColor;
+    if (primary) {
+      document.documentElement.style.setProperty('--school-primary', primary);
     }
   }
 
+  function avatarUrl(student) {
+    return student?.photo || student?.avatar || student?.profileImage || student?.image || '';
+  }
+
   function applyStudent(student) {
-    const fullName = student?.fullName || student?.name ||
-      [student?.firstName, student?.lastName].filter(Boolean).join(' ') || 'Student';
-    const className = student?.className || student?.class || student?.grade || 'Learner';
+    const fullName =
+      student?.fullName ||
+      student?.name ||
+      [student?.firstName, student?.lastName].filter(Boolean).join(' ') ||
+      'Student';
 
-    ['studentName', 'studentNameSide'].forEach(id => {
-      const el = $(id);
-      if (el) el.textContent = fullName;
-    });
+    const className =
+      student?.className ||
+      student?.class ||
+      student?.grade ||
+      student?.currentClass ||
+      'Learner';
 
-    ['studentClass', 'studentClassSide'].forEach(id => {
-      const el = $(id);
-      if (el) el.textContent = className;
-    });
+    $('studentName').textContent = fullName;
+    $('studentClass').textContent = className;
+    $('studentNameSide').textContent = fullName;
+    $('studentClassSide').textContent = className;
 
-    const avatar = student?.photo || student?.avatar || student?.profileImage || '';
+    const avatar = avatarUrl(student);
     if (avatar) {
-      ['studentAvatarSide', 'headerAvatar', 'heroAvatar'].forEach(id => {
-        const el = $(id);
-        if (el) el.src = avatar;
-      });
+      ['studentAvatarSide','headerAvatar','heroAvatar'].forEach(id => $(id).src = avatar);
     }
   }
 
@@ -614,28 +683,22 @@
     const courses = data?.courses || data?.courseList || [];
     const assignments = data?.assignments || data?.upcomingAssignments || [];
     const resources = data?.resources || data?.materials || [];
-
-    const sc = $('statCourses');
-    const st = $('statTasks');
-    const sr = $('statResources');
-
-    if (sc) sc.textContent = Array.isArray(courses) ? courses.length : (data?.courseCount ?? '0');
-    if (st) st.textContent = Array.isArray(assignments) ? assignments.length : (data?.assignmentCount ?? '0');
-    if (sr) sr.textContent = Array.isArray(resources) ? resources.length : (data?.resourceCount ?? '0');
+    $('statCourses').textContent = Array.isArray(courses) ? courses.length : (data?.courseCount ?? '—');
+    $('statTasks').textContent = Array.isArray(assignments) ? assignments.length : (data?.assignmentCount ?? '—');
+    $('statResources').textContent = Array.isArray(resources) ? resources.length : (data?.resourceCount ?? '—');
   }
 
   function renderCourses(data) {
     const list = $('courseList');
-    if (!list) return;
     const courses = Array.isArray(data?.courses) ? data.courses : [];
     if (!courses.length) {
-      list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">No courses available yet.</p><p class="mt-1 text-xs text-slate-500">Your enrolled courses will appear here when published.</p></div>`;
+      list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">No courses available yet.</p><p class="mt-1 text-xs text-slate-500">Your enrolled courses will appear here when they are published.</p></div>`;
       return;
     }
     list.innerHTML = courses.slice(0, 5).map((course, i) => {
       const title = course?.name || course?.title || `Course ${i + 1}`;
-      const teacher = course?.teacherName || course?.teacher || 'Instructor';
-      const href = course?.url || course?.link || `my-courses.html`;
+      const teacher = course?.teacherName || course?.teacher || 'Course instructor';
+      const href = course?.url || course?.link || `course.html?id=${encodeURIComponent(course?._id || course?.id || '')}`;
       const progress = Number(course?.progress ?? 0);
       return `
         <a href="${href}" class="block p-5 hover:bg-slate-50">
@@ -644,11 +707,11 @@
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="truncate text-sm font-extrabold text-slate-900">${escapeHtml(title)}</p>
-                <span class="text-[10px] font-bold text-slate-400">${Math.max(0, Math.min(100, progress))}%</span>
+                <span class="text-[10px] font-bold text-slate-400">${Number.isFinite(progress) ? `${Math.max(0, Math.min(100, progress))}%` : ''}</span>
               </div>
               <p class="mt-1 text-xs text-slate-500">${escapeHtml(teacher)}</p>
               <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div class="h-full rounded-full bg-indigo-600" style="width:${Math.max(0, Math.min(100, progress))}%"></div>
+                <div class="h-full rounded-full bg-indigo-600" style="width:${Math.max(0, Math.min(100, progress || 0))}%"></div>
               </div>
             </div>
           </div>
@@ -658,7 +721,6 @@
 
   function renderAssignments(data) {
     const list = $('assignmentList');
-    if (!list) return;
     const items = Array.isArray(data?.assignments) ? data.assignments : [];
     if (!items.length) {
       list.innerHTML = `<div class="p-5"><p class="text-sm font-bold text-slate-700">You are all caught up.</p><p class="mt-1 text-xs text-slate-500">New assignments and deadlines will appear here.</p></div>`;
@@ -668,8 +730,8 @@
       const title = item?.title || item?.name || 'Assignment';
       const course = item?.courseName || item?.course || 'Course';
       const due = item?.dueDate || item?.deadline || item?.due;
-      const dueText = due ? formatDate(due) : 'No due date';
-      const href = item?.url || item?.link || `assignments.html`;
+      const dueText = due ? formatDate(due) : 'Deadline not specified';
+      const href = item?.url || item?.link || `assignment.html?id=${encodeURIComponent(item?._id || item?.id || '')}`;
       return `
         <a href="${href}" class="block p-5 hover:bg-slate-50">
           <div class="flex items-center gap-4">
@@ -688,11 +750,10 @@
 
   function renderSchedule(data) {
     const target = $('todaySchedule');
-    if (!target) return;
     const schedule = Array.isArray(data?.todaySchedule) ? data.todaySchedule :
                      Array.isArray(data?.schedule) ? data.schedule : [];
     if (!schedule.length) {
-      target.innerHTML = `<div class="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">No classes scheduled for today.</div>`;
+      target.innerHTML = `<div class="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">No classes or sessions scheduled for today.</div>`;
       return;
     }
     target.innerHTML = schedule.slice(0, 5).map(item => `
@@ -717,65 +778,131 @@
     }[ch]));
   }
 
-  async function resolveSchoolAndStudent() {
-    setBoot('Loading school', 'Connecting to school workspace…', 25);
-    const host = getSubdomain();
+  function renderDashboard(data) {
+    state.dashboard = data || {};
+    setStats(state.dashboard);
+    renderCourses(state.dashboard);
+    renderAssignments(state.dashboard);
+    renderSchedule(state.dashboard);
+  }
 
-    try {
-      let schoolPayload = null;
-      try {
-        schoolPayload = await tryCandidates(API.school, host ? `subdomain=${encodeURIComponent(host)}` : '');
-      } catch (_) {
-        schoolPayload = await fetchJson(`/schools/config${host ? `?subdomain=${encodeURIComponent(host)}` : ''}`);
-      }
+  async function resolveSchool() {
+    setBoot('Loading school', 'Preparing your school workspace…', 20);
 
-      const school = unwrapSchool(schoolPayload);
-      if (school) {
-        applySchool(school);
-        if (school._id || school.schoolId) {
-          localStorage.setItem('schoolId', school._id || school.schoolId);
-        }
-      }
-    } catch (e) {
-      console.warn('School resolution warning:', e);
+    // If authenticated school context is already exposed by the app, use it first.
+    const known = window.CURRENT_SCHOOL || window.currentSchool || window.schoolConfig || null;
+    if (known) {
+      state.school = known;
+      state.schoolId = getSchoolId(known);
+      if (state.schoolId) schoolCacheWrite(state.schoolId, known);
+      applySchool(known);
+      return known;
     }
 
-    setBoot('Loading student', 'Authenticating academic profile…', 60);
-
+    let payload;
     try {
-      const studentPayload = await tryCandidates(API.student);
-      const student = unwrapStudent(studentPayload);
-      if (student) {
-        applyStudent(student);
+      payload = await tryCandidates(API.school);
+    } catch (err) {
+      // A cached school may still safely bootstrap the UI if the key is known
+      // from a prior authenticated session.
+      const lastSchoolId = localStorage.getItem('currentSchoolId');
+      const cached = lastSchoolId ? schoolCacheRead(lastSchoolId)?.data : null;
+      if (cached) {
+        state.school = cached;
+        state.schoolId = lastSchoolId;
+        applySchool(cached);
+        showToast('Using your saved school configuration while reconnecting.');
+        return cached;
       }
-    } catch (e) {
-      console.warn('Student profile fallback active:', e);
-      applyStudent({ name: 'Student', className: 'Learner' });
+      throw err;
     }
 
-    finishBoot();
+    const school = unwrapSchool(payload);
+    const schoolId = getSchoolId(school);
+    if (!schoolId) throw new Error('Authenticated school was not returned.');
+
+    state.school = school;
+    state.schoolId = String(schoolId);
+    localStorage.setItem('currentSchoolId', state.schoolId);
+    schoolCacheWrite(state.schoolId, school);
+    applySchool(school);
+
+    return school;
+  }
+
+  async function resolveStudent() {
+    setBoot('Loading student', 'Getting your academic profile…', 55);
+
+    const cached = state.schoolId ? safeParse(localStorage.getItem('lastStudentForSchool:' + state.schoolId)) : null;
+    const known = window.CURRENT_STUDENT || window.currentStudent || null;
+
+    if (known) {
+      state.student = known;
+      state.studentId = getStudentId(known);
+      if (state.studentId) localStorage.setItem('lastStudentForSchool:' + state.schoolId, JSON.stringify({ id: state.studentId }));
+      applyStudent(known);
+      const cachedDashboard = state.studentId ? studentCacheRead(state.schoolId, state.studentId)?.data : null;
+      if (cachedDashboard) renderDashboard(cachedDashboard);
+    } else if (cached?.id) {
+      const cachedStudent = studentCacheRead(state.schoolId, cached.id)?.data?.student;
+      if (cachedStudent) {
+        state.student = cachedStudent;
+        state.studentId = cached.id;
+        applyStudent(cachedStudent);
+        renderDashboard(studentCacheRead(state.schoolId, cached.id)?.data?.dashboard || {});
+      }
+    }
+
+    try {
+      const payload = await tryCandidates(API.student);
+      const student = unwrapStudent(payload);
+      const studentId = getStudentId(student);
+      if (!studentId) throw new Error('Student identity was not returned.');
+
+      state.student = student;
+      state.studentId = String(studentId);
+      localStorage.setItem('lastStudentForSchool:' + state.schoolId, JSON.stringify({ id: state.studentId }));
+      applyStudent(student);
+      return student;
+    } catch (err) {
+      if (state.student) {
+        showToast('Your saved learning profile is being shown while we reconnect.');
+        return state.student;
+      }
+      throw err;
+    }
   }
 
   async function resolveDashboard() {
+    setBoot('Loading classroom', 'Preparing courses, tasks and resources…', 78);
+
+    if (!state.schoolId || !state.studentId) return;
+
+    const cached = studentCacheRead(state.schoolId, state.studentId)?.data;
+    if (cached?.dashboard) {
+      renderDashboard(cached.dashboard);
+      setBoot('Ready', 'Refreshing your latest classroom activity…', 90);
+    }
+
     try {
       const payload = await tryCandidates(API.dashboard);
-      const dashboard = unwrapDashboard(payload) || {};
-      setStats(dashboard);
-      renderCourses(dashboard);
-      renderAssignments(dashboard);
-      renderSchedule(dashboard);
-    } catch (e) {
-      setStats({});
-      renderCourses({});
-      renderAssignments({});
-      renderSchedule({});
+      const dashboard = unwrapDashboard(payload);
+      renderDashboard(dashboard);
+      studentCacheWrite(state.schoolId, state.studentId, {
+        student: state.student,
+        dashboard
+      });
+    } catch (err) {
+      if (!cached?.dashboard) {
+        renderDashboard({});
+        showToast('Classroom data could not be refreshed right now.');
+      }
     }
   }
 
   function setupNavigation() {
     const sidebar = $('sidebar');
     const backdrop = $('mobileBackdrop');
-    if (!sidebar || !backdrop) return;
 
     function open() {
       sidebar.classList.remove('-translate-x-full');
@@ -788,47 +915,80 @@
       document.body.classList.remove('overflow-hidden');
     }
 
-    const openBtn = $('openSidebar');
-    const closeBtn = $('closeSidebar');
-    if (openBtn) openBtn.addEventListener('click', open);
-    if (closeBtn) closeBtn.addEventListener('click', close);
+    $('openSidebar').addEventListener('click', open);
+    $('closeSidebar').addEventListener('click', close);
     backdrop.addEventListener('click', close);
-
     document.querySelectorAll('.nav-link').forEach(link => link.addEventListener('click', close));
-    window.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') close();
+    });
   }
 
   function setupLogout() {
     async function logout() {
-      try { await fetchJson('/auth/logout', { method: 'POST' }); } catch (_) {}
-      ['studentToken', 'student_token', 'token', 'authToken', 'schoolId', 'publicSchoolId'].forEach(k => localStorage.removeItem(k));
+      // Logout is only executed when the student explicitly clicks Sign out.
+      // Never call this during classroom initialization.
+      try {
+        await apiFetch('/auth/logout', { method: 'POST' });
+      } catch (_) {}
+
+      // Do not purge school branding/configuration.
+      if (state.schoolId && state.studentId) {
+        localStorage.removeItem(storageKey('student', `${state.schoolId}:${state.studentId}`));
+      }
+
+      // Match the existing Student Portal logout behavior.
+      [
+        'student_token','studentToken','token','authToken',
+        'schoolSubdomain','publicSchoolId','schoolId'
+      ].forEach(key => localStorage.removeItem(key));
+
       window.location.href = 'login.html';
     }
 
-    const btn1 = $('logoutBtn');
-    const btn2 = $('headerLogout');
-    if (btn1) btn1.addEventListener('click', logout);
-    if (btn2) btn2.addEventListener('click', logout);
+    $('logoutBtn').addEventListener('click', logout);
+    $('headerLogout').addEventListener('click', logout);
   }
 
   function setupDate() {
-    const el = $('todayDate');
-    if (el) {
-      el.textContent = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
-    }
+    $('todayDate').textContent = new Intl.DateTimeFormat(undefined, {
+      weekday: 'long', month: 'long', day: 'numeric'
+    }).format(new Date());
+  }
+
+  function configureRoutes() {
+    document.querySelectorAll('a[href="ai-study-padi.html"]').forEach(a => a.href = ROUTES.aiStudyPadi);
+    document.querySelectorAll('a[href="live-classes.html"]').forEach(a => a.href = ROUTES.liveClasses);
   }
 
   async function init() {
     setupNavigation();
     setupLogout();
     setupDate();
+    configureRoutes();
 
     try {
-      await resolveSchoolAndStudent();
-      await resolveDashboard();
-    } catch (err) {
-      console.error('Initialization error:', err);
+      await resolveSchool();
+      await resolveStudent();
+
+      // Do not block the page on secondary classroom data if the student context is ready.
       finishBoot();
+      await resolveDashboard();
+      finishBoot();
+    } catch (err) {
+      console.error('E-Classroom initialization failed:', err);
+
+      // Do NOT automatically log the student out or redirect to login merely
+      // because the classroom endpoint failed. The existing student session
+      // belongs to the Student Portal and must remain intact.
+      setBoot('Classroom unavailable', 'Your session is still active. Please refresh or return to the Student Portal.', 100);
+
+      const portal = document.querySelector('a[href="student-dashboard.html"]');
+      if (portal) {
+        portal.textContent = 'Return to Student Portal';
+        portal.classList.remove('hidden');
+      }
     }
   }
 
