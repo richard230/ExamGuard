@@ -12,7 +12,12 @@
 @keyframes renewal-enter{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(prefers-reduced-motion:reduce){#scratchRenewalModal .renewal-panel{animation:none}}
 
-</style></head><body class="bg-slate-50 text-slate-900">
+#pageBootSpinner{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(248,250,252,.96);backdrop-filter:blur(6px);transition:opacity .2s ease,visibility .2s ease}
+#pageBootSpinner.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+#pageBootSpinner .boot-card{display:flex;flex-direction:column;align-items:center;gap:12px;padding:22px 28px;border:1px solid #e2e8f0;border-radius:20px;background:#fff;box-shadow:0 18px 50px rgba(15,23,42,.10)}
+#pageBootSpinner .boot-ring{width:34px;height:34px;border:3px solid #e0e7ff;border-top-color:#4f46e5;border-radius:999px;animation:spin .7s linear infinite}
+#pageBootSpinner .boot-text{font-size:12px;font-weight:800;color:#475569}
+</style></head><body class="bg-slate-50 text-slate-900"><div id="pageBootSpinner" role="status" aria-live="polite" aria-label="Loading school and student"><div class="boot-card"><div class="boot-ring"></div><div id="pageBootSpinnerText" class="boot-text">Loading school...</div></div></div>
 <div id="sidebarBackdrop" class="fixed inset-0 z-40 hidden bg-slate-950/50 backdrop-blur-sm lg:hidden"></div>
 <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 lg:translate-x-0">
   <div class="flex items-center gap-3 border-b border-slate-100 px-5 py-5">
@@ -380,70 +385,116 @@ function applySchoolBranding(school){
     localStorage.setItem('schoolId', publicSchoolId);
   }
   try {
-    localStorage.setItem('examguard_school_config_last', JSON.stringify(currentSchool));
+    const tenantKey = String(getTenantSubdomain() || currentSchool._id || currentSchool.id || currentSchool.schoolId || publicSchoolId || 'default').toLowerCase();
+    localStorage.setItem('examguard_school_config_' + tenantKey, JSON.stringify({cachedAt: Date.now(), school: currentSchool}));
   } catch(e) {}
   document.documentElement.style.setProperty('--school-primary', branding.primaryColor || '#4f46e5');
 }
 
-async function loadSchoolConfig(student){
-  let school = student?.school || (student?.schoolId && typeof student.schoolId === 'object' ? student.schoolId : null);
-  const mongoId = typeof student?.schoolId === 'string' ? student.schoolId : String(school?._id || school?.id || '');
-  const sub = getTenantSubdomain();
-  const cachedKeys = ['examguard_school_config_' + sub, 'examguard_school_config_last'];
-  
-  if(!school){
-    for(const key of cachedKeys){
-      if(!key) continue;
-      try {
-        const c = localStorage.getItem(key);
-        if(c){
-          school = JSON.parse(c);
-          if(school) break;
-        }
-      } catch(e){}
-    }
+const SCHOOL_CACHE_TTL = 10 * 60 * 1000;
+const STUDENT_CACHE_TTL = 5 * 60 * 1000;
+
+function getBootSpinner(){return document.getElementById('pageBootSpinner');}
+function setBootSpinnerText(text){const el=document.getElementById('pageBootSpinnerText');if(el)el.textContent=text;}
+function hideBootSpinner(){const el=getBootSpinner();if(!el)return;el.classList.add('is-hidden');setTimeout(()=>el.remove(),250);}
+
+function getCachedSchoolConfig(){
+  const sub=getTenantSubdomain();
+  const keys=[];
+  if(sub)keys.push('examguard_school_config_'+sub);
+  if(currentSchool?._id)keys.push('examguard_school_config_'+currentSchool._id);
+  if(currentSchool?.id)keys.push('examguard_school_config_'+currentSchool.id);
+  for(const key of keys){
+    try{
+      const parsed=JSON.parse(localStorage.getItem(key)||'null');
+      const school=parsed?.school||parsed?.data||parsed;
+      const age=Date.now()-Number(parsed?.cachedAt||0);
+      if(school&&(!parsed?.cachedAt||age<=SCHOOL_CACHE_TTL))return school;
+      if(parsed?.cachedAt&&age>SCHOOL_CACHE_TTL)localStorage.removeItem(key);
+    }catch(e){}
   }
-  
-  if(school) applySchoolBranding(school);
-  
-  const candidates = [];
-  if(sub) candidates.push(`${API_ROOT}/schools/config?subdomain=${encodeURIComponent(sub)}`);
-  if(mongoId) candidates.push(`${API_ROOT}/schools/config?schoolId=${encodeURIComponent(mongoId)}`);
-  
-  try {
-    const me = await fetch(`${API_ROOT}/auth/me`, { headers: authHeaders() });
-    if(me.ok){
-      const md = await me.json();
-      const u = md.user || md.data?.user || md.data || md;
-      const ms = u.school || md.school || md.data?.school;
-      if(ms && (!mongoId || String(ms._id || ms.id) === mongoId)){
-        // Shallow merge instead of replacing school completely
-        school = { ...(school || {}), ...ms };
+  return null;
+}
+
+function getStudentCacheIdentity(){
+  try{
+    const token=getToken();
+    if(!token)return 'anonymous';
+    const payload=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    return String(payload.sub||payload.userId||payload.id||payload.studentId||payload.email||'authenticated').replace(/[^a-z0-9_-]/gi,'_');
+  }catch(e){return 'authenticated';}
+}
+function getStudentCacheKey(){return ('examguard_student_profile_'+(getTenantSubdomain()||'default')+'_'+getStudentCacheIdentity()).toLowerCase();}
+function getCachedStudentProfile(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(getStudentCacheKey())||'null');
+    if(!parsed?.data||Date.now()-Number(parsed.cachedAt||0)>STUDENT_CACHE_TTL){
+      if(parsed) localStorage.removeItem(getStudentCacheKey());
+      return null;
+    }
+    return parsed.data;
+  }catch(e){return null;}
+}
+function cacheStudentProfile(student){
+  if(!student)return;
+  const safe={
+    _id:student._id,id:student.id,student_id:student.student_id,regNo:student.regNo,
+    full_name:student.full_name,name:student.name,first_name:student.first_name,last_name:student.last_name,
+    class_name:student.class_name,class:student.class,session:student.session,session_name:student.session_name,
+    term:student.term,term_name:student.term_name,schoolId:student.schoolId,school:student.school,
+    photo_url:student.photo_url,photoUrl:student.photoUrl,photo:student.photo,avatar:student.avatar,
+    profilePicture:student.profilePicture
+  };
+  try{localStorage.setItem(getStudentCacheKey(),JSON.stringify({cachedAt:Date.now(),data:safe}));}catch(e){}
+}
+
+async function loadSchoolConfig(student,options={}){
+  let school=student?.school||(student?.schoolId&&typeof student.schoolId==='object'?student.schoolId:null);
+  const mongoId=typeof student?.schoolId==='string'?student.schoolId:String(school?._id||school?.id||'');
+  const sub=getTenantSubdomain();
+
+  if(!school&&options.allowCache!==false){
+    school=getCachedSchoolConfig();
+    if(school)applySchoolBranding(school);
+  }else if(school)applySchoolBranding(school);
+
+  const candidates=[];
+  if(sub)candidates.push(`${API_ROOT}/schools/config?subdomain=${encodeURIComponent(sub)}`);
+  if(mongoId)candidates.push(`${API_ROOT}/schools/config?schoolId=${encodeURIComponent(mongoId)}`);
+
+  const refresh=async()=>{
+    let refreshed=school;
+    try{
+      const me=await fetchWithTimeout(`${API_ROOT}/auth/me`,{headers:authHeaders()},8000);
+      if(me.ok){
+        const md=await me.json();
+        const u=md.user||md.data?.user||md.data||md;
+        const ms=u.school||md.school||md.data?.school;
+        if(ms&&(!mongoId||String(ms._id||ms.id)===mongoId))refreshed={...(refreshed||{}),...ms};
       }
-    }
-  } catch(e) {
-    console.warn('School profile fetch failed', e);
-  }
-  
-  for(const url of candidates){
-    try {
-      const r = await fetch(url, { headers: authHeaders() });
-      if(r.ok){
-        const d = await r.json();
-        const x = d.school || d.data?.school || d.data || d;
-        const id = String(x?._id || x?.id || '');
-        if(x && (!mongoId || !id || id === mongoId)){
-          // Shallow merge instead of replacing school completely
-          school = { ...(school || {}), ...x };
-          break;
+    }catch(e){console.warn('School profile fetch failed',e);}
+    for(const url of candidates){
+      try{
+        const r=await fetchWithTimeout(url,{headers:authHeaders()},8000);
+        if(r.ok){
+          const d=await r.json();
+          const x=d.school||d.data?.school||d.data||d;
+          const id=String(x?._id||x?.id||'');
+          if(x&&(!mongoId||!id||id===mongoId)){refreshed={...(refreshed||{}),...x};break;}
         }
-      }
-    } catch(e) {
-      console.warn('School config fetch failed', e);
+      }catch(e){console.warn('School config fetch failed',e);}
     }
+    if(refreshed)applySchoolBranding(refreshed);
+    return refreshed;
+  };
+
+  if(school&&options.allowCache!==false){
+    // Cached school is immediately usable. Refresh it in the background.
+    refresh().catch(()=>{});
+    return school;
   }
-  
-  if(school) applySchoolBranding(school);
+  // First visit: resolve school from the server before student loading begins.
+  return await refresh();
 }
 
 function setResultsLoading(loading){
@@ -1015,93 +1066,115 @@ function getCompatibleTermCandidates(selectedTerm) {
   return ordered;
 }
 
-async function autofillRegNoAndAffix() {
-  const token = getToken();
-  const regNoInput = document.getElementById('regNoInput');
-  const submitBtn = document.getElementById('submitBtn');
-  
-  if (!token) {
-    regNoInput.value = '';
-    regNoInput.placeholder = 'Login required';
-    regNoInput.disabled = true;
-    regNoInput.readOnly = true;
-    submitBtn.disabled = true;
-    return;
-  }
+function applyStudentProfile(student){
+  if(!student)return false;
+  lastStudentProfile=student;
+  const regNoInput=document.getElementById('regNoInput');
+  const submitBtn=document.getElementById('submitBtn');
+  regNoInput.value=student.regNo||student.student_id||'';
+  regNoInput.disabled=true;regNoInput.readOnly=true;submitBtn.disabled=false;
 
-  try {
-    const res = await fetchWithTimeout(API_BASE_URL + '/api/students/me', {
-      headers: authHeaders()
-    });
+  affixedClass=student.class_name||student.class||null;
+  affixedSession=getSessionValue(student.session||student.session_name||'');
+  affixedTerm=getTermValue(student.term||student.term_name||'');
 
-    if (res.ok) {
-      const student = await res.json();
-      lastStudentProfile = student;
-      const regNo = student.regNo || student.student_id || '';
-      
-      regNoInput.value = regNo;
-      regNoInput.disabled = true;
-      regNoInput.readOnly = true;
-      submitBtn.disabled = false;
-      
-      affixedClass = student.class_name || student.class || null;
-      affixedSession = getSessionValue(student.session || student.session_name || '');
-      affixedTerm = getTermValue(student.term || student.term_name || '');
+  if(affixedClass){const el=document.getElementById('classInput');el.value=affixedClass;el.disabled=false;}
+  if(affixedSession){const el=document.getElementById('sessionInput');el.value=affixedSession;el.disabled=false;}
+  if(affixedTerm){const el=document.getElementById('termInput');el.value=affixedTerm;el.disabled=false;}
 
-      if (affixedClass) {
-        const classInput = document.getElementById('classInput');
-        classInput.value = affixedClass;
-        classInput.disabled = false;
-      }
-      if (affixedSession) {
-        const sessionInput = document.getElementById('sessionInput');
-        sessionInput.value = affixedSession;
-        sessionInput.disabled = false;
-      }
-      if (affixedTerm) {
-        const termInput = document.getElementById('termInput');
-        termInput.value = affixedTerm;
-        termInput.disabled = false;
-      }
+  // These are secondary and no longer block the critical school -> student boot.
+  Promise.allSettled([
+    loadResultClasses(affixedClass),
+    loadResultSessions(affixedSession),
+    loadResultTerms(affixedSession,affixedTerm)
+  ]);
 
-      // Load backend sessions first, without removing the student's
-      // existing/current session. Then load backend terms for that selected
-      // session, while retaining legacy/current term values.
-      await loadResultClasses(affixedClass);
-      await loadResultSessions(affixedSession);
-      await loadResultTerms(affixedSession, affixedTerm);
+  document.getElementById('studentName').textContent=student.full_name||student.name||'Student';
+  document.getElementById('studentClass').textContent=affixedClass||'N/A';
+  setStudentPhoto(document.getElementById('studentAvatar'),student);
+  setStudentPhoto(document.getElementById('topbarAvatar'),student);
+  return true;
+}
 
-      // Update sidebar and header profile
-      document.getElementById('studentName').textContent = student.full_name || student.name || 'Student';
-      document.getElementById('studentClass').textContent = affixedClass || 'N/A';
-      setStudentPhoto(document.getElementById('studentAvatar'),student);
-      setStudentPhoto(document.getElementById('topbarAvatar'),student);
-    } else {
-      regNoInput.value = '';
-      regNoInput.placeholder = 'Login required';
-      regNoInput.disabled = true;
-      regNoInput.readOnly = true;
-      submitBtn.disabled = true;
+async function fetchStudentProfileFromServer(){
+  const regNoInput=document.getElementById('regNoInput');
+  const submitBtn=document.getElementById('submitBtn');
+  try{
+    const res=await fetchWithTimeout(API_BASE_URL+'/api/students/me',{headers:authHeaders()});
+    if(res.ok){
+      const student=await res.json();
+      applyStudentProfile(student);
+      cacheStudentProfile(student);
+      return true;
     }
-  } catch (error) {
-    console.error('Error autofilling student data:', error);
-    regNoInput.value = '';
-    regNoInput.placeholder = 'Login required';
-    regNoInput.disabled = true;
-    regNoInput.readOnly = true;
-    submitBtn.disabled = true;
+    regNoInput.value='';regNoInput.placeholder='Login required';regNoInput.disabled=true;regNoInput.readOnly=true;submitBtn.disabled=true;
+    return false;
+  }catch(error){
+    console.error('Error autofilling student data:',error);
+    regNoInput.value='';regNoInput.placeholder='Login required';regNoInput.disabled=true;regNoInput.readOnly=true;submitBtn.disabled=true;
+    return false;
   }
 }
 
-autofillRegNoAndAffix().then(async()=>{
-  await loadSchoolConfig(lastStudentProfile);
-  const schoolReady = !!getSchoolLookupValue();
-  const button = document.getElementById('submitBtn');
-  if (button && !schoolReady) {
-    button.disabled = true;
-    showError('Unable to identify your school portal. Please sign in through your school portal and try again.');
+async function autofillRegNoAndAffix(options={}){
+  const token=getToken();
+  const regNoInput=document.getElementById('regNoInput');
+  const submitBtn=document.getElementById('submitBtn');
+
+  if(!token){
+    regNoInput.value='';regNoInput.placeholder='Login required';regNoInput.disabled=true;regNoInput.readOnly=true;submitBtn.disabled=true;
+    return false;
   }
-});
+
+  if(options.allowCache!==false){
+    const cachedStudent=getCachedStudentProfile();
+    if(cachedStudent){
+      applyStudentProfile(cachedStudent);
+      // Revalidate without delaying the cached first paint.
+      fetchStudentProfileFromServer().catch(()=>{});
+      return true;
+    }
+  }
+
+  return await fetchStudentProfileFromServer();
+}
+
+async function initializeCheckResultPage(){
+  setBootSpinnerText('Loading school...');
+  try{
+    // Critical order: school first, then student.
+    const cachedSchool=getCachedSchoolConfig();
+    const school=await loadSchoolConfig(cachedSchool,{allowCache:true});
+    if(!school&&!getSchoolLookupValue())throw new Error('Unable to identify your school portal.');
+
+    setBootSpinnerText('Loading student...');
+    const studentLoaded=await autofillRegNoAndAffix({allowCache:true});
+    const schoolReady=!!getSchoolLookupValue();
+    const button=document.getElementById('submitBtn');
+
+    if(button&&(!schoolReady||!studentLoaded)){
+      button.disabled=true;
+      if(!schoolReady)showError('Unable to identify your school portal. Please sign in through your school portal and try again.');
+    }
+
+    // School and student are now loaded from cache or server. Secondary
+    // academic metadata and background refreshes continue without blocking.
+    hideBootSpinner();
+  }catch(error){
+    console.error('Check-result boot error:',error);
+    const button=document.getElementById('submitBtn');
+    if(button)button.disabled=true;
+    showError(error.message||'Unable to load your school and student profile. Please try again.');
+    hideBootSpinner();
+  }
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',initializeCheckResultPage,{once:true});
+}else{
+  initializeCheckResultPage();
+}
+
 
 // ============================================
 // Local Storage for Previously Viewed Results
