@@ -110,6 +110,15 @@ router.post('/', authMiddleware, upload.single('photo'), async (req, res) => {
       });
     }
 
+    // Free plan: the first 10 enrolled students per school are active.
+    // Every subsequent enrolment is retained but starts inactive until a
+    // school administrator manually activates the account.
+    const FREE_ACTIVE_STUDENT_LIMIT = 10;
+    const enrolledStudentCount = await Student.countDocuments({ schoolId });
+    const accountStatus = enrolledStudentCount < FREE_ACTIVE_STUDENT_LIMIT
+      ? 'active'
+      : 'inactive';
+
     if (!req.body.scratchCard || req.body.scratchCard.length !== 8) {
       req.body.scratchCard = generateScratchCard();
     }
@@ -188,6 +197,7 @@ router.post('/', authMiddleware, upload.single('photo'), async (req, res) => {
 
     const studentDoc = {
       schoolId,
+      accountStatus,
       student_id,
       surname: data.surname,
       firstname: data.firstname,
@@ -261,9 +271,14 @@ router.post('/', authMiddleware, upload.single('photo'), async (req, res) => {
     }
 
     res.status(201).json({ 
-      message: 'Student enrolled successfully!', 
+      message: accountStatus === 'active'
+        ? 'Student enrolled successfully! The account is active.'
+        : 'Student enrolled successfully, but the account is inactive because this school has used its 10 free active student accounts.',
       regNo,
       student_id: newStudent.student_id,
+      accountStatus: newStudent.accountStatus,
+      freeActiveLimit: 10,
+      enrolledStudentCount: enrolledStudentCount + 1,
       parentLinked: !!data.parentId
     });
   } catch (error) {
@@ -417,6 +432,7 @@ router.get('/', authMiddleware, async (req, res) => {
         firstname: d.firstname,
         othernames: d.othernames || '',
         regNo: d.regNo,
+        accountStatus: d.accountStatus || 'active',
         scratchCard: d.scratchCard,
         scratchCardUsage: Number(d.scratchCardUsage || 0),
         scratchCardHistory: Array.isArray(d.scratchCardHistory) ? d.scratchCardHistory : [],
@@ -581,6 +597,14 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, student.password);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials.' });
 
+    if (String(student.accountStatus || 'active').toLowerCase() !== 'active') {
+      return res.status(403).json({
+        success: false,
+        code: 'STUDENT_ACCOUNT_INACTIVE',
+        error: 'Your student account is inactive. Please contact your school administrator to activate it.'
+      });
+    }
+
     const token = jwt.sign(
       { id: student._id, regNo: student.regNo, role: 'student' },
       process.env.JWT_SECRET,
@@ -595,6 +619,7 @@ router.post('/login', async (req, res) => {
         regNo: student.regNo,
         role: 'student',
         class: student.class,
+        accountStatus: student.accountStatus || 'active',
         photo_url: student.photoBase64 || ''
       }
     });
@@ -849,6 +874,70 @@ router.get('/:regNo/skills-report', async (req, res) => {
     res.json({ skillsReports: student.skillsReports || [] });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// --- Manually activate an inactive student account (school admin only) ---
+router.patch('/:studentId/activate', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const schoolId = getSchoolId(req);
+    if (!schoolId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is not assigned to a school.'
+      });
+    }
+
+    const { studentId } = req.params;
+    const lookup = [
+      { student_id: studentId },
+      { regNo: studentId }
+    ];
+    if (mongoose.Types.ObjectId.isValid(String(studentId))) {
+      lookup.push({ _id: new mongoose.Types.ObjectId(studentId) });
+    }
+
+    const student = await Student.findOne({ schoolId, $or: lookup });
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        error: 'Student not found in this school.'
+      });
+    }
+
+    if (String(student.accountStatus || 'active').toLowerCase() === 'active') {
+      return res.json({
+        success: true,
+        message: 'This student account is already active.',
+        accountStatus: 'active',
+        student: {
+          student_id: student.student_id,
+          regNo: student.regNo,
+          accountStatus: 'active'
+        }
+      });
+    }
+
+    student.accountStatus = 'active';
+    student.updatedAt = new Date();
+    await student.save();
+
+    return res.json({
+      success: true,
+      message: 'Student account activated successfully.',
+      accountStatus: student.accountStatus,
+      student: {
+        student_id: student.student_id,
+        regNo: student.regNo,
+        accountStatus: student.accountStatus
+      }
+    });
+  } catch (err) {
+    console.error('[ACTIVATE STUDENT ERROR]', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Unable to activate student account.'
+    });
   }
 });
 
