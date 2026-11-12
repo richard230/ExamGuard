@@ -514,7 +514,7 @@
               </div>
               <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <div class="flex items-center justify-between"><h3 class="font-bold text-slate-900">Wallet activity</h3><span class="text-[10px] text-slate-400">Latest entries</span></div>
-                <div class="overflow-x-auto mt-4"><table class="w-full text-xs text-left"><thead class="text-slate-500 uppercase bg-slate-50"><tr><th class="p-3">Date</th><th class="p-3">Description</th><th class="p-3">Amount</th><th class="p-3">Status</th></tr></thead><tbody id="walletActivityBody"><tr><td colspan="4" class="p-8 text-center text-slate-400">Wallet activity will appear here when connected.</td></tr></tbody></table></div>
+                <div class="overflow-x-auto mt-4"><table class="w-full text-xs text-left"><thead class="text-slate-500 uppercase bg-slate-50"><tr><th class="p-3">Date</th><th class="p-3">Description</th><th class="p-3">Amount</th><th class="p-3">Status / Action</th></tr></thead><tbody id="walletActivityBody"><tr><td colspan="4" class="p-8 text-center text-slate-400">Wallet activity will appear here when connected.</td></tr></tbody></table></div>
               </div>
             </div>
           </section>
@@ -1277,8 +1277,39 @@
       document.getElementById('walletTotalDebit').textContent = money(data.totalDebit ?? data.totalDebits ?? 0);
       document.getElementById('schoolWalletStatus').textContent = data.currency ? `Live wallet balance · ${data.currency}` : 'Wallet data received from school finance service.';
       const rows = data.transactions || data.activity || data.entries || [];
-      document.getElementById('walletActivityBody').innerHTML = rows.length ? rows.slice(0,20).map(item => `
-        <tr class="border-t border-slate-100"><td class="p-3 whitespace-nowrap">${escapeHtml(String(item.date || item.createdAt || '').slice(0,10))}</td><td class="p-3">${escapeHtml(item.description || item.reference || item.type || 'Wallet transaction')}</td><td class="p-3 font-bold">${money(item.amount || item.credit || item.debit || 0)}</td><td class="p-3">${statusBadge(item.status || (item.verified ? 'Verified' : 'Pending'))}</td></tr>`).join('') : '<tr><td colspan="4" class="p-8 text-center text-slate-400">No wallet activity available.</td></tr>';
+      document.getElementById('walletActivityBody').innerHTML = rows.length ? rows.map((item, index) => {
+        const isPending = String(item.status || 'pending').toLowerCase() === 'pending';
+        const isPaystack = String(item.source || '').toLowerCase() === 'paystack';
+        const reference = String(item.reference || '');
+        const action = isPending && isPaystack && reference
+          ? `<button type="button" data-wallet-verify="${escapeHtml(reference)}" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"><i class="fa fa-rotate"></i> Verify payment</button>`
+          : (isPending && String(item.source || '').toLowerCase() === 'direct_transfer'
+            ? '<span class="mt-2 block text-[10px] text-amber-700">Awaiting bank confirmation</span>' : '');
+        return `<tr class="border-t border-slate-100"><td class="p-3 whitespace-nowrap">${escapeHtml(String(item.date || item.createdAt || '').slice(0,10))}</td><td class="p-3"><div>${escapeHtml(item.description || reference || item.type || 'Wallet transaction')}</div>${reference ? `<div class="mt-1 text-[10px] text-slate-400 break-all">${escapeHtml(reference)}</div>` : ''}</td><td class="p-3 font-bold">${money(item.amount || item.credit || item.debit || 0)}</td><td class="p-3">${statusBadge(item.status || (item.verified ? 'Verified' : 'Pending'))}${action}</td></tr>`;
+      }).join('') : '<tr><td colspan="4" class="p-8 text-center text-slate-400">No wallet activity available.</td></tr>';
+      document.querySelectorAll('[data-wallet-verify]').forEach(button => {
+        button.addEventListener('click', () => retryWalletPayment(button.dataset.walletVerify, button));
+      });
+    }
+
+    async function retryWalletPayment(reference, button) {
+      if (!reference) return;
+      const original = button?.innerHTML || 'Verify payment';
+      if (button) { button.disabled = true; button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Verifying…'; }
+      const status = document.getElementById('schoolWalletStatus');
+      if (status) status.textContent = `Checking Paystack payment ${reference}…`;
+      try {
+        const response = await apiFetch(`${API_ROOT}/finance/school-wallet/funding/paystack/verify?reference=${encodeURIComponent(reference)}`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.error || result.message || `Verification failed (${response.status}).`);
+        await fetchSchoolWallet();
+        showToast(result.alreadyVerified ? 'This payment was already verified.' : 'Payment verified and wallet credited.');
+        if (status) status.textContent = 'Paystack payment verified successfully.';
+      } catch (error) {
+        if (status) status.textContent = 'Payment is still pending verification. You can retry from this transaction.';
+        showErrorModal(error.message || 'Unable to verify this payment. Please retry.', 'Payment verification pending', reference);
+        if (button) { button.disabled = false; button.innerHTML = original; }
+      }
     }
 
     async function fetchSchoolWallet() {
