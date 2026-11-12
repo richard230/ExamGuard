@@ -12,6 +12,335 @@ const Expense = require('../models/Expense');
 const CashRequest = require('../models/CashRequest');
 const Student = require('../models/Student');
 const Class = require('../models/Class');
+const School = require('../models/School');
+
+
+// ===== MULTI-SCHOOL / TENANT HELPERS (aligned with fees backend) =====
+function getUserSchoolIdentifiers(user = {}) {
+  const values = [
+    user.schoolId, user.schoolKey, user.schoolCode,
+    typeof user.school === 'string' ? user.school : null,
+    user.school?.schoolId, user.school?._id
+  ].filter(Boolean).map(value => String(value).trim());
+  return [...new Set(values)];
+}
+
+function isPlatformAdmin(user = {}) {
+  const roles = [user.role, user.userType, user.accountType, user.type]
+    .filter(Boolean).map(value => String(value).toLowerCase().trim());
+  return roles.some(role => [
+    'systemadmin', 'system_admin', 'platformadmin', 'platform_admin'
+  ].includes(role));
+}
+
+function getRequestedSchoolId(req) {
+  return String(
+    req.params?.schoolId || req.body?.schoolId || req.query?.schoolId ||
+    req.headers?.['x-school-id'] || req.headers?.['x-school-code'] ||
+    req.headers?.['x-schoolid'] || ''
+  ).trim();
+}
+
+async function resolveCurrentSchool(req) {
+  const user = req.user || {};
+  const identifiers = getUserSchoolIdentifiers(user);
+  const requestedId = getRequestedSchoolId(req);
+  const platformAdmin = isPlatformAdmin(user);
+  const schoolIdentifier = requestedId || identifiers[0] || '';
+  if (!schoolIdentifier) return null;
+
+  const query = { status: 'active', isDeleted: { $ne: true } };
+  if (mongoose.Types.ObjectId.isValid(schoolIdentifier)) query._id = schoolIdentifier;
+  else query.schoolId = schoolIdentifier;
+
+  const school = await School.findOne(query).lean();
+  if (!school) return null;
+
+  if (!platformAdmin) {
+    const belongs = identifiers.some(identifier =>
+      identifier === String(school._id) || identifier === String(school.schoolId)
+    );
+    if (!belongs) {
+      const error = new Error('You are not authorized to access this school.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+  return school;
+}
+
+function schoolFilter(schoolId, extra = {}) {
+  return { ...extra, schoolId: String(schoolId) };
+}
+
+async function requireFinanceSchool(req, res) {
+  const school = await resolveCurrentSchool(req);
+  if (!school) {
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized: No active school is associated with this account.'
+    });
+    return null;
+  }
+  req.school = school;
+  req.schoolId = String(school._id);
+  return school;
+}
+
+// Dedicated wallet collection: one ledger per school. Kept in this file so
+// existing installations do not need an additional model import.
+const SchoolWalletSchema = new mongoose.Schema({
+  schoolId: { type: String, required: true, unique: true, index: true },
+  currency: { type: String, default: 'NGN' },
+  balance: { type: Number, default: 0, min: 0 },
+  totalCredited: { type: Number, default: 0, min: 0 },
+  totalDebited: { type: Number, default: 0, min: 0 },
+  transactions: [{
+    type: { type: String, enum: ['credit', 'debit'], required: true },
+    source: { type: String, enum: ['direct_transfer', 'paystack', 'adjustment', 'expense'], required: true },
+    amount: { type: Number, required: true, min: 0 },
+    status: { type: String, enum: ['pending', 'completed', 'rejected'], default: 'pending' },
+    reference: { type: String, required: true },
+    payerName: String,
+    payerEmail: String,
+    description: String,
+    createdAt: { type: Date, default: Date.now },
+    verifiedAt: Date,
+    verifiedBy: String,
+    metadata: mongoose.Schema.Types.Mixed
+  }]
+}, { timestamps: true, collection: 'schoolwallets' });
+
+const SchoolWallet = mongoose.models.SchoolWallet ||
+  mongoose.model('SchoolWallet', SchoolWalletSchema);
+
+function makeReference(prefix = 'WAL') {
+  return `${prefix}-${Date.now()}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
+}
+
+// ===== SCHOOL WALLET =====
+
+/**
+ * GET /api/finance/school-wallet
+ * Return the authenticated school's wallet balance and recent ledger entries.
+ */
+router.get('/school-wallet', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    const transactions = (wallet?.transactions || [])
+      .slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 100);
+    res.json({
+      success: true,
+      school: { _id: school._id, schoolId: school.schoolId, name: school.name || school.schoolName || '' },
+      balance: wallet?.balance || 0,
+      totalCredited: wallet?.totalCredited || 0,
+      totalDebited: wallet?.totalDebited || 0,
+      totalCredits: wallet?.totalCredited || 0,
+      totalDebits: wallet?.totalDebited || 0,
+      currency: wallet?.currency || 'NGN',
+      transactions
+    });
+  } catch (err) {
+    console.error('School wallet load failed:', err);
+    res.status(err.statusCode || 500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/finance/school-wallet/funding/direct
+ * Record a bank transfer claim. This does NOT credit the wallet until verified.
+ */
+router.post('/school-wallet/funding/direct', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const amount = Number(req.body.amount);
+    const reference = String(req.body.reference || req.body.transferReference || '').trim();
+    const payerName = String(req.body.payerName || '').trim();
+    if (!Number.isFinite(amount) || amount <= 0 || !reference) {
+      return res.status(400).json({ success: false, error: 'A valid amount and transfer reference are required.', message: 'A valid amount and transfer reference are required.' });
+    }
+
+    const duplicate = await SchoolWallet.findOne({
+      schoolId: req.schoolId,
+      'transactions.reference': reference
+    }).lean();
+    if (duplicate) return res.status(409).json({ success: false, error: 'This transfer reference has already been submitted.' });
+
+    const wallet = await SchoolWallet.findOneAndUpdate(
+      { schoolId: req.schoolId },
+      {
+        $setOnInsert: { schoolId: req.schoolId, currency: 'NGN' },
+        $push: { transactions: {
+          type: 'credit', source: 'direct_transfer', amount, status: 'pending',
+          reference, payerName, description: 'Direct bank transfer awaiting verification',
+          createdAt: new Date()
+        }}
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    res.status(201).json({
+      success: true,
+      message: 'Transfer submitted for verification. The wallet will be credited after confirmation.',
+      reference,
+      balance: wallet.balance
+    });
+  } catch (err) {
+    console.error('Direct wallet funding submission failed:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/finance/school-wallet/funding/paystack/initialize
+ * Initialize Paystack checkout. Set PAYSTACK_SECRET_KEY in the server environment.
+ */
+router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const amount = Number(req.body.amount);
+    const email = String(req.body.email || req.body.payerEmail || '').trim();
+    if (!Number.isFinite(amount) || amount <= 0 || !email) {
+      return res.status(400).json({ success: false, error: 'A valid amount and payer email are required.' });
+    }
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      return res.status(503).json({ success: false, error: 'Paystack is not configured. Set PAYSTACK_SECRET_KEY on the server.' });
+    }
+
+    const reference = makeReference('SCHWAL');
+    const response = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        amount: Math.round(amount * 100),
+        reference,
+        currency: 'NGN',
+        ...(process.env.PAYSTACK_CALLBACK_URL ? { callback_url: process.env.PAYSTACK_CALLBACK_URL } : {}),
+        metadata: {
+          purpose: 'school_wallet_funding',
+          schoolId: req.schoolId,
+          schoolIdentifier: String(school.schoolId || school._id)
+        }
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.status || !payload.data?.authorization_url) {
+      return res.status(502).json({ success: false, error: payload.message || 'Unable to initialize Paystack payment.' });
+    }
+
+    await SchoolWallet.findOneAndUpdate(
+      { schoolId: req.schoolId },
+      {
+        $setOnInsert: { schoolId: req.schoolId, currency: 'NGN' },
+        $push: { transactions: {
+          type: 'credit', source: 'paystack', amount, status: 'pending',
+          reference, payerEmail: email,
+          description: 'Paystack wallet funding',
+          createdAt: new Date(),
+          metadata: { accessCode: payload.data.access_code }
+        }}
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({ success: true, reference, checkoutUrl: payload.data.authorization_url, authorizationUrl: payload.data.authorization_url });
+  } catch (err) {
+    console.error('Paystack initialization failed:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/finance/school-wallet/funding/paystack/verify?reference=...
+ * Verify with Paystack server-to-server and credit exactly once.
+ */
+router.get('/school-wallet/funding/paystack/verify', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const reference = String(req.query.reference || '').trim();
+    if (!reference) return res.status(400).json({ success: false, error: 'Payment reference is required.' });
+    if (!process.env.PAYSTACK_SECRET_KEY) return res.status(503).json({ success: false, error: 'Paystack is not configured.' });
+
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId, 'transactions.reference': reference });
+    if (!wallet) return res.status(404).json({ success: false, error: 'Wallet funding reference not found.' });
+    const transaction = wallet.transactions.find(t => t.reference === reference);
+    if (transaction.status === 'completed') {
+      return res.json({ success: true, alreadyVerified: true, balance: wallet.balance, transaction });
+    }
+
+    const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` }
+    });
+    const payload = await response.json();
+    const paidAmount = Number(payload.data?.amount || 0) / 100;
+    if (!response.ok || !payload.status || payload.data?.status !== 'success' ||
+        payload.data?.reference !== reference || Math.round(paidAmount * 100) !== Math.round(transaction.amount * 100) ||
+        payload.data?.metadata?.schoolId !== req.schoolId) {
+      return res.status(400).json({ success: false, error: payload.message || 'Payment could not be verified.' });
+    }
+
+    // Conditional update makes the credit idempotent for concurrent verification calls.
+    const result = await SchoolWallet.updateOne(
+      { schoolId: req.schoolId, transactions: { $elemMatch: { reference, status: 'pending' } } },
+      {
+        $inc: { balance: transaction.amount, totalCredited: transaction.amount },
+        $set: { 'transactions.$.status': 'completed', 'transactions.$.verifiedAt': new Date() }
+      }
+    );
+    const updated = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    res.json({ success: true, credited: result.modifiedCount === 1, balance: updated?.balance || 0 });
+  } catch (err) {
+    console.error('Paystack verification failed:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * PATCH /api/finance/school-wallet/funding/direct/:reference
+ * Admin confirms/rejects a direct bank transfer. Only confirmed transfers credit the wallet.
+ */
+router.patch('/school-wallet/funding/direct/:reference', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const reference = String(req.params.reference || '').trim();
+    const status = String(req.body.status || '').toLowerCase();
+    if (!['completed', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Status must be completed or rejected.' });
+    }
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId, 'transactions.reference': reference });
+    if (!wallet) return res.status(404).json({ success: false, error: 'Transfer reference not found.' });
+    const transaction = wallet.transactions.find(t => t.reference === reference);
+    if (transaction.source !== 'direct_transfer') return res.status(400).json({ success: false, error: 'Reference is not a direct transfer.' });
+    if (transaction.status !== 'pending') return res.status(409).json({ success: false, error: 'This transfer has already been processed.' });
+
+    const update = status === 'completed'
+      ? {
+          $inc: { balance: transaction.amount, totalCredited: transaction.amount },
+          $set: { 'transactions.$.status': 'completed', 'transactions.$.verifiedAt': new Date(), 'transactions.$.verifiedBy': String(req.user?._id || req.user?.id || '') }
+        }
+      : { $set: { 'transactions.$.status': 'rejected', 'transactions.$.verifiedAt': new Date(), 'transactions.$.verifiedBy': String(req.user?._id || req.user?.id || '') } };
+    const result = await SchoolWallet.updateOne(
+      { schoolId: req.schoolId, transactions: { $elemMatch: { reference, status: 'pending' } } },
+      update
+    );
+    if (!result.modifiedCount) return res.status(409).json({ success: false, error: 'Transfer has already been processed.' });
+    const updated = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    res.json({ success: true, status, balance: updated.balance });
+  } catch (err) {
+    console.error('Direct transfer verification failed:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // ===== DASHBOARD SUMMARY =====
 
@@ -21,13 +350,15 @@ const Class = require('../models/Class');
  */
 router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     // Total Revenue (All payments completed)
     const totalRevenuePipeline = [
-      { $match: { status: 'completed' } },
+      { $match: schoolFilter(req.schoolId, { status: 'completed' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const totalRevenueResult = await Payment.aggregate(totalRevenuePipeline);
@@ -35,7 +366,7 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
 
     // Month Revenue
     const monthRevenuePipeline = [
-      { $match: { status: 'completed', transactionDate: { $gte: startOfMonth } } },
+      { $match: schoolFilter(req.schoolId, { status: 'completed', transactionDate: { $gte: startOfMonth } }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const monthRevenueResult = await Payment.aggregate(monthRevenuePipeline);
@@ -43,7 +374,7 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
 
     // Year Revenue
     const yearRevenuePipeline = [
-      { $match: { status: 'completed', transactionDate: { $gte: startOfYear } } },
+      { $match: schoolFilter(req.schoolId, { status: 'completed', transactionDate: { $gte: startOfYear } }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const yearRevenueResult = await Payment.aggregate(yearRevenuePipeline);
@@ -51,7 +382,7 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
 
     // Pending Payments
     const pendingPipeline = [
-      { $match: { status: { $in: ['pending', 'overdue'] } } },
+      { $match: schoolFilter(req.schoolId, { status: { $in: ['pending', 'overdue'] } }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const pendingResult = await Fee.aggregate(pendingPipeline);
@@ -59,7 +390,7 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
 
     // Paid Fees
     const paidPipeline = [
-      { $match: { status: 'paid' } },
+      { $match: schoolFilter(req.schoolId, { status: 'paid' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const paidResult = await Fee.aggregate(paidPipeline);
@@ -67,7 +398,7 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
 
     // Total Expenses
     const expensesPipeline = [
-      { $match: { status: 'approved' } },
+      { $match: schoolFilter(req.schoolId, { status: 'approved' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const expensesResult = await Expense.aggregate(expensesPipeline);
@@ -75,7 +406,7 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
 
     // Pending Expenses
     const pendingExpensesPipeline = [
-      { $match: { status: 'pending' } },
+      { $match: schoolFilter(req.schoolId, { status: 'pending' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const pendingExpensesResult = await Expense.aggregate(pendingExpensesPipeline);
@@ -83,23 +414,23 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
 
     // Cash in Bank (Approved cash requests - disbursed)
     const cashRequestsPipeline = [
-      { $match: { status: 'disbursed' } },
+      { $match: schoolFilter(req.schoolId, { status: 'disbursed' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ];
     const cashRequestsResult = await CashRequest.aggregate(cashRequestsPipeline);
     const totalCashRequests = cashRequestsResult[0]?.total || 0;
 
     // Count of unpaid students
-    const unpaidStudents = await Fee.countDocuments({ status: { $in: ['pending', 'overdue'] } });
+    const unpaidStudents = await Fee.countDocuments(schoolFilter(req.schoolId, { status: { $in: ['pending', 'overdue'] } }));
 
     // Count of overdue fees
-    const overdueFeesCount = await Fee.countDocuments({ 
-      status: 'overdue',
-      dueDate: { $lt: now }
-    });
+    const overdueFeesCount = await Fee.countDocuments(schoolFilter(req.schoolId, {
+      status: 'overdue', dueDate: { $lt: now }
+    }));
 
     // Invoice stats
     const invoiceStats = await Invoice.aggregate([
+      { $match: { schoolId: req.schoolId } },
       {
         $group: {
           _id: '$status',
@@ -148,23 +479,25 @@ router.get('/summary', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/statistics', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const paidPayments = await Payment.aggregate([
-      { $match: { status: 'completed' } },
+      { $match: schoolFilter(req.schoolId, { status: 'completed' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
 
     const pendingFees = await Fee.aggregate([
-      { $match: { status: { $in: ['pending', 'overdue'] } } },
+      { $match: schoolFilter(req.schoolId, { status: { $in: ['pending', 'overdue'] } }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
 
     const expenses = await Expense.aggregate([
-      { $match: { status: 'approved' } },
+      { $match: schoolFilter(req.schoolId, { status: 'approved' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
 
     const totalRevenue = (paidPayments[0]?.total || 0) + (await Fee.aggregate([
-      { $match: { status: 'paid' } },
+      { $match: schoolFilter(req.schoolId, { status: 'paid' }) },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]))[0]?.total || 0;
 
@@ -188,10 +521,12 @@ router.get('/statistics', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/transactions', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { type, status, startDate, endDate, limit = 100 } = req.query;
     const skip = parseInt(req.query.skip) || 0;
 
-    let matchStage = {};
+    let matchStage = schoolFilter(req.schoolId);
     if (status) matchStage.status = status;
     if (startDate && endDate) {
       matchStage.transactionDate = {
@@ -290,11 +625,13 @@ router.get('/transactions', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/approvals', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const pendingExpenses = await Expense.find({ status: 'pending' })
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const pendingExpenses = await Expense.find(schoolFilter(req.schoolId, { status: 'pending' }))
       .sort({ requestDate: -1 })
       .limit(50);
 
-    const pendingCashRequests = await CashRequest.find({ status: 'pending' })
+    const pendingCashRequests = await CashRequest.find(schoolFilter(req.schoolId, { status: 'pending' }))
       .sort({ requestDate: -1 })
       .limit(50);
 
@@ -343,45 +680,11 @@ router.get('/approvals', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/bank-accounts', authMiddleware, adminAuth, async (req, res) => {
   try {
-    // For now, return mock bank accounts
-    // In production, these would be stored in a BankAccount model
-    const bankAccounts = [
-      {
-        _id: '1',
-        bankName: 'First Bank Nigeria',
-        accountNumber: '1234567890',
-        accountName: 'Gold and Linc Schools',
-        accountType: 'Current',
-        balance: 5000000,
-        currency: 'NGN',
-        status: 'active',
-        createdAt: new Date('2024-01-15')
-      },
-      {
-        _id: '2',
-        bankName: 'Zenith Bank',
-        accountNumber: '0987654321',
-        accountName: 'Gold and Linc Schools',
-        accountType: 'Savings',
-        balance: 2500000,
-        currency: 'NGN',
-        status: 'active',
-        createdAt: new Date('2024-02-10')
-      },
-      {
-        _id: '3',
-        bankName: 'Guaranty Trust Bank',
-        accountNumber: '5555555555',
-        accountName: 'Gold and Linc Schools',
-        accountType: 'Current',
-        balance: 1800000,
-        currency: 'NGN',
-        status: 'active',
-        createdAt: new Date('2024-03-05')
-      }
-    ];
-
-    const totalBalance = bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    // No hard-coded bank balances: configure real bank accounts per school before displaying them.
+    const bankAccounts = [];
+    const totalBalance = 0;
 
     res.json({
       accounts: bankAccounts,
@@ -402,8 +705,10 @@ router.get('/bank-accounts', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/fees', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status, term, classId, search } = req.query;
-    let query = {};
+    let query = schoolFilter(req.schoolId);
 
     if (status) query.status = status;
     if (term) query.term = term;
@@ -434,16 +739,19 @@ router.get('/fees', authMiddleware, adminAuth, async (req, res) => {
  */
 router.post('/fees', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { studentId, feeType, amount, term, session, dueDate, description } = req.body;
 
     if (!studentId || !feeType || !amount) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const student = await Student.findById(studentId);
+    const student = await Student.findOne(schoolFilter(req.schoolId, { _id: studentId }));
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
     const fee = new Fee({
+      schoolId: req.schoolId,
       student: studentId,
       class: student.class,
       feeType,
@@ -471,8 +779,10 @@ router.post('/fees', authMiddleware, adminAuth, async (req, res) => {
  */
 router.patch('/fees/:feeId', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status, amountPaid, paymentMethod, notes } = req.body;
-    const fee = await Fee.findById(req.params.feeId);
+    const fee = await Fee.findOne(schoolFilter(req.schoolId, { _id: req.params.feeId }));
 
     if (!fee) return res.status(404).json({ error: 'Fee not found' });
 
@@ -497,7 +807,9 @@ router.patch('/fees/:feeId', authMiddleware, adminAuth, async (req, res) => {
  */
 router.delete('/fees/:feeId', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const fee = await Fee.findByIdAndDelete(req.params.feeId);
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const fee = await Fee.findOneAndDelete(schoolFilter(req.schoolId, { _id: req.params.feeId }));
     if (!fee) return res.status(404).json({ error: 'Fee not found' });
 
     res.json({ success: true, message: 'Fee deleted' });
@@ -515,8 +827,10 @@ router.delete('/fees/:feeId', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/invoices', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status, search } = req.query;
-    let query = {};
+    let query = schoolFilter(req.schoolId);
 
     if (status) query.status = status;
     if (search) {
@@ -544,18 +858,21 @@ router.get('/invoices', authMiddleware, adminAuth, async (req, res) => {
  */
 router.post('/invoices', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { studentId, items, notes } = req.body;
 
     if (!studentId || !items || items.length === 0) {
       return res.status(400).json({ error: 'Invalid invoice data' });
     }
 
-    const student = await Student.findById(studentId);
+    const student = await Student.findOne(schoolFilter(req.schoolId, { _id: studentId }));
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
     const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
     const invoice = new Invoice({
+      schoolId: req.schoolId,
       student: studentId,
       items,
       totalAmount,
@@ -584,9 +901,11 @@ router.post('/invoices', authMiddleware, adminAuth, async (req, res) => {
  */
 router.patch('/invoices/:invoiceId', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status } = req.body;
-    const invoice = await Invoice.findByIdAndUpdate(
-      req.params.invoiceId,
+    const invoice = await Invoice.findOneAndUpdate(
+      schoolFilter(req.schoolId, { _id: req.params.invoiceId }),
       { status },
       { new: true }
     ).populate('student');
@@ -608,8 +927,10 @@ router.patch('/invoices/:invoiceId', authMiddleware, adminAuth, async (req, res)
  */
 router.get('/receipts', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { search } = req.query;
-    let query = { status: 'completed' };
+    let query = schoolFilter(req.schoolId, { status: 'completed' });
 
     if (search) {
       query.$or = [
@@ -636,7 +957,9 @@ router.get('/receipts', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/receipts/:receiptId', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const receipt = await Payment.findById(req.params.receiptId)
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const receipt = await Payment.findOne(schoolFilter(req.schoolId, { _id: req.params.receiptId }))
       .populate('student')
       .populate('invoice');
 
@@ -657,8 +980,10 @@ router.get('/receipts/:receiptId', authMiddleware, adminAuth, async (req, res) =
  */
 router.get('/expenses', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status, category, search } = req.query;
-    let query = {};
+    let query = schoolFilter(req.schoolId);
 
     if (status) query.status = status;
     if (category) query.category = category;
@@ -686,6 +1011,8 @@ router.get('/expenses', authMiddleware, adminAuth, async (req, res) => {
  */
 router.post('/expenses', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { requestedBy, category, amount, purpose, description, attachments } = req.body;
 
     if (!requestedBy || !category || !amount || !purpose) {
@@ -693,6 +1020,7 @@ router.post('/expenses', authMiddleware, adminAuth, async (req, res) => {
     }
 
     const expense = new Expense({
+      schoolId: req.schoolId,
       requestedBy,
       category,
       amount,
@@ -718,8 +1046,10 @@ router.post('/expenses', authMiddleware, adminAuth, async (req, res) => {
  */
 router.patch('/expenses/:expenseId', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status, approverNotes } = req.body;
-    const expense = await Expense.findById(req.params.expenseId);
+    const expense = await Expense.findOne(schoolFilter(req.schoolId, { _id: req.params.expenseId }));
 
     if (!expense) return res.status(404).json({ error: 'Expense not found' });
 
@@ -749,8 +1079,10 @@ router.patch('/expenses/:expenseId', authMiddleware, adminAuth, async (req, res)
  */
 router.get('/cash-requests', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status } = req.query;
-    let query = {};
+    let query = schoolFilter(req.schoolId);
 
     if (status) query.status = status;
 
@@ -771,6 +1103,8 @@ router.get('/cash-requests', authMiddleware, adminAuth, async (req, res) => {
  */
 router.post('/cash-requests', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { requestedBy, amount, reason, description } = req.body;
 
     if (!requestedBy || !amount || !reason) {
@@ -778,6 +1112,7 @@ router.post('/cash-requests', authMiddleware, adminAuth, async (req, res) => {
     }
 
     const cashRequest = new CashRequest({
+      schoolId: req.schoolId,
       requestedBy,
       amount,
       reason,
@@ -801,8 +1136,10 @@ router.post('/cash-requests', authMiddleware, adminAuth, async (req, res) => {
  */
 router.patch('/cash-requests/:requestId', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const { status, approverNotes } = req.body;
-    const cashRequest = await CashRequest.findById(req.params.requestId);
+    const cashRequest = await CashRequest.findOne(schoolFilter(req.schoolId, { _id: req.params.requestId }));
 
     if (!cashRequest) return res.status(404).json({ error: 'Cash request not found' });
 
@@ -832,17 +1169,19 @@ router.patch('/cash-requests/:requestId', authMiddleware, adminAuth, async (req,
  */
 router.get('/revenue/monthly', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const year = req.query.year || new Date().getFullYear();
 
     const monthlyData = await Payment.aggregate([
       {
-        $match: {
+        $match: schoolFilter(req.schoolId, {
           status: 'completed',
           transactionDate: {
             $gte: new Date(`${year}-01-01`),
             $lt: new Date(`${year}-12-31`)
           }
-        }
+        }),
       },
       {
         $group: {
@@ -879,7 +1218,10 @@ router.get('/revenue/monthly', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/payment-distribution', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
     const distribution = await Fee.aggregate([
+      { $match: { schoolId: req.schoolId } },
       {
         $group: {
           _id: '$status',
@@ -917,7 +1259,9 @@ router.get('/payment-distribution', authMiddleware, adminAuth, async (req, res) 
  */
 router.get('/export/fees', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const fees = await Fee.find()
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const fees = await Fee.find(schoolFilter(req.schoolId))
       .populate('student', 'name regNo')
       .populate('class', 'name');
 
