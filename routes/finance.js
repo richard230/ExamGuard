@@ -210,6 +210,25 @@ router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminA
       return res.status(503).json({ success: false, error: 'Paystack is not configured. Set PAYSTACK_SECRET_KEY on the server.' });
     }
 
+    // Return to the exact finance page that started checkout. The callback URL
+    // must be supplied by the browser (same-origin) or configured server-side.
+    const requestedCallbackUrl = String(req.body.callbackUrl || process.env.PAYSTACK_CALLBACK_URL || '').trim();
+    let callbackUrl = '';
+    if (requestedCallbackUrl) {
+      let parsedCallback;
+      try { parsedCallback = new URL(requestedCallbackUrl); }
+      catch (_) { return res.status(400).json({ success: false, error: 'A valid Paystack callback URL is required.' }); }
+      const requestOrigin = req.get('origin');
+      const isLocal = ['localhost', '127.0.0.1'].includes(parsedCallback.hostname);
+      if ((parsedCallback.protocol !== 'https:' && !isLocal) ||
+          (requestOrigin && parsedCallback.origin !== requestOrigin && requestedCallbackUrl !== process.env.PAYSTACK_CALLBACK_URL)) {
+        return res.status(400).json({ success: false, error: 'The callback URL must use this finance page origin or the configured PAYSTACK_CALLBACK_URL.' });
+      }
+      callbackUrl = parsedCallback.toString();
+    } else {
+      return res.status(503).json({ success: false, error: 'Set PAYSTACK_CALLBACK_URL or provide callbackUrl from the finance page.' });
+    }
+
     const reference = makeReference('SCHWAL');
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -222,7 +241,7 @@ router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminA
         amount: Math.round(amount * 100),
         reference,
         currency: 'NGN',
-        ...(process.env.PAYSTACK_CALLBACK_URL ? { callback_url: process.env.PAYSTACK_CALLBACK_URL } : {}),
+        callback_url: callbackUrl,
         metadata: {
           purpose: 'school_wallet_funding',
           schoolId: req.schoolId,
