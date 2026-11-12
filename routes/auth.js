@@ -40,6 +40,49 @@ function normalizeSchoolKey(value) {
     : '';
 }
 
+// Only block a student when the database explicitly marks the account
+// as inactive/suspended. Missing status fields remain allowed for older records.
+function getStudentAccountBlockReason(student) {
+  if (!student) return null;
+
+  const statusFields = [
+    student.status,
+    student.accountStatus,
+    student.account_status,
+    student.studentStatus,
+    student.student_status
+  ];
+
+  const blockedStatuses = new Set([
+    'inactive',
+    'suspended',
+    'disabled',
+    'deactivated',
+    'blocked',
+    'pending'
+  ]);
+
+  for (const value of statusFields) {
+    if (typeof value === 'string' && blockedStatuses.has(value.trim().toLowerCase())) {
+      return value.trim().toLowerCase() === 'suspended'
+        ? 'Your student account is suspended. Please contact your school administrator.'
+        : 'Your student account is inactive. Please contact your school administrator to reactivate it.';
+    }
+  }
+
+  if (
+    student.isActive === false ||
+    student.active === false ||
+    student.is_active === false ||
+    student.enabled === false ||
+    student.isEnabled === false
+  ) {
+    return 'Your student account is inactive. Please contact your school administrator to reactivate it.';
+  }
+
+  return null;
+}
+
 async function resolveSchool(schoolKey) {
   const key = normalizeSchoolKey(schoolKey);
   if (!key) {
@@ -357,6 +400,15 @@ router.post('/login', async (req, res) => {
           passwordHash
         )
       ) {
+        const studentBlockReason = getStudentAccountBlockReason(student);
+        if (studentBlockReason) {
+          return res.status(403).json({
+            success: false,
+            code: 'STUDENT_ACCOUNT_INACTIVE',
+            error: studentBlockReason
+          });
+        }
+
         if (!student.schoolId) {
           return res.status(403).json({
             success: false,
@@ -641,6 +693,17 @@ async function authMiddleware(req, res, next) {
     // 4. Check Student
     let student = await Student.findById(decoded.id);
     if (student) {
+      const studentBlockReason = getStudentAccountBlockReason(student);
+      if (studentBlockReason) {
+        // Prevent already-issued student tokens from continuing to access APIs.
+        await AuthSession.deleteMany({ userId: student._id, token });
+        return res.status(403).json({
+          success: false,
+          code: 'STUDENT_ACCOUNT_INACTIVE',
+          error: studentBlockReason
+        });
+      }
+
       if (!student.schoolId) {
         return res.status(403).json({
           success: false,
