@@ -86,7 +86,10 @@
           <button id="sidebarToggle" class="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 active:scale-95 md:hidden" aria-label="Toggle Sidebar"><i class="fa-solid fa-bars text-lg"></i></button>
           <div>
             <h1 class="text-base font-bold text-slate-900" id="pageTitle">Administrative Payments</h1>
-            <p class="hidden text-xs font-medium text-slate-500 sm:block">Manage staff salaries and administrative transactions</p>
+            <p class="hidden text-xs font-medium text-slate-500 sm:block">
+              <span id="schoolHeaderLabel">Manage staff salaries and administrative transactions</span>
+              <span id="schoolTenantBadge" class="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">School</span>
+            </p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -117,6 +120,23 @@
         <div class="stat-card">
           <span class="stat-label">Admin Transactions</span>
           <span class="stat-value" id="statAdminTransactions"><span class="skeleton skeleton-value inline-block"></span></span>
+        </div>
+      </div>
+
+      <!-- ACTIVE SCHOOL CONFIGURATION -->
+      <div class="section-card" style="padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          <div style="width:38px;height:38px;border-radius:.75rem;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-school"></i>
+          </div>
+          <div>
+            <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Active School</div>
+            <div id="activeSchoolName" style="font-size:.9rem;font-weight:800;color:#0f172a;">Loading school...</div>
+            <div id="activeSchoolId" style="font-size:.7rem;color:#64748b;">Resolving tenant configuration...</div>
+          </div>
+        </div>
+        <div id="paymentConfigStatus" style="font-size:.72rem;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:9999px;padding:.4rem .7rem;">
+          School configuration loaded
         </div>
       </div>
 
@@ -430,7 +450,13 @@
     }
 
     function getPublicSchoolId() {
-      return schoolConfig?.schoolId || schoolConfig?.publicSchoolId || schoolConfig?.school?.schoolId || '';
+      return (
+        schoolConfig?.schoolId ||
+        schoolConfig?.publicSchoolId ||
+        schoolConfig?.school?.schoolId ||
+        currentSchool?.schoolId ||
+        ''
+      );
     }
 
     function getAuthHeaders(json = false) {
@@ -444,41 +470,216 @@
 
     function tenantQuery(extra = {}) {
       const params = new URLSearchParams(extra);
+
+      /*
+       * The backend accepts either School._id or the school's public
+       * schoolId/code. Prefer the Mongo _id when it is available because it
+       * is the canonical tenant key used by schoolFilter().
+       */
+      const mongoSchoolId =
+        currentSchool?._id ||
+        currentSchool?.id ||
+        currentSchool?.school?._id ||
+        '';
+
       const publicSchoolId = getPublicSchoolId();
-      if (publicSchoolId) params.set('schoolId', publicSchoolId);
+
+      params.set(
+        'schoolId',
+        String(mongoSchoolId || publicSchoolId || '')
+      );
+
       const query = params.toString();
       return query ? `?${query}` : '';
     }
 
     async function loadSchoolConfig() {
-      const subdomain = getTenantSubdomain();
-      if (!subdomain) throw new Error('School could not be identified from this portal address.');
+      /*
+       * IMPORTANT:
+       * Payment pages must use the authenticated user's active school, not
+       * merely the hostname/subdomain. The payments backend now exposes
+       * /payments/config and /payments/payment-config as tenant-aware
+       * configuration endpoints.
+       */
+      let authenticatedSchool = null;
+
       try {
-        const res = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`);
-        if (!res.ok) throw new Error('Unable to load school configuration.');
-        schoolConfig = normalizeSchoolConfig(await res.json());
-        currentSchool = schoolConfig;
-        localStorage.setItem('schoolSubdomain', subdomain);
-        localStorage.setItem(`examguard_school_config_${subdomain}`, JSON.stringify(schoolConfig));
-        if (getPublicSchoolId()) localStorage.setItem('schoolId', getPublicSchoolId());
+        if (!token) throw new Error('Your session has expired. Please sign in again.');
+
+        const meRes = await fetch(`${API_BASE}/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json'
+          }
+        });
+
+        if (!meRes.ok) throw new Error('Unable to verify your school account.');
+
+        const me = await meRes.json();
+        const user = me.user || me.data?.user || me;
+        authenticatedSchool = me.school || me.data?.school || user.school || null;
+
+        if (!authenticatedSchool && user.schoolId) {
+          authenticatedSchool = {
+            _id: user.schoolId,
+            schoolId: user.schoolCode || user.schoolKey || '',
+            schoolName: user.schoolName || 'School'
+          };
+        }
+
+        if (!authenticatedSchool?._id) {
+          throw new Error('Your account is not associated with an active school.');
+        }
+
+        /*
+         * Use the authenticated school immediately so the UI never renders
+         * another school's cached branding.
+         */
+        currentSchool = authenticatedSchool;
+        schoolConfig = authenticatedSchool;
+
+        const publicSchoolId =
+          authenticatedSchool.schoolId ||
+          authenticatedSchool.publicSchoolId ||
+          '';
+
+        if (publicSchoolId) {
+          localStorage.setItem('schoolId', publicSchoolId);
+        }
+
+        const activeSubdomain = getTenantSubdomain();
+        if (activeSubdomain) {
+          localStorage.setItem('schoolSubdomain', activeSubdomain);
+        }
+
+        /*
+         * Ask the payments backend for the authoritative tenant config.
+         * This is the configuration used by payment records and payment
+         * operations, so it cannot accidentally come from another school.
+         */
+        let configRes = await fetch(`${API_BASE}/payments/config`, {
+          headers: getAuthHeaders()
+        });
+
+        if (!configRes.ok) {
+          /*
+           * Compatibility with the alternate endpoint name.
+           */
+          configRes = await fetch(`${API_BASE}/payments/payment-config`, {
+            headers: getAuthHeaders()
+          });
+        }
+
+        if (configRes.ok) {
+          const paymentPayload = await configRes.json();
+          const paymentSchool = paymentPayload.school || {};
+          const paymentConfig = paymentPayload.paymentConfig || {};
+
+          /*
+           * Merge only the school returned for this authenticated tenant.
+           * Do not replace the active school with a hostname-derived school.
+           */
+          schoolConfig = {
+            ...authenticatedSchool,
+            ...paymentSchool,
+            paymentConfig
+          };
+          currentSchool = schoolConfig;
+
+          const status = document.getElementById('paymentConfigStatus');
+          if (status) {
+            const gateways = Array.isArray(paymentConfig.enabledGateways)
+              ? paymentConfig.enabledGateways
+              : [];
+
+            const method =
+              paymentConfig.method ||
+              paymentConfig.paymentMethod ||
+              paymentConfig.paymentType ||
+              (gateways.length ? 'gateway' : 'direct');
+
+            status.textContent =
+              method === 'gateway'
+                ? `Payment Gateway: ${gateways.length ? gateways.join(', ') : 'Configured'}`
+                : `Payment Method: ${method}`;
+          }
+        }
+
+        if (activeSubdomain) {
+          localStorage.setItem(
+            `examguard_school_config_${activeSubdomain}`,
+            JSON.stringify(schoolConfig)
+          );
+        }
       } catch (error) {
-        const cached = localStorage.getItem(`examguard_school_config_${subdomain}`);
-        if (!cached) throw error;
-        schoolConfig = JSON.parse(cached);
-        currentSchool = schoolConfig;
+        /*
+         * Never fall back to another school's cached configuration when an
+         * authenticated account exists. Cached config is only used as a
+         * last-resort compatibility path when the public school endpoint is
+         * the only available configuration source.
+         */
+        const subdomain = getTenantSubdomain();
+
+        if (!authenticatedSchool && subdomain) {
+          const cached = localStorage.getItem(
+            `examguard_school_config_${subdomain}`
+          );
+
+          if (cached) {
+            schoolConfig = JSON.parse(cached);
+            currentSchool = schoolConfig;
+          } else {
+            throw error;
+          }
+        } else if (!currentSchool) {
+          throw error;
+        }
       }
+
       applySchoolBranding();
     }
 
     function applySchoolBranding() {
-      const name = currentSchool?.schoolName || 'School';
-      const logo = currentSchool?.logoUrl || currentSchool?.branding?.logo || '';
+      const name =
+        currentSchool?.schoolName ||
+        currentSchool?.name ||
+        currentSchool?.branding?.schoolName ||
+        'School';
+
+      const logo =
+        currentSchool?.logoUrl ||
+        currentSchool?.logo ||
+        currentSchool?.branding?.logo ||
+        currentSchool?.branding?.logoUrl ||
+        '';
+
       document.title = `Administrative Payments | ${name}`;
       document.getElementById('schoolName').textContent = name;
+
+      const activeSchoolName = document.getElementById('activeSchoolName');
+      const activeSchoolId = document.getElementById('activeSchoolId');
+      if (activeSchoolName) activeSchoolName.textContent = name;
+      if (activeSchoolId) {
+        activeSchoolId.textContent =
+          `School ID: ${currentSchool?.schoolId || currentSchool?._id || '—'}`;
+      }
+
+      const badge = document.getElementById('schoolTenantBadge');
+      if (badge) {
+        const code = currentSchool?.schoolId || currentSchool?._id || '';
+        badge.textContent = code ? `${name} • ${code}` : name;
+      }
+
       const logoEl = document.getElementById('schoolLogo');
       const fallback = document.getElementById('schoolFallback');
+
       if (logo) {
         logoEl.src = logo;
+        logoEl.onerror = () => {
+          logoEl.classList.add('hidden');
+          fallback.classList.remove('hidden');
+          fallback.textContent = name.slice(0, 2).toUpperCase();
+        };
         logoEl.classList.remove('hidden');
         fallback.classList.add('hidden');
       } else {
@@ -494,10 +695,29 @@
       if (!res.ok) throw new Error('You are not authorized to access this page.');
       const data = await res.json();
       currentUser = data.user || data;
-      const schoolId = currentUser?.schoolId || currentUser?.school?._id;
-      const configMongoId = currentSchool?._id || currentSchool?.id || currentSchool?.school?._id;
-      if (configMongoId && schoolId && String(configMongoId) !== String(schoolId)) {
-        throw new Error('This account does not belong to this school.');
+      const userSchoolIdentifiers = [
+        currentUser?.schoolId,
+        currentUser?.school?.schoolId,
+        currentUser?.school?._id,
+        currentUser?.schoolCode,
+        currentUser?.schoolKey
+      ].filter(Boolean).map(String);
+
+      const configSchoolIdentifiers = [
+        currentSchool?._id,
+        currentSchool?.id,
+        currentSchool?.schoolId,
+        currentSchool?.publicSchoolId,
+        currentSchool?.school?._id,
+        currentSchool?.school?.schoolId
+      ].filter(Boolean).map(String);
+
+      if (
+        userSchoolIdentifiers.length &&
+        configSchoolIdentifiers.length &&
+        !userSchoolIdentifiers.some(id => configSchoolIdentifiers.includes(id))
+      ) {
+        throw new Error('This account does not belong to the selected school.');
       }
       const role = String(currentUser?.role || '').toLowerCase();
       if (!['admin', 'superadmin'].includes(role)) throw new Error('Administrator access is required.');
@@ -566,7 +786,75 @@
       document.getElementById('updateWaiveNoteDiv').style.display = this.value === 'Waived' ? 'block' : 'none';
     });
 
-    // ==================== LOAD STAFF ====================
+    
+    // ==================== ACTION BUTTON LOADING / DOUBLE-CLICK PROTECTION ====================
+    function setButtonLoading(button, loading, label = null) {
+      if (!button) return;
+
+      if (loading) {
+        if (button.dataset.loading === 'true') return;
+
+        button.dataset.loading = 'true';
+        button.dataset.originalHtml = button.innerHTML;
+        button.dataset.originalDisabled = button.disabled ? 'true' : 'false';
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.classList.add('opacity-70', 'cursor-not-allowed');
+
+        const fallbackLabel = button.textContent.trim() || 'Processing';
+        button.innerHTML =
+          `<i class="fa-solid fa-circle-notch fa-spin"></i> ${esc(label || fallbackLabel + '...')}`;
+      } else {
+        if (button.dataset.loading !== 'true') return;
+
+        button.innerHTML = button.dataset.originalHtml || button.innerHTML;
+        button.disabled = button.dataset.originalDisabled === 'true';
+        button.removeAttribute('aria-busy');
+        button.classList.remove('opacity-70', 'cursor-not-allowed');
+        delete button.dataset.loading;
+        delete button.dataset.originalHtml;
+        delete button.dataset.originalDisabled;
+      }
+    }
+
+    function buttonFromSubmitEvent(e) {
+      return e?.submitter || e?.target?.querySelector('button[type="submit"]');
+    }
+
+    /*
+     * Protect explicit action buttons immediately on click. Navigation and
+     * utility buttons are excluded so the page remains responsive.
+     */
+    document.addEventListener('click', function(e) {
+      const button = e.target.closest('button');
+      if (!button) return;
+
+      const isAction =
+        button.classList.contains('btn') ||
+        button.classList.contains('action-btn') ||
+        button.type === 'submit' ||
+        button.dataset.action === 'true';
+
+      if (!isAction) return;
+      if (button.dataset.loading === 'true') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      /*
+       * For form submit buttons, the submit handler controls the loading
+       * lifetime. For standalone actions, release the lock after a short
+       * window if the action itself does not do so.
+       */
+      setButtonLoading(button, true);
+
+      if (!button.form) {
+        setTimeout(() => setButtonLoading(button, false), 1500);
+      }
+    });
+
+// ==================== LOAD STAFF ====================
 async function loadStaff() {
   const select = document.getElementById('staffId');
   if (!select) return;
@@ -599,6 +887,7 @@ loadStaff();
 // ==================== SALARY PAYMENT ====================
     document.getElementById('salaryPaymentForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+      const submitButton = buttonFromSubmitEvent(e);
       const data = Object.fromEntries(new FormData(this));
       const messageBox = document.getElementById('salaryPaymentMessage');
       messageBox.classList.remove('error', 'success');
@@ -626,6 +915,8 @@ loadStaff();
       } catch (e) {
         messageBox.classList.add('error');
         messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      } finally {
+        setButtonLoading(submitButton, false);
       }
     });
 
@@ -668,6 +959,7 @@ loadStaff();
     // ==================== ADMIN TRANSACTION ====================
     document.getElementById('adminTransactionForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+      const submitButton = buttonFromSubmitEvent(e);
       const data = Object.fromEntries(new FormData(this));
       const messageBox = document.getElementById('adminTransactionMessage');
       messageBox.classList.remove('error', 'success');
@@ -695,6 +987,8 @@ loadStaff();
       } catch (e) {
         messageBox.classList.add('error');
         messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      } finally {
+        setButtonLoading(submitButton, false);
       }
     });
 
@@ -775,6 +1069,7 @@ loadStaff();
 
     document.getElementById('updatePaymentForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+      const submitButton = buttonFromSubmitEvent(e);
       const paymentId = document.getElementById('updatePaymentId').value;
       const type = document.getElementById('updatePaymentType').value;
       const status = document.getElementById('updatePaymentStatus').value;
@@ -827,12 +1122,16 @@ loadStaff();
       } catch (e) {
         messageBox.classList.add('error');
         messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      } finally {
+        setButtonLoading(submitButton, false);
       }
     });
 
     async function deletePaymentRecord() {
       if (!confirm('⚠️ Are you sure you want to delete this record? This action cannot be undone.')) return;
 
+      const deleteButton = document.querySelector('#updatePaymentForm button[type="button"].btn-danger');
+      setButtonLoading(deleteButton, true, 'Deleting');
       const paymentId = document.getElementById('updatePaymentId').value;
       const type = document.getElementById('updatePaymentType').value;
       const messageBox = document.getElementById('updatePaymentMessage');
@@ -873,6 +1172,8 @@ loadStaff();
       } catch (e) {
         messageBox.classList.add('error');
         messageBox.innerHTML = '<i class="fa fa-exclamation-circle"></i> Network error.';
+      } finally {
+        setButtonLoading(deleteButton, false);
       }
     }
 
