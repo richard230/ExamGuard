@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 
 const AdmissionCohortSchema = new mongoose.Schema({
+  // Tenant key required by school-scoped admission queries.
+  schoolId: { type: String, required: true, index: true },
   session: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Session',
