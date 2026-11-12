@@ -21,6 +21,44 @@ const requireSchoolId = (req, res) => {
   }
   return schoolId;
 };
+
+// --- NEW: Payment Settings Endpoints ---
+router.get('/payment-config', authMiddleware, async (req, res) => {
+  const schoolId = requireSchoolId(req, res);
+  if (!schoolId) return;
+  try {
+    const School = require('../models/School');
+    const school = await School.findById(schoolId);
+    if (!school) return res.status(404).json({ error: 'School not found' });
+    res.json({ success: true, paymentConfig: school.paymentConfig || { method: 'direct', consentSigned: false } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/payment-config', authMiddleware, adminAuth, async (req, res) => {
+  const schoolId = requireSchoolId(req, res);
+  if (!schoolId) return;
+  try {
+    const { method, bankDetails, consentSigned, consentDate, manualFormUrl } = req.body;
+    const School = require('../models/School');
+    const school = await School.findById(schoolId);
+    if (!school) return res.status(404).json({ error: 'School not found' });
+
+    school.paymentConfig = {
+      method: method || 'direct',
+      bankDetails: bankDetails || {},
+      consentSigned: Boolean(consentSigned),
+      consentDate: consentDate || (consentSigned ? new Date() : null),
+      manualFormUrl: manualFormUrl || ''
+    };
+    await school.save();
+    res.json({ success: true, message: 'Payment configuration updated successfully', paymentConfig: school.paymentConfig });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/subjects/:id', authMiddleware, adminAuth, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
@@ -425,7 +463,7 @@ router.post('/cbt/mocks', authMiddleware, adminAuth, async (req, res) => {
   let cbt;
   if (req.body._id) {
     cbt = await CBTMock.findOneAndUpdate(
-      { _id: req.body._id, schoolId },
+      { _id: req.params.id, schoolId },
       { title, class: classId, mode, date },
       { new: true }
     );
