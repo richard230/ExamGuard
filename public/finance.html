@@ -21,6 +21,15 @@
       }
     };
   </script>
+  <style>
+    .finance-nav-btn{white-space:nowrap;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:999px;padding:9px 14px;font-size:12px;font-weight:700;transition:.18s}
+    .finance-nav-btn:hover{border-color:#93c5fd;color:#1d4ed8;background:#eff6ff}
+    .finance-nav-btn.active{background:#1d4ed8;border-color:#1d4ed8;color:#fff;box-shadow:0 4px 12px #1d4ed833}
+    .wallet-method-btn{border:1px solid #e2e8f0;border-radius:12px;padding:11px 8px;font-size:12px;font-weight:700;color:#475569;background:#f8fafc}
+    .wallet-method-btn.selected{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
+    .finance-section{scroll-margin-top:145px}
+    @media(max-width:640px){.finance-nav-btn{padding:8px 12px;font-size:11px}}
+  </style>
 </head>
 
 <body class="bg-slate-50/80 font-sans text-slate-800 antialiased min-h-screen selection:bg-blue-500 selection:text-white">
@@ -371,6 +380,23 @@
       <main class="flex-1 px-4 sm:px-6 py-6 pb-28 md:pb-12">
         <div class="max-w-7xl mx-auto space-y-6">
           
+          <!-- Finance module navigation: available on desktop and mobile -->
+          <nav aria-label="Finance sections" class="sticky top-[65px] z-10 -mx-1 px-1 py-2 bg-slate-50/95 backdrop-blur">
+            <div class="flex gap-2 overflow-x-auto pb-1" id="financeSectionNav">
+              <button type="button" data-finance-section="overview" onclick="showSection('overview')" class="finance-nav-btn active">Overview</button>
+              <button type="button" data-finance-section="wallet" onclick="showSection('wallet')" class="finance-nav-btn">School Wallet</button>
+              <button type="button" data-finance-section="fees" onclick="showSection('fees')" class="finance-nav-btn">Fees</button>
+              <button type="button" data-finance-section="invoices" onclick="showSection('invoices')" class="finance-nav-btn">Invoices</button>
+              <button type="button" data-finance-section="receipts" onclick="showSection('receipts')" class="finance-nav-btn">Receipts</button>
+              <button type="button" data-finance-section="expenses" onclick="showSection('expenses')" class="finance-nav-btn">Expenses</button>
+              <button type="button" data-finance-section="transactions" onclick="showSection('transactions')" class="finance-nav-btn">Transactions</button>
+              <button type="button" data-finance-section="reports" onclick="showSection('reports')" class="finance-nav-btn">Reports</button>
+              <button type="button" data-finance-section="accounts" onclick="showSection('accounts')" class="finance-nav-btn">Bank Accounts</button>
+              <button type="button" data-finance-section="settings" onclick="showSection('settings')" class="finance-nav-btn">Settings</button>
+            </div>
+          </nav>
+
+          <section id="finance-overview" class="finance-view space-y-6">
           <!-- Page Header -->
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div class="flex items-center gap-3">
@@ -444,6 +470,54 @@
               <div class="h-64 sm:h-72"><canvas id="paymentStatusChart"></canvas></div>
             </section>
           </div>
+
+          </section>
+
+          <!-- School Wallet -->
+          <section id="section-wallet" class="finance-section hidden space-y-5">
+            <div class="rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-blue-700 text-white p-6 sm:p-8 shadow-xl">
+              <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+                <div>
+                  <p class="text-sm text-blue-100 font-semibold"><i class="fa fa-shield-halved mr-2"></i>School Wallet</p>
+                  <p class="text-xs text-blue-200 mt-1">Central school funds balance</p>
+                  <p id="schoolWalletBalance" class="text-3xl sm:text-4xl font-bold tracking-tight mt-4">₦—</p>
+                  <p id="schoolWalletStatus" class="text-xs text-blue-200 mt-2">Connect to your school wallet to view the live balance.</p>
+                </div>
+                <button type="button" onclick="fetchSchoolWallet()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-semibold"><i class="fa fa-rotate mr-2"></i>Refresh balance</button>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-7">
+                <div class="rounded-2xl bg-white/10 border border-white/10 p-4"><p class="text-[11px] uppercase tracking-wider text-blue-200">Total credited</p><p id="walletTotalCredit" class="font-bold text-lg mt-1">₦—</p></div>
+                <div class="rounded-2xl bg-white/10 border border-white/10 p-4"><p class="text-[11px] uppercase tracking-wider text-blue-200">Total debited</p><p id="walletTotalDebit" class="font-bold text-lg mt-1">₦—</p></div>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <h3 class="font-bold text-slate-900"><i class="fa fa-circle-plus text-emerald-600 mr-2"></i>Fund school account</h3>
+                <p class="text-xs text-slate-500 mt-1">Choose a secure funding method. Funds are added only after server-side confirmation.</p>
+                <div class="grid grid-cols-2 gap-2 mt-5">
+                  <button type="button" id="walletDirectTab" onclick="setWalletMethod('direct')" class="wallet-method-btn selected"><i class="fa fa-building-columns mr-2"></i>Direct payment</button>
+                  <button type="button" id="walletPaystackTab" onclick="setWalletMethod('paystack')" class="wallet-method-btn"><i class="fa fa-credit-card mr-2"></i>Paystack</button>
+                </div>
+                <form id="walletDirectForm" class="mt-5 space-y-3" onsubmit="submitDirectWalletFunding(event)">
+                  <div><label class="block text-xs font-semibold text-slate-700 mb-1">Amount (₦)</label><input id="walletDirectAmount" type="number" min="100" step="0.01" required placeholder="e.g. 100000" class="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500"></div>
+                  <div><label class="block text-xs font-semibold text-slate-700 mb-1">Payment reference / narration</label><input id="walletDirectReference" type="text" required placeholder="Bank transfer reference" class="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500"></div>
+                  <div><label class="block text-xs font-semibold text-slate-700 mb-1">Payer name</label><input id="walletPayerName" type="text" required placeholder="Name of person or organisation" class="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500"></div>
+                  <button id="walletDirectSubmit" type="submit" class="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-3"><i class="fa fa-paper-plane mr-2"></i>Submit payment for verification</button>
+                  <p class="text-[11px] leading-relaxed text-slate-500">Direct payments remain pending until your finance team verifies the transfer. Do not submit sensitive card or banking passwords.</p>
+                </form>
+                <form id="walletPaystackForm" class="mt-5 space-y-3 hidden" onsubmit="startPaystackWalletFunding(event)">
+                  <div><label class="block text-xs font-semibold text-slate-700 mb-1">Amount (₦)</label><input id="walletPaystackAmount" type="number" min="100" step="0.01" required placeholder="e.g. 50000" class="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500"></div>
+                  <div><label class="block text-xs font-semibold text-slate-700 mb-1">Payer email</label><input id="walletPaystackEmail" type="email" required placeholder="accounts@example.com" class="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500"></div>
+                  <button type="submit" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-3"><i class="fa fa-lock mr-2"></i>Continue securely with Paystack</button>
+                  <p class="text-[11px] leading-relaxed text-slate-500">Card and bank authorisation are handled on Paystack's secure checkout. Never enter card details on this page.</p>
+                </form>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between"><h3 class="font-bold text-slate-900">Wallet activity</h3><span class="text-[10px] text-slate-400">Latest entries</span></div>
+                <div class="overflow-x-auto mt-4"><table class="w-full text-xs text-left"><thead class="text-slate-500 uppercase bg-slate-50"><tr><th class="p-3">Date</th><th class="p-3">Description</th><th class="p-3">Amount</th><th class="p-3">Status</th></tr></thead><tbody id="walletActivityBody"><tr><td colspan="4" class="p-8 text-center text-slate-400">Wallet activity will appear here when connected.</td></tr></tbody></table></div>
+              </div>
+            </div>
+          </section>
 
           <!-- Student Fee Table Section (Hidden by Default) -->
           <section id="section-fees" class="finance-section hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
@@ -662,6 +736,10 @@
 
     <!-- 2x2 Fixed Card Grid in Mobile Menu -->
     <div class="grid grid-cols-2 gap-3">
+      <button onclick="showSection('wallet')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2"><i class="fa fa-wallet"></i></div>
+        <div class="text-xs font-bold text-slate-800">School Wallet</div><div class="text-[10px] text-slate-500">Balance & funding</div>
+      </button>
       <button onclick="showSection('fees')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-colors">
         <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2"><i class="fa fa-graduation-cap"></i></div>
         <div class="text-xs font-bold text-slate-800">Fees</div><div class="text-[10px] text-slate-500">Student fee records</div>
@@ -706,7 +784,7 @@
     let schoolSubdomain = '';
     let financeCache = {
       fees: [], invoices: [], receipts: [], expenses: [],
-      transactions: [], bankAccounts: [], currentReport: null
+      transactions: [], bankAccounts: [], schoolWallet: null, currentReport: null
     };
     let revenueChartInstance = null;
     let paymentStatusChartInstance = null;
@@ -1161,29 +1239,108 @@
 
     function showSection(name) {
       const sectionMap = {
-        fees: 'section-fees',
-        invoices: 'section-invoices',
-        receipts: 'section-receipts',
-        expenses: 'section-expenses',
-        transactions: 'section-transactions',
-        reports: 'section-reports',
-        accounts: 'section-accounts',
-        settings: 'section-settings'
+        fees:'section-fees', invoices:'section-invoices', receipts:'section-receipts',
+        expenses:'section-expenses', transactions:'section-transactions', reports:'section-reports',
+        accounts:'section-accounts', settings:'section-settings', wallet:'section-wallet'
       };
-
+      document.getElementById('finance-overview')?.classList.toggle('hidden', name !== 'overview');
       document.querySelectorAll('.finance-section').forEach(sec => sec.classList.add('hidden'));
+      if (name !== 'overview') {
+        const target = document.getElementById(sectionMap[name]);
+        if (target) target.classList.remove('hidden');
+      }
+      document.querySelectorAll('.finance-nav-btn').forEach(btn => {
+        const active = btn.dataset.financeSection === name;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-current', active ? 'page' : 'false');
+      });
+      if (name === 'wallet') fetchSchoolWallet();
+      if (name === 'accounts') fetchBankAccounts();
+      const target = name === 'overview' ? document.getElementById('finance-overview') : document.getElementById(sectionMap[name]);
+      target?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
 
-      const targetId = sectionMap[name];
-      if (targetId) {
-        const targetEl = document.getElementById(targetId);
-        if (targetEl) {
-          targetEl.classList.remove('hidden');
-          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+    function setWalletMethod(method) {
+      const direct = method === 'direct';
+      document.getElementById('walletDirectForm').classList.toggle('hidden', !direct);
+      document.getElementById('walletPaystackForm').classList.toggle('hidden', direct);
+      document.getElementById('walletDirectTab').classList.toggle('selected', direct);
+      document.getElementById('walletPaystackTab').classList.toggle('selected', !direct);
+    }
+
+    function renderSchoolWallet(raw) {
+      const data = unwrapObject(raw);
+      financeCache.schoolWallet = data;
+      const balance = data.balance ?? data.availableBalance ?? data.walletBalance;
+      document.getElementById('schoolWalletBalance').textContent = balance == null ? '₦—' : money(balance);
+      document.getElementById('walletTotalCredit').textContent = money(data.totalCredit ?? data.totalCredits ?? 0);
+      document.getElementById('walletTotalDebit').textContent = money(data.totalDebit ?? data.totalDebits ?? 0);
+      document.getElementById('schoolWalletStatus').textContent = data.currency ? `Live wallet balance · ${data.currency}` : 'Wallet data received from school finance service.';
+      const rows = data.transactions || data.activity || data.entries || [];
+      document.getElementById('walletActivityBody').innerHTML = rows.length ? rows.slice(0,20).map(item => `
+        <tr class="border-t border-slate-100"><td class="p-3 whitespace-nowrap">${escapeHtml(String(item.date || item.createdAt || '').slice(0,10))}</td><td class="p-3">${escapeHtml(item.description || item.reference || item.type || 'Wallet transaction')}</td><td class="p-3 font-bold">${money(item.amount || item.credit || item.debit || 0)}</td><td class="p-3">${statusBadge(item.status || (item.verified ? 'Verified' : 'Pending'))}</td></tr>`).join('') : '<tr><td colspan="4" class="p-8 text-center text-slate-400">No wallet activity available.</td></tr>';
+    }
+
+    async function fetchSchoolWallet() {
+      const status = document.getElementById('schoolWalletStatus');
+      status.textContent = 'Retrieving school wallet balance…';
+      try {
+        const raw = await getJson('/finance/school-wallet');
+        if (!raw) throw new Error('Wallet service returned no data');
+        renderSchoolWallet(raw);
+      } catch (err) {
+        document.getElementById('schoolWalletBalance').textContent = 'Unavailable';
+        document.getElementById('walletTotalCredit').textContent = '—';
+        document.getElementById('walletTotalDebit').textContent = '—';
+        status.textContent = 'School wallet API is not available yet. Connect the backend wallet service to show a verified balance.';
+        console.warn('School wallet load:', err);
       }
     }
 
-    function setupSearch(inputId, tableId) {
+    async function submitDirectWalletFunding(event) {
+      event.preventDefault();
+      const payload = {
+        amount: Number(document.getElementById('walletDirectAmount').value),
+        reference: document.getElementById('walletDirectReference').value.trim(),
+        payerName: document.getElementById('walletPayerName').value.trim(),
+        method: 'direct'
+      };
+      if (!Number.isFinite(payload.amount) || payload.amount < 100) return showToast('Enter a valid amount of at least ₦100.', 'error');
+      const button = document.getElementById('walletDirectSubmit');
+      button.disabled = true; button.textContent = 'Submitting…';
+      try {
+        const response = await apiFetch(`${API_ROOT}/finance/school-wallet/funding/direct`, {method:'POST',body:JSON.stringify(payload)});
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.message || `Funding request failed (${response.status})`);
+        showToast('Direct payment submitted for verification');
+        document.getElementById('walletDirectForm').reset();
+        await fetchSchoolWallet();
+      } catch (error) {
+        showErrorModal(error.message || 'Direct funding could not be submitted. Please ensure the wallet funding endpoint is configured.', 'Funding not submitted');
+      } finally { button.disabled = false; button.innerHTML = '<i class="fa fa-paper-plane mr-2"></i>Submit payment for verification'; }
+    }
+
+    async function startPaystackWalletFunding(event) {
+      event.preventDefault();
+      const payload = {
+        amount: Number(document.getElementById('walletPaystackAmount').value),
+        email: document.getElementById('walletPaystackEmail').value.trim()
+      };
+      if (!Number.isFinite(payload.amount) || payload.amount < 100) return showToast('Enter a valid amount of at least ₦100.', 'error');
+      try {
+        const response = await apiFetch(`${API_ROOT}/finance/school-wallet/funding/paystack/initialize`, {method:'POST',body:JSON.stringify(payload)});
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.message || `Paystack initialization failed (${response.status})`);
+        const data = result.data || result;
+        const checkoutUrl = data.authorization_url || data.authorizationUrl || data.checkout_url;
+        if (!checkoutUrl || !/^https:\/\/(checkout\.)?paystack\.com\//i.test(checkoutUrl)) throw new Error('The server did not return a valid Paystack checkout URL.');
+        window.location.assign(checkoutUrl);
+      } catch (error) {
+        showErrorModal(error.message || 'Paystack checkout could not be started. Ensure Paystack is configured on the backend.', 'Payment could not start');
+      }
+    }
+
+function setupSearch(inputId, tableId) {
       document.getElementById(inputId)?.addEventListener('input', e => {
         const q = e.target.value.toLowerCase().trim();
         document.querySelectorAll(`#${tableId} tr`).forEach(row => {
