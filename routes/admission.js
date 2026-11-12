@@ -189,13 +189,15 @@ router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
     const { name, session, term, arm, startDate, endDate, applicationFee, description, capacity } = req.body;
     const classId = req.body.class || req.body.classId;
 
-    // Validation
-    if (!session || !term || !classId || !arm || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Missing required fields: session, term, class, arm, startDate and endDate are required.' });
+    // Arm is optional; validate school ownership only when one is selected.
+    if (!session || !term || !classId || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Missing required fields: session, term, class, startDate and endDate are required.' });
     }
-    if (!mongoose.Types.ObjectId.isValid(arm)) return res.status(400).json({ error: 'Invalid Arm ID. Select an existing arm from the school setup.' });
-    const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: arm })).lean();
-    if (!armRecord) return res.status(400).json({ error: 'The selected arm does not belong to this school or no longer exists. Refresh and select a valid arm.' });
+    if (arm) {
+      if (!mongoose.Types.ObjectId.isValid(arm)) return res.status(400).json({ error: 'Invalid Arm ID. Select a valid school arm or leave it blank.' });
+      const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: arm })).lean();
+      if (!armRecord) return res.status(400).json({ error: 'The selected arm does not belong to this school or no longer exists.' });
+    }
 
     // Check if cohort already exists for this session/term/class/arm
     const exists = await AdmissionCohort.findOne({
@@ -203,7 +205,7 @@ router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
       session,
       term,
       class: classId,
-      arm
+      arm: arm || null
     });
 
     if (exists) {
@@ -216,7 +218,7 @@ router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
       session,
       term,
       class: classId,
-      arm,
+      arm: arm || undefined,
       startDate,
       endDate,
       applicationFee: applicationFee || 0,
@@ -260,11 +262,13 @@ router.put('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
     if (session) cohort.session = session;
     if (term) cohort.term = term;
     if (classId) cohort.class = classId;
-    if (arm) {
-      if (!mongoose.Types.ObjectId.isValid(arm)) return res.status(400).json({ error: 'Invalid Arm ID. Please select a valid school arm.' });
-      const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: arm })).lean();
-      if (!armRecord) return res.status(400).json({ error: 'The selected arm does not belong to this school or no longer exists.' });
-      cohort.arm = arm;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'arm')) {
+      if (arm) {
+        if (!mongoose.Types.ObjectId.isValid(arm)) return res.status(400).json({ error: 'Invalid Arm ID. Please select a valid school arm or leave it blank.' });
+        const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: arm })).lean();
+        if (!armRecord) return res.status(400).json({ error: 'The selected arm does not belong to this school or no longer exists.' });
+      }
+      cohort.arm = arm || undefined;
     }
     if (startDate) cohort.startDate = startDate;
     if (endDate) cohort.endDate = endDate;
@@ -574,19 +578,21 @@ router.post('/setup', authMiddleware, adminAuth, async (req, res) => {
 
     const { session, term, classId, armId, startDate, endDate, applicationFee } = req.body;
 
-    if (!session || !term || !classId || !armId || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Missing required fields: session, term, class, arm, start date and end date are required.' });
+    if (!session || !term || !classId || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Missing required fields: session, term, class, start date and end date are required.' });
     }
-    if (!mongoose.Types.ObjectId.isValid(armId)) return res.status(400).json({ error: 'Invalid Arm ID. Select an existing arm from the Arm dropdown.' });
-    const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: armId })).lean();
-    if (!armRecord) return res.status(400).json({ error: 'The selected Arm ID is not registered under this school. Refresh and select a valid arm.' });
+    if (armId) {
+      if (!mongoose.Types.ObjectId.isValid(armId)) return res.status(400).json({ error: 'Invalid Arm ID. Select a valid school arm or leave it blank.' });
+      const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: armId })).lean();
+      if (!armRecord) return res.status(400).json({ error: 'The selected Arm ID is not registered under this school.' });
+    }
 
     const setup = new AdmissionSetup({
       schoolId,
       session,
       term,
       class: classId,
-      arm: armId,
+      arm: armId || undefined,
       startDate,
       endDate,
       applicationFee: applicationFee || 0,
