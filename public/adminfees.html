@@ -36,9 +36,13 @@
   </script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .btn-loading { pointer-events: none !important; opacity: .72 !important; cursor: wait !important; }
+    .btn-loading .btn-spinner { animation: buttonSpin .8s linear infinite; }
+    @keyframes buttonSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
@@ -188,76 +192,144 @@
         </div>
         <b id="waived" class="mt-3 block text-2xl font-extrabold text-amber-600">₦0</b>
       </div>
+
+      <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Gateway Collected</span>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+            <i class="fa-solid fa-globe text-sm"></i>
+          </div>
+        </div>
+        <b id="gatewayCollected" class="mt-3 block text-2xl font-extrabold text-violet-600">₦0</b>
+      </div>
     </div>
 
-    <!-- PAYMENT RECEIVING METHOD CONFIGURATION SECTION -->
-    <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
-      <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
-        <div class="flex items-center gap-2.5">
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
-            <i class="fa-solid fa-credit-card text-xs"></i>
+<!-- PAYMENT RECEIVING METHOD CONFIGURATION SECTION -->
+<section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+  <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+        <i class="fa-solid fa-credit-card text-xs"></i>
+      </div>
+      <div>
+        <h2 class="text-base font-bold text-slate-900">Payment Receiving Configuration</h2>
+        <p class="text-xs text-slate-500">Configure how student fees are collected and routed</p>
+      </div>
+    </div>
+    <span id="configStatusBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Not Configured</span>
+  </div>
+
+  <!-- Persisted configuration summary. This is what is shown after reload when a configuration exists. -->
+  <div id="paymentConfigSummary" class="hidden">
+    <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="flex items-start gap-3">
+          <div id="configuredMethodIcon" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+            <i class="fa-solid fa-building-columns"></i>
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-900">Payment Receiving Configuration</h2>
-            <p class="text-xs text-slate-500">Configure how student fees are collected and routed</p>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Currently configured method</p>
+            <h3 id="configuredMethodName" class="mt-1 text-lg font-extrabold text-slate-900">—</h3>
+            <p id="configuredMethodDescription" class="mt-1 text-xs text-slate-500">—</p>
           </div>
         </div>
-        <span id="configStatusBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Not Configured</span>
+        <button type="button" id="editPaymentConfigBtn" data-action-spinner="true" data-loading-label="Opening..."
+          class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm hover:border-brand-600 hover:text-brand-600">
+          <i class="fa-solid fa-pen-to-square"></i> Update Payment Method
+        </button>
       </div>
 
-      <form id="paymentConfigForm" class="space-y-4">
-        <div class="grid gap-4 sm:grid-cols-3">
+      <div id="configuredBankDetails" class="mt-4 hidden grid gap-3 sm:grid-cols-2">
+        <div class="rounded-xl border border-slate-200 bg-white p-3">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Bank Name</span>
+          <b id="configuredBankName" class="mt-1 block text-sm text-slate-800">—</b>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-3">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Account Number</span>
+          <b id="configuredAccountNumber" class="mt-1 block text-sm text-slate-800">—</b>
+        </div>
+      </div>
+
+      <div id="configuredGatewayDetails" class="mt-4 hidden rounded-xl border border-violet-200 bg-violet-50/60 p-3">
+        <div class="flex items-start gap-2.5">
+          <i class="fa-solid fa-shield-halved mt-0.5 text-violet-600"></i>
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Method Type</label>
-            <select id="paymentMethodType" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:border-brand-600 focus:outline-none">
-              <option value="direct">Direct Bank Transfer</option>
-              <option value="onsite">On-Site / Physical Transfer</option>
-              <option value="gateway">Payment Gateway (Paystack / Flutterwave)</option>
-            </select>
-          </div>
-
-          <div id="bankDetailsWrap" class="sm:col-span-2 grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Bank Name</label>
-              <input id="bankName" placeholder="e.g. First Bank" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Account Number</label>
-              <input id="accountNumber" placeholder="0123456789" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
-            </div>
+            <b class="block text-xs font-bold text-violet-900">Payment gateway is active</b>
+            <span id="configuredGatewayConsent" class="mt-0.5 block text-xs text-violet-700">Gateway monitoring consent status unavailable.</span>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <div id="gatewayNoticeWrap" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 flex items-center justify-between">
-          <span><i class="fa-solid fa-circle-exclamation mr-2"></i> Using Payment Gateways requires signing an ExamGuard Monitoring Consent Agreement.</span>
-          <button type="button" onclick="openConsentModal()" class="rounded-lg bg-amber-600 px-3 py-1.5 font-bold text-white hover:bg-amber-700">Review & Sign Agreement</button>
+  <!-- Configuration editor. Hidden once a saved configuration is loaded. -->
+  <form id="paymentConfigForm" class="hidden space-y-4">
+    <div class="mb-2 flex items-center justify-between">
+      <div>
+        <p id="paymentEditorTitle" class="text-sm font-bold text-slate-800">Set up payment receiving</p>
+        <p class="text-xs text-slate-500">Choose how the school wants to receive student fee payments.</p>
+      </div>
+      <button type="button" id="cancelPaymentConfigBtn" data-action-spinner="true" data-spinner-manual="true" data-loading-label="Loading..." class="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+        Cancel
+      </button>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-3">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Payment Method Type</label>
+        <select id="paymentMethodType" required class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:border-brand-600 focus:outline-none">
+          <option value="direct">Direct Bank Transfer</option>
+          <option value="onsite">On-Site / Physical Transfer</option>
+          <option value="gateway">Payment Gateway (Paystack / Flutterwave)</option>
+        </select>
+      </div>
+
+      <div id="bankDetailsWrap" class="sm:col-span-2 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Bank Name</label>
+          <input id="bankName" placeholder="e.g. First Bank" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
         </div>
-
-        <!-- Manual Offline Form Section -->
-        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <b class="text-xs font-bold text-slate-800 block">Offline / Manual Agreement Form</b>
-              <span class="text-xs text-slate-500">Download the physical sign-off form, fill and re-upload scanned copy if required.</span>
-            </div>
-            <div class="flex gap-2">
-              <button type="button" onclick="downloadManualForm()" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                <i class="fa-solid fa-download mr-1.5 text-brand-600"></i> Download Form Template
-              </button>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Upload Filled & Signed Form (PDF/Image)</label>
-            <input type="file" id="manualFormFile" accept=".pdf,image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100">
-          </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Account Number</label>
+          <input id="accountNumber" placeholder="0123456789" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:bg-white focus:outline-none">
         </div>
+      </div>
+    </div>
 
-        <button type="submit" class="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700">
-          Save Payment Configuration
+    <div id="gatewayNoticeWrap" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 flex items-center justify-between">
+      <span><i class="fa-solid fa-circle-exclamation mr-2"></i> Using Payment Gateways requires signing an ExamGuard Monitoring Consent Agreement.</span>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" onclick="openConsentModal()" class="rounded-lg bg-amber-600 px-3 py-1.5 font-bold text-white hover:bg-amber-700">Review & Sign Agreement</button>
+        <button type="button" onclick="downloadConsentPDF(this)" data-spinner-manual="true" class="rounded-lg border border-amber-300 bg-white px-3 py-1.5 font-bold text-amber-800 hover:bg-amber-100">
+          <i class="fa-solid fa-file-pdf mr-1.5"></i> Download PDF
         </button>
-      </form>
-      <div id="paymentConfigMsg" class="hidden"></div>
-    </section>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <b class="text-xs font-bold text-slate-800 block">Offline / Manual Agreement Form</b>
+          <span class="text-xs text-slate-500">Download the physical sign-off form, fill and re-upload scanned copy if required.</span>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="downloadManualForm()" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            <i class="fa-solid fa-download mr-1.5 text-brand-600"></i> Download PDF Consent Form
+          </button>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Upload Filled & Signed Form (PDF/Image)</label>
+        <input type="file" id="manualFormFile" accept=".pdf,image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100">
+      </div>
+    </div>
+
+    <button type="submit" class="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700">
+      Save Payment Configuration
+    </button>
+  </form>
+  <div id="paymentConfigMsg" class="hidden"></div>
+</section>
 
     <!-- SET UP CLASS/TERM FEES -->
     <section class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
@@ -373,7 +445,7 @@
             <option>Partial</option>
           </select>
 
-          <button onclick="exportFees()" class="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800">
+          <button onclick="exportFees(this)" class="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800">
             <i class="fa-solid fa-download text-xs"></i> Export CSV
           </button>
         </div>
@@ -420,7 +492,7 @@
     </label>
     <div class="flex justify-end gap-3 pt-3">
       <button type="button" onclick="closeConsentModal()" class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600">Cancel</button>
-      <button type="button" onclick="confirmConsent()" class="rounded-xl bg-brand-600 px-5 py-2 text-xs font-semibold text-white shadow-md hover:bg-brand-700">Confirm Agreement</button>
+      <button type="button" onclick="confirmConsent(this)" class="rounded-xl bg-brand-600 px-5 py-2 text-xs font-semibold text-white shadow-md hover:bg-brand-700">Confirm Agreement</button>
     </div>
   </div>
 </div>
@@ -508,6 +580,23 @@ let publicSchoolId = '';
 let allFees = [];
 let currentFeeId = null;
 let consentSigned = false;
+let currentPaymentConfig = null;
+
+function paymentConfigStorageKey() {
+  const schoolKey = publicSchoolId || currentSchool?._id || currentSchool?.id || currentSchool?.schoolId || 'default';
+  return `examguard:paymentConfig:${String(schoolKey)}`;
+}
+
+function persistPaymentConfigLocal(cfg) {
+  try { localStorage.setItem(paymentConfigStorageKey(), JSON.stringify(cfg || {})); } catch (_) {}
+}
+
+function getLocalPaymentConfig() {
+  try {
+    const raw = localStorage.getItem(paymentConfigStorageKey());
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
 
 const $ = id => document.getElementById(id);
 const money = v => '₦' + Number(v || 0).toLocaleString();
@@ -606,58 +695,326 @@ function msg(id, t, ok = true) {
   e.classList.remove('hidden');
 }
 
-// Fetch Sessions and Terms dynamically from Backend
+// Fetch Sessions and Terms dynamically from Backend.
+// Terms are filtered by the selected session. We support common backend shapes:
+// { name, session }, { name, sessionId }, { name, academicSession }, or { session: { _id/name } }.
+let academicSessions = [];
+let academicTerms = [];
+
+function termBelongsToSession(term, session) {
+  if (!session) return false;
+
+  const selectedName = String(session.name || session).trim().toLowerCase();
+  const selectedId = String(session._id || session.id || session.value || '').trim();
+
+  const candidates = [
+    term.session,
+    term.sessionName,
+    term.academicSession,
+    term.academicSessionName,
+    term.sessionId,
+    term.academicSessionId
+  ];
+
+  for (const value of candidates) {
+    if (value && typeof value === 'object') {
+      if (String(value._id || value.id || value.name || '').trim().toLowerCase() === selectedName) return true;
+      if (selectedId && String(value._id || value.id || '').trim() === selectedId) return true;
+    } else if (value != null) {
+      const normalized = String(value).trim().toLowerCase();
+      if (normalized === selectedName || (selectedId && normalized === selectedId.toLowerCase())) return true;
+    }
+  }
+
+  // Some APIs expose an array of sessions on a term.
+  const sessionList = term.sessions || term.sessionIds || term.academicSessions;
+  if (Array.isArray(sessionList)) {
+    return sessionList.some(v => {
+      const n = typeof v === 'object' ? (v.name || v._id || v.id) : v;
+      return String(n || '').trim().toLowerCase() === selectedName ||
+             (selectedId && String(n || '').trim() === selectedId);
+    });
+  }
+
+  // If terms have no relationship metadata, do not show them when a session is selected.
+  return false;
+}
+
+function renderTermsForSession(sessionValue) {
+  const termSelect = $('termSelect');
+  termSelect.innerHTML = '<option value="">Select Term</option>';
+
+  if (!sessionValue) return;
+
+  const selectedSession = academicSessions.find(s =>
+    String(s.name || '').trim() === String(sessionValue).trim() ||
+    String(s._id || s.id || '').trim() === String(sessionValue).trim()
+  ) || sessionValue;
+
+  const filtered = academicTerms.filter(t => termBelongsToSession(t, selectedSession));
+
+  termSelect.innerHTML += filtered.map(t => {
+    const name = t.name || t.term || t.title || '';
+    return `<option value="${esc(name)}">${esc(name)}</option>`;
+  }).join('');
+
+  if (!filtered.length) {
+    termSelect.innerHTML += '<option value="" disabled>No terms configured for this session</option>';
+  }
+}
+
 async function loadSessionsAndTerms() {
   try {
     const [sessRes, termRes] = await Promise.all([
       api(API_ROOT + '/academics/sessions'),
       api(API_ROOT + '/academics/terms')
     ]);
+
     const sessions = await sessRes.json();
     const terms = await termRes.json();
 
-    if (Array.isArray(sessions)) {
-      $('sessionSelect').innerHTML = '<option value="">Select Session</option>' + sessions.map(s => `<option value="${s.name}">${esc(s.name)}</option>`).join('');
-    }
-    if (Array.isArray(terms)) {
-      $('termSelect').innerHTML = '<option value="">Select Term</option>' + terms.map(t => `<option value="${t.name}">${esc(t.name)}</option>`).join('');
-    }
+    academicSessions = Array.isArray(sessions) ? sessions : (sessions.sessions || sessions.data || []);
+    academicTerms = Array.isArray(terms) ? terms : (terms.terms || terms.data || []);
+
+    $('sessionSelect').innerHTML =
+      '<option value="">Select Session</option>' +
+      academicSessions.map(s => {
+        const name = s.name || s.session || s.title || '';
+        const value = s.name || s._id || s.id || '';
+        return `<option value="${esc(value)}">${esc(name)}</option>`;
+      }).join('');
+
+    renderTermsForSession('');
   } catch (e) {
     console.error('Failed to load sessions/terms', e);
   }
+}
+
+$('sessionSelect').addEventListener('change', e => {
+  renderTermsForSession(e.target.value);
+  $('termSelect').value = '';
+});
+
+function methodLabel(method) {
+  return {
+    direct: 'Direct Bank Transfer',
+    onsite: 'On-Site / Physical Payment',
+    gateway: 'Payment Gateway'
+  }[method] || (method === 'unconfigured' ? 'Not Configured' : String(method || 'Not configured'));
+}
+
+/*
+ * The payment-config API may not return a `method` field after saving.
+ * Gateway configuration is represented by enabledGateways (e.g. ["paystack"]).
+ * Normalize the API response so the UI does not incorrectly fall back to
+ * Direct Bank Transfer after a page reload.
+ */
+function normalizePaymentConfig(cfg) {
+  if (!cfg) return null;
+
+  const localCfg = getLocalPaymentConfig() || {};
+  const gatewayList = Array.isArray(cfg.enabledGateways)
+    ? cfg.enabledGateways.filter(Boolean)
+    : (Array.isArray(cfg.gateways) ? cfg.gateways.filter(Boolean) : []);
+
+  const hasGateway = gatewayList.length > 0;
+  let method = cfg.method || cfg.paymentMethod || cfg.paymentType || cfg.receivingMethod || cfg.receivingMethodType;
+
+  // Some API versions omit the method. Use the school-specific saved method
+  // before making any inference from the remaining fields.
+  if (!method && localCfg.method) method = localCfg.method;
+  if (!method) {
+    if (hasGateway) method = 'gateway';
+    else if (cfg.bankName || cfg.accountNumber || cfg.bankDetails?.bankName || cfg.bankDetails?.accountNumber) method = 'direct';
+    else if (cfg.onsiteEnabled || cfg.onSiteEnabled || cfg.physicalPaymentEnabled) method = 'onsite';
+  }
+
+  const bankDetails = cfg.bankDetails || {
+    bankName: cfg.bankName || '',
+    accountNumber: cfg.accountNumber || '',
+    accountName: cfg.accountName || '',
+    sortCode: cfg.sortCode || ''
+  };
+
+  return {
+    ...localCfg,
+    ...cfg,
+    method,
+    bankDetails,
+    enabledGateways: gatewayList.length
+      ? gatewayList
+      : (Array.isArray(localCfg.enabledGateways) ? localCfg.enabledGateways : [])
+  };
+}
+
+function gatewayNames(cfg) {
+  const gateways = Array.isArray(cfg?.enabledGateways) ? cfg.enabledGateways : [];
+  if (!gateways.length) return 'Payment Gateway';
+
+  return gateways.map(g => {
+    const key = String(g).toLowerCase();
+    return {
+      paystack: 'Paystack',
+      flutterwave: 'Flutterwave',
+      stripe: 'Stripe',
+      remita: 'Remita'
+    }[key] || String(g).replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }).join(' / ');
+}
+
+function methodDescription(method) {
+  return {
+    direct: 'Students pay directly into the school bank account.',
+    onsite: 'Payments are received physically at the school or designated office.',
+    gateway: 'Student payments are routed through a configured payment gateway.'
+  }[method] || 'Payment receiving method is configured.';
+}
+
+function methodIcon(method) {
+  return {
+    direct: 'fa-building-columns',
+    onsite: 'fa-hand-holding-dollar',
+    gateway: 'fa-globe'
+  }[method] || 'fa-credit-card';
+}
+
+function showPaymentEditor(editing = false) {
+  $('paymentConfigSummary').classList.add('hidden');
+  $('paymentConfigForm').classList.remove('hidden');
+  $('paymentEditorTitle').textContent = editing ? 'Update payment receiving method' : 'Set up payment receiving';
+  $('cancelPaymentConfigBtn').classList.toggle('hidden', !editing);
+}
+
+function showPaymentSummary() {
+  $('paymentConfigForm').classList.add('hidden');
+  $('paymentConfigSummary').classList.remove('hidden');
+}
+
+function renderPaymentConfig(cfg) {
+  cfg = normalizePaymentConfig(cfg);
+  currentPaymentConfig = cfg;
+  window.currentPaymentConfig = cfg;
+  if (cfg) persistPaymentConfigLocal(cfg);
+
+  if (!cfg) {
+    $('configStatusBadge').textContent = 'Not Configured';
+    $('configStatusBadge').className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600';
+    showPaymentEditor(false);
+    return;
+  }
+
+  const method = cfg.method || 'unconfigured';
+  const gateway = method === 'gateway';
+  const consent = Boolean(cfg.consentSigned);
+
+  $('paymentMethodType').value = ['direct','onsite','gateway'].includes(method) ? method : 'direct';
+  $('bankName').value = cfg.bankDetails?.bankName || cfg.bankName || '';
+  $('accountNumber').value = cfg.bankDetails?.accountNumber || cfg.accountNumber || '';
+  consentSigned = consent;
+
+  $('configuredMethodName').textContent = gateway
+    ? gatewayNames(cfg)
+    : methodLabel(method);
+
+  $('configuredMethodDescription').textContent = gateway
+    ? `${gatewayNames(cfg)} is enabled for student fee payments.`
+    : methodDescription(method);
+
+  $('configuredMethodIcon').innerHTML =
+    `<i class="fa-solid ${methodIcon(method)}"></i>`;
+
+  const bank = cfg.bankDetails || {};
+  const hasBankDetails = Boolean(
+    bank.bankName ||
+    bank.accountNumber ||
+    cfg.bankName ||
+    cfg.accountNumber
+  );
+
+  $('configuredBankDetails').classList.toggle('hidden', gateway || !hasBankDetails);
+  $('configuredBankName').textContent = bank.bankName || cfg.bankName || '—';
+  $('configuredAccountNumber').textContent = bank.accountNumber || cfg.accountNumber || '—';
+
+  $('configuredGatewayDetails').classList.toggle('hidden', !gateway);
+  $('configuredGatewayConsent').textContent = gateway
+    ? `${gatewayNames(cfg)} is configured for online fee collection.`
+    : '';
+
+  if (gateway && !consent) {
+    $('configStatusBadge').textContent = 'Gateway Consent Pending';
+    $('configStatusBadge').className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700';
+  } else {
+    $('configStatusBadge').textContent = 'Configured';
+    $('configStatusBadge').className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700';
+  }
+
+  updatePaymentMethodUI();
+  showPaymentSummary();
 }
 
 async function loadPaymentConfig() {
   try {
     let r = await api(API_ROOT + '/academics/payment-config');
     let d = await r.json();
+
     if (d.success && d.paymentConfig) {
-      let cfg = d.paymentConfig;
-      $('paymentMethodType').value = cfg.method || 'direct';
-      $('bankName').value = cfg.bankDetails?.bankName || '';
-      $('accountNumber').value = cfg.bankDetails?.accountNumber || '';
-      consentSigned = Boolean(cfg.consentSigned);
-      updatePaymentMethodUI();
+      const localCfg = getLocalPaymentConfig() || {};
+      renderPaymentConfig({
+        ...localCfg,
+        ...d.paymentConfig,
+        method: d.paymentConfig.method || d.paymentConfig.paymentMethod || localCfg.method,
+        enabledGateways: Array.isArray(d.paymentConfig.enabledGateways) && d.paymentConfig.enabledGateways.length
+          ? d.paymentConfig.enabledGateways
+          : (localCfg.enabledGateways || [])
+      });
+    } else {
+      renderPaymentConfig(getLocalPaymentConfig());
     }
   } catch (e) {
-    console.error(e);
+    console.error('Failed to load payment configuration', e);
+    renderPaymentConfig(null);
   }
 }
 
 function updatePaymentMethodUI() {
   let val = $('paymentMethodType').value;
   let isGateway = val === 'gateway';
+
   $('gatewayNoticeWrap').classList.toggle('hidden', !isGateway);
+  $('bankDetailsWrap').classList.toggle('hidden', isGateway || val === 'onsite');
+
   if (isGateway && !consentSigned) {
     $('configStatusBadge').textContent = 'Pending Gateway Consent';
     $('configStatusBadge').className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700';
-  } else {
-    $('configStatusBadge').textContent = 'Configured (' + val.toUpperCase() + ')';
+  } else if (!$('paymentConfigSummary').classList.contains('hidden')) {
+    $('configStatusBadge').textContent = 'Configured';
     $('configStatusBadge').className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700';
   }
 }
 
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button[data-action-spinner]');
+  if (!btn || btn.disabled || btn.dataset.loading === '1') return;
+  if (btn.dataset.spinnerManual === 'true') return;
+  setButtonLoading(btn, true, btn.dataset.loadingLabel || 'Processing...');
+  window.setTimeout(() => setButtonLoading(btn, false), 1200);
+});
+
 $('paymentMethodType').addEventListener('change', updatePaymentMethodUI);
+
+$('editPaymentConfigBtn').addEventListener('click', () => {
+  $('paymentConfigMsg').classList.add('hidden');
+  showPaymentEditor(true);
+});
+
+$('cancelPaymentConfigBtn').addEventListener('click', async function() {
+  setButtonLoading(this, true, 'Loading...');
+  try {
+    await loadPaymentConfig();
+  } finally {
+    setButtonLoading(this, false);
+  }
+});
 
 function openConsentModal() {
   $('consentCheckbox').checked = consentSigned;
@@ -670,29 +1027,153 @@ function closeConsentModal() {
   $('consentModal').classList.remove('flex');
 }
 
-function confirmConsent() {
+function confirmConsent(button) {
+  button = button || document.querySelector('#consentModal button.bg-brand-600');
+  setButtonLoading(button, true, 'Confirming...');
   if (!$('consentCheckbox').checked) {
+    setButtonLoading(button, false);
     alert('You must check the agreement box to proceed with Gateway integration.');
     return;
   }
   consentSigned = true;
+  if (currentPaymentConfig) {
+    currentPaymentConfig.consentSigned = true;
+    persistPaymentConfigLocal(currentPaymentConfig);
+  }
   updatePaymentMethodUI();
   closeConsentModal();
+  setButtonLoading(button, false);
 }
 
-function downloadManualForm() {
-  let text = `EXAMGUARD MONITORING & PAYMENT RECEIVING CONSENT FORM\n\nSchool Name: ${currentSchool?.schoolName || 'Institution'}\nSchool ID: ${publicSchoolId}\n\n1. I/We authorize ExamGuard to monitor financial inflows.\n2. All electronic transfer records will be reconciled via automated webhooks.\n\nAuthorized Signature: ______________________\nDate: ______________________`;
-  let blob = new Blob([text], { type: 'text/plain' });
-  let url = URL.createObjectURL(blob);
-  let a = document.createElement('a');
-  a.href = url;
-  a.download = 'ExamGuard_Payment_Consent_Template.txt';
-  a.click();
+function downloadManualForm(button) {
+  downloadConsentPDF(button);
+}
+
+function setButtonLoading(button, loading, label = 'Processing...') {
+  if (!button) return;
+  if (loading) {
+    if (button.dataset.loading === '1') return;
+    button.dataset.loading = '1';
+    button.dataset.originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.classList.add('btn-loading');
+    button.innerHTML = `<i class="fa-solid fa-circle-notch btn-spinner"></i><span>${esc(label)}</span>`;
+  } else {
+    button.disabled = false;
+    button.classList.remove('btn-loading');
+    if (button.dataset.originalHtml != null) button.innerHTML = button.dataset.originalHtml;
+    delete button.dataset.loading;
+    delete button.dataset.originalHtml;
+  }
+}
+
+function downloadConsentPDF(button) {
+  setButtonLoading(button, true, 'Preparing PDF...');
+  try {
+    const JsPDF = window.jspdf?.jsPDF;
+    if (!JsPDF) throw new Error('PDF generator is unavailable. Please refresh and try again.');
+    const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+    const schoolName = currentSchool?.schoolName || currentSchool?.name || 'Institution';
+    const schoolId = publicSchoolId || currentSchool?.schoolId || currentSchool?._id || 'N/A';
+    const address = currentSchool?.address || currentSchool?.location || currentSchool?.contactAddress || '';
+    const phone = currentSchool?.phone || currentSchool?.phoneNumber || currentSchool?.contactPhone || '';
+    const email = currentSchool?.email || currentSchool?.contactEmail || '';
+    const cfg = currentPaymentConfig || getLocalPaymentConfig() || {};
+    const gateways = gatewayNames(cfg);
+    const method = methodLabel(cfg.method || 'gateway');
+    const date = new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    doc.setFillColor(30, 64, 175);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.text(schoolName, 16, 13);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('PAYMENT RECEIVING & MONITORING CONSENT AGREEMENT', 16, 21);
+
+    doc.setTextColor(25, 35, 55);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Institution Details', 16, 43);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    const details = [
+      ['School / Institution', schoolName],
+      ['School ID', String(schoolId)],
+      ['Address', address || 'Not provided'],
+      ['Phone', phone || 'Not provided'],
+      ['Email', email || 'Not provided']
+    ];
+    let y = 50;
+    details.forEach(([k,v]) => {
+      doc.setFont('helvetica', 'bold'); doc.text(`${k}:`, 16, y);
+      doc.setFont('helvetica', 'normal'); doc.text(String(v).slice(0, 100), 55, y); y += 6;
+    });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Payment Configuration', 16, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    y += 12;
+    doc.text(`Receiving method: ${method}`, 16, y); y += 6;
+    if (cfg.method === 'gateway') {
+      doc.text(`Enabled gateway(s): ${gateways}`, 16, y); y += 6;
+    }
+
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Consent & Authorization', 16, y);
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    const paragraphs = [
+      `We, ${schoolName}, authorize ExamGuard to securely monitor, record, reconcile and verify payment transactions associated with the configured student fee collection method and, where applicable, the gateway(s) identified above.`,
+      'This authorization is provided for confirming fee settlements, maintaining accurate student payment records, supporting reconciliation, and updating applicable fee ledgers.',
+      'The institution confirms that the information supplied for payment configuration is accurate and that the undersigned is authorized to provide this consent on behalf of the institution.'
+    ];
+    paragraphs.forEach(p => {
+      const lines = doc.splitTextToSize(p, 178);
+      doc.text(lines, 16, y); y += lines.length * 5 + 4;
+    });
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(16, y, 178, 31, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('Authorized Institution Representative', 21, y + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Name: ______________________________________________', 21, y + 16);
+    doc.text('Signature: ___________________________________________', 21, y + 23);
+    doc.text('Date: ______________________', 21, y + 30);
+
+    y += 42;
+    doc.setFont('helvetica', 'bold');
+    doc.text('ExamGuard Acknowledgement', 16, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Configuration recorded for institutional payment monitoring and reconciliation.', 16, y + 6);
+    doc.text(`Generated: ${date}`, 16, y + 12);
+
+    doc.setDrawColor(210, 216, 225);
+    doc.line(16, 278, 194, 278);
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${schoolName} • School ID: ${schoolId}`, 16, 285);
+    doc.text('ExamGuard Payment Receiving Configuration', 194, 285, { align: 'right' });
+    doc.save(`${schoolName.replace(/[^a-z0-9]+/gi, '_')}_Payment_Consent_Agreement.pdf`);
+  } catch (err) {
+    alert(err.message || 'Unable to generate PDF consent form.');
+  } finally {
+    setButtonLoading(button, false);
+  }
 }
 
 async function savePaymentConfig(e) {
   e.preventDefault();
+  const button = e.submitter || e.target.querySelector('button[type="submit"]');
+  setButtonLoading(button, true, 'Saving...');
   if ($('paymentMethodType').value === 'gateway' && !consentSigned) {
+    setButtonLoading(button, false);
     alert('Please sign the ExamGuard monitoring consent form agreement before saving gateway configuration.');
     openConsentModal();
     return;
@@ -701,6 +1182,12 @@ async function savePaymentConfig(e) {
   try {
     let body = {
       method: $('paymentMethodType').value,
+      paymentMethod: $('paymentMethodType').value,
+      paymentType: $('paymentMethodType').value,
+      receivingMethod: $('paymentMethodType').value,
+      enabledGateways: $('paymentMethodType').value === 'gateway'
+        ? getSelectedGateways()
+        : [],
       bankDetails: {
         bankName: $('bankName').value,
         accountNumber: $('accountNumber').value
@@ -711,11 +1198,43 @@ async function savePaymentConfig(e) {
     let r = await api(API_ROOT + '/academics/payment-config', { method: 'POST', body: JSON.stringify(body) });
     let d = await r.json();
     if (!d.success) throw Error(d.error || 'Failed to save config');
+
+    /*
+     * Some API versions return the saved gateway configuration using
+     * enabledGateways instead of a method field. Preserve the selected
+     * method locally when the response omits it.
+     */
+    const savedConfig = normalizePaymentConfig({
+      ...(d.paymentConfig || {}),
+      method: d.paymentConfig?.method || body.method,
+      enabledGateways: d.paymentConfig?.enabledGateways || body.enabledGateways || []
+    });
+
+    persistPaymentConfigLocal(savedConfig);
+    renderPaymentConfig(savedConfig);
     msg('paymentConfigMsg', 'Payment configuration successfully updated!', true);
-    updatePaymentMethodUI();
   } catch (err) {
     msg('paymentConfigMsg', err.message, false);
+  } finally {
+    setButtonLoading(button, false);
   }
+}
+
+function getSelectedGateways() {
+  const selected = [];
+  document.querySelectorAll('input[name="gateway"], input[name="enabledGateways"], select[name="gateway"], #gatewaySelect').forEach(el => {
+    if (el.tagName === 'SELECT') {
+      [...el.selectedOptions].forEach(o => { if (o.value) selected.push(o.value); });
+    } else if (el.checked && el.value) {
+      selected.push(el.value);
+    }
+  });
+
+  if (!selected.length && currentPaymentConfig?.enabledGateways?.length) {
+    return currentPaymentConfig.enabledGateways;
+  }
+
+  return [...new Set(selected)];
 }
 
 $('paymentConfigForm').addEventListener('submit', savePaymentConfig);
@@ -734,6 +1253,8 @@ async function classes() {
 
 async function setup(e) {
   e.preventDefault();
+  const button = e.submitter || e.target.querySelector('button[type="submit"]');
+  setButtonLoading(button, true, 'Saving...');
   msg('setupMsg', 'Setting up fee structure...', true);
   try {
     let body = {
@@ -754,6 +1275,8 @@ async function setup(e) {
     await Promise.all([fees(), stats()]);
   } catch (x) {
     msg('setupMsg', x.message, false);
+  } finally {
+    setButtonLoading(button, false);
   }
 }
 
@@ -775,7 +1298,7 @@ function search(e) {
       
       box.innerHTML = d.success && d.results?.length
         ? d.results.slice(0, 10).map(s => `
-            <button class="flex w-full items-center justify-between rounded-xl p-3 text-left transition-all hover:bg-slate-50 border-b border-slate-100 last:border-0" onclick='student(${JSON.stringify(s.id)},${JSON.stringify(s.name)},${JSON.stringify(s.class || "N/A")})'>
+            <button class="flex w-full items-center justify-between rounded-xl p-3 text-left transition-all hover:bg-slate-50 border-b border-slate-100 last:border-0" onclick='student(${JSON.stringify(s.id)},${JSON.stringify(s.name)},${JSON.stringify(s.class || "N/A")})' data-action-spinner="true">
               <div>
                 <b class="block text-sm font-semibold text-slate-800">${esc(s.name)}</b>
                 <div class="text-xs text-slate-400 mt-0.5">${esc(s.id)} • ${esc(s.class || 'N/A')}</div>
@@ -874,7 +1397,7 @@ async function student(id, name, cls) {
                   <td class="p-3.5 text-slate-500">${esc(f.dueDate || '—')}</td>
                   <td class="p-3.5 text-slate-500">${esc(f.paymentMethod || '—')}</td>
                   <td class="p-3.5 text-center">
-                    <button onclick="openModal('${id}','${f._id}')" class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700">Update</button>
+                    <button onclick="openModal('${id}','${f._id}')" data-action-spinner="true" class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700" data-action-spinner="true">Update</button>
                   </td>
                 </tr>
               `).join('')}
@@ -901,6 +1424,7 @@ async function fees() {
     if (!d.success) throw Error(d.error || 'Unable to load fees');
     allFees = d.fees || [];
     render();
+    $('gatewayCollected').textContent = money(calculateGatewayCollected(allFees));
   } catch (e) {
     tb.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-rose-600 font-medium">' + esc(e.message) + '</td></tr>';
   }
@@ -928,13 +1452,35 @@ function render() {
           <td class="py-3.5 px-4 text-slate-500">${esc(f.paymentMethod || '—')}</td>
           <td class="py-3.5 px-4 text-slate-500">${esc(f.dueDate || '—')}</td>
           <td class="py-3.5 px-4 text-center">
-            <button onclick="openModal('${f.student?.id || ''}','${f.feeId || ''}')" class="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-all hover:border-brand-600 hover:text-brand-600">
+            <button onclick="openModal('${f.student?.id || ''}','${f.feeId || ''}')" data-action-spinner="true" class="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-all hover:border-brand-600 hover:text-brand-600">
               <i class="fa-solid fa-pen text-xs"></i>
             </button>
           </td>
         </tr>
       `).join('')
     : '<tr><td colspan="10" class="p-8 text-center text-slate-400 font-medium">No fee records found.</td></tr>';
+}
+
+function isGatewayPayment(f) {
+  const method = String(
+    f.paymentMethod || f.method || f.paymentProvider || f.gateway || ''
+  ).trim().toLowerCase();
+
+  return method.includes('paystack') ||
+         method.includes('flutterwave') ||
+         method.includes('gateway') ||
+         method.includes('online') ||
+         method.includes('card');
+}
+
+function paidValue(f) {
+  if (f.paidAmount != null && f.paidAmount !== '') return Number(f.paidAmount) || 0;
+  if (String(f.status || '').toLowerCase() === 'paid') return Number(f.amount) || 0;
+  return 0;
+}
+
+function calculateGatewayCollected(feesList) {
+  return feesList.reduce((sum, f) => sum + (isGatewayPayment(f) ? paidValue(f) : 0), 0);
 }
 
 async function stats() {
@@ -947,9 +1493,20 @@ async function stats() {
       $('paid').textContent = money(s.paidFees);
       $('outstanding').textContent = money(s.outstandingFees);
       $('waived').textContent = money(s.waivedFees);
+
+      // Prefer a backend-calculated gateway total if the API exposes one.
+      const backendGatewayTotal =
+        s.gatewayCollected ?? s.gatewayFeesCollected ?? s.totalGatewayCollected;
+
+      $('gatewayCollected').textContent = money(
+        backendGatewayTotal != null
+          ? backendGatewayTotal
+          : calculateGatewayCollected(allFees)
+      );
     }
   } catch (e) {
     console.error(e);
+    $('gatewayCollected').textContent = money(calculateGatewayCollected(allFees));
   }
 }
 
@@ -979,6 +1536,8 @@ function closeModal() {
 
 async function updateFee(e) {
   e.preventDefault();
+  const button = e.submitter || e.target.querySelector('button[type="submit"]');
+  setButtonLoading(button, true, 'Updating...');
   let s = $('studentId').value;
   let f = $('feeId').value;
   let body = {
@@ -1004,13 +1563,17 @@ async function updateFee(e) {
     setTimeout(closeModal, 600);
   } catch (x) {
     msg('modalMsg', x.message, false);
+  } finally {
+    setButtonLoading(button, false);
   }
 }
 
 async function delFee() {
+  const button = $('deleteBtn');
   let s = $('studentId').value;
   let f = $('feeId').value;
   if (!s || !f || !confirm('Are you sure you want to delete this fee record?')) return;
+  setButtonLoading(button, true, 'Deleting...');
   try {
     let r = await api(`${API_ROOT}/fees/student/${encodeURIComponent(s)}/fee/${encodeURIComponent(f)}`, { method: 'DELETE' });
     let d = await r.json();
@@ -1019,10 +1582,13 @@ async function delFee() {
     await Promise.all([fees(), stats()]);
   } catch (e) {
     alert(e.message);
+  } finally {
+    setButtonLoading(button, false);
   }
 }
 
-function exportFees() {
+function exportFees(button) {
+  setButtonLoading(button, true, 'Exporting...');
   let h = ['Student', 'Class', 'Term', 'Session', 'Fee Type', 'Amount', 'Status', 'Method', 'Due Date'];
   let rows = allFees.map(f => [
     f.student?.name || 'N/A',
@@ -1041,6 +1607,7 @@ function exportFees() {
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = 'fees_' + new Date().toISOString().slice(0, 10) + '.csv';
   a.click();
+  setButtonLoading(button, false);
 }
 
 $('setupForm').addEventListener('submit', setup);
@@ -1080,7 +1647,7 @@ async function init() {
         </div>
         <b class="text-base text-slate-900 block">Unable to load school account</b>
         <p class="mt-1 text-xs text-slate-500">${esc(e.message)}</p>
-        <button onclick="location.reload()" class="mt-5 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-brand-700">Retry</button>
+        <button onclick="location.reload()" data-action-spinner="true" class="mt-5 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-brand-700">Retry</button>
       </div>`;
   }
 }
