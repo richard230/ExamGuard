@@ -116,6 +116,94 @@ function schoolFilter(school, extra = {}) {
   };
 }
 
+function getPaymentConfigFromSchool(school) {
+  const cfg = school?.paymentConfig || {};
+  const enabledGateways = Array.isArray(cfg.enabledGateways)
+    ? cfg.enabledGateways.filter(Boolean)
+    : [];
+  let method = cfg.method || cfg.paymentMethod || cfg.paymentType || cfg.receivingMethod || '';
+  if (!method) method = enabledGateways.length ? 'gateway' : 'direct';
+  return {
+    ...cfg,
+    method,
+    enabledGateways,
+    publicKeys: {
+      paystackPublicKey: cfg.publicKeys?.paystackPublicKey || '',
+      flutterwavePublicKey: cfg.publicKeys?.flutterwavePublicKey || '',
+      stripePublicKey: cfg.publicKeys?.stripePublicKey || '',
+      remitaMerchantId: cfg.publicKeys?.remitaMerchantId || ''
+    },
+    bankTransferDetails: Array.isArray(cfg.bankTransferDetails) ? cfg.bankTransferDetails : []
+  };
+}
+
+/*
+ * Legacy records created before schoolId was added can still be resolved
+ * safely through their school-owned Staff/User relationship. New records
+ * always receive schoolId directly.
+ */
+async function findSalaryPaymentsForSchool(school, filter = {}) {
+  const current = await SalaryPayment.find(schoolFilter(school, filter))
+    .populate('staff', 'first_name last_name email designation position schoolId')
+    .populate('paidBy', 'email name schoolId')
+    .sort({ year: -1, month: -1 });
+
+  const legacy = await SalaryPayment.find({
+    ...filter,
+    $or: [{ schoolId: { $exists: false } }, { schoolId: null }, { schoolId: '' }]
+  })
+    .populate('staff', 'first_name last_name email designation position schoolId')
+    .populate('paidBy', 'email name schoolId')
+    .sort({ year: -1, month: -1 });
+
+  const target = schoolScope(school);
+  const validLegacy = legacy.filter(p =>
+    String(p.staff?.schoolId || '') === target || String(p.paidBy?.schoolId || '') === target
+  );
+  const seen = new Set();
+  return [...current, ...validLegacy].filter(p => {
+    const id = String(p._id);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+async function findAdminTransactionsForSchool(school, filter = {}) {
+  const current = await AdminTransaction.find(schoolFilter(school, filter))
+    .populate('createdBy', 'email name schoolId')
+    .populate('paidBy', 'email name schoolId')
+    .populate('approvedBy', 'email name schoolId')
+    .sort({ date: -1 });
+
+  const legacy = await AdminTransaction.find({
+    ...filter,
+    $or: [{ schoolId: { $exists: false } }, { schoolId: null }, { schoolId: '' }]
+  })
+    .populate('createdBy', 'email name schoolId')
+    .populate('paidBy', 'email name schoolId')
+    .populate('approvedBy', 'email name schoolId')
+    .sort({ date: -1 });
+
+  const target = schoolScope(school);
+  const validLegacy = legacy.filter(t =>
+    String(t.createdBy?.schoolId || '') === target || String(t.paidBy?.schoolId || '') === target
+  );
+  const seen = new Set();
+  return [...current, ...validLegacy].filter(t => {
+    const id = String(t._id);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function withResolvedSchool(document, school) {
+  const raw = document?.toObject ? document.toObject() : { ...document };
+  if (!raw.schoolId) raw.schoolId = schoolScope(school);
+  return raw;
+}
+
 function schoolIdFromDocument(document) {
   return document?.schoolId ? String(document.schoolId) : '';
 }
@@ -138,9 +226,44 @@ function handleTenantError(res, error) {
  * (preferably indexed) for tenant isolation, e.g.:
  *   schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true, index: true }
  *
- * Existing records created before multi-school support will need a schoolId
- * backfill before they can be safely displayed by these tenant-scoped routes.
+ * Existing records created before multi-school support may have no schoolId. This version
+ * resolves those legacy records through their school-owned Staff/User relationship.
+ * New records always receive schoolId directly.
  */
+
+// ==================== SCHOOL / PAYMENT CONFIGURATION ====================
+
+router.get('/config', authMiddleware, adminAuth, async (req,res)=>{
+  try{
+    const school=await resolveCurrentSchool(req);
+    if(!school)return res.status(401).json({success:false,error:'Unauthorized: No active school is associated with this account.'});
+    return res.json({success:true,schoolId:schoolScope(school),school:{_id:school._id,schoolId:school.schoolId,schoolName:school.schoolName,abbreviation:school.abbreviation,motto:school.motto||'',logoUrl:school.logoUrl||school.branding?.logo||'',branding:school.branding||{},email:school.email||'',phone:school.phone||'',address:school.address||'',city:school.city||'',state:school.state||'',country:school.country||''},paymentConfig:getPaymentConfigFromSchool(school)});
+  }catch(error){if(handleTenantError(res,error))return;res.status(500).json({success:false,error:error.message});}
+});
+
+router.get('/payment-config', authMiddleware, adminAuth, async (req,res)=>{
+  try{
+    const school=await resolveCurrentSchool(req);
+    if(!school)return res.status(401).json({success:false,error:'Unauthorized: No active school is associated with this account.'});
+    return res.json({success:true,schoolId:schoolScope(school),school:{_id:school._id,schoolId:school.schoolId,schoolName:school.schoolName,abbreviation:school.abbreviation,logoUrl:school.logoUrl||school.branding?.logo||'',branding:school.branding||{}},paymentConfig:getPaymentConfigFromSchool(school)});
+  }catch(error){if(handleTenantError(res,error))return;res.status(500).json({success:false,error:error.message});}
+});
+
+router.post('/payment-config', authMiddleware, adminAuth, async (req,res)=>{
+  try{
+    const school=await resolveCurrentSchool(req);
+    if(!school)return res.status(401).json({success:false,error:'Unauthorized: No active school is associated with this account.'});
+    const b=req.body||{}, current=school.paymentConfig||{};
+    const gateways=Array.isArray(b.enabledGateways)?[...new Set(b.enabledGateways.filter(Boolean).map(String))]:(current.enabledGateways||[]);
+    const method=b.method||b.paymentMethod||b.paymentType||b.receivingMethod||current.method||(gateways.length?'gateway':'direct');
+    const bank=b.bankDetails||{};
+    school.paymentConfig={...current,method,paymentMethod:method,paymentType:method,receivingMethod:method,enabledGateways:gateways,allowPartialPayments:b.allowPartialPayments!==undefined?Boolean(b.allowPartialPayments):Boolean(current.allowPartialPayments??true),allowInstallments:b.allowInstallments!==undefined?Boolean(b.allowInstallments):Boolean(current.allowInstallments??false),publicKeys:{...(current.publicKeys||{}),...(b.publicKeys||{})},bankName:bank.bankName??b.bankName??current.bankName??'',accountName:bank.accountName??b.accountName??current.accountName??'',accountNumber:bank.accountNumber??b.accountNumber??current.accountNumber??'',sortCode:bank.sortCode??b.sortCode??current.sortCode??'',bankTransferDetails:Array.isArray(b.bankTransferDetails)?b.bankTransferDetails:(current.bankTransferDetails||[]),consentSigned:b.consentSigned!==undefined?Boolean(b.consentSigned):Boolean(current.consentSigned)};
+    school.lastModifiedBy=req.user?._id||null;
+    await school.save();
+    const saved=await School.findById(school._id).lean();
+    return res.json({success:true,schoolId:schoolScope(school),school:{_id:saved._id,schoolId:saved.schoolId,schoolName:saved.schoolName,abbreviation:saved.abbreviation,logoUrl:saved.logoUrl||saved.branding?.logo||'',branding:saved.branding||{}},paymentConfig:getPaymentConfigFromSchool(saved)});
+  }catch(error){if(handleTenantError(res,error))return;res.status(500).json({success:false,error:error.message});}
+});
 
 // ==================== SALARY PAYMENT ENDPOINTS ====================
 
@@ -148,59 +271,34 @@ function handleTenantError(res, error) {
 router.get('/salary', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { staff, status, year, month } = req.query;
-
     const school = await resolveCurrentSchool(req);
-    if (!school) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: No active school is associated with this account.'
-      });
-    }
-
-    const query = schoolFilter(school);
-
-    if (staff) query.staff = staff;
-    if (status) query.status = status;
-    if (year) query.year = parseInt(year);
-    if (month) query.month = month;
-
-    const salaries = await SalaryPayment.find(query)
-      .populate('staff', 'first_name last_name email designation position')
-      .populate('paidBy', 'email name')
-      .sort({ year: -1, month: -1 });
-
-    res.json(salaries);
+    if (!school) return res.status(401).json({ success:false, error:'Unauthorized: No active school is associated with this account.' });
+    const filter = {};
+    if (staff) filter.staff = staff;
+    if (status) filter.status = status;
+    if (year) filter.year = parseInt(year);
+    if (month) filter.month = month;
+    const salaries = await findSalaryPaymentsForSchool(school, filter);
+    res.json(salaries.map(x => withResolvedSchool(x, school)));
   } catch (error) {
     if (handleTenantError(res, error)) return;
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success:false, error:error.message });
   }
 });
 
-router.get('/salary/:id', authMiddleware, adminAuth, async (req, res) => {
-  try {
-    const school = await resolveCurrentSchool(req);
-    if (!school) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: No active school is associated with this account.'
-      });
+router.get('/salary/:id', authMiddleware, adminAuth, async (req,res)=>{
+  try{
+    const school=await resolveCurrentSchool(req);
+    if(!school)return res.status(401).json({success:false,error:'Unauthorized: No active school is associated with this account.'});
+    let salary=await SalaryPayment.findOne(schoolFilter(school,{_id:req.params.id})).populate('staff','first_name last_name email designation position schoolId').populate('paidBy','email name schoolId');
+    if(!salary){
+      salary=await SalaryPayment.findOne({_id:req.params.id,$or:[{schoolId:{$exists:false}},{schoolId:null},{schoolId:''}]}).populate('staff','first_name last_name email designation position schoolId').populate('paidBy','email name schoolId');
+      const target=schoolScope(school);
+      if(salary && String(salary.staff?.schoolId||'')!==target && String(salary.paidBy?.schoolId||'')!==target) salary=null;
     }
-
-    const salary = await SalaryPayment.findOne(
-      schoolFilter(school, { _id: req.params.id })
-    )
-      .populate('staff', 'first_name last_name email designation position')
-      .populate('paidBy', 'email name');
-
-    if (!salary) {
-      return res.status(404).json({ error: 'Salary payment not found' });
-    }
-
-    res.json(salary);
-  } catch (error) {
-    if (handleTenantError(res, error)) return;
-    res.status(500).json({ success: false, error: error.message });
-  }
+    if(!salary)return res.status(404).json({error:'Salary payment not found'});
+    res.json(withResolvedSchool(salary,school));
+  }catch(error){if(handleTenantError(res,error))return;res.status(500).json({success:false,error:error.message});}
 });
 
 router.post('/salary', authMiddleware, adminAuth, async (req, res) => {
@@ -291,6 +389,11 @@ router.put('/salary/:id', authMiddleware, adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Salary payment not found' });
     }
 
+    if (salary.staff) {
+      const staffRecord = await Staff.findOne(schoolFilter(school, { _id: salary.staff })).select('_id');
+      if (!staffRecord) return res.status(403).json({ success:false, error:'This salary payment does not belong to the current school.' });
+    }
+
     const previousStatus = salary.status;
 
     if (status) salary.status = status;
@@ -354,31 +457,17 @@ router.delete('/salary/:id', authMiddleware, adminAuth, async (req, res) => {
 router.get('/admin', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { type, status, vendor } = req.query;
-
     const school = await resolveCurrentSchool(req);
-    if (!school) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: No active school is associated with this account.'
-      });
-    }
-
-    const query = schoolFilter(school);
-
-    if (type) query.type = type;
-    if (status) query.status = status;
-    if (vendor) query.vendor = new RegExp(vendor, 'i');
-
-    const transactions = await AdminTransaction.find(query)
-      .populate('createdBy', 'email name')
-      .populate('paidBy', 'email name')
-      .populate('approvedBy', 'email name')
-      .sort({ date: -1 });
-
-    res.json(transactions);
+    if (!school) return res.status(401).json({ success:false, error:'Unauthorized: No active school is associated with this account.' });
+    const filter = {};
+    if (type) filter.type = type;
+    if (status) filter.status = status;
+    if (vendor) filter.vendor = new RegExp(vendor, 'i');
+    const transactions = await findAdminTransactionsForSchool(school, filter);
+    res.json(transactions.map(x => withResolvedSchool(x, school)));
   } catch (error) {
     if (handleTenantError(res, error)) return;
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success:false, error:error.message });
   }
 });
 
@@ -545,57 +634,18 @@ router.delete('/admin/:id', authMiddleware, adminAuth, async (req, res) => {
 router.get('/stats', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await resolveCurrentSchool(req);
-    if (!school) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: No active school is associated with this account.'
-      });
-    }
-
-    const schoolId = schoolScope(school);
-
-    const totalSalariesData = await SalaryPayment.aggregate([
-      { $match: { schoolId } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    const totalSalaries = totalSalariesData[0]?.total || 0;
-
-    const paidSalariesData = await SalaryPayment.aggregate([
-      { $match: { schoolId, status: 'Paid' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    const paidSalaries = paidSalariesData[0]?.total || 0;
-
-    const outstandingSalariesData = await SalaryPayment.aggregate([
-      { $match: { schoolId, status: { $in: ['Unpaid', 'Pending'] } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    const outstandingSalaries = outstandingSalariesData[0]?.total || 0;
-
-    const totalAdminData = await AdminTransaction.aggregate([
-      { $match: { schoolId } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    const totalAdminTransactions = totalAdminData[0]?.total || 0;
-
-    const paidAdminData = await AdminTransaction.aggregate([
-      { $match: { schoolId, status: 'Paid' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    const paidAdminTransactions = paidAdminData[0]?.total || 0;
-
-    res.json({
-      success: true,
-      totalSalaries,
-      paidSalaries,
-      outstandingSalaries,
-      totalAdminTransactions,
-      paidAdminTransactions,
-      schoolId
-    });
+    if (!school) return res.status(401).json({ success:false, error:'Unauthorized: No active school is associated with this account.' });
+    const salaries = await findSalaryPaymentsForSchool(school);
+    const transactions = await findAdminTransactionsForSchool(school);
+    const totalSalaries = salaries.reduce((s,x)=>s+Number(x.amount||0),0);
+    const paidSalaries = salaries.filter(x=>String(x.status).toLowerCase()==='paid').reduce((s,x)=>s+Number(x.amount||0),0);
+    const outstandingSalaries = salaries.filter(x=>['unpaid','pending'].includes(String(x.status).toLowerCase())).reduce((s,x)=>s+Number(x.amount||0),0);
+    const totalAdminTransactions = transactions.reduce((s,x)=>s+Number(x.amount||0),0);
+    const paidAdminTransactions = transactions.filter(x=>String(x.status).toLowerCase()==='paid').reduce((s,x)=>s+Number(x.amount||0),0);
+    res.json({ success:true, totalSalaries, paidSalaries, outstandingSalaries, totalAdminTransactions, paidAdminTransactions, schoolId:schoolScope(school), paymentConfig:getPaymentConfigFromSchool(school), school:{_id:school._id, schoolId:school.schoolId, schoolName:school.schoolName, abbreviation:school.abbreviation, logoUrl:school.logoUrl||school.branding?.logo||'', branding:school.branding||{}} });
   } catch (error) {
     if (handleTenantError(res, error)) return;
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success:false, error:error.message });
   }
 });
 
@@ -647,111 +697,36 @@ router.get('/salary/stats/:staffId', authMiddleware, adminAuth, async (req, res)
 router.get('/salary/report', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { year, month, status } = req.query;
-
     const school = await resolveCurrentSchool(req);
-    if (!school) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: No active school is associated with this account.'
-      });
-    }
-
-    const query = schoolFilter(school);
-
-    if (year) query.year = parseInt(year);
-    if (month) query.month = month;
-    if (status) query.status = status;
-
-    const report = await SalaryPayment.find(query)
-      .populate('staff', 'first_name last_name email designation position')
-      .sort({ year: -1, month: -1 });
-
-    const totalAmount = report.reduce((sum, sal) => sum + (sal.amount || 0), 0);
-    const paidAmount = report
-      .filter(sal => sal.status === 'Paid')
-      .reduce((sum, sal) => sum + (sal.amount || 0), 0);
-    const unpaidAmount = report
-      .filter(sal => sal.status !== 'Paid')
-      .reduce((sum, sal) => sum + (sal.amount || 0), 0);
-
-    res.json({
-      data: report,
-      summary: {
-        totalAmount,
-        paidAmount,
-        unpaidAmount,
-        count: report.length
-      },
-      schoolId: schoolScope(school)
-    });
-  } catch (error) {
-    if (handleTenantError(res, error)) return;
-    res.status(500).json({ success: false, error: error.message });
-  }
+    if (!school) return res.status(401).json({ success:false, error:'Unauthorized: No active school is associated with this account.' });
+    const filter={};
+    if(year) filter.year=parseInt(year);
+    if(month) filter.month=month;
+    if(status) filter.status=status;
+    const report=await findSalaryPaymentsForSchool(school,filter);
+    const totalAmount=report.reduce((s,x)=>s+Number(x.amount||0),0);
+    const paidAmount=report.filter(x=>x.status==='Paid').reduce((s,x)=>s+Number(x.amount||0),0);
+    const unpaidAmount=report.filter(x=>x.status!=='Paid').reduce((s,x)=>s+Number(x.amount||0),0);
+    res.json({data:report.map(x=>withResolvedSchool(x,school)),summary:{totalAmount,paidAmount,unpaidAmount,count:report.length},schoolId:schoolScope(school),paymentConfig:getPaymentConfigFromSchool(school)});
+  } catch(error){ if(handleTenantError(res,error)) return; res.status(500).json({success:false,error:error.message}); }
 });
 
 // GET admin transaction report by type
 router.get('/admin/report', authMiddleware, adminAuth, async (req, res) => {
   try {
     const { type, status, startDate, endDate } = req.query;
-
     const school = await resolveCurrentSchool(req);
-    if (!school) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: No active school is associated with this account.'
-      });
-    }
-
-    const query = schoolFilter(school);
-
-    if (type) query.type = type;
-    if (status) query.status = status;
-
-    if (startDate || endDate) {
-      query.date = {};
-      if (startDate) query.date.$gte = new Date(startDate);
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        query.date.$lte = end;
-      }
-    }
-
-    const report = await AdminTransaction.find(query)
-      .populate('createdBy', 'email name')
-      .populate('vendor')
-      .sort({ date: -1 });
-
-    const totalAmount = report.reduce((sum, trans) => sum + (trans.amount || 0), 0);
-    const paidAmount = report
-      .filter(trans => trans.status === 'Paid')
-      .reduce((sum, trans) => sum + (trans.amount || 0), 0);
-
-    const byType = {};
-    report.forEach(trans => {
-      if (!byType[trans.type]) {
-        byType[trans.type] = { count: 0, amount: 0 };
-      }
-
-      byType[trans.type].count += 1;
-      byType[trans.type].amount += trans.amount || 0;
-    });
-
-    res.json({
-      data: report,
-      summary: {
-        totalAmount,
-        paidAmount,
-        count: report.length,
-        byType
-      },
-      schoolId: schoolScope(school)
-    });
-  } catch (error) {
-    if (handleTenantError(res, error)) return;
-    res.status(500).json({ success: false, error: error.message });
-  }
+    if (!school) return res.status(401).json({ success:false, error:'Unauthorized: No active school is associated with this account.' });
+    const filter={};
+    if(type) filter.type=type;
+    if(status) filter.status=status;
+    if(startDate||endDate){filter.date={};if(startDate)filter.date.$gte=new Date(startDate);if(endDate){const d=new Date(endDate);d.setHours(23,59,59,999);filter.date.$lte=d;}}
+    const report=await findAdminTransactionsForSchool(school,filter);
+    const totalAmount=report.reduce((s,x)=>s+Number(x.amount||0),0);
+    const paidAmount=report.filter(x=>x.status==='Paid').reduce((s,x)=>s+Number(x.amount||0),0);
+    const byType={}; report.forEach(x=>{if(!byType[x.type])byType[x.type]={count:0,amount:0};byType[x.type].count++;byType[x.type].amount+=Number(x.amount||0);});
+    res.json({data:report.map(x=>withResolvedSchool(x,school)),summary:{totalAmount,paidAmount,count:report.length,byType},schoolId:schoolScope(school),paymentConfig:getPaymentConfigFromSchool(school)});
+  } catch(error){ if(handleTenantError(res,error)) return; res.status(500).json({success:false,error:error.message}); }
 });
 
 module.exports = router;
