@@ -1,173 +1,673 @@
+
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
+
 const AdmissionSetup = require('../models/AdmissionSetup');
 const AdmissionApplication = require('../models/AdmissionApplication');
 const AttendanceRecord = require('../models/AttendanceRecord');
-// These are assumed to be present in your codebase:
-const Student = require('../models/Student');
-const Staff = require('../models/Staff');
 const Session = require('../models/Session');
 const Class = require('../models/Class');
 const Arm = require('../models/Arm');
+
 const adminAuth = require('../middleware/adminAuth');
 
-// -------- Admission Endpoints --------
+// ============================================================
+// SCHOOL / TENANT HELPERS
+// ============================================================
 
-// Setup admission period
+function getSchoolId(req) {
+  const user = req.user || {};
+
+  const schoolId =
+    user.schoolId ||
+    user.school?.schoolId ||
+    user.school?._id ||
+    null;
+
+  return schoolId ? String(schoolId) : null;
+}
+
+function requireSchool(req, res) {
+  const schoolId = getSchoolId(req);
+
+  if (!schoolId) {
+    res.status(403).json({
+      error: 'Your account is not associated with a school. Please select or configure your school.'
+    });
+    return null;
+  }
+
+  return schoolId;
+}
+
+function isValidObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(value);
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const VALID_TERMS = [
+  'First Term',
+  'Second Term',
+  'Third Term'
+];
+
+// ============================================================
+// ADMISSION SETUP
+// ============================================================
+
+// Create or update an admission setup for the authenticated school.
 router.post('/admission/setup', adminAuth, async (req, res) => {
   try {
-    const { session, term, classId, armId, startDate, endDate, applicationFee } = req.body;
-    if (!session || !term || !classId || !armId || !startDate || !endDate || !applicationFee)
-      return res.status(400).json({ error: "All fields are required" });
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const {
+      session,
+      term,
+      classId,
+      armId,
+      startDate,
+      endDate,
+      applicationFee
+    } = req.body;
+
+    // Arm and applicationFee are optional.
+    if (!session || !term || !classId || !startDate || !endDate) {
+      return res.status(400).json({
+        error: 'Session, term, class, start date and end date are required.'
+      });
+    }
+
+    if (!isValidObjectId(session) || !isValidObjectId(classId)) {
+      return res.status(400).json({
+        error: 'Invalid session or class selected.'
+      });
+    }
+
+    if (armId && !isValidObjectId(armId)) {
+      return res.status(400).json({
+        error: 'Invalid arm selected.'
+      });
+    }
+
+    if (!VALID_TERMS.includes(term)) {
+      return res.status(400).json({
+        error: 'Invalid term selected.'
+      });
+    }
+
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+
+    if (
+      Number.isNaN(parsedStartDate.getTime()) ||
+      Number.isNaN(parsedEndDate.getTime()) ||
+      parsedEndDate < parsedStartDate
+    ) {
+      return res.status(400).json({
+        error: 'Please provide valid admission dates.'
+      });
+    }
+
+    const fee =
+      applicationFee === '' ||
+      applicationFee === undefined ||
+      applicationFee === null
+        ? 0
+        : Number(applicationFee);
+
+    if (!Number.isFinite(fee) || fee < 0) {
+      return res.status(400).json({
+        error: 'Application fee must be a valid non-negative amount.'
+      });
+    }
+
+    // Ensure the selected records belong to this school.
+    const [sessionRecord, classRecord, armRecord] = await Promise.all([
+      Session.findOne({ _id: session, schoolId }).select('_id'),
+      Class.findOne({ _id: classId, schoolId }).select('_id'),
+      armId
+        ? Arm.findOne({ _id: armId, schoolId }).select('_id')
+        : Promise.resolve(null)
+    ]);
+
+    if (!sessionRecord || !classRecord) {
+      return res.status(400).json({
+        error: 'The selected session or class does not belong to this school.'
+      });
+    }
+
+    if (armId && !armRecord) {
+      return res.status(400).json({
+        error: 'The selected arm does not belong to this school.'
+      });
+    }
+
+    // Use the actual AdmissionSetup schema field: "class", not "classId".
+    // Match both missing and null arm values for older records.
+    const setupFilter = {
+      schoolId,
+      session,
+      term,
+      class: classId,
+      ...(armId
+        ? { arm: armId }
+        : {
+            $or: [
+              { arm: null },
+              { arm: { $exists: false } }
+            ]
+          })
+    };
+
     const setup = await AdmissionSetup.findOneAndUpdate(
-      { session, term, classId, armId },
-      { session, term, classId, armId, startDate, endDate, applicationFee },
-      { upsert: true, new: true }
+      setupFilter,
+      {
+        $set: {
+          schoolId,
+          session,
+          term,
+          class: classId,
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
+          applicationFee: fee,
+          updatedAt: new Date(),
+          ...(armId ? { arm: armId } : { arm: undefined })
+        }
+      },
+      {
+        upsert: true,
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: true
+      }
     );
-    res.json(setup);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+
+    await setup.populate('session', 'name');
+    await setup.populate('class', 'name');
+    await setup.populate('arm', 'name');
+
+    return res.status(200).json({
+      message: 'Admission setup saved successfully.',
+      setup
+    });
+
+  } catch (error) {
+    console.error('Admission setup error:', error);
+
+    return res.status(500).json({
+      error: 'Unable to save admission setup.',
+      details: error.message
+    });
   }
 });
 
-// List all admission setups (not used in UI, but useful for admin)
+// List admission setups belonging only to the authenticated school.
 router.get('/admission/setups', adminAuth, async (req, res) => {
-  const setups = await AdmissionSetup.find().populate('session classId armId');
-  res.json(setups);
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const setups = await AdmissionSetup.find({ schoolId })
+      .populate('session', 'name')
+      .populate('class', 'name')
+      .populate('arm', 'name')
+      .sort('-createdAt')
+      .lean();
+
+    return res.json(setups);
+
+  } catch (error) {
+    console.error('Load admission setups error:', error);
+    return res.status(500).json({
+      error: 'Unable to load admission setups.'
+    });
+  }
 });
 
-// List all applications
+// ============================================================
+// ADMISSION APPLICATIONS
+// ============================================================
+
+// List applications belonging only to the authenticated school.
 router.get('/admission/applications', adminAuth, async (req, res) => {
-  const applications = await AdmissionApplication.find().populate('session classId armId').sort('-createdAt');
-  res.json(applications.map(app => ({
-    _id: app._id,
-    name: app.name,
-    sessionName: app.session?.name,
-    term: app.term,
-    className: app.classId?.name,
-    armName: app.armId?.name,
-    dateApplied: app.dateApplied,
-    status: app.status,
-    email: app.email,
-    phone: app.phone,
-    documents: app.documents
-  })));
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const applications = await AdmissionApplication.find({ schoolId })
+      .populate('session', 'name')
+      .populate('classId', 'name')
+      .populate('armId', 'name')
+      .sort('-createdAt')
+      .lean();
+
+    return res.json(applications.map(app => ({
+      _id: app._id,
+      name: app.name,
+      sessionName: app.session?.name,
+      term: app.term,
+      className: app.classId?.name,
+      armName: app.armId?.name,
+      dateApplied: app.dateApplied,
+      status: app.status,
+      email: app.email,
+      phone: app.phone,
+      documents: app.documents
+    })));
+
+  } catch (error) {
+    console.error('Load admission applications error:', error);
+    return res.status(500).json({
+      error: 'Unable to load admission applications.'
+    });
+  }
 });
 
-// Get application by ID
+// Get one application, but only if it belongs to this school.
 router.get('/admission/application/:id', adminAuth, async (req, res) => {
-  const app = await AdmissionApplication.findById(req.params.id).populate('session classId armId');
-  if (!app) return res.status(404).json({ error: "Not found" });
-  res.json({
-    _id: app._id,
-    name: app.name,
-    sessionName: app.session?.name,
-    term: app.term,
-    className: app.classId?.name,
-    armName: app.armId?.name,
-    dateApplied: app.dateApplied,
-    status: app.status,
-    email: app.email,
-    phone: app.phone,
-    documents: app.documents
-  });
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        error: 'Invalid application ID.'
+      });
+    }
+
+    const app = await AdmissionApplication.findOne({
+      _id: id,
+      schoolId
+    })
+      .populate('session', 'name')
+      .populate('classId', 'name')
+      .populate('armId', 'name')
+      .lean();
+
+    if (!app) {
+      return res.status(404).json({
+        error: 'Application not found.'
+      });
+    }
+
+    return res.json({
+      _id: app._id,
+      name: app.name,
+      sessionName: app.session?.name,
+      term: app.term,
+      className: app.classId?.name,
+      armName: app.armId?.name,
+      dateApplied: app.dateApplied,
+      status: app.status,
+      email: app.email,
+      phone: app.phone,
+      documents: app.documents
+    });
+
+  } catch (error) {
+    console.error('Get admission application error:', error);
+    return res.status(500).json({
+      error: 'Unable to retrieve application.'
+    });
+  }
 });
 
-// Approve/reject application
+// Approve or reject an application belonging to this school.
 router.put('/admission/application/:id', adminAuth, async (req, res) => {
-  const { status } = req.body;
-  if (!['Approved', 'Rejected'].includes(status)) return res.status(400).json({ error: "Invalid status" });
-  const updated = await AdmissionApplication.findByIdAndUpdate(
-    req.params.id,
-    { status },
-    { new: true }
-  );
-  if (!updated) return res.status(404).json({ error: "Not found" });
-  res.json({ message: "Status updated", status: updated.status });
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        error: 'Invalid application ID.'
+      });
+    }
+
+    if (!['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({
+        error: 'Invalid status. Select Approved or Rejected.'
+      });
+    }
+
+    const updated = await AdmissionApplication.findOneAndUpdate(
+      {
+        _id: id,
+        schoolId
+      },
+      {
+        $set: { status }
+      },
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        error: 'Application not found.'
+      });
+    }
+
+    return res.json({
+      message: 'Status updated successfully.',
+      status: updated.status
+    });
+
+  } catch (error) {
+    console.error('Update application status error:', error);
+    return res.status(500).json({
+      error: 'Unable to update application status.'
+    });
+  }
 });
 
-// -------- Dropdown Data: Sessions, Classes, Arms --------
+// ============================================================
+// DROPDOWN DATA
+// ============================================================
 
+// Sessions for the authenticated school.
 router.get('/sessions', adminAuth, async (req, res) => {
-  const sessions = await Session.find().sort('-createdAt');
-  res.json(sessions.map(s => ({ _id: s._id, name: s.name })));
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const sessions = await Session.find({ schoolId })
+      .sort('-createdAt')
+      .select('_id name')
+      .lean();
+
+    return res.json(sessions);
+
+  } catch (error) {
+    console.error('Load sessions error:', error);
+    return res.status(500).json({
+      error: 'Unable to load sessions.'
+    });
+  }
 });
+
+// Classes for the authenticated school.
 router.get('/classes', adminAuth, async (req, res) => {
-  const classes = await Class.find().sort('name');
-  res.json(classes.map(c => ({ _id: c._id, name: c.name })));
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const classes = await Class.find({ schoolId })
+      .sort('name')
+      .select('_id name')
+      .lean();
+
+    return res.json(classes);
+
+  } catch (error) {
+    console.error('Load classes error:', error);
+    return res.status(500).json({
+      error: 'Unable to load classes.'
+    });
+  }
 });
+
+// Arms for the authenticated school.
 router.get('/arms', adminAuth, async (req, res) => {
-  const arms = await Arm.find().sort('name');
-  res.json(arms.map(a => ({ _id: a._id, name: a.name })));
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const arms = await Arm.find({ schoolId })
+      .sort('name')
+      .select('_id name')
+      .lean();
+
+    return res.json(arms);
+
+  } catch (error) {
+    console.error('Load arms error:', error);
+    return res.status(500).json({
+      error: 'Unable to load arms.'
+    });
+  }
 });
 
-// ----------- Attendance Endpoints -----------
+// ============================================================
+// ATTENDANCE
+// ============================================================
 
-// Create attendance record (for students or staff)
+// Create an attendance record for the authenticated school.
 router.post('/attendance/record', adminAuth, async (req, res) => {
-  const { date, userId, name, role, class: className, department, status, remark, recordedBy } = req.body;
-  if (!date || !userId || !name || !role || !status)
-    return res.status(400).json({ error: "Missing required fields" });
-  const record = new AttendanceRecord({ date, userId, name, role, class: className, department, status, remark, recordedBy });
-  await record.save();
-  res.status(201).json(record);
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const {
+      date,
+      userId,
+      name,
+      role,
+      class: className,
+      department,
+      status,
+      remark
+    } = req.body;
+
+    if (!date || !userId || !name || !role || !status) {
+      return res.status(400).json({
+        error: 'Date, user ID, name, role and status are required.'
+      });
+    }
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return res.status(400).json({
+        error: 'Invalid attendance date.'
+      });
+    }
+
+    const record = new AttendanceRecord({
+      schoolId,
+      date: parsedDate,
+      userId,
+      name,
+      role,
+      class: className,
+      department,
+      status,
+      remark,
+      recordedBy: req.user?._id || req.user?.id
+    });
+
+    await record.save();
+
+    return res.status(201).json(record);
+
+  } catch (error) {
+    console.error('Create attendance record error:', error);
+    return res.status(500).json({
+      error: 'Unable to create attendance record.',
+      details: error.message
+    });
+  }
 });
 
-// Attendance summary (present today)
+// Attendance summary for this school only.
 router.get('/attendance/summary', adminAuth, async (req, res) => {
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
 
-  const studentsPresent = await AttendanceRecord.countDocuments({ date: { $gte: today, $lt: tomorrow }, role: 'student', status: 'Present' });
-  const teachingPresent = await AttendanceRecord.countDocuments({ date: { $gte: today, $lt: tomorrow }, role: 'teaching', status: 'Present' });
-  const nonTeachingPresent = await AttendanceRecord.countDocuments({ date: { $gte: today, $lt: tomorrow }, role: 'non-teaching', status: 'Present' });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  // Trends for last 7 days
-  let trends = { labels: [], students: [], teaching: [], nonTeaching: [] };
-  for(let i=6;i>=0;i--) {
-    let day = new Date(); day.setHours(0,0,0,0); day.setDate(day.getDate()-i);
-    let next = new Date(day); next.setDate(day.getDate()+1);
-    trends.labels.push(day.toISOString().slice(0,10));
-    trends.students.push(await AttendanceRecord.countDocuments({ date: { $gte: day, $lt: next }, role: 'student', status: 'Present' }));
-    trends.teaching.push(await AttendanceRecord.countDocuments({ date: { $gte: day, $lt: next }, role: 'teaching', status: 'Present' }));
-    trends.nonTeaching.push(await AttendanceRecord.countDocuments({ date: { $gte: day, $lt: next }, role: 'non-teaching', status: 'Present' }));
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const todayFilter = {
+      schoolId,
+      date: { $gte: today, $lt: tomorrow },
+      status: 'Present'
+    };
+
+    const [
+      studentsPresent,
+      teachingPresent,
+      nonTeachingPresent
+    ] = await Promise.all([
+      AttendanceRecord.countDocuments({
+        ...todayFilter,
+        role: 'student'
+      }),
+      AttendanceRecord.countDocuments({
+        ...todayFilter,
+        role: 'teaching'
+      }),
+      AttendanceRecord.countDocuments({
+        ...todayFilter,
+        role: 'non-teaching'
+      })
+    ]);
+
+    const trends = {
+      labels: [],
+      students: [],
+      teaching: [],
+      nonTeaching: []
+    };
+
+    const trendQueries = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+
+      const nextDay = new Date(day);
+      nextDay.setDate(day.getDate() + 1);
+
+      trends.labels.push(day.toISOString().slice(0, 10));
+
+      trendQueries.push(
+        AttendanceRecord.countDocuments({
+          schoolId,
+          date: { $gte: day, $lt: nextDay },
+          role: 'student',
+          status: 'Present'
+        }),
+        AttendanceRecord.countDocuments({
+          schoolId,
+          date: { $gte: day, $lt: nextDay },
+          role: 'teaching',
+          status: 'Present'
+        }),
+        AttendanceRecord.countDocuments({
+          schoolId,
+          date: { $gte: day, $lt: nextDay },
+          role: 'non-teaching',
+          status: 'Present'
+        })
+      );
+    }
+
+    const counts = await Promise.all(trendQueries);
+
+    for (let i = 0; i < 7; i++) {
+      trends.students.push(counts[i * 3]);
+      trends.teaching.push(counts[i * 3 + 1]);
+      trends.nonTeaching.push(counts[i * 3 + 2]);
+    }
+
+    return res.json({
+      studentsPresent,
+      teachingPresent,
+      nonTeachingPresent,
+      trends
+    });
+
+  } catch (error) {
+    console.error('Attendance summary error:', error);
+    return res.status(500).json({
+      error: 'Unable to load attendance summary.'
+    });
   }
-
-  res.json({ studentsPresent, teachingPresent, nonTeachingPresent, trends });
 });
 
-// Attendance records (table, filter/search)
+// Attendance records for this school only.
 router.get('/attendance/records', adminAuth, async (req, res) => {
-  const { date, role, status, search } = req.query;
-  let filter = {};
-  if (date) {
-    let start = new Date(date); start.setHours(0,0,0,0);
-    let end = new Date(start); end.setDate(start.getDate()+1);
-    filter.date = { $gte: start, $lt: end };
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+
+    const { date, role, status, search } = req.query;
+
+    const filter = { schoolId };
+
+    if (date) {
+      const start = new Date(date);
+
+      if (Number.isNaN(start.getTime())) {
+        return res.status(400).json({
+          error: 'Invalid attendance date filter.'
+        });
+      }
+
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(start);
+      end.setDate(start.getDate() + 1);
+
+      filter.date = {
+        $gte: start,
+        $lt: end
+      };
+    }
+
+    if (role) filter.role = role;
+    if (status) filter.status = status;
+
+    if (search) {
+      const searchRegex = new RegExp(escapeRegex(search), 'i');
+
+      filter.$or = [
+        { name: searchRegex },
+        { userId: searchRegex }
+      ];
+    }
+
+    const records = await AttendanceRecord.find(filter)
+      .sort('-date')
+      .lean();
+
+    return res.json(records.map(record => ({
+      _id: record._id,
+      date: record.date,
+      name: record.name,
+      id: record.userId,
+      regNo: record.userId,
+      staffId: record.userId,
+      role: record.role,
+      class: record.class,
+      department: record.department,
+      status: record.status,
+      remark: record.remark,
+      recordedBy: record.recordedBy
+    })));
+
+  } catch (error) {
+    console.error('Load attendance records error:', error);
+    return res.status(500).json({
+      error: 'Unable to load attendance records.'
+    });
   }
-  if (role) filter.role = role;
-  if (status) filter.status = status;
-  if (search) {
-    filter.$or = [
-      { name: new RegExp(search, 'i') },
-      { userId: new RegExp(search, 'i') },
-    ];
-  }
-  const records = await AttendanceRecord.find(filter).sort('-date');
-  res.json(records.map(r => ({
-    date: r.date,
-    name: r.name,
-    id: r.userId,
-    regNo: r.userId,
-    staffId: r.userId,
-    role: r.role,
-    class: r.class,
-    department: r.department,
-    status: r.status,
-    remark: r.remark,
-    recordedBy: r.recordedBy
-  })));
 });
 
 module.exports = router;
