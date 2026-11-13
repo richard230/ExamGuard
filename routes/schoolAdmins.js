@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 
 const AdmissionSetup = require('../models/AdmissionSetup');
 const AdmissionApplication = require('../models/AdmissionApplication');
+const AdmissionCohort = require('../models/AdmissionCohort');
 const AttendanceRecord = require('../models/AttendanceRecord');
 const Session = require('../models/Session');
 const Class = require('../models/Class');
@@ -59,200 +60,92 @@ const VALID_TERMS = [
 // ADMISSION SETUP
 // ============================================================
 
-// Create or update an admission setup for the authenticated school.
+// Create an Admission Board. New clients send a title and a classes array;
+// older clients may still send classId for a single-class setup.
 router.post('/admission/setup', adminAuth, async (req, res) => {
   try {
     const schoolId = requireSchool(req, res);
     if (!schoolId) return;
 
     const {
-      session,
-      term,
-      classId,
-      armId,
-      startDate,
-      endDate,
-      applicationFee
+      title = '', session, term, classes: requestedClasses, classId,
+      startDate, endDate, applicationFee
     } = req.body || {};
 
-    // Session, term, class and dates are required.
-    // Arm and application fee are optional.
-    if (!session || !term || !classId || !startDate || !endDate) {
+    const classIds = Array.isArray(requestedClasses) && requestedClasses.length
+      ? [...new Set(requestedClasses.map(String))]
+      : (classId ? [String(classId)] : []);
+
+    if (!session || !term || !classIds.length || !startDate || !endDate) {
       return res.status(400).json({
-        error: 'Session, term, class, start date and end date are required.'
+        error: 'Session, term, at least one eligible class, start date and end date are required.'
       });
     }
 
-    if (
-      !mongoose.Types.ObjectId.isValid(session) ||
-      !mongoose.Types.ObjectId.isValid(classId)
-    ) {
-      return res.status(400).json({
-        error: 'Invalid session or class selected.'
-      });
-    }
-
-    if (
-      armId &&
-      !mongoose.Types.ObjectId.isValid(armId)
-    ) {
-      return res.status(400).json({
-        error: 'Invalid arm selected.'
-      });
+    if (!mongoose.Types.ObjectId.isValid(session) || classIds.some(id => !mongoose.Types.ObjectId.isValid(id))) {
+      return res.status(400).json({ error: 'Invalid session or class selected.' });
     }
 
     if (!VALID_TERMS.includes(term)) {
-      return res.status(400).json({
-        error: 'Invalid term selected.'
-      });
+      return res.status(400).json({ error: 'Invalid term selected.' });
     }
 
     const parsedStartDate = new Date(startDate);
     const parsedEndDate = new Date(endDate);
-
-    if (
-      Number.isNaN(parsedStartDate.getTime()) ||
-      Number.isNaN(parsedEndDate.getTime()) ||
-      parsedEndDate < parsedStartDate
-    ) {
-      return res.status(400).json({
-        error: 'Please provide valid admission dates.'
-      });
+    if (Number.isNaN(parsedStartDate.getTime()) || Number.isNaN(parsedEndDate.getTime()) || parsedEndDate < parsedStartDate) {
+      return res.status(400).json({ error: 'Please provide valid admission dates.' });
     }
 
-    const fee =
-      applicationFee === '' ||
-      applicationFee === undefined ||
-      applicationFee === null
-        ? 0
-        : Number(applicationFee);
-
+    const fee = applicationFee === '' || applicationFee === undefined || applicationFee === null
+      ? 0 : Number(applicationFee);
     if (!Number.isFinite(fee) || fee < 0) {
-      return res.status(400).json({
-        error: 'Application fee must be a valid non-negative amount.'
-      });
+      return res.status(400).json({ error: 'Application fee must be a valid non-negative amount.' });
     }
 
-    // Normalize the authenticated school ID.
-    // Session and Class schemas store schoolId as an ObjectId.
-    const schoolObjectId = new mongoose.Types.ObjectId(String(schoolId));
-    const schoolStringId = String(schoolObjectId);
-
-    // Confirm that selected records belong to the authenticated school.
-    const [sessionRecord, classRecord, armRecord] = await Promise.all([
-      Session.findOne({
-        _id: session,
-        schoolId: schoolObjectId
-      }).select('_id name schoolId'),
-
-      Class.findOne({
-        _id: classId,
-        schoolId: schoolObjectId
-      }).select('_id name schoolId'),
-
-      armId
-        ? Arm.findOne({
-            _id: armId,
-            schoolId: schoolObjectId
-          }).select('_id name schoolId')
-        : Promise.resolve(null)
+    if (schoolId.length !== 24 || !mongoose.Types.ObjectId.isValid(schoolId)) {
+      return res.status(403).json({ error: 'The authenticated school ID is invalid.' });
+    }
+    const schoolObjectId = new mongoose.Types.ObjectId(schoolId);
+    const [sessionRecord, classRecords] = await Promise.all([
+      Session.findOne({ _id: session, schoolId: schoolObjectId }).select('_id name schoolId'),
+      Class.find({ _id: { $in: classIds }, schoolId: schoolObjectId }).select('_id name schoolId')
     ]);
 
     if (!sessionRecord) {
-      return res.status(400).json({
-        error: 'The selected session could not be found for this school.'
-      });
+      return res.status(400).json({ error: 'The selected session could not be found for this school.' });
+    }
+    if (classRecords.length !== classIds.length) {
+      return res.status(400).json({ error: 'One or more selected classes could not be found for this school.' });
     }
 
-    if (!classRecord) {
-      return res.status(400).json({
-        error: 'The selected class could not be found for this school.'
-      });
-    }
-
-    if (armId && !armRecord) {
-      return res.status(400).json({
-        error: 'The selected arm could not be found for this school.'
-      });
-    }
-
-    // AdmissionSetup uses "class" and "arm", not "classId" and "armId".
-    // Its schoolId field is a String, unlike Session and Class.
-    const setupFilter = {
-      schoolId: schoolStringId,
+    const board = await AdmissionSetup.create({
+      schoolId,
+      title: String(title).trim(),
       session: sessionRecord._id,
       term,
-      class: classRecord._id,
-      arm: armId ? armRecord._id : null
-    };
-
-    const updateFields = {
-      schoolId: schoolStringId,
-      session: sessionRecord._id,
-      term,
-      class: classRecord._id,
+      classes: classRecords.map(record => record._id),
+      // Retain the legacy field for older clients and records.
+      class: classRecords[0]._id,
       startDate: parsedStartDate,
       endDate: parsedEndDate,
       applicationFee: fee,
-      updatedAt: new Date()
-    };
+      isActive: true,
+      createdBy: req.user?._id || req.user?.id
+    });
 
-    // Explicitly clear the arm when no arm was selected.
-    if (armId) {
-      updateFields.arm = armRecord._id;
-    } else {
-      updateFields.$unset = { arm: 1 };
-    }
-
-    const setup = await AdmissionSetup.findOneAndUpdate(
-      setupFilter,
-      {
-        $set: {
-          schoolId: schoolStringId,
-          session: sessionRecord._id,
-          term,
-          class: classRecord._id,
-          startDate: parsedStartDate,
-          endDate: parsedEndDate,
-          applicationFee: fee,
-          updatedAt: new Date()
-        },
-        ...(armId ? {} : { $unset: { arm: 1 } })
-      },
-      {
-        upsert: true,
-        new: true,
-        runValidators: true,
-        setDefaultsOnInsert: true
-      }
-    );
-
-    await setup.populate([
+    await board.populate([
       { path: 'session', select: 'name' },
-      { path: 'class', select: 'name' },
-      { path: 'arm', select: 'name' }
+      { path: 'classes', select: 'name' },
+      { path: 'class', select: 'name' }
     ]);
 
-    return res.status(200).json({
-      message: 'Admission setup saved successfully.',
-      setup
-    });
-
+    return res.status(201).json({ message: 'Admission board created successfully.', setup: board, board });
   } catch (error) {
-    console.error('Admission setup error:', {
-      message: error.message,
-      stack: error.stack,
-      userId: req.user?.id,
-      schoolId: req.user?.schoolId
-    });
-
-    return res.status(500).json({
-      error: 'Unable to save admission setup.',
-      details: error.message
-    });
+    console.error('Admission board creation error:', error);
+    return res.status(500).json({ error: 'Unable to create admission board.', details: error.message });
   }
 });
-// List admission setups belonging only to the authenticated school.
+// List admission boards belonging only to the authenticated school.
 router.get('/admission/setups', adminAuth, async (req, res) => {
   try {
     const schoolId = requireSchool(req, res);
@@ -260,18 +153,23 @@ router.get('/admission/setups', adminAuth, async (req, res) => {
 
     const setups = await AdmissionSetup.find({ schoolId })
       .populate('session', 'name')
+      .populate('classes', 'name')
       .populate('class', 'name')
-      .populate('arm', 'name')
       .sort('-createdAt')
       .lean();
 
-    return res.json(setups);
+    const withCounts = await Promise.all(setups.map(async setup => {
+      const cohortCount = await AdmissionCohort.countDocuments({
+        schoolId,
+        admissionSetupId: setup._id
+      });
+      return { ...setup, cohortCount, linkedCohortCount: cohortCount };
+    }));
 
+    return res.json(withCounts);
   } catch (error) {
-    console.error('Load admission setups error:', error);
-    return res.status(500).json({
-      error: 'Unable to load admission setups.'
-    });
+    console.error('Load admission boards error:', error);
+    return res.status(500).json({ error: 'Unable to load admission boards.' });
   }
 });
 
@@ -287,30 +185,25 @@ router.get('/admission/applications', adminAuth, async (req, res) => {
 
     const applications = await AdmissionApplication.find({ schoolId })
       .populate('session', 'name')
-      .populate('classId', 'name')
-      .populate('armId', 'name')
+      .populate('class', 'name')
+      .populate('arm', 'name')
+      .populate('admissionSetupId', 'title name')
+      .populate('cohort', 'name class arm session term admissionSetupId')
       .sort('-createdAt')
       .lean();
 
     return res.json(applications.map(app => ({
-      _id: app._id,
-      name: app.name,
-      sessionName: app.session?.name,
-      term: app.term,
-      className: app.classId?.name,
-      armName: app.armId?.name,
-      dateApplied: app.dateApplied,
-      status: app.status,
-      email: app.email,
-      phone: app.phone,
-      documents: app.documents
+      ...app,
+      admissionSetup: app.admissionSetupId || app.cohort?.admissionSetupId || null,
+      admissionSetupName: (app.admissionSetupId || app.cohort?.admissionSetupId)?.title || '',
+      cohortName: app.cohort?.name || '',
+      sessionName: app.session?.name || '',
+      className: app.class?.name || '',
+      armName: app.arm?.name || ''
     })));
-
   } catch (error) {
     console.error('Load admission applications error:', error);
-    return res.status(500).json({
-      error: 'Unable to load admission applications.'
-    });
+    return res.status(500).json({ error: 'Unable to load admission applications.' });
   }
 });
 
@@ -333,8 +226,10 @@ router.get('/admission/application/:id', adminAuth, async (req, res) => {
       schoolId
     })
       .populate('session', 'name')
-      .populate('classId', 'name')
-      .populate('armId', 'name')
+      .populate('class', 'name')
+      .populate('arm', 'name')
+      .populate('admissionSetupId', 'title name')
+      .populate('cohort', 'name class arm session term admissionSetupId')
       .lean();
 
     if (!app) {
@@ -343,18 +238,15 @@ router.get('/admission/application/:id', adminAuth, async (req, res) => {
       });
     }
 
+    const admissionSetup = app.admissionSetupId || app.cohort?.admissionSetupId || null;
     return res.json({
-      _id: app._id,
-      name: app.name,
-      sessionName: app.session?.name,
-      term: app.term,
-      className: app.classId?.name,
-      armName: app.armId?.name,
-      dateApplied: app.dateApplied,
-      status: app.status,
-      email: app.email,
-      phone: app.phone,
-      documents: app.documents
+      ...app,
+      admissionSetup,
+      admissionSetupName: admissionSetup?.title || '',
+      cohortName: app.cohort?.name || '',
+      sessionName: app.session?.name || '',
+      className: app.class?.name || '',
+      armName: app.arm?.name || ''
     });
 
   } catch (error) {
