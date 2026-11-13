@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#12324a">
+  <title>Admissions | School</title>
+  <meta name="description" content="Explore admission opportunities and apply to our school.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- jsPDF Library for PDF Acknowledgement Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #12324a;
+      --brand2: #1c5870;
+      --accent: #d6a64f;
+      --surface: #f5f7f9;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: #ffffff;
+      color: #172b3a;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, .display {
+      font-family: 'Manrope', sans-serif;
+    }
+    .brand-bg {
+      background-color: var(--brand);
+    }
+    .brand-text {
+      color: var(--brand);
+    }
+    .brand-border {
+      border-color: var(--brand);
+    }
+    .accent {
+      color: var(--accent);
+    }
+    .accent-bg {
+      background-color: var(--accent);
+    }
+    .hero-pattern {
+      background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.11) 1px, transparent 0);
+      background-size: 28px 28px;
+    }
+    .field {
+      width: 100%;
+      border: 1px solid #d5dfe7;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background-color: #ffffff;
+      color: #0f172a;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+    .field:focus {
+      border-color: var(--brand2);
+      box-shadow: 0 0 0 3.5px rgba(28, 88, 112, 0.14);
+    }
+    .field:disabled {
+      background-color: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+    .field.field-error {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+    }
+    .eyebrow {
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .shadow-soft {
+      box-shadow: 0 20px 55px -12px rgba(18, 50, 74, 0.09);
+    }
+    .btn-primary {
+      background-color: var(--brand);
+      color: #ffffff;
+      transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--brand2);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -6px rgba(18, 50, 74, 0.28);
+    }
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .cohort-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .cohort-card:hover {
+      transform: translateY(-2px);
+    }
+    .cohort-card.is-selected {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 2px var(--brand), 0 16px 36px -10px rgba(18, 50, 74, 0.16);
+    }
+    .step-pane {
+      animation: stepFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes stepFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .hidden {
+      display: none !important;
+    }
+    @media (max-width: 640px) {
+      .hero-title {
+        font-size: 2.25rem;
+        line-height: 1.14;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Utility Bar -->
+  <div class="bg-slate-950 text-slate-300 text-xs border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-5 py-2.5 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+        <span id="topSchoolLabel" class="truncate">Official admissions portal</span>
+      </div>
+      <span id="topContact" class="hidden sm:inline text-slate-400 font-medium">Admissions information</span>
+    </div>
+  </div>
+
+  <!-- Sticky Navigation Header -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80">
+    <div class="max-w-7xl mx-auto px-5 h-[76px] flex items-center justify-between gap-4">
+      <a href="index.html" class="flex items-center gap-3.5 min-w-0 group">
+        <div class="w-11 h-11 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-center overflow-hidden shrink-0 group-hover:border-slate-300 transition">
+          <img id="schoolLogo" class="w-full h-full object-contain hidden" alt="School logo">
+          <span id="logoFallback" class="font-extrabold text-xl brand-text">S</span>
+        </div>
+        <div class="min-w-0">
+          <div id="schoolName" class="font-extrabold text-slate-900 truncate max-w-[200px] sm:max-w-[260px] text-base">Our School</div>
+          <div class="text-[10px] tracking-[0.18em] uppercase text-slate-500 font-semibold">Admissions Portal</div>
+        </div>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+        <a href="index.html" class="hover:text-slate-950 transition">Home</a>
+        <a href="#opportunities" class="hover:text-slate-950 transition">Available Classes</a>
+        <a href="#process" class="hover:text-slate-950 transition">How to Apply</a>
+        <a href="#faq" class="hover:text-slate-950 transition">FAQs</a>
+      </nav>
+
+      <a href="#apply" class="btn-primary rounded-xl px-5 py-2.5 text-sm font-bold inline-flex items-center gap-2 shrink-0">
+        <span>Apply now</span>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+        </svg>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1">
+
+    <!-- Hero Banner -->
+    <section class="brand-bg hero-pattern relative overflow-hidden">
+      <div class="absolute -right-24 -top-36 w-[520px] h-[520px] rounded-full border border-white/10 pointer-events-none"></div>
+      <div class="absolute -right-8 -top-20 w-[360px] h-[360px] rounded-full border border-white/10 pointer-events-none"></div>
+      <div class="absolute left-1/2 bottom-0 w-[600px] h-[240px] bg-white/[0.03] blur-3xl rounded-full -translate-x-1/2 pointer-events-none"></div>
+
+      <div class="max-w-7xl mx-auto px-5 py-16 md:py-24 relative">
+        <div class="grid lg:grid-cols-12 gap-10 items-center">
+          <div class="lg:col-span-8">
+            <div class="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm mb-6">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="eyebrow text-amber-300">Admissions Open · Your next chapter starts here</span>
+            </div>
+
+            <h1 class="hero-title text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.08]">
+              A great beginning.<br>
+              <span class="text-amber-300">A brighter future.</span>
+            </h1>
+
+            <p id="heroDescription" class="mt-5 text-slate-200 text-base sm:text-lg leading-relaxed max-w-2xl">
+              Discover the right learning opportunity and take the first step towards joining our school community through a streamlined, guided application.
+            </p>
+
+            <div class="mt-8 flex flex-wrap gap-3.5">
+              <a href="#opportunities" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl px-6 py-3.5 text-sm sm:text-base transition shadow-lg shadow-black/15 inline-flex items-center gap-2">
+                <span>Explore admission options</span>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
+                </svg>
+              </a>
+              <a href="#apply" class="border border-white/25 bg-white/5 hover:bg-white/15 text-white font-semibold rounded-xl px-6 py-3.5 text-sm sm:text-base transition">
+                Start application form
+              </a>
+            </div>
+          </div>
+
+          <!-- Quick Overview Card -->
+          <div class="lg:col-span-4">
+            <div class="rounded-2xl bg-white/[0.08] border border-white/15 backdrop-blur-md p-6 text-white">
+              <div class="text-xs uppercase tracking-widest text-amber-300 font-bold mb-3">Application Checklist</div>
+              <ul class="space-y-3.5 text-sm text-slate-100">
+                <li class="flex items-start gap-3">
+                  <span class="w-5 h-5 rounded-full bg-emerald-400/20 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</span>
+                  <span>Pick an available entry class &amp; term</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="w-5 h-5 rounded-full bg-emerald-400/20 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</span>
+                  <span>Enter applicant &amp; parent contact details</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="w-5 h-5 rounded-full bg-emerald-400/20 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</span>
+                  <span>Review summary &amp; receive instant reference ID</span>
+                </li>
+              </ul>
+              <div class="mt-5 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-300">
+                <span class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                  </svg>
+                  Direct school submission
+                </span>
+                <span class="text-amber-200 font-semibold">~3 mins</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Available Admission Opportunities -->
+    <section id="opportunities" class="py-16 md:py-20 bg-slate-50/80 border-b border-slate-200/60">
+      <div class="max-w-7xl mx-auto px-5">
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+          <div>
+            <div class="eyebrow brand-text mb-2.5">Step 1 · Admission Opportunities</div>
+            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Choose your entry point</h2>
+            <p class="text-slate-500 mt-2.5 max-w-2xl text-sm sm:text-base">
+              Select a class below to pre-fill your application form automatically, or browse open windows and applicable fees.
+            </p>
+          </div>
+          <div class="inline-flex items-center gap-2 self-start md:self-auto px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-600 shadow-xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span id="cohortCount">Checking availability…</span>
+          </div>
+        </div>
+
+        <!-- Loading / Error / Empty States -->
+        <div id="cohortLoading" class="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
+          <div class="w-8 h-8 border-2 border-slate-300 border-t-slate-800 rounded-full animate-spin mx-auto mb-3"></div>
+          <p class="text-sm font-medium">Loading current admission opportunities…</p>
+        </div>
+
+        <div id="cohortError" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 text-sm font-medium"></div>
+
+        <div id="cohortEmpty" class="hidden rounded-2xl border border-slate-200 bg-white p-12 text-center">
+          <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center text-xl mx-auto mb-3">✦</div>
+          <h3 class="font-bold text-xl text-slate-900">No open admission options right now</h3>
+          <p class="text-slate-500 mt-2 text-sm max-w-md mx-auto">Please check again later or contact the school directly for upcoming admission schedules.</p>
+        </div>
+
+        <!-- Cohort Cards Grid -->
+        <div id="cohortGrid" class="grid md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+      </div>
+    </section>
+
+    <!-- How To Apply Steps Overview -->
+    <section id="process" class="py-16 md:py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-5">
+        <div class="text-center max-w-2xl mx-auto mb-12">
+          <div class="eyebrow brand-text mb-2.5">Simple and straightforward</div>
+          <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Your application, step by step</h2>
+          <p class="text-slate-500 mt-3 text-sm sm:text-base">
+            Complete the four-stage guided form below. The school's admissions team will review your submission and reach out promptly.
+          </p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div class="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 hover:bg-white hover:shadow-soft transition">
+            <div class="w-10 h-10 rounded-xl brand-bg text-white flex items-center justify-center font-extrabold text-sm">01</div>
+            <h3 class="font-bold text-base text-slate-900 mt-4">Select Class</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mt-1.5">Pick an active class and admission intake offered by the school.</p>
+          </div>
+          <div class="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 hover:bg-white hover:shadow-soft transition">
+            <div class="w-10 h-10 rounded-xl brand-bg text-white flex items-center justify-center font-extrabold text-sm">02</div>
+            <h3 class="font-bold text-base text-slate-900 mt-4">Applicant Info</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mt-1.5">Fill in the student's personal, gender, and primary contact details.</p>
+          </div>
+          <div class="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 hover:bg-white hover:shadow-soft transition">
+            <div class="w-10 h-10 rounded-xl brand-bg text-white flex items-center justify-center font-extrabold text-sm">03</div>
+            <h3 class="font-bold text-base text-slate-900 mt-4">Guardian &amp; History</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mt-1.5">Add parent/guardian contact info and previous school attended.</p>
+          </div>
+          <div class="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 hover:bg-white hover:shadow-soft transition">
+            <div class="w-10 h-10 rounded-xl brand-bg text-white flex items-center justify-center font-extrabold text-sm">04</div>
+            <h3 class="font-bold text-base text-slate-900 mt-4">Review &amp; Reference</h3>
+            <p class="text-sm text-slate-500 leading-relaxed mt-1.5">Verify your summary, submit securely, and save your reference code.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Multi-Step Online Admission Form Section -->
+    <section id="apply" class="py-16 md:py-24 bg-slate-50 border-y border-slate-200/80">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6">
+        <div class="text-center mb-8">
+          <div class="eyebrow brand-text mb-2.5">Guided Online Application</div>
+          <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Online admission form</h2>
+          <p class="text-slate-500 mt-2.5 text-sm sm:text-base">
+            Submitting directly to <span id="formSchoolName" class="font-semibold text-slate-800">this school</span>
+          </p>
+        </div>
+
+        <!-- Wizard Container Card -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft overflow-hidden">
+
+          <!-- Multi-Step Progress Header -->
+          <div id="wizardStepperHeader" class="bg-slate-50/90 border-b border-slate-200/80 px-5 sm:px-9 py-6">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-500 mb-3">
+              <span id="stepCounterLabel" class="brand-text uppercase tracking-wider">Step 1 of 4</span>
+              <span id="stepTitleLabel" class="text-slate-700">Class &amp; Program Selection</span>
+            </div>
+
+            <!-- Progress Track Bar -->
+            <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden mb-5">
+              <div id="wizardProgressBar" class="h-full brand-bg rounded-full transition-all duration-300" style="width: 25%"></div>
+            </div>
+
+            <!-- Interactive Step Pills -->
+            <div class="grid grid-cols-4 gap-2 sm:gap-3" role="tablist" aria-label="Application steps">
+              <button type="button" data-step-nav="1" class="step-nav-btn flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl border text-left transition focus:outline-none">
+                <span class="step-badge w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0">1</span>
+                <span class="hidden sm:block min-w-0">
+                  <span class="block text-xs font-bold truncate">Class</span>
+                  <span class="block text-[10px] text-slate-400 truncate">Entry option</span>
+                </span>
+              </button>
+
+              <button type="button" data-step-nav="2" class="step-nav-btn flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl border text-left transition focus:outline-none">
+                <span class="step-badge w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0">2</span>
+                <span class="hidden sm:block min-w-0">
+                  <span class="block text-xs font-bold truncate">Applicant</span>
+                  <span class="block text-[10px] text-slate-400 truncate">Personal info</span>
+                </span>
+              </button>
+
+              <button type="button" data-step-nav="3" class="step-nav-btn flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl border text-left transition focus:outline-none">
+                <span class="step-badge w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0">3</span>
+                <span class="hidden sm:block min-w-0">
+                  <span class="block text-xs font-bold truncate">Guardian</span>
+                  <span class="block text-[10px] text-slate-400 truncate">Family &amp; school</span>
+                </span>
+              </button>
+
+              <button type="button" data-step-nav="4" class="step-nav-btn flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl border text-left transition focus:outline-none">
+                <span class="step-badge w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0">4</span>
+                <span class="hidden sm:block min-w-0">
+                  <span class="block text-xs font-bold truncate">Review</span>
+                  <span class="block text-[10px] text-slate-400 truncate">Confirm &amp; send</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Form Body -->
+          <div class="p-6 sm:p-10">
+            <div id="formAlert" class="hidden mb-6 rounded-xl p-4 text-sm font-medium"></div>
+
+            <form id="admissionForm" novalidate>
+
+              <!-- STEP 1: Admission Class / Option -->
+              <div id="step-1" class="step-pane space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                  <h3 class="font-extrabold text-slate-900 text-xl">Select admission class</h3>
+                  <p class="text-sm text-slate-500 mt-1">Choose one of the currently open admission options below.</p>
+                </div>
+
+                <div>
+                  <label for="cohort" class="block text-sm font-semibold text-slate-700 mb-2">
+                    Admission class / option <span class="text-red-500">*</span>
+                  </label>
+                  <select id="cohort" name="cohort" class="field font-medium" required disabled>
+                    <option value="">Loading options…</option>
+                  </select>
+                  <p id="selectedCohortMeta" class="text-xs text-slate-500 mt-2.5 font-medium"></p>
+                </div>
+
+                <!-- Dynamic Selected Cohort Detail Card -->
+                <div id="cohortDetailPreview" class="hidden rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+                  <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">Selected Option</span>
+                      <h4 id="previewCohortTitle" class="font-extrabold text-lg text-slate-900 mt-2">—</h4>
+                      <p id="previewCohortSub" class="text-xs text-slate-500 mt-0.5">—</p>
+                    </div>
+                    <div class="sm:text-right">
+                      <div class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Application Fee</div>
+                      <div id="previewCohortFee" class="font-extrabold text-lg brand-text mt-0.5">—</div>
+                    </div>
+                  </div>
+                  <p id="previewCohortDesc" class="hidden text-sm text-slate-600 mt-3 pt-3 border-t border-slate-200/80 leading-relaxed"></p>
+                  <div class="mt-3 pt-3 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <span id="previewCohortWindow">Window: —</span>
+                    <a href="#opportunities" class="font-bold brand-text hover:underline">Compare all classes ↑</a>
+                  </div>
+                </div>
+
+                <div class="pt-4 flex items-center justify-end">
+                  <button type="button" id="nextStep1Btn" class="btn-primary rounded-xl px-7 py-3.5 text-sm font-bold inline-flex items-center gap-2">
+                    <span>Continue to Applicant Details</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- STEP 2: Applicant Information -->
+              <div id="step-2" class="step-pane hidden space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                  <h3 class="font-extrabold text-slate-900 text-xl">Applicant information</h3>
+                  <p class="text-sm text-slate-500 mt-1">Provide the candidate's personal details exactly as they appear on official records.</p>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-5">
+                  <div class="sm:col-span-2">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2" for="name">
+                      Applicant's full name <span class="text-red-500">*</span>
+                    </label>
+                    <input class="field" id="name" name="name" required maxlength="160" autocomplete="name" placeholder="e.g. Chinedu Adebayo">
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2" for="dateOfBirth">
+                      Date of birth
+                    </label>
+                    <input class="field" type="date" id="dateOfBirth" name="dateOfBirth">
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2" for="gender">
+                      Gender <span class="text-red-500">*</span>
+                    </label>
+                    <select class="field" id="gender" name="gender" required>
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2" for="email">
+                      Applicant email <span class="text-red-500">*</span>
+                    </label>
+                    <input class="field" type="email" id="email" name="email" required autocomplete="email" placeholder="name@example.com">
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2" for="phone">
+                      Applicant / contact phone <span class="text-red-500">*</span>
+                    </label>
+                    <input class="field" type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="e.g. 08012345678">
+                  </div>
+
+                  <div class="sm:col-span-2">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2" for="address">
+                      Residential address
+                    </label>
+                    <textarea class="field" id="address" name="address" rows="2" placeholder="Street address, city, state"></textarea>
+                  </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                  <button type="button" data-prev-step="1" class="px-5 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-sm inline-flex items-center gap-2 transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                    <span>Back</span>
+                  </button>
+
+                  <button type="button" id="nextStep2Btn" class="btn-primary rounded-xl px-7 py-3.5 text-sm font-bold inline-flex items-center gap-2">
+                    <span>Continue to Guardian &amp; School</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- STEP 3: Guardian Contact & Previous Education -->
+              <div id="step-3" class="step-pane hidden space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                  <h3 class="font-extrabold text-slate-900 text-xl">Guardian contact &amp; previous education</h3>
+                  <p class="text-sm text-slate-500 mt-1">Provide parent or guardian details for admission updates and academic background.</p>
+                </div>
+
+                <div class="space-y-6">
+                  <div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Parent / Guardian Contact</div>
+                    <div class="grid sm:grid-cols-2 gap-5">
+                      <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2" for="parentEmail">
+                          Parent / guardian email
+                        </label>
+                        <input class="field" type="email" id="parentEmail" name="parentEmail" autocomplete="email" placeholder="parent@example.com">
+                      </div>
+                      <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2" for="parentPhone">
+                          Parent / guardian phone
+                        </label>
+                        <input class="field" type="tel" id="parentPhone" name="parentPhone" placeholder="e.g. 08098765432">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="border-t border-slate-100 pt-5">
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Academic Background</div>
+                    <div>
+                      <label class="block text-sm font-semibold text-slate-700 mb-2" for="previousSchool">
+                        Previous school
+                      </label>
+                      <input class="field" id="previousSchool" name="previousSchool" maxlength="200" placeholder="Name of previous school (if applicable)">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                  <button type="button" data-prev-step="2" class="px-5 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-sm inline-flex items-center gap-2 transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                    <span>Back</span>
+                  </button>
+
+                  <button type="button" id="nextStep3Btn" class="btn-primary rounded-xl px-7 py-3.5 text-sm font-bold inline-flex items-center gap-2">
+                    <span>Review Application</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- STEP 4: Review & Submit -->
+              <div id="step-4" class="step-pane hidden space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                  <h3 class="font-extrabold text-slate-900 text-xl">Review &amp; submit application</h3>
+                  <p class="text-sm text-slate-500 mt-1">Please verify all details below before submitting your application.</p>
+                </div>
+
+                <!-- Summary Sections -->
+                <div class="space-y-4">
+                  <!-- Section 1 Summary -->
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                      <span class="text-xs font-extrabold uppercase tracking-wider brand-text">1. Selected Admission Option</span>
+                      <button type="button" data-goto-step="1" class="text-xs font-bold brand-text hover:underline">Edit</button>
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span class="text-slate-400 text-xs block">Class / Program</span>
+                        <span id="reviewCohort" class="font-bold text-slate-900">—</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 text-xs block">Application Fee</span>
+                        <span id="reviewFee" class="font-bold text-slate-900">—</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Section 2 Summary -->
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                      <span class="text-xs font-extrabold uppercase tracking-wider brand-text">2. Applicant Information</span>
+                      <button type="button" data-goto-step="2" class="text-xs font-bold brand-text hover:underline">Edit</button>
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span class="text-slate-400 text-xs block">Full Name</span>
+                        <span id="reviewName" class="font-bold text-slate-900">—</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 text-xs block">Gender &amp; Date of Birth</span>
+                        <span id="reviewGenderDob" class="font-semibold text-slate-800">—</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 text-xs block">Email Address</span>
+                        <span id="reviewEmail" class="font-semibold text-slate-800 break-all">—</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 text-xs block">Phone Number</span>
+                        <span id="reviewPhone" class="font-semibold text-slate-800">—</span>
+                      </div>
+                      <div class="sm:col-span-2">
+                        <span class="text-slate-400 text-xs block">Residential Address</span>
+                        <span id="reviewAddress" class="font-semibold text-slate-800">—</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Section 3 Summary -->
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                      <span class="text-xs font-extrabold uppercase tracking-wider brand-text">3. Guardian &amp; Previous Education</span>
+                      <button type="button" data-goto-step="3" class="text-xs font-bold brand-text hover:underline">Edit</button>
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span class="text-slate-400 text-xs block">Parent / Guardian Email</span>
+                        <span id="reviewParentEmail" class="font-semibold text-slate-800 break-all">—</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 text-xs block">Parent / Guardian Phone</span>
+                        <span id="reviewParentPhone" class="font-semibold text-slate-800">—</span>
+                      </div>
+                      <div class="sm:col-span-2">
+                        <span class="text-slate-400 text-xs block">Previous School</span>
+                        <span id="reviewPreviousSchool" class="font-semibold text-slate-800">—</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Consent Confirmation -->
+                <label class="flex items-start gap-3 p-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-600 cursor-pointer hover:border-slate-300 transition">
+                  <input id="consent" type="checkbox" required class="mt-0.5 w-4 h-4 rounded border-slate-300 accent-slate-900">
+                  <span>I confirm that the information supplied is accurate and consent to the school using it to process this admission enquiry.</span>
+                </label>
+
+                <!-- Step 4 Actions -->
+                <div class="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <button type="button" data-prev-step="3" class="px-5 py-3.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-sm inline-flex items-center justify-center gap-2 transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
+                    <span>Back</span>
+                  </button>
+
+                  <button id="submitBtn" type="submit" class="btn-primary sm:flex-1 rounded-xl py-4 px-8 font-bold text-base shadow-md" disabled>
+                    Submit application
+                  </button>
+                </div>
+
+                <p class="text-center text-xs text-slate-400 leading-relaxed">
+                  Do not submit payment details on this form. Any application fee or payment instructions will be communicated through the school's approved process.
+                </p>
+              </div>
+            </form>
+
+            <!-- Success State Panel -->
+            <div id="successPanel" class="hidden text-center py-8 step-pane">
+              <div class="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-3xl mx-auto shadow-xs">
+                ✓
+              </div>
+              <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-5">Application received</h3>
+              <p class="text-slate-500 mt-2 max-w-md mx-auto text-sm sm:text-base">
+                Your application has been submitted successfully to the school's admissions office. A PDF acknowledgement slip has been generated and downloaded automatically.
+              </p>
+
+              <div class="max-w-md mx-auto bg-slate-50 border border-slate-200 rounded-2xl p-5 mt-6 text-left">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="text-[11px] uppercase tracking-wider text-slate-500 font-bold">Application Reference</div>
+                  <button type="button" id="copyRefBtn" class="text-xs font-bold brand-text hover:underline inline-flex items-center gap-1">
+                    <span id="copyRefLabel">Copy reference</span>
+                  </button>
+                </div>
+                <div id="applicationReference" class="font-extrabold text-xl sm:text-2xl brand-text mt-1.5 break-all select-all">—</div>
+              </div>
+
+              <p class="text-xs sm:text-sm text-slate-500 mt-4">Please keep this reference number safe for future correspondence with the school.</p>
+
+              <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
+                <button type="button" id="downloadPdfBtn" class="btn-primary rounded-xl px-6 py-3 font-bold text-sm transition inline-flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  <span>Download PDF Acknowledgement</span>
+                </button>
+                <button type="button" id="newApplicationBtn" class="border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl px-6 py-3 font-bold text-sm transition">
+                  Submit another application
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQs Accordion -->
+    <section id="faq" class="py-16 md:py-20 bg-white">
+      <div class="max-w-3xl mx-auto px-5">
+        <div class="text-center mb-10">
+          <div class="eyebrow brand-text mb-2.5">Need a hand?</div>
+          <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Frequently asked questions</h2>
+        </div>
+        <div class="space-y-3.5">
+          <details class="group border border-slate-200 rounded-2xl p-5 bg-slate-50/40 open:bg-white open:shadow-soft transition">
+            <summary class="cursor-pointer font-bold text-slate-800 list-none flex items-center justify-between gap-4">
+              <span>How do I apply?</span>
+              <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center group-open:rotate-45 transition shrink-0 font-bold">+</span>
+            </summary>
+            <p class="text-sm text-slate-500 leading-relaxed mt-3 pt-3 border-t border-slate-100">
+              Select an available admission option, complete the four-step guided form, review your summary and submit. The school will review your application and contact you.
+            </p>
+          </details>
+
+          <details class="group border border-slate-200 rounded-2xl p-5 bg-slate-50/40 open:bg-white open:shadow-soft transition">
+            <summary class="cursor-pointer font-bold text-slate-800 list-none flex items-center justify-between gap-4">
+              <span>What is the application fee?</span>
+              <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center group-open:rotate-45 transition shrink-0 font-bold">+</span>
+            </summary>
+            <p class="text-sm text-slate-500 leading-relaxed mt-3 pt-3 border-t border-slate-100">
+              Any applicable fee is shown with the admission option when the school has configured one. Follow only the official payment instructions provided by the school.
+            </p>
+          </details>
+
+          <details class="group border border-slate-200 rounded-2xl p-5 bg-slate-50/40 open:bg-white open:shadow-soft transition">
+            <summary class="cursor-pointer font-bold text-slate-800 list-none flex items-center justify-between gap-4">
+              <span>How will I know if my application was received?</span>
+              <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center group-open:rotate-45 transition shrink-0 font-bold">+</span>
+            </summary>
+            <p class="text-sm text-slate-500 leading-relaxed mt-3 pt-3 border-t border-slate-100">
+              A successful submission immediately displays an application reference number on this page and generates a downloadable PDF acknowledgement slip. Keep it for follow-up with the admissions office.
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact Support Banner -->
+    <section class="brand-bg hero-pattern py-14">
+      <div class="max-w-7xl mx-auto px-5 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div>
+          <div class="eyebrow text-amber-300 mb-2">We're here to help</div>
+          <h2 class="text-2xl md:text-3xl font-extrabold text-white">Have a question about admission?</h2>
+          <p id="contactPrompt" class="text-slate-300 mt-2 text-sm sm:text-base">Contact the school for admission enquiries.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a id="emailLink" href="#" class="hidden bg-white hover:bg-slate-100 text-slate-900 rounded-xl px-5 py-3 font-bold text-sm transition">Email the school</a>
+          <a id="phoneLink" href="#" class="hidden border border-white/40 hover:bg-white/10 text-white rounded-xl px-5 py-3 font-bold text-sm transition">Call the school</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-slate-950 text-slate-400 py-8 border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-5 flex flex-col sm:flex-row justify-between gap-3 text-xs">
+      <span id="footerSchool">School admissions</span>
+      <span>© <span id="year"></span> <span id="footerSchoolName">School</span>. All rights reserved.</span>
+    </div>
+  </footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const API_BASE = 'https://examguard-8rxe.onrender.com';
+  const API = API_BASE.replace(/\/$/, '');
+  const $ = id => document.getElementById(id);
+
+  const state = {
+    schoolId: '',
+    school: null,
+    cohorts: [],
+    currentStep: 1,
+    maxReachedStep: 1,
+    lastSubmission: null
+  };
+
+  const STEP_TITLES = {
+    1: 'Class & Program Selection',
+    2: 'Applicant Information',
+    3: 'Guardian & Previous School',
+    4: 'Review & Submit'
+  };
+
+  function safeJson(value) {
+    try { return JSON.parse(value); } catch (_) { return null; }
+  }
+
+  function getSubdomain() {
+    const host = location.hostname.toLowerCase();
+    const parts = host.split('.');
+    if (host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host) || parts.length < 3) return '';
+    const reserved = ['www', 'app', 'admin', 'portal'];
+    return reserved.includes(parts[0]) ? '' : parts[0];
+  }
+
+  function getSchoolId() {
+    const params = new URLSearchParams(location.search);
+    const fromUrl = params.get('schoolId') || params.get('school') || params.get('schoolCode');
+    if (fromUrl) return fromUrl.trim();
+    for (const key of ['publicSchoolId', 'schoolId', 'schoolCode']) {
+      const value = localStorage.getItem(key);
+      if (value) return value.trim();
+    }
+    const cached = safeJson(localStorage.getItem('schoolConfig'));
+    const cachedId = cached?.schoolId || cached?.school?.schoolId || cached?.school?._id || cached?._id;
+    return cachedId ? String(cachedId) : '';
+  }
+
+  function extractSchool(payload) {
+    const root = payload?.data || payload || {};
+    const config = root.config || root.schoolConfig || root;
+    const school = root.school || config.school || root;
+    const homepage = config.homepage || config.website?.homepage || config.publicSite?.homepage ||
+      config.settings?.homepage || config.settings?.publicHomepage || {};
+    return { ...school, ...config, homepage, raw: root };
+  }
+
+  function pick(...values) {
+    return values.find(v => typeof v === 'string' && v.trim()) || '';
+  }
+
+  function applyBranding(school) {
+    const name = pick(school.name, school.schoolName, school.displayName, school.homepage?.schoolName, 'Our School');
+    const logo = pick(school.logo, school.logoUrl, school.schoolLogo, school.branding?.logo, school.homepage?.logo);
+    const email = pick(school.email, school.contactEmail, school.schoolEmail, school.contact?.email);
+    const phone = pick(school.phone, school.contactPhone, school.schoolPhone, school.contact?.phone);
+    const primary = pick(school.primaryColor, school.branding?.primaryColor, school.theme?.primary, school.homepage?.primaryColor);
+    const accent = pick(school.accentColor, school.branding?.accentColor, school.theme?.accent, school.homepage?.accentColor);
+
+    if (primary && /^#[0-9a-f]{3,8}$/i.test(primary)) {
+      document.documentElement.style.setProperty('--brand', primary);
+    }
+    if (accent && /^#[0-9a-f]{3,8}$/i.test(accent)) {
+      document.documentElement.style.setProperty('--accent', accent);
+    }
+
+    $('schoolName').textContent = name;
+    $('formSchoolName').textContent = name;
+    $('footerSchoolName').textContent = name;
+    $('footerSchool').textContent = name + ' admissions';
+    $('topSchoolLabel').textContent = name + ' · Official admissions portal';
+    $('logoFallback').textContent = name.trim().charAt(0).toUpperCase() || 'S';
+
+    if (logo) {
+      $('schoolLogo').src = logo;
+      $('schoolLogo').classList.remove('hidden');
+      $('logoFallback').classList.add('hidden');
+      $('schoolLogo').onerror = () => {
+        $('schoolLogo').classList.add('hidden');
+        $('logoFallback').classList.remove('hidden');
+      };
+    }
+
+    const description = pick(school.admissionDescription, school.homepage?.admissionDescription, school.homepage?.heroDescription);
+    if (description) $('heroDescription').textContent = description;
+
+    if (email) {
+      $('emailLink').href = 'mailto:' + email;
+      $('emailLink').classList.remove('hidden');
+      $('topContact').textContent = email;
+      $('topContact').classList.remove('hidden');
+    }
+
+    if (phone) {
+      const tel = phone.replace(/[^\d+]/g, '');
+      $('phoneLink').href = 'tel:' + tel;
+      $('phoneLink').textContent = 'Call ' + phone;
+      $('phoneLink').classList.remove('hidden');
+      if (!$('topContact').textContent || $('topContact').textContent === 'Admissions information') {
+        $('topContact').textContent = phone;
+      }
+      $('topContact').classList.remove('hidden');
+    }
+
+    $('contactPrompt').textContent = email || phone
+      ? 'Reach the admissions team using the contact details provided by the school.'
+      : 'Please use the school’s official contact page for admission enquiries.';
+    document.title = 'Admissions | ' + name;
+  }
+
+  async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: { Accept: 'application/json', ...(options.headers || {}) }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || data.message || 'The request could not be completed.');
+    return data;
+  }
+
+  async function loadSchool() {
+    state.schoolId = getSchoolId();
+    const subdomain = getSubdomain();
+    const url = new URL(API + '/api/schools/config');
+    if (state.schoolId) url.searchParams.set('schoolId', state.schoolId);
+    if (subdomain) url.searchParams.set('subdomain', subdomain);
+    const headers = {};
+    if (state.schoolId) headers['X-School-Code'] = state.schoolId;
+    const cached = safeJson(localStorage.getItem('schoolConfig'));
+
+    try {
+      const config = await fetchJson(url.toString(), { headers });
+      state.school = extractSchool(config);
+      const resolvedId = pick(state.school.schoolId, state.school._id, state.school.raw?.schoolId, state.school.raw?.school?._id);
+      if (resolvedId) state.schoolId = String(resolvedId);
+      localStorage.setItem('schoolConfig', JSON.stringify(config));
+      if (state.schoolId) localStorage.setItem('publicSchoolId', state.schoolId);
+    } catch (error) {
+      if (cached && (state.schoolId || subdomain)) {
+        state.school = extractSchool(cached);
+        state.schoolId = state.schoolId || pick(state.school.schoolId, state.school._id);
+      } else {
+        throw new Error('We could not identify the school for this admissions page. Please open it from the school’s official website.');
+      }
+    }
+
+    if (!state.schoolId) {
+      throw new Error('The current school could not be identified. Please open this page from the school’s official website.');
+    }
+    applyBranding(state.school);
+  }
+
+  function formatDate(value) {
+    if (!value) return 'To be announced';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? 'To be announced'
+      : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function money(value) {
+    const amount = Number(value || 0);
+    return amount > 0
+      ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(amount)
+      : 'No fee specified';
+  }
+
+  function renderCohorts(items) {
+    state.cohorts = Array.isArray(items) ? items : [];
+    $('cohortLoading').classList.add('hidden');
+    $('cohortCount').textContent = state.cohorts.length + ' open option' + (state.cohorts.length === 1 ? '' : 's');
+
+    const select = $('cohort');
+    select.innerHTML = '<option value="">Choose an admission option</option>';
+    $('cohortGrid').innerHTML = '';
+
+    if (!state.cohorts.length) {
+      $('cohortEmpty').classList.remove('hidden');
+      select.disabled = true;
+      $('submitBtn').disabled = true;
+      return;
+    }
+
+    $('cohortEmpty').classList.add('hidden');
+
+    state.cohorts.forEach((item) => {
+      const className = item.class?.name || item.className || item.name || 'Admission option';
+      const armName = item.arm?.name || item.arm?.armName || '';
+      const label = [className, armName, item.session?.name, item.term].filter(Boolean).join(' · ');
+
+      const option = document.createElement('option');
+      option.value = item._id;
+      option.textContent = label;
+      select.appendChild(option);
+
+      const card = document.createElement('article');
+      card.dataset.cohortCardId = String(item._id);
+      card.className = 'cohort-card bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between';
+
+      const topGroup = document.createElement('div');
+
+      const badgeRow = document.createElement('div');
+      badgeRow.className = 'flex items-center justify-between gap-2 mb-3';
+      badgeRow.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">
+          ${item.session?.name || 'Active Intake'}
+        </span>
+        <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">Open</span>
+      `;
+
+      const title = document.createElement('h3');
+      title.className = 'font-extrabold text-xl text-slate-900';
+      title.textContent = className;
+
+      const meta = document.createElement('p');
+      meta.className = 'text-sm text-slate-500 mt-1.5 font-medium';
+      meta.textContent = [armName, item.term].filter(Boolean).join(' · ') || 'General admission intake';
+
+      topGroup.append(badgeRow, title, meta);
+
+      if (item.description) {
+        const desc = document.createElement('p');
+        desc.className = 'text-sm text-slate-500 mt-3 leading-relaxed line-clamp-3';
+        desc.textContent = item.description;
+        topGroup.appendChild(desc);
+      }
+
+      const bottomGroup = document.createElement('div');
+      const feeRow = document.createElement('div');
+      feeRow.className = 'mt-5 pt-4 border-t border-slate-100 flex items-end justify-between gap-3';
+
+      const feeBlock = document.createElement('div');
+      feeBlock.innerHTML = '<div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Application fee</div>';
+      const feeValue = document.createElement('div');
+      feeValue.className = 'font-extrabold text-slate-900 mt-0.5';
+      feeValue.textContent = money(item.applicationFee);
+      feeBlock.appendChild(feeValue);
+
+      const deadline = document.createElement('div');
+      deadline.className = 'text-right text-xs text-slate-500';
+      deadline.innerHTML = `<span class="block text-[10px] uppercase tracking-wider text-slate-400 font-bold">Deadline</span><span class="font-semibold text-slate-700">${formatDate(item.endDate)}</span>`;
+
+      feeRow.append(feeBlock, deadline);
+
+      const applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
+      applyBtn.className = 'mt-5 w-full rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100 py-3 px-4 text-sm font-bold brand-text transition flex items-center justify-center gap-2';
+      applyBtn.innerHTML = '<span>Apply for this class</span><span aria-hidden="true">→</span>';
+      applyBtn.addEventListener('click', () => {
+        select.value = item._id;
+        updateCohortMeta();
+        goToStep(2, true);
+        $('apply').scrollIntoView({ behavior: 'smooth' });
+      });
+
+      bottomGroup.append(feeRow, applyBtn);
+      card.append(topGroup, bottomGroup);
+      $('cohortGrid').appendChild(card);
+    });
+
+    select.disabled = false;
+    $('submitBtn').disabled = false;
+
+    const requestedCohort = new URLSearchParams(location.search).get('cohort');
+    if (requestedCohort && state.cohorts.some(item => String(item._id) === requestedCohort)) {
+      select.value = requestedCohort;
+    }
+    updateCohortMeta();
+  }
+
+  function updateCohortMeta() {
+    const selectedId = $('cohort').value;
+    const item = state.cohorts.find(row => String(row._id) === selectedId);
+
+    document.querySelectorAll('[data-cohort-card-id]').forEach(card => {
+      if (card.dataset.cohortCardId === selectedId) {
+        card.classList.add('is-selected');
+      } else {
+        card.classList.remove('is-selected');
+      }
+    });
+
+    if (!item) {
+      $('selectedCohortMeta').textContent = '';
+      $('cohortDetailPreview').classList.add('hidden');
+      return;
+    }
+
+    const className = item.class?.name || item.className || item.name || 'Admission option';
+    const armName = item.arm?.name || item.arm?.armName || '';
+    const subParts = [armName, item.session?.name, item.term].filter(Boolean).join(' · ') || 'Admission intake';
+
+    $('selectedCohortMeta').textContent =
+      'Application fee: ' + money(item.applicationFee) +
+      ' · Application window: ' + formatDate(item.startDate) + ' – ' + formatDate(item.endDate);
+
+    $('previewCohortTitle').textContent = className;
+    $('previewCohortSub').textContent = subParts;
+    $('previewCohortFee').textContent = money(item.applicationFee);
+    $('previewCohortWindow').textContent = 'Window: ' + formatDate(item.startDate) + ' – ' + formatDate(item.endDate);
+
+    if (item.description) {
+      $('previewCohortDesc').textContent = item.description;
+      $('previewCohortDesc').classList.remove('hidden');
+    } else {
+      $('previewCohortDesc').classList.add('hidden');
+    }
+
+    $('cohortDetailPreview').classList.remove('hidden');
+  }
+
+  async function loadCohorts() {
+    try {
+      const result = await fetchJson(API + '/api/admission/public/' + encodeURIComponent(state.schoolId) + '/cohorts');
+      renderCohorts(result.cohorts || []);
+      if (result.school?.name && (!state.school?.name || state.school.name === 'Our School')) {
+        state.school.name = result.school.name;
+        applyBranding(state.school);
+      }
+    } catch (error) {
+      $('cohortLoading').classList.add('hidden');
+      $('cohortError').textContent = error.message + ' Please contact the school if you believe this is a mistake.';
+      $('cohortError').classList.remove('hidden');
+      $('cohortCount').textContent = 'Availability unavailable';
+      $('cohort').disabled = true;
+      $('submitBtn').disabled = true;
+    }
+  }
+
+  function showAlert(message, type = 'error') {
+    const alert = $('formAlert');
+    alert.textContent = message;
+    alert.className = 'mb-6 rounded-xl p-4 text-sm font-medium ' + (
+      type === 'success'
+        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+        : 'bg-red-50 text-red-700 border border-red-200'
+    );
+    alert.classList.remove('hidden');
+  }
+
+  function clearAlert() {
+    $('formAlert').classList.add('hidden');
+  }
+
+  /* --- Multi-Step Wizard Logic --- */
+
+  function validateStep(stepNumber) {
+    clearAlert();
+    const stepEl = $('step-' + stepNumber);
+    if (!stepEl) return true;
+
+    const controls = Array.from(stepEl.querySelectorAll('input, select, textarea'));
+    for (const control of controls) {
+      control.classList.remove('field-error');
+      if (control.disabled) continue;
+      if (!control.checkValidity()) {
+        control.classList.add('field-error');
+        control.reportValidity();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function populateReviewSummary() {
+    const item = state.cohorts.find(row => String(row._id) === $('cohort').value);
+    if (item) {
+      const className = item.class?.name || item.className || item.name || 'Admission option';
+      const armName = item.arm?.name || item.arm?.armName || '';
+      $('reviewCohort').textContent = [className, armName, item.session?.name, item.term].filter(Boolean).join(' · ');
+      $('reviewFee').textContent = money(item.applicationFee);
+    } else {
+      $('reviewCohort').textContent = 'Not selected';
+      $('reviewFee').textContent = '—';
+    }
+
+    $('reviewName').textContent = $('name').value.trim() || '—';
+
+    const genderRaw = $('gender').value;
+    const genderFormatted = genderRaw ? genderRaw.charAt(0).toUpperCase() + genderRaw.slice(1) : '—';
+    const dobRaw = $('dateOfBirth').value;
+    const dobFormatted = dobRaw ? formatDate(dobRaw) : 'DOB not provided';
+    $('reviewGenderDob').textContent = genderFormatted + ' · ' + dobFormatted;
+
+    $('reviewEmail').textContent = $('email').value.trim() || '—';
+    $('reviewPhone').textContent = $('phone').value.trim() || '—';
+    $('reviewAddress').textContent = $('address').value.trim() || 'Not provided';
+
+    $('reviewParentEmail').textContent = $('parentEmail').value.trim() || 'Not provided';
+    $('reviewParentPhone').textContent = $('parentPhone').value.trim() || 'Not provided';
+    $('reviewPreviousSchool').textContent = $('previousSchool').value.trim() || 'Not provided';
+  }
+
+  function updateStepperUI() {
+    const step = state.currentStep;
+    $('stepCounterLabel').textContent = 'Step ' + step + ' of 4';
+    $('stepTitleLabel').textContent = STEP_TITLES[step] || '';
+    $('wizardProgressBar').style.width = (step * 25) + '%';
+
+    document.querySelectorAll('.step-pane').forEach(pane => {
+      if (pane.id === 'step-' + step) {
+        pane.classList.remove('hidden');
+      } else if (pane.id.startsWith('step-')) {
+        pane.classList.add('hidden');
+      }
+    });
+
+    document.querySelectorAll('.step-nav-btn').forEach(btn => {
+      const btnStep = Number(btn.dataset.stepNav);
+      const badge = btn.querySelector('.step-badge');
+
+      btn.classList.remove('bg-white', 'border-slate-300', 'shadow-xs', 'bg-slate-100/60', 'border-transparent', 'opacity-60');
+      badge.classList.remove('brand-bg', 'text-white', 'bg-emerald-600', 'bg-slate-200', 'text-slate-600');
+
+      if (btnStep === step) {
+        btn.classList.add('bg-white', 'border-slate-300', 'shadow-xs');
+        badge.classList.add('brand-bg', 'text-white');
+        badge.textContent = String(btnStep);
+      } else if (btnStep < step || btnStep <= state.maxReachedStep) {
+        btn.classList.add('bg-white/70', 'border-slate-200/80');
+        badge.classList.add('bg-emerald-600', 'text-white');
+        badge.textContent = '✓';
+      } else {
+        btn.classList.add('bg-slate-100/60', 'border-transparent', 'opacity-60');
+        badge.classList.add('bg-slate-200', 'text-slate-600');
+        badge.textContent = String(btnStep);
+      }
+    });
+
+    if (step === 4) {
+      populateReviewSummary();
+    }
+  }
+
+  function goToStep(targetStep, skipScroll = false) {
+    if (targetStep < 1 || targetStep > 4) return;
+    clearAlert();
+    state.currentStep = targetStep;
+    if (targetStep > state.maxReachedStep) {
+      state.maxReachedStep = targetStep;
+    }
+    updateStepperUI();
+    if (!skipScroll) {
+      $('apply').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // Step Advance Buttons
+  $('nextStep1Btn').addEventListener('click', () => {
+    if (validateStep(1)) goToStep(2);
+  });
+
+  $('nextStep2Btn').addEventListener('click', () => {
+    if (validateStep(2)) goToStep(3);
+  });
+
+  $('nextStep3Btn').addEventListener('click', () => {
+    if (validateStep(3)) goToStep(4);
+  });
+
+  // Step Back Buttons
+  document.querySelectorAll('[data-prev-step]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = Number(btn.dataset.prevStep);
+      goToStep(target);
+    });
+  });
+
+  // Review Section Edit Links
+  document.querySelectorAll('[data-goto-step]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = Number(btn.dataset.gotoStep);
+      goToStep(target);
+    });
+  });
+
+  // Top Stepper Navigation Pills
+  document.querySelectorAll('.step-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = Number(btn.dataset.stepNav);
+      if (target < state.currentStep) {
+        goToStep(target);
+      } else if (target > state.currentStep && target <= state.maxReachedStep) {
+        if (validateStep(state.currentStep)) goToStep(target);
+      } else if (target === state.currentStep + 1) {
+        if (validateStep(state.currentStep)) goToStep(target);
+      }
+    });
+  });
+
+  $('admissionForm').addEventListener('input', (e) => {
+    if (e.target && e.target.classList) {
+      e.target.classList.remove('field-error');
+    }
+  });
+
+  $('cohort').addEventListener('change', updateCohortMeta);
+
+  /* --- PDF Acknowledgement Generator --- */
+  function generateAcknowledgementPDF() {
+    if (!window.jspdf || !state.lastSubmission) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const sub = state.lastSubmission;
+    const schoolName = pick(state.school?.name, 'Our School');
+    const primaryColor = [18, 50, 74]; // #12324a
+
+    // Header Band
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 32, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(schoolName.toUpperCase(), 15, 14);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('OFFICE OF ADMISSIONS · ACKNOWLEDGEMENT OF APPLICATION REGISTRATION', 15, 22);
+
+    // Document Title
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('APPLICATION REGISTRATION SLIP', 15, 44);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('This document confirms that your application has been successfully received and logged into the admissions system.', 15, 50);
+
+    // Reference Box
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(15, 58, 180, 20, 2, 2, 'FD');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('APPLICATION REFERENCE NUMBER:', 20, 66);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(18, 50, 74);
+    doc.text(sub.referenceNumber, 20, 73);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Date: ' + new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }), 155, 70, { align: 'right' });
+
+    // Section 1: Candidate Information
+    let startY = 88;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(18, 50, 74);
+    doc.text('1. APPLICANT INFORMATION', 15, startY);
+
+    doc.setDrawColor(203, 213, 225);
+    doc.line(15, startY + 2, 195, startY + 2);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(51, 65, 85);
+
+    const leftColX = 15;
+    const rightColX = 110;
+    let rowY = startY + 9;
+
+    const printRow = (label, val, y) => {
+      doc.setFont('Helvetica', 'bold');
+      doc.text(label + ':', leftColX, y);
+      doc.setFont('Helvetica', 'normal');
+      doc.text(String(val || '—'), leftColX + 45, y);
+    };
+
+    printRow('Full Name', sub.data.name, rowY);
+    rowY += 6;
+    printRow('Gender', (sub.data.gender || '—').toUpperCase(), rowY);
+    rowY += 6;
+    printRow('Date of Birth', sub.data.dateOfBirth || 'Not provided', rowY);
+    rowY += 6;
+    printRow('Email Address', sub.data.email, rowY);
+    rowY += 6;
+    printRow('Phone Number', sub.data.phone, rowY);
+    rowY += 6;
+    printRow('Residential Address', sub.data.address || 'Not provided', rowY);
+
+    // Section 2: Program & Guardian Details
+    rowY += 12;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(18, 50, 74);
+    doc.text('2. PROGRAM & GUARDIAN DETAILS', 15, rowY);
+    doc.line(15, rowY + 2, 195, rowY + 2);
+
+    rowY += 9;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(51, 65, 85);
+
+    const printRowDual = (l1, v1, l2, v2, y) => {
+      doc.setFont('Helvetica', 'bold');
+      doc.text(l1 + ':', leftColX, y);
+      doc.setFont('Helvetica', 'normal');
+      doc.text(String(v1 || '—'), leftColX + 38, y);
+
+      doc.setFont('Helvetica', 'bold');
+      doc.text(l2 + ':', rightColX, y);
+      doc.setFont('Helvetica', 'normal');
+      doc.text(String(v2 || '—'), rightColX + 32, y);
+    };
+
+    const cohortTitle = sub.cohort ? (sub.cohort.class?.name || sub.cohort.className || sub.cohort.name || 'Admission Intake') : '—';
+    const feeStr = sub.cohort ? money(sub.cohort.applicationFee) : '—';
+
+    printRowDual('Class / Option', cohortTitle, 'Application Fee', feeStr, rowY);
+    rowY += 6;
+    printRowDual('Guardian Email', sub.data.parentEmail || 'None', 'Guardian Phone', sub.data.parentPhone || 'None', rowY);
+    rowY += 6;
+    printRow('Previous School', sub.data.previousSchool || 'Not specified', rowY);
+
+    // Important Notice Footer Box
+    rowY += 16;
+    doc.setFillColor(254, 243, 199); // light amber
+    doc.setDrawColor(252, 211, 77);
+    doc.roundedRect(15, rowY, 180, 26, 2, 2, 'FD');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(146, 64, 14); // dark amber
+    doc.text('IMPORTANT NOTICE:', 20, rowY + 6);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 53, 15);
+    doc.text('1. This slip is an ACKNOWLEDGEMENT OF REGISTRATION only and DOES NOT constitute an offer of admission.', 20, rowY + 12);
+    doc.text('2. Keep your Application Reference Number secure for all screening tests, interviews, and status checks.', 20, rowY + 17);
+    doc.text('3. Follow only official payment and screening instructions communicated directly by the school.', 20, rowY + 22);
+
+    // Bottom Footer
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Generated electronically via ' + schoolName + ' Admissions Portal on ' + new Date().toLocaleString(), 105, 285, { align: 'center' });
+
+    // Save PDF
+    doc.save('Admission-Acknowledgement-' + sub.referenceNumber + '.pdf');
+  }
+
+  // Form Submission
+  $('admissionForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+
+    if (!validateStep(1)) return goToStep(1);
+    if (!validateStep(2)) return goToStep(2);
+    if (!validateStep(3)) return goToStep(3);
+    if (!form.reportValidity()) return;
+
+    const cohort = state.cohorts.find(item => String(item._id) === $('cohort').value);
+    if (!cohort) {
+      goToStep(1);
+      return showAlert('Please select an available admission option.');
+    }
+
+    const data = Object.fromEntries(new FormData(form).entries());
+    const payload = {
+      cohort: data.cohort,
+      name: data.name.trim(),
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      parentEmail: data.parentEmail.trim(),
+      parentPhone: data.parentPhone.trim(),
+      dateOfBirth: data.dateOfBirth || undefined,
+      gender: data.gender,
+      address: data.address.trim(),
+      previousSchool: data.previousSchool.trim(),
+      class: cohort.class?._id || cohort.class
+    };
+
+    const button = $('submitBtn');
+    button.disabled = true;
+    button.textContent = 'Submitting application…';
+    clearAlert();
+
+    try {
+      const result = await fetchJson(API + '/api/admission/application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const application = result.application || result.data || {};
+      const refNumber = application.applicationNumber || application.referenceNumber || application._id || 'SUB-' + Math.floor(100000 + Math.random() * 900000);
+      
+      $('applicationReference').textContent = refNumber;
+
+      state.lastSubmission = {
+        referenceNumber: refNumber,
+        data: payload,
+        cohort: cohort
+      };
+
+      form.classList.add('hidden');
+      $('wizardStepperHeader').classList.add('hidden');
+      $('successPanel').classList.remove('hidden');
+      $('apply').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Automatically trigger PDF download
+      setTimeout(() => {
+        generateAcknowledgementPDF();
+      }, 500);
+
+    } catch (error) {
+      showAlert(error.message || 'We could not submit your application. Please try again.');
+      button.disabled = false;
+      button.textContent = 'Submit application';
+    }
+  });
+
+  // Manual Download PDF Button
+  $('downloadPdfBtn').addEventListener('click', () => {
+    generateAcknowledgementPDF();
+  });
+
+  // Copy Reference Number
+  $('copyRefBtn').addEventListener('click', () => {
+    const text = $('applicationReference').textContent.trim();
+    if (!text || text === '—') return;
+    const tempInput = document.createElement('input');
+    tempInput.value = text;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    try {
+      document.execCommand('copy');
+      $('copyRefLabel').textContent = 'Copied!';
+      setTimeout(() => { $('copyRefLabel').textContent = 'Copy reference'; }, 2000);
+    } catch (_) {}
+    document.body.removeChild(tempInput);
+  });
+
+  // Reset for Another Application
+  $('newApplicationBtn').addEventListener('click', () => {
+    $('successPanel').classList.add('hidden');
+    $('wizardStepperHeader').classList.remove('hidden');
+    $('admissionForm').classList.remove('hidden');
+    $('admissionForm').reset();
+    clearAlert();
+    $('submitBtn').disabled = !state.cohorts.length;
+    $('submitBtn').textContent = 'Submit application';
+    state.currentStep = 1;
+    state.maxReachedStep = 1;
+    state.lastSubmission = null;
+    updateCohortMeta();
+    updateStepperUI();
+  });
+
+  $('year').textContent = new Date().getFullYear();
+  updateStepperUI();
+
+  (async () => {
+    try {
+      await loadSchool();
+      await loadCohorts();
+    } catch (error) {
+      $('cohortLoading').classList.add('hidden');
+      $('cohortError').textContent = error.message;
+      $('cohortError').classList.remove('hidden');
+      $('cohortCount').textContent = 'School not identified';
+    }
+  })();
+})();
+</script>
+</body>
+</html>
