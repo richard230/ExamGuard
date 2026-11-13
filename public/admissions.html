@@ -7,8 +7,9 @@
   <title>Admissions | School</title>
   <meta name="description" content="Explore admission opportunities and apply to our school.">
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- jsPDF Library for PDF Acknowledgement Generation -->
+  <!-- jsPDF & AutoTable Libraries for Professional PDF Generation -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -672,7 +673,7 @@
               </div>
               <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-5">Application received</h3>
               <p class="text-slate-500 mt-2 max-w-md mx-auto text-sm sm:text-base">
-                Your application has been submitted successfully to the school's admissions office. A PDF acknowledgement slip has been generated and downloaded automatically.
+                Your application has been submitted successfully to the school's admissions office. A professional PDF acknowledgement slip has been generated and downloaded automatically.
               </p>
 
               <div class="max-w-md mx-auto bg-slate-50 border border-slate-200 rounded-2xl p-5 mt-6 text-left">
@@ -1279,156 +1280,205 @@
 
   $('cohort').addEventListener('change', updateCohortMeta);
 
-  /* --- PDF Acknowledgement Generator --- */
-  function generateAcknowledgementPDF() {
+  /* --- Professional PDF Acknowledgement Generator --- */
+  async function generateAcknowledgementPDF() {
     if (!window.jspdf || !state.lastSubmission) return;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const sub = state.lastSubmission;
     const schoolName = pick(state.school?.name, 'Our School');
+    const logoUrl = pick(state.school?.logo, state.school?.logoUrl, state.school?.schoolLogo);
     const primaryColor = [18, 50, 74]; // #12324a
 
-    // Header Band
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(0, 0, 210, 32, 'F');
+    // Helper to load logo as base64 if possible
+    let logoDataUri = null;
+    if (logoUrl) {
+      try {
+        logoDataUri = await getDataUri(logoUrl);
+      } catch (e) {
+        console.warn('Could not load school logo image for PDF', e);
+      }
+    }
 
+    // Header Background Card
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 38, 'F');
+
+    // Logo / Emblem Placement
+    if (logoDataUri) {
+      try {
+        doc.addImage(logoDataUri, 'JPEG', 15, 6, 26, 26, undefined, 'FAST');
+      } catch (e) {
+        drawEmblemFallback(doc, schoolName);
+      }
+    } else {
+      drawEmblemFallback(doc, schoolName);
+    }
+
+    // School Header Text
+    const textLeftOffset = 46;
     doc.setTextColor(255, 255, 255);
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text(schoolName.toUpperCase(), 15, 14);
+    doc.setFontSize(15);
+    doc.text(schoolName.toUpperCase(), textLeftOffset, 16);
 
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('OFFICE OF ADMISSIONS · ACKNOWLEDGEMENT OF APPLICATION REGISTRATION', 15, 22);
+    doc.setFontSize(8.5);
+    doc.setTextColor(210, 225, 240);
+    doc.text('OFFICE OF THE REGISTRAR · OFFICIAL ADMISSIONS PORTAL', textLeftOffset, 23);
+    doc.text('ACKNOWLEDGEMENT OF APPLICATION REGISTRATION', textLeftOffset, 29);
 
-    // Document Title
+    // Document Title & Subtitle
+    let currentY = 46;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.text('APPLICATION REGISTRATION SLIP', 15, 44);
+    doc.text('APPLICATION REGISTRATION SLIP', 15, currentY);
 
+    currentY += 4;
     doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
-    doc.text('This document confirms that your application has been successfully received and logged into the admissions system.', 15, 50);
+    doc.text('This document serves as official confirmation that your admission application has been received and logged.', 15, currentY);
 
-    // Reference Box
-    doc.setFillColor(241, 245, 249);
+    // Reference Highlight Box
+    currentY += 6;
+    doc.setFillColor(248, 250, 252);
     doc.setStrokeColor(203, 213, 225);
-    doc.roundedRect(15, 58, 180, 20, 2, 2, 'FD');
+    doc.roundedRect(15, currentY, 180, 18, 2, 2, 'FD');
 
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
-    doc.text('APPLICATION REFERENCE NUMBER:', 20, 66);
+    doc.text('APPLICATION REFERENCE NUMBER', 20, currentY + 6);
 
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setTextColor(18, 50, 74);
-    doc.text(sub.referenceNumber, 20, 73);
+    doc.text(sub.referenceNumber, 20, currentY + 13);
 
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
-    doc.text('Date: ' + new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }), 155, 70, { align: 'right' });
+    doc.text('Date Issued: ' + new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }), 185, currentY + 11, { align: 'right' });
 
-    // Section 1: Candidate Information
-    let startY = 88;
+    currentY += 24;
+
+    // Applicant Information Table
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(18, 50, 74);
-    doc.text('1. APPLICANT INFORMATION', 15, startY);
+    doc.text('1. APPLICANT INFORMATION', 15, currentY);
 
-    doc.setDrawColor(203, 213, 225);
-    doc.line(15, startY + 2, 195, startY + 2);
+    currentY += 3;
+    const applicantRows = [
+      ['Full Name', sub.data.name || '—', 'Gender', (sub.data.gender || '—').toUpperCase()],
+      ['Date of Birth', sub.data.dateOfBirth || 'Not provided', 'Phone Number', sub.data.phone || '—'],
+      ['Email Address', sub.data.email || '—', 'Residential Address', sub.data.address || 'Not provided']
+    ];
 
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(51, 65, 85);
+    doc.autoTable({
+      startY: currentY,
+      head: [],
+      body: applicantRows,
+      theme: 'grid',
+      styles: { fontSize: 8.5, cellPadding: 3, textColor: [51, 65, 85] },
+      columnStyles: {
+        0: { fontStyle: 'bold', fillColor: [241, 245, 249], cellWidth: 35 },
+        1: { cellWidth: 55 },
+        2: { fontStyle: 'bold', fillColor: [241, 245, 249], cellWidth: 35 },
+        3: { cellWidth: 55 }
+      },
+      margin: { left: 15, right: 15 }
+    });
 
-    const leftColX = 15;
-    const rightColX = 110;
-    let rowY = startY + 9;
+    currentY = doc.lastAutoTable.finalY + 8;
 
-    const printRow = (label, val, y) => {
-      doc.setFont('Helvetica', 'bold');
-      doc.text(label + ':', leftColX, y);
-      doc.setFont('Helvetica', 'normal');
-      doc.text(String(val || '—'), leftColX + 45, y);
-    };
-
-    printRow('Full Name', sub.data.name, rowY);
-    rowY += 6;
-    printRow('Gender', (sub.data.gender || '—').toUpperCase(), rowY);
-    rowY += 6;
-    printRow('Date of Birth', sub.data.dateOfBirth || 'Not provided', rowY);
-    rowY += 6;
-    printRow('Email Address', sub.data.email, rowY);
-    rowY += 6;
-    printRow('Phone Number', sub.data.phone, rowY);
-    rowY += 6;
-    printRow('Residential Address', sub.data.address || 'Not provided', rowY);
-
-    // Section 2: Program & Guardian Details
-    rowY += 12;
+    // Program & Guardian Details Table
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(18, 50, 74);
-    doc.text('2. PROGRAM & GUARDIAN DETAILS', 15, rowY);
-    doc.line(15, rowY + 2, 195, rowY + 2);
+    doc.text('2. PROGRAM & GUARDIAN DETAILS', 15, currentY);
 
-    rowY += 9;
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(51, 65, 85);
-
-    const printRowDual = (l1, v1, l2, v2, y) => {
-      doc.setFont('Helvetica', 'bold');
-      doc.text(l1 + ':', leftColX, y);
-      doc.setFont('Helvetica', 'normal');
-      doc.text(String(v1 || '—'), leftColX + 38, y);
-
-      doc.setFont('Helvetica', 'bold');
-      doc.text(l2 + ':', rightColX, y);
-      doc.setFont('Helvetica', 'normal');
-      doc.text(String(v2 || '—'), rightColX + 32, y);
-    };
-
+    currentY += 3;
     const cohortTitle = sub.cohort ? (sub.cohort.class?.name || sub.cohort.className || sub.cohort.name || 'Admission Intake') : '—';
     const feeStr = sub.cohort ? money(sub.cohort.applicationFee) : '—';
 
-    printRowDual('Class / Option', cohortTitle, 'Application Fee', feeStr, rowY);
-    rowY += 6;
-    printRowDual('Guardian Email', sub.data.parentEmail || 'None', 'Guardian Phone', sub.data.parentPhone || 'None', rowY);
-    rowY += 6;
-    printRow('Previous School', sub.data.previousSchool || 'Not specified', rowY);
+    const programRows = [
+      ['Class / Option', cohortTitle, 'Application Fee', feeStr],
+      ['Guardian Email', sub.data.parentEmail || 'Not specified', 'Guardian Phone', sub.data.parentPhone || 'Not specified'],
+      ['Previous School', sub.data.previousSchool || 'Not specified', 'Registration Status', 'SUBMITTED (PENDING)']
+    ];
 
-    // Important Notice Footer Box
-    rowY += 16;
-    doc.setFillColor(254, 243, 199); // light amber
+    doc.autoTable({
+      startY: currentY,
+      head: [],
+      body: programRows,
+      theme: 'grid',
+      styles: { fontSize: 8.5, cellPadding: 3, textColor: [51, 65, 85] },
+      columnStyles: {
+        0: { fontStyle: 'bold', fillColor: [241, 245, 249], cellWidth: 35 },
+        1: { cellWidth: 55 },
+        2: { fontStyle: 'bold', fillColor: [241, 245, 249], cellWidth: 35 },
+        3: { cellWidth: 55 }
+      },
+      margin: { left: 15, right: 15 }
+    });
+
+    currentY = doc.lastAutoTable.finalY + 10;
+
+    // Important Notice Box
+    doc.setFillColor(254, 243, 199); // soft amber
     doc.setStrokeColor(252, 211, 77);
-    doc.roundedRect(15, rowY, 180, 26, 2, 2, 'FD');
+    doc.roundedRect(15, currentY, 180, 24, 2, 2, 'FD');
 
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(146, 64, 14); // dark amber
-    doc.text('IMPORTANT NOTICE:', 20, rowY + 6);
+    doc.setFontSize(8.5);
+    doc.setTextColor(146, 64, 14);
+    doc.text('IMPORTANT NOTICE:', 20, currentY + 6);
 
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(120, 53, 15);
-    doc.text('1. This slip is an ACKNOWLEDGEMENT OF REGISTRATION only and DOES NOT constitute an offer of admission.', 20, rowY + 12);
-    doc.text('2. Keep your Application Reference Number secure for all screening tests, interviews, and status checks.', 20, rowY + 17);
-    doc.text('3. Follow only official payment and screening instructions communicated directly by the school.', 20, rowY + 22);
+    doc.text('1. This slip is an ACKNOWLEDGEMENT OF REGISTRATION only and DOES NOT constitute an offer of admission.', 20, currentY + 12);
+    doc.text('2. Keep your Application Reference Number secure for all screening tests, interviews, and status verification.', 20, currentY + 16.5);
+    doc.text('3. Follow only official payment and screening instructions communicated directly through the school portal.', 20, currentY + 21);
 
-    // Bottom Footer
+    // Footer
     doc.setFont('Helvetica', 'italic');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
-    doc.text('Generated electronically via ' + schoolName + ' Admissions Portal on ' + new Date().toLocaleString(), 105, 285, { align: 'center' });
+    doc.text('Generated electronically via ' + schoolName + ' Admissions Portal on ' + new Date().toLocaleString(), 105, 287, { align: 'center' });
 
-    // Save PDF
     doc.save('Admission-Acknowledgement-' + sub.referenceNumber + '.pdf');
+  }
+
+  function drawEmblemFallback(doc, schoolName) {
+    doc.setFillColor(255, 255, 255);
+    doc.setStrokeColor(255, 255, 255);
+    doc.roundedRect(15, 6, 26, 26, 3, 3, 'FD');
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(18, 50, 74);
+    const initial = (schoolName.trim().charAt(0) || 'S').toUpperCase();
+    doc.text(initial, 28, 23, { align: 'center' });
+  }
+
+  async function getDataUri(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg'));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
   }
 
   // Form Submission
