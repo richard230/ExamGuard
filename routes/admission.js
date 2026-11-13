@@ -191,6 +191,94 @@ router.get('/arms', authMiddleware, adminAuth, async (req, res) => {
 // Every authenticated admin endpoint resolves the current school first.
 // All cohort, application, setup and statistics queries are then restricted
 // to that school. Public applications inherit their school from the cohort.
+
+// PUBLIC: list active admission cohorts for the school currently being viewed.
+// This endpoint exposes only the minimum information needed by the public
+// admissions page. It never accepts a tenant identifier from the request body.
+router.get('/public/:schoolId/cohorts', async (req, res) => {
+  try {
+    const requestedSchoolId = String(req.params.schoolId || '').trim();
+    if (!requestedSchoolId || requestedSchoolId.length > 128) {
+      return res.status(400).json({ error: 'A valid school identifier is required.' });
+    }
+
+    const schoolQuery = {
+      status: 'active',
+      isDeleted: { $ne: true }
+    };
+    if (mongoose.Types.ObjectId.isValid(requestedSchoolId)) {
+      schoolQuery._id = requestedSchoolId;
+    } else {
+      schoolQuery.schoolId = requestedSchoolId;
+    }
+
+    const publicSchool = await School.findOne(schoolQuery).select('_id schoolId name').lean();
+    if (!publicSchool) {
+      return res.status(404).json({ error: 'The selected school could not be found.' });
+    }
+
+    const schoolIdentifiers = [...new Set([
+      publicSchool.schoolId,
+      String(publicSchool._id)
+    ].filter(Boolean).map(String))];
+
+    const now = new Date();
+    const cohorts = await AdmissionCohort.find({
+      schoolId: { $in: schoolIdentifiers },
+      status: 'active'
+    })
+      .select('_id name description class arm session term startDate endDate applicationFee capacity applicantCount admissionSetupId status')
+      .populate('class', 'name')
+      .populate('arm', 'name armName')
+      .populate('session', 'name')
+      .populate('admissionSetupId', 'title isActive startDate endDate applicationFee')
+      .sort({ startDate: 1, createdAt: -1 })
+      .lean();
+
+    const available = cohorts.filter(cohort => {
+      if (cohort.startDate && now < new Date(cohort.startDate)) return false;
+      if (cohort.endDate && now > new Date(cohort.endDate)) return false;
+
+      const board = cohort.admissionSetupId;
+      if (board) {
+        if (board.isActive === false) return false;
+        if (board.startDate && now < new Date(board.startDate)) return false;
+        if (board.endDate && now > new Date(board.endDate)) return false;
+      }
+
+      if (Number(cohort.capacity) > 0 && Number(cohort.applicantCount || 0) >= Number(cohort.capacity)) return false;
+      return true;
+    }).map(cohort => ({
+      _id: cohort._id,
+      name: cohort.name,
+      description: cohort.description || '',
+      class: cohort.class,
+      arm: cohort.arm,
+      session: cohort.session,
+      term: cohort.term,
+      startDate: cohort.startDate,
+      endDate: cohort.endDate,
+      applicationFee: Number(cohort.applicationFee ?? cohort.admissionSetupId?.applicationFee ?? 0),
+      admissionBoardName: cohort.admissionSetupId?.title || '',
+      remainingSlots: Number(cohort.capacity) > 0
+        ? Math.max(0, Number(cohort.capacity) - Number(cohort.applicantCount || 0))
+        : null
+    }));
+
+    return res.json({
+      school: {
+        _id: String(publicSchool._id),
+        schoolId: publicSchool.schoolId || String(publicSchool._id),
+        name: publicSchool.name || ''
+      },
+      cohorts: available
+    });
+  } catch (error) {
+    console.error('Public admission cohort listing error:', error);
+    return res.status(500).json({ error: 'Unable to load available admission options.' });
+  }
+});
+
 // ==================== COHORT ENDPOINTS ====================
 
 // GET all cohorts
