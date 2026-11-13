@@ -284,13 +284,36 @@ function closeApplicationModal(){document.getElementById('applicationModal').cla
 function approveApplication(){updateApplicationStatus('Approved')}function rejectApplication(){updateApplicationStatus('Rejected')}
 async function updateApplicationStatus(status){if(!currentApplicationId)return;const m=document.getElementById('applicationModalMessage');m.className='mb-3 rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-semibold text-slate-600';m.textContent='Updating...';try{const r=await apiFetch(`${API_ROOT}/admission/application/${currentApplicationId}`,{method:'PUT',body:JSON.stringify({status})});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Unable to update application.');m.className='mb-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-700';m.textContent=`Application ${status}.`;setTimeout(()=>{closeApplicationModal();loadApplications()},800)}catch(e){m.className='mb-3 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700';m.textContent=e.message}}
 
-async function saveAdmissionSetup(e){e.preventDefault();const form=e.currentTarget,m=document.getElementById('admissionSetupMessage');m.className='mt-3 rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-semibold text-slate-600';m.textContent='Saving...';m.classList.remove('hidden');try{const r=await apiFetch(`${API_ROOT}/admission/setup`,{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Error saving setup.');m.className='mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-700';m.textContent='Admission setup saved successfully!';form.reset()}catch(e){m.className='mt-3 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700';m.textContent=e.message}}
+async function saveAdmissionSetup(e){e.preventDefault();const form=e.currentTarget,m=document.getElementById('admissionSetupMessage');m.className='mt-3 rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-semibold text-slate-600';m.textContent='Saving...';m.classList.remove('hidden');try{const r=await apiFetch(`${API_ROOT}/admission/setup`,{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Error saving setup.');m.className='mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-700';m.textContent = 'Admission setup saved successfully!';
+form.reset();
+await loadAdmissionSetups();}catch(e){m.className='mt-3 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700';m.textContent=e.message}}
 
 function setupNavigation(){const ms=document.getElementById('mobileSidebar'),ov=document.getElementById('sidebarOverlay');const open=()=>{ms.classList.remove('-translate-x-full');ov.classList.remove('hidden');document.body.classList.add('overflow-hidden')},close=()=>{ms.classList.add('-translate-x-full');ov.classList.add('hidden');document.body.classList.remove('overflow-hidden')};document.getElementById('mobileMenuBtn').onclick=open;document.getElementById('closeMobileSidebar').onclick=close;ov.onclick=close;const links=[...document.querySelectorAll('#sidebar .nav-link')];document.getElementById('mobileNav').innerHTML=links.map(a=>`<a href="${esc(a.getAttribute('href')||'#')}" class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300">${a.innerHTML}</a>`).join('');document.querySelectorAll('#mobileNav a').forEach(a=>a.onclick=close);const drawer=document.getElementById('drawer-bottom-menu');const show=()=>{drawer.classList.remove('translate-y-full');drawer.classList.add('translate-y-0')},hide=()=>{drawer.classList.add('translate-y-full');drawer.classList.remove('translate-y-0')};document.getElementById('parabolaDrawerBtn').onclick=show;document.getElementById('mobileMoreBtn').onclick=show;document.querySelector('[data-drawer-hide="drawer-bottom-menu"]').onclick=hide;document.addEventListener('keydown',e=>{if(e.key==='Escape'){close();hide()}})}
-async function initializePage(){try{await loadSchoolConfig();fillProfile();document.getElementById('loaderText').textContent='Loading admission data...';const results=await Promise.allSettled([loadDropdowns(),loadCohorts(),loadApplications()]);results.forEach(x=>{if(x.status==='rejected')console.error(x.reason)});document.getElementById('pageLoader').classList.add('opacity-0','pointer-events-none');setTimeout(()=>document.getElementById('pageLoader')?.remove(),350)}catch(e){console.error(e);document.getElementById('loaderText').textContent=e.message;document.getElementById('pageLoader').querySelector('div').insertAdjacentHTML('beforeend','<button onclick="location.reload()" class="mt-4 rounded-xl px-4 py-2 text-sm font-bold text-white" style="background:var(--school-primary)">Retry</button>')}}
+async function initializePage(){try{await loadSchoolConfig();fillProfile();document.getElementById('loaderText').textContent='Loading admission data...';const results = await Promise.allSettled([
+  loadDropdowns(),
+  loadCohorts(),
+  loadAdmissionSetups(),
+  loadApplications()
+]);results.forEach(x=>{if(x.status==='rejected')console.error(x.reason)});document.getElementById('pageLoader').classList.add('opacity-0','pointer-events-none');setTimeout(()=>document.getElementById('pageLoader')?.remove(),350)}catch(e){console.error(e);document.getElementById('loaderText').textContent=e.message;document.getElementById('pageLoader').querySelector('div').insertAdjacentHTML('beforeend','<button onclick="location.reload()" class="mt-4 rounded-xl px-4 py-2 text-sm font-bold text-white" style="background:var(--school-primary)">Retry</button>')}}
 
 document.addEventListener('DOMContentLoaded',()=>{setupNavigation();document.getElementById('admissionSetupForm').addEventListener('submit',saveAdmissionSetup);document.getElementById('applicationModal').onclick=e=>{if(e.target.id==='applicationModal')closeApplicationModal()};document.getElementById('cohortModal').onclick=e=>{if(e.target.id==='cohortModal')closeCohortModal()};initializePage()});
-Object.assign(window,{openCohortModal,closeCohortModal,saveCohort,editCohort:openCohortModal,pauseCohort,resumeCohort,deleteCohort,showApplicationModal,closeApplicationModal,approveApplication,rejectApplication,loadCohorts,loadApplications,handleLogoError});
+Object.assign(window, {
+  openCohortModal,
+  closeCohortModal,
+  saveCohort,
+  editCohort: openCohortModal,
+  pauseCohort,
+  resumeCohort,
+  deleteCohort,
+  showApplicationModal,
+  closeApplicationModal,
+  approveApplication,
+  rejectApplication,
+  loadCohorts,
+  loadApplications,
+  loadAdmissionSetups,
+  handleLogoError
+});
 })();
 </script>
 </body>
