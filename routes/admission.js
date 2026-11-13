@@ -99,6 +99,27 @@ function schoolFilter(schoolId, extra = {}) {
   return { ...extra, schoolId };
 }
 
+function idOf(value) {
+  return value && typeof value === 'object' ? String(value._id || value.id || '') : String(value || '');
+}
+
+async function validateBoardClass(schoolId, admissionSetupId, classId) {
+  if (!admissionSetupId) return { board: null };
+  if (!mongoose.Types.ObjectId.isValid(admissionSetupId)) {
+    return { error: 'Invalid admission board selected.' };
+  }
+  const board = await AdmissionSetup.findOne(schoolFilter(schoolId, { _id: admissionSetupId }));
+  if (!board) return { error: 'The selected admission board was not found for this school.' };
+  if (board.isActive === false) return { error: 'The selected admission board is inactive.' };
+  const eligibleClasses = Array.isArray(board.classes) && board.classes.length
+    ? board.classes.map(idOf)
+    : (board.class ? [idOf(board.class)] : []);
+  if (!eligibleClasses.includes(String(classId))) {
+    return { error: 'The selected class is not included in this admission board.' };
+  }
+  return { board };
+}
+
 async function requireSchool(req, res) {
   const school = await resolveCurrentSchool(req);
 
@@ -148,6 +169,7 @@ router.get('/cohorts', authMiddleware, adminAuth, async (req, res) => {
       .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name')
+      .populate('admissionSetupId', 'title session term classes startDate endDate applicationFee isActive')
       .sort({ createdAt: -1 });
 
     res.json(cohorts);
@@ -167,6 +189,7 @@ router.get('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
       .populate('session')
       .populate('class')
       .populate('arm')
+      .populate('admissionSetupId', 'title session term classes startDate endDate applicationFee isActive')
       .populate('createdBy', 'email name');
 
     if (!cohort) {
@@ -179,59 +202,59 @@ router.get('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
   }
 });
 
-// CREATE new cohort
+// CREATE new cohort (linked to an admission board or independent)
 router.post('/cohorts', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireSchool(req, res);
     if (!school) return;
     const schoolId = String(school.schoolId || school._id);
-
-    const { name, session, term, arm, startDate, endDate, applicationFee, description, capacity } = req.body;
+    const { name, term, arm, startDate, endDate, applicationFee, description, capacity } = req.body;
     const classId = req.body.class || req.body.classId;
+    const admissionSetupId = req.body.admissionSetupId || null;
+    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'A valid class is required.' });
+    }
 
-    // Arm is optional; validate school ownership only when one is selected.
-    if (!session || !term || !classId || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Missing required fields: session, term, class, startDate and endDate are required.' });
+    let session = req.body.session;
+    let finalTerm = term;
+    let finalStartDate = startDate;
+    let finalEndDate = endDate;
+    let finalFee = applicationFee;
+    if (admissionSetupId) {
+      const validation = await validateBoardClass(schoolId, admissionSetupId, classId);
+      if (validation.error) return res.status(400).json({ error: validation.error });
+      const board = validation.board;
+      session = session || board.session;
+      finalTerm = finalTerm || board.term;
+      finalStartDate = finalStartDate || board.startDate;
+      finalEndDate = finalEndDate || board.endDate;
+      if (finalFee === undefined || finalFee === null || finalFee === '') finalFee = board.applicationFee;
+    }
+    if (!session || !finalTerm || !finalStartDate || !finalEndDate) {
+      return res.status(400).json({ error: 'Session, term, start date and end date are required for an independent cohort.' });
+    }
+    if (new Date(finalEndDate) < new Date(finalStartDate)) {
+      return res.status(400).json({ error: 'End date cannot be earlier than start date.' });
     }
     if (arm) {
-      if (!mongoose.Types.ObjectId.isValid(arm)) return res.status(400).json({ error: 'Invalid Arm ID. Select a valid school arm or leave it blank.' });
+      if (!mongoose.Types.ObjectId.isValid(arm)) return res.status(400).json({ error: 'Invalid Arm ID.' });
       const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: arm })).lean();
-      if (!armRecord) return res.status(400).json({ error: 'The selected arm does not belong to this school or no longer exists.' });
+      if (!armRecord) return res.status(400).json({ error: 'The selected arm does not belong to this school.' });
     }
-
-    // Check if cohort already exists for this session/term/class/arm
-    const exists = await AdmissionCohort.findOne({
-      schoolId,
-      session,
-      term,
-      class: classId,
-      arm: arm || null
-    });
-
-    if (exists) {
-      return res.status(400).json({ error: 'Cohort already exists for this session/term/class/arm combination' });
-    }
+    const exists = await AdmissionCohort.findOne({ schoolId, session, term: finalTerm, class: classId, arm: arm || null });
+    if (exists) return res.status(400).json({ error: 'Cohort already exists for this session/term/class/arm combination.' });
 
     const cohort = new AdmissionCohort({
-      schoolId,
-      name,
-      session,
-      term,
-      class: classId,
-      arm: arm || undefined,
-      startDate,
-      endDate,
-      applicationFee: applicationFee || 0,
-      description,
-      capacity: capacity || 50,
-      createdBy: req.user._id
+      schoolId, name, admissionSetupId, session, term: finalTerm, class: classId,
+      arm: arm || undefined, startDate: finalStartDate, endDate: finalEndDate,
+      applicationFee: Number(finalFee || 0), description,
+      capacity: Number(capacity || 50), createdBy: req.user._id
     });
-
     await cohort.save();
     await cohort.populate('session', 'name');
     await cohort.populate('class', 'name');
     await cohort.populate('arm', 'name');
-
+    await cohort.populate('admissionSetupId', 'title session term classes startDate endDate applicationFee isActive');
     res.status(201).json(cohort);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -258,10 +281,33 @@ router.put('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
       return res.status(400).json({ error: 'Cannot edit closed cohorts' });
     }
 
+    if (Object.prototype.hasOwnProperty.call(req.body, 'admissionSetupId')) {
+      const boardId = req.body.admissionSetupId || null;
+      if (boardId) {
+        const validation = await validateBoardClass(schoolId, boardId, classId || cohort.class);
+        if (validation.error) return res.status(400).json({ error: validation.error });
+        const board = validation.board;
+        cohort.admissionSetupId = board._id;
+        cohort.session = session || board.session;
+        cohort.term = term || board.term;
+        cohort.startDate = startDate || board.startDate;
+        cohort.endDate = endDate || board.endDate;
+        if (applicationFee === undefined) cohort.applicationFee = board.applicationFee || 0;
+      } else {
+        cohort.admissionSetupId = null;
+      }
+    }
+
     // Update fields
     if (session) cohort.session = session;
     if (term) cohort.term = term;
-    if (classId) cohort.class = classId;
+    if (classId) {
+      if (cohort.admissionSetupId && !Object.prototype.hasOwnProperty.call(req.body, 'admissionSetupId')) {
+        const validation = await validateBoardClass(schoolId, cohort.admissionSetupId, classId);
+        if (validation.error) return res.status(400).json({ error: validation.error });
+      }
+      cohort.class = classId;
+    }
     if (Object.prototype.hasOwnProperty.call(req.body, 'arm')) {
       if (arm) {
         if (!mongoose.Types.ObjectId.isValid(arm)) return res.status(400).json({ error: 'Invalid Arm ID. Please select a valid school arm or leave it blank.' });
@@ -280,6 +326,7 @@ router.put('/cohorts/:id', authMiddleware, adminAuth, async (req, res) => {
     await cohort.populate('session', 'name');
     await cohort.populate('class', 'name');
     await cohort.populate('arm', 'name');
+    await cohort.populate('admissionSetupId', 'title session term classes startDate endDate applicationFee isActive');
 
     res.json(cohort);
   } catch (error) {
@@ -395,14 +442,22 @@ router.get('/applications', authMiddleware, adminAuth, async (req, res) => {
     if (status) query.status = status;
 
     const applications = await AdmissionApplication.find(query)
-      .populate('cohort')
+      .populate({ path: 'cohort', populate: { path: 'admissionSetupId', select: 'title session term classes' } })
+      .populate('admissionSetupId', 'title session term classes')
       .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name')
       .populate('reviewedBy', 'email name')
       .sort({ dateApplied: -1 });
 
-    res.json(applications);
+    res.json(applications.map(application => {
+      const item = application.toObject();
+      item.admissionSetup = item.admissionSetupId || item.cohort?.admissionSetupId || null;
+      item.sessionName = item.session?.name || '';
+      item.className = item.class?.name || '';
+      item.armName = item.arm?.name || item.arm?.armName || '';
+      return item;
+    }));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -416,7 +471,8 @@ router.get('/application/:id', authMiddleware, adminAuth, async (req, res) => {
     const schoolId = String(school.schoolId || school._id);
 
     const application = await AdmissionApplication.findOne(schoolFilter(schoolId, { _id: req.params.id }))
-      .populate('cohort')
+      .populate({ path: 'cohort', populate: { path: 'admissionSetupId', select: 'title session term classes' } })
+      .populate('admissionSetupId', 'title session term classes')
       .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name')
@@ -426,7 +482,12 @@ router.get('/application/:id', authMiddleware, adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    res.json(application);
+    const item = application.toObject();
+    item.admissionSetup = item.admissionSetupId || item.cohort?.admissionSetupId || null;
+    item.sessionName = item.session?.name || '';
+    item.className = item.class?.name || '';
+    item.armName = item.arm?.name || item.arm?.armName || '';
+    res.json(item);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -437,6 +498,8 @@ router.post('/application', async (req, res) => {
   try {
     const {
       cohort,
+      class: requestedClass,
+      classId: requestedClassId,
       name,
       email,
       phone,
@@ -463,6 +526,27 @@ router.post('/application', async (req, res) => {
     if (cohortData.status !== 'active') {
       return res.status(400).json({ error: 'Admissions for this cohort are currently closed' });
     }
+    const submittedClassId = requestedClass || requestedClassId;
+    if (submittedClassId && String(submittedClassId) !== String(cohortData.class)) {
+      return res.status(400).json({ error: 'The selected class does not match this admission cohort.' });
+    }
+    let admissionBoard = null;
+    if (cohortData.admissionSetupId) {
+      admissionBoard = await AdmissionSetup.findOne(schoolFilter(String(cohortData.schoolId), { _id: cohortData.admissionSetupId }));
+      if (!admissionBoard || admissionBoard.isActive === false) {
+        return res.status(400).json({ error: 'The admission board for this cohort is inactive or unavailable.' });
+      }
+      const allowed = Array.isArray(admissionBoard.classes) && admissionBoard.classes.length
+        ? admissionBoard.classes.map(idOf)
+        : (admissionBoard.class ? [idOf(admissionBoard.class)] : []);
+      if (!allowed.includes(String(cohortData.class))) {
+        return res.status(400).json({ error: 'This cohort class is not eligible under its admission board.' });
+      }
+      const now = new Date();
+      if ((admissionBoard.startDate && now < new Date(admissionBoard.startDate)) || (admissionBoard.endDate && now > new Date(admissionBoard.endDate))) {
+        return res.status(400).json({ error: 'The admission board is outside its application window.' });
+      }
+    }
 
     // Check capacity
     if (cohortData.applicantCount >= cohortData.capacity) {
@@ -480,6 +564,7 @@ router.post('/application', async (req, res) => {
 
     const application = new AdmissionApplication({
       schoolId: applicationSchoolId,
+      admissionSetupId: cohortData.admissionSetupId || null,
       cohort,
       session: cohortData.session,
       term: cohortData.term,
@@ -549,6 +634,9 @@ router.put('/application/:id', authMiddleware, adminAuth, async (req, res) => {
 // DELETE application
 router.delete('/application/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
     const application = await AdmissionApplication.findOne(schoolFilter(schoolId, { _id: req.params.id }));
     if (!application) {
       return res.status(404).json({ error: 'Application not found' });
@@ -569,64 +657,69 @@ router.delete('/application/:id', authMiddleware, adminAuth, async (req, res) =>
 
 // ==================== ADMISSION SETUP ENDPOINTS ====================
 
-// CREATE setup
+// CREATE admission board (legacy endpoint retained as /setup)
 router.post('/setup', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireSchool(req, res);
     if (!school) return;
     const schoolId = String(school.schoolId || school._id);
-
-    const { session, term, classId, armId, startDate, endDate, applicationFee } = req.body;
-
-    if (!session || !term || !classId || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Missing required fields: session, term, class, start date and end date are required.' });
+    const { title, session, term, startDate, endDate, applicationFee } = req.body;
+    const classes = Array.isArray(req.body.classes) ? req.body.classes : (req.body.classId || req.body.class ? [req.body.classId || req.body.class] : []);
+    if (!session || !term || !classes.length || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Title, session, term, at least one eligible class, start date and end date are required.' });
     }
-    if (armId) {
-      if (!mongoose.Types.ObjectId.isValid(armId)) return res.status(400).json({ error: 'Invalid Arm ID. Select a valid school arm or leave it blank.' });
-      const armRecord = await Arm.findOne(schoolFilter(schoolId, { _id: armId })).lean();
-      if (!armRecord) return res.status(400).json({ error: 'The selected Arm ID is not registered under this school.' });
-    }
-
+    if (new Date(endDate) < new Date(startDate)) return res.status(400).json({ error: 'End date cannot be earlier than start date.' });
+    const uniqueClasses = [...new Set(classes.map(String))];
+    if (uniqueClasses.some(id => !mongoose.Types.ObjectId.isValid(id))) return res.status(400).json({ error: 'One or more selected class IDs are invalid.' });
     const setup = new AdmissionSetup({
-      schoolId,
-      session,
-      term,
-      class: classId,
-      arm: armId || undefined,
-      startDate,
-      endDate,
-      applicationFee: applicationFee || 0,
-      createdBy: req.user._id
+      schoolId, title: String(title || 'Admission Board').trim(), session, term,
+      classes: uniqueClasses, class: uniqueClasses[0], startDate, endDate,
+      applicationFee: Number(applicationFee || 0), isActive: true, createdBy: req.user._id
     });
-
     await setup.save();
     await setup.populate('session', 'name');
+    await setup.populate('classes', 'name');
     await setup.populate('class', 'name');
-    await setup.populate('arm', 'name');
-
-    res.status(201).json(setup);
+    const cohortCount = await AdmissionCohort.countDocuments(schoolFilter(schoolId, { admissionSetupId: setup._id }));
+    res.status(201).json({ ...setup.toObject(), cohortCount });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// GET all setups
+// GET all admission boards (legacy endpoint retained as /setups)
 router.get('/setups', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireSchool(req, res);
     if (!school) return;
     const schoolId = String(school.schoolId || school._id);
-
     const setups = await AdmissionSetup.find(schoolFilter(schoolId))
       .populate('session', 'name')
+      .populate('classes', 'name')
       .populate('class', 'name')
-      .populate('arm', 'name')
       .sort({ createdAt: -1 });
-
-    res.json(setups);
+    const results = await Promise.all(setups.map(async setup => ({
+      ...setup.toObject(),
+      cohortCount: await AdmissionCohort.countDocuments(schoolFilter(schoolId, { admissionSetupId: setup._id }))
+    })));
+    res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// GET a single admission board
+router.get('/setup/:id', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+    const setup = await AdmissionSetup.findOne(schoolFilter(schoolId, { _id: req.params.id }))
+      .populate('session', 'name').populate('classes', 'name').populate('class', 'name');
+    if (!setup) return res.status(404).json({ error: 'Admission board not found.' });
+    const cohortCount = await AdmissionCohort.countDocuments(schoolFilter(schoolId, { admissionSetupId: setup._id }));
+    res.json({ ...setup.toObject(), cohortCount });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ==================== STATISTICS ENDPOINTS ====================
