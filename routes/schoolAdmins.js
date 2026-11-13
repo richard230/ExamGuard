@@ -73,22 +73,29 @@ router.post('/admission/setup', adminAuth, async (req, res) => {
       startDate,
       endDate,
       applicationFee
-    } = req.body;
+    } = req.body || {};
 
-    // Arm and applicationFee are optional.
+    // Session, term, class and dates are required.
+    // Arm and application fee are optional.
     if (!session || !term || !classId || !startDate || !endDate) {
       return res.status(400).json({
         error: 'Session, term, class, start date and end date are required.'
       });
     }
 
-    if (!isValidObjectId(session) || !isValidObjectId(classId)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(session) ||
+      !mongoose.Types.ObjectId.isValid(classId)
+    ) {
       return res.status(400).json({
         error: 'Invalid session or class selected.'
       });
     }
 
-    if (armId && !isValidObjectId(armId)) {
+    if (
+      armId &&
+      !mongoose.Types.ObjectId.isValid(armId)
+    ) {
       return res.status(400).json({
         error: 'Invalid arm selected.'
       });
@@ -126,58 +133,91 @@ router.post('/admission/setup', adminAuth, async (req, res) => {
       });
     }
 
-    // Ensure the selected records belong to this school.
+    // Normalize the authenticated school ID.
+    // Session and Class schemas store schoolId as an ObjectId.
+    const schoolObjectId = new mongoose.Types.ObjectId(String(schoolId));
+    const schoolStringId = String(schoolObjectId);
+
+    // Confirm that selected records belong to the authenticated school.
     const [sessionRecord, classRecord, armRecord] = await Promise.all([
-      Session.findOne({ _id: session, schoolId }).select('_id'),
-      Class.findOne({ _id: classId, schoolId }).select('_id'),
+      Session.findOne({
+        _id: session,
+        schoolId: schoolObjectId
+      }).select('_id name schoolId'),
+
+      Class.findOne({
+        _id: classId,
+        schoolId: schoolObjectId
+      }).select('_id name schoolId'),
+
       armId
-        ? Arm.findOne({ _id: armId, schoolId }).select('_id')
+        ? Arm.findOne({
+            _id: armId,
+            schoolId: schoolObjectId
+          }).select('_id name schoolId')
         : Promise.resolve(null)
     ]);
 
-    if (!sessionRecord || !classRecord) {
+    if (!sessionRecord) {
       return res.status(400).json({
-        error: 'The selected session or class does not belong to this school.'
+        error: 'The selected session could not be found for this school.'
+      });
+    }
+
+    if (!classRecord) {
+      return res.status(400).json({
+        error: 'The selected class could not be found for this school.'
       });
     }
 
     if (armId && !armRecord) {
       return res.status(400).json({
-        error: 'The selected arm does not belong to this school.'
+        error: 'The selected arm could not be found for this school.'
       });
     }
 
-    // Use the actual AdmissionSetup schema field: "class", not "classId".
-    // Match both missing and null arm values for older records.
+    // AdmissionSetup uses "class" and "arm", not "classId" and "armId".
+    // Its schoolId field is a String, unlike Session and Class.
     const setupFilter = {
-      schoolId,
-      session,
+      schoolId: schoolStringId,
+      session: sessionRecord._id,
       term,
-      class: classId,
-      ...(armId
-        ? { arm: armId }
-        : {
-            $or: [
-              { arm: null },
-              { arm: { $exists: false } }
-            ]
-          })
+      class: classRecord._id,
+      arm: armId ? armRecord._id : null
     };
+
+    const updateFields = {
+      schoolId: schoolStringId,
+      session: sessionRecord._id,
+      term,
+      class: classRecord._id,
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      applicationFee: fee,
+      updatedAt: new Date()
+    };
+
+    // Explicitly clear the arm when no arm was selected.
+    if (armId) {
+      updateFields.arm = armRecord._id;
+    } else {
+      updateFields.$unset = { arm: 1 };
+    }
 
     const setup = await AdmissionSetup.findOneAndUpdate(
       setupFilter,
       {
         $set: {
-          schoolId,
-          session,
+          schoolId: schoolStringId,
+          session: sessionRecord._id,
           term,
-          class: classId,
+          class: classRecord._id,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
           applicationFee: fee,
-          updatedAt: new Date(),
-          ...(armId ? { arm: armId } : { arm: undefined })
-        }
+          updatedAt: new Date()
+        },
+        ...(armId ? {} : { $unset: { arm: 1 } })
       },
       {
         upsert: true,
@@ -187,9 +227,11 @@ router.post('/admission/setup', adminAuth, async (req, res) => {
       }
     );
 
-    await setup.populate('session', 'name');
-    await setup.populate('class', 'name');
-    await setup.populate('arm', 'name');
+    await setup.populate([
+      { path: 'session', select: 'name' },
+      { path: 'class', select: 'name' },
+      { path: 'arm', select: 'name' }
+    ]);
 
     return res.status(200).json({
       message: 'Admission setup saved successfully.',
@@ -197,7 +239,12 @@ router.post('/admission/setup', adminAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Admission setup error:', error);
+    console.error('Admission setup error:', {
+      message: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      schoolId: req.user?.schoolId
+    });
 
     return res.status(500).json({
       error: 'Unable to save admission setup.',
@@ -205,7 +252,6 @@ router.post('/admission/setup', adminAuth, async (req, res) => {
     });
   }
 });
-
 // List admission setups belonging only to the authenticated school.
 router.get('/admission/setups', adminAuth, async (req, res) => {
   try {
