@@ -7,6 +7,8 @@
   <title>Admissions | School</title>
   <meta name="description" content="Explore admission opportunities and apply to our school.">
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- jsPDF Library for PDF Acknowledgement Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -670,7 +672,7 @@
               </div>
               <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-5">Application received</h3>
               <p class="text-slate-500 mt-2 max-w-md mx-auto text-sm sm:text-base">
-                Your application has been submitted successfully to the school's admissions office.
+                Your application has been submitted successfully to the school's admissions office. A PDF acknowledgement slip has been generated and downloaded automatically.
               </p>
 
               <div class="max-w-md mx-auto bg-slate-50 border border-slate-200 rounded-2xl p-5 mt-6 text-left">
@@ -686,6 +688,12 @@
               <p class="text-xs sm:text-sm text-slate-500 mt-4">Please keep this reference number safe for future correspondence with the school.</p>
 
               <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
+                <button type="button" id="downloadPdfBtn" class="btn-primary rounded-xl px-6 py-3 font-bold text-sm transition inline-flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  <span>Download PDF Acknowledgement</span>
+                </button>
                 <button type="button" id="newApplicationBtn" class="border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl px-6 py-3 font-bold text-sm transition">
                   Submit another application
                 </button>
@@ -730,7 +738,7 @@
               <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center group-open:rotate-45 transition shrink-0 font-bold">+</span>
             </summary>
             <p class="text-sm text-slate-500 leading-relaxed mt-3 pt-3 border-t border-slate-100">
-              A successful submission immediately displays an application reference number on this page. Copy and retain it for follow-up with the admissions office.
+              A successful submission immediately displays an application reference number on this page and generates a downloadable PDF acknowledgement slip. Keep it for follow-up with the admissions office.
             </p>
           </details>
         </div>
@@ -775,7 +783,8 @@
     school: null,
     cohorts: [],
     currentStep: 1,
-    maxReachedStep: 1
+    maxReachedStep: 1,
+    lastSubmission: null
   };
 
   const STEP_TITLES = {
@@ -1046,7 +1055,6 @@
     const selectedId = $('cohort').value;
     const item = state.cohorts.find(row => String(row._id) === selectedId);
 
-    // Highlight matching card in the grid
     document.querySelectorAll('[data-cohort-card-id]').forEach(card => {
       if (card.dataset.cohortCardId === selectedId) {
         card.classList.add('is-selected');
@@ -1263,7 +1271,6 @@
     });
   });
 
-  // Clear field error styling on input
   $('admissionForm').addEventListener('input', (e) => {
     if (e.target && e.target.classList) {
       e.target.classList.remove('field-error');
@@ -1271,6 +1278,158 @@
   });
 
   $('cohort').addEventListener('change', updateCohortMeta);
+
+  /* --- PDF Acknowledgement Generator --- */
+  function generateAcknowledgementPDF() {
+    if (!window.jspdf || !state.lastSubmission) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const sub = state.lastSubmission;
+    const schoolName = pick(state.school?.name, 'Our School');
+    const primaryColor = [18, 50, 74]; // #12324a
+
+    // Header Band
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 32, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(schoolName.toUpperCase(), 15, 14);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('OFFICE OF ADMISSIONS · ACKNOWLEDGEMENT OF APPLICATION REGISTRATION', 15, 22);
+
+    // Document Title
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('APPLICATION REGISTRATION SLIP', 15, 44);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('This document confirms that your application has been successfully received and logged into the admissions system.', 15, 50);
+
+    // Reference Box
+    doc.setFillColor(241, 245, 249);
+    doc.setStrokeColor(203, 213, 225);
+    doc.roundedRect(15, 58, 180, 20, 2, 2, 'FD');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('APPLICATION REFERENCE NUMBER:', 20, 66);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(18, 50, 74);
+    doc.text(sub.referenceNumber, 20, 73);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Date: ' + new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }), 155, 70, { align: 'right' });
+
+    // Section 1: Candidate Information
+    let startY = 88;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(18, 50, 74);
+    doc.text('1. APPLICANT INFORMATION', 15, startY);
+
+    doc.setDrawColor(203, 213, 225);
+    doc.line(15, startY + 2, 195, startY + 2);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(51, 65, 85);
+
+    const leftColX = 15;
+    const rightColX = 110;
+    let rowY = startY + 9;
+
+    const printRow = (label, val, y) => {
+      doc.setFont('Helvetica', 'bold');
+      doc.text(label + ':', leftColX, y);
+      doc.setFont('Helvetica', 'normal');
+      doc.text(String(val || '—'), leftColX + 45, y);
+    };
+
+    printRow('Full Name', sub.data.name, rowY);
+    rowY += 6;
+    printRow('Gender', (sub.data.gender || '—').toUpperCase(), rowY);
+    rowY += 6;
+    printRow('Date of Birth', sub.data.dateOfBirth || 'Not provided', rowY);
+    rowY += 6;
+    printRow('Email Address', sub.data.email, rowY);
+    rowY += 6;
+    printRow('Phone Number', sub.data.phone, rowY);
+    rowY += 6;
+    printRow('Residential Address', sub.data.address || 'Not provided', rowY);
+
+    // Section 2: Program & Guardian Details
+    rowY += 12;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(18, 50, 74);
+    doc.text('2. PROGRAM & GUARDIAN DETAILS', 15, rowY);
+    doc.line(15, rowY + 2, 195, rowY + 2);
+
+    rowY += 9;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(51, 65, 85);
+
+    const printRowDual = (l1, v1, l2, v2, y) => {
+      doc.setFont('Helvetica', 'bold');
+      doc.text(l1 + ':', leftColX, y);
+      doc.setFont('Helvetica', 'normal');
+      doc.text(String(v1 || '—'), leftColX + 38, y);
+
+      doc.setFont('Helvetica', 'bold');
+      doc.text(l2 + ':', rightColX, y);
+      doc.setFont('Helvetica', 'normal');
+      doc.text(String(v2 || '—'), rightColX + 32, y);
+    };
+
+    const cohortTitle = sub.cohort ? (sub.cohort.class?.name || sub.cohort.className || sub.cohort.name || 'Admission Intake') : '—';
+    const feeStr = sub.cohort ? money(sub.cohort.applicationFee) : '—';
+
+    printRowDual('Class / Option', cohortTitle, 'Application Fee', feeStr, rowY);
+    rowY += 6;
+    printRowDual('Guardian Email', sub.data.parentEmail || 'None', 'Guardian Phone', sub.data.parentPhone || 'None', rowY);
+    rowY += 6;
+    printRow('Previous School', sub.data.previousSchool || 'Not specified', rowY);
+
+    // Important Notice Footer Box
+    rowY += 16;
+    doc.setFillColor(254, 243, 199); // light amber
+    doc.setStrokeColor(252, 211, 77);
+    doc.roundedRect(15, rowY, 180, 26, 2, 2, 'FD');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(146, 64, 14); // dark amber
+    doc.text('IMPORTANT NOTICE:', 20, rowY + 6);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 53, 15);
+    doc.text('1. This slip is an ACKNOWLEDGEMENT OF REGISTRATION only and DOES NOT constitute an offer of admission.', 20, rowY + 12);
+    doc.text('2. Keep your Application Reference Number secure for all screening tests, interviews, and status checks.', 20, rowY + 17);
+    doc.text('3. Follow only official payment and screening instructions communicated directly by the school.', 20, rowY + 22);
+
+    // Bottom Footer
+    doc.setFont('Helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Generated electronically via ' + schoolName + ' Admissions Portal on ' + new Date().toLocaleString(), 105, 285, { align: 'center' });
+
+    // Save PDF
+    doc.save('Admission-Acknowledgement-' + sub.referenceNumber + '.pdf');
+  }
 
   // Form Submission
   $('admissionForm').addEventListener('submit', async event => {
@@ -1316,18 +1475,36 @@
       });
 
       const application = result.application || result.data || {};
-      $('applicationReference').textContent =
-        application.applicationNumber || application.referenceNumber || application._id || 'Submitted successfully';
+      const refNumber = application.applicationNumber || application.referenceNumber || application._id || 'SUB-' + Math.floor(100000 + Math.random() * 900000);
+      
+      $('applicationReference').textContent = refNumber;
+
+      state.lastSubmission = {
+        referenceNumber: refNumber,
+        data: payload,
+        cohort: cohort
+      };
 
       form.classList.add('hidden');
       $('wizardStepperHeader').classList.add('hidden');
       $('successPanel').classList.remove('hidden');
       $('apply').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Automatically trigger PDF download
+      setTimeout(() => {
+        generateAcknowledgementPDF();
+      }, 500);
+
     } catch (error) {
       showAlert(error.message || 'We could not submit your application. Please try again.');
       button.disabled = false;
       button.textContent = 'Submit application';
     }
+  });
+
+  // Manual Download PDF Button
+  $('downloadPdfBtn').addEventListener('click', () => {
+    generateAcknowledgementPDF();
   });
 
   // Copy Reference Number
@@ -1357,6 +1534,7 @@
     $('submitBtn').textContent = 'Submit application';
     state.currentStep = 1;
     state.maxReachedStep = 1;
+    state.lastSubmission = null;
     updateCohortMeta();
     updateStepperUI();
   });
