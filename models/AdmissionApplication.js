@@ -40,7 +40,7 @@ const AdmissionApplicationSchema = new mongoose.Schema({
   dateOfBirth: Date,
   gender: {
     type: String,
-    enum: ['Male', 'Female', 'Other'],
+    enum: ['male', 'female', 'other'],
     required: true
   },
   address: String,
