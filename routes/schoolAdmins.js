@@ -17,16 +17,24 @@ const adminAuth = require('../middleware/adminAuth');
 // SCHOOL / TENANT HELPERS
 // ============================================================
 
-function getSchoolId(req) {
+function getSchoolIdentifiers(req) {
   const user = req.user || {};
+  return [...new Set([
+    user.schoolId,
+    user.school?.schoolId,
+    user.school?._id
+  ].filter(Boolean).map(value => String(value).trim()))];
+}
 
-  const schoolId =
-    user.schoolId ||
-    user.school?.schoolId ||
-    user.school?._id ||
-    null;
+function getSchoolId(req) {
+  const identifiers = getSchoolIdentifiers(req);
+  // Academic records in this legacy module use the School MongoDB ObjectId.
+  return identifiers.find(value => mongoose.Types.ObjectId.isValid(value)) || identifiers[0] || null;
+}
 
-  return schoolId ? String(schoolId) : null;
+function schoolFilter(req, extra = {}) {
+  const identifiers = getSchoolIdentifiers(req);
+  return { ...extra, schoolId: { $in: identifiers } };
 }
 
 function requireSchool(req, res) {
@@ -151,7 +159,7 @@ router.get('/admission/setups', adminAuth, async (req, res) => {
     const schoolId = requireSchool(req, res);
     if (!schoolId) return;
 
-    const setups = await AdmissionSetup.find({ schoolId })
+    const setups = await AdmissionSetup.find(schoolFilter(req))
       .populate('session', 'name')
       .populate('classes', 'name')
       .populate('class', 'name')
@@ -159,10 +167,7 @@ router.get('/admission/setups', adminAuth, async (req, res) => {
       .lean();
 
     const withCounts = await Promise.all(setups.map(async setup => {
-      const cohortCount = await AdmissionCohort.countDocuments({
-        schoolId,
-        admissionSetupId: setup._id
-      });
+      const cohortCount = await AdmissionCohort.countDocuments(schoolFilter(req, { admissionSetupId: setup._id }));
       return { ...setup, cohortCount, linkedCohortCount: cohortCount };
     }));
 
@@ -180,7 +185,7 @@ router.put('/admission/setup/:id', adminAuth, async (req, res) => {
     if (!schoolId) return;
     const { id } = req.params;
     if (!isValidObjectId(id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
-    const board = await AdmissionSetup.findOne({ _id: id, schoolId });
+    const board = await AdmissionSetup.findOne(schoolFilter(req, { _id: id }));
     if (!board) return res.status(404).json({ error: 'Admission board not found.' });
     const { title, session, term, startDate, endDate, applicationFee } = req.body || {};
     const incomingClasses = Array.isArray(req.body.classes) ? req.body.classes : (req.body.classId || req.body.class ? [req.body.classId || req.body.class] : null);
@@ -189,7 +194,7 @@ router.put('/admission/setup/:id', adminAuth, async (req, res) => {
     if (incomingClasses !== null) {
       const classIds = [...new Set(incomingClasses.map(String))];
       if (!classIds.length || classIds.some(id => !isValidObjectId(id))) return res.status(400).json({ error: 'Select at least one valid eligible class.' });
-      const linked = await AdmissionCohort.find({ schoolId, admissionSetupId: board._id }).select('class').lean();
+      const linked = await AdmissionCohort.find(schoolFilter(req, { admissionSetupId: board._id })).select('class').lean();
       if (linked.some(c => !classIds.includes(String(c.class)))) return res.status(409).json({ error: 'A class used by an existing linked cohort cannot be removed from this board.' });
       board.classes = classIds;
       board.class = classIds[0];
@@ -206,10 +211,10 @@ router.put('/admission/setup/:id', adminAuth, async (req, res) => {
     if (endDate !== undefined) board.endDate = nextEnd;
     if (applicationFee !== undefined) board.applicationFee = fee;
     await board.save();
-    await AdmissionCohort.updateMany({ schoolId, admissionSetupId: board._id }, { $set: { session: board.session, term: board.term, startDate: board.startDate, endDate: board.endDate, applicationFee: board.applicationFee } });
+    await AdmissionCohort.updateMany(schoolFilter(req, { admissionSetupId: board._id }), { $set: { session: board.session, term: board.term, startDate: board.startDate, endDate: board.endDate, applicationFee: board.applicationFee } });
     await board.populate([{ path: 'session', select: 'name' }, { path: 'classes', select: 'name' }, { path: 'class', select: 'name' }]);
-    const cohortCount = await AdmissionCohort.countDocuments({ schoolId, admissionSetupId: board._id });
-    const applicationCount = await AdmissionApplication.countDocuments({ schoolId, admissionSetupId: board._id });
+    const cohortCount = await AdmissionCohort.countDocuments(schoolFilter(req, { admissionSetupId: board._id }));
+    const applicationCount = await AdmissionApplication.countDocuments(schoolFilter(req, { admissionSetupId: board._id }));
     return res.json({ message: 'Admission board updated successfully.', board, cohortCount, linkedCohortCount: cohortCount, applicationCount });
   } catch (error) {
     console.error('Update admission board error:', error);
@@ -224,7 +229,7 @@ router.patch('/admission/setup/:id/status', adminAuth, async (req, res) => {
     if (!schoolId) return;
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
     if (typeof req.body?.isActive !== 'boolean') return res.status(400).json({ error: 'isActive must be true or false.' });
-    const board = await AdmissionSetup.findOneAndUpdate({ _id: req.params.id, schoolId }, { $set: { isActive: req.body.isActive } }, { new: true, runValidators: true });
+    const board = await AdmissionSetup.findOneAndUpdate(schoolFilter(req, { _id: req.params.id }), { $set: { isActive: req.body.isActive } }, { new: true, runValidators: true });
     if (!board) return res.status(404).json({ error: 'Admission board not found.' });
     return res.json({ message: `Admission board ${board.isActive ? 'activated' : 'deactivated'} successfully.`, board });
   } catch (error) {
@@ -238,13 +243,13 @@ router.delete('/admission/setup/:id', adminAuth, async (req, res) => {
     const schoolId = requireSchool(req, res);
     if (!schoolId) return;
     if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
-    const board = await AdmissionSetup.findOne({ _id: req.params.id, schoolId });
+    const board = await AdmissionSetup.findOne(schoolFilter(req, { _id: req.params.id }));
     if (!board) return res.status(404).json({ error: 'Admission board not found.' });
-    const cohorts = await AdmissionCohort.find({ schoolId, admissionSetupId: board._id }).select('_id').lean();
+    const cohorts = await AdmissionCohort.find(schoolFilter(req, { admissionSetupId: board._id })).select('_id').lean();
     const cohortIds = cohorts.map(c => c._id);
-    const applications = await AdmissionApplication.countDocuments({ schoolId, $or: [{ admissionSetupId: board._id }, ...(cohortIds.length ? [{ cohort: { $in: cohortIds } }] : [])] });
+    const applications = await AdmissionApplication.countDocuments(schoolFilter(req, { $or: [{ admissionSetupId: board._id }, ...(cohortIds.length ? [{ cohort: { $in: cohortIds } }] : [])] }));
     if (cohorts.length || applications) return res.status(409).json({ error: 'This board has linked cohorts or applications and cannot be deleted.', cohortCount: cohorts.length, applicationCount: applications });
-    await AdmissionSetup.deleteOne({ _id: board._id, schoolId });
+    await AdmissionSetup.deleteOne(schoolFilter(req, { _id: board._id }));
     return res.json({ message: 'Admission board deleted successfully.' });
   } catch (error) {
     return res.status(500).json({ error: 'Unable to delete admission board.', details: error.message });
@@ -261,7 +266,7 @@ router.get('/admission/applications', adminAuth, async (req, res) => {
     const schoolId = requireSchool(req, res);
     if (!schoolId) return;
 
-    const applications = await AdmissionApplication.find({ schoolId })
+    const applications = await AdmissionApplication.find(schoolFilter(req))
       .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name')
@@ -299,10 +304,7 @@ router.get('/admission/application/:id', adminAuth, async (req, res) => {
       });
     }
 
-    const app = await AdmissionApplication.findOne({
-      _id: id,
-      schoolId
-    })
+    const app = await AdmissionApplication.findOne(schoolFilter(req, { _id: id }))
       .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name')
@@ -357,10 +359,7 @@ router.put('/admission/application/:id', adminAuth, async (req, res) => {
     }
 
     const updated = await AdmissionApplication.findOneAndUpdate(
-      {
-        _id: id,
-        schoolId
-      },
+      schoolFilter(req, { _id: id }),
       {
         $set: { status }
       },
