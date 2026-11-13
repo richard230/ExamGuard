@@ -99,6 +99,16 @@ function schoolFilter(schoolId, extra = {}) {
   return { ...extra, schoolId };
 }
 
+async function getBoardUsage(schoolId, boardId) {
+  const cohorts = await AdmissionCohort.find(schoolFilter(schoolId, { admissionSetupId: boardId })).select('_id').lean();
+  const cohortIds = cohorts.map(item => item._id);
+  const [directApplications, cohortApplications] = await Promise.all([
+    AdmissionApplication.countDocuments(schoolFilter(schoolId, { admissionSetupId: boardId })),
+    cohortIds.length ? AdmissionApplication.countDocuments({ schoolId, cohort: { $in: cohortIds } }) : 0
+  ]);
+  return { cohortCount: cohorts.length, applicationCount: Math.max(directApplications, cohortApplications) };
+}
+
 function idOf(value) {
   return value && typeof value === 'object' ? String(value._id || value.id || '') : String(value || '');
 }
@@ -453,6 +463,7 @@ router.get('/applications', authMiddleware, adminAuth, async (req, res) => {
     res.json(applications.map(application => {
       const item = application.toObject();
       item.admissionSetup = item.admissionSetupId || item.cohort?.admissionSetupId || null;
+      item.admissionSetupId = item.admissionSetupId || item.cohort?.admissionSetupId?._id || item.cohort?.admissionSetupId || null;
       item.sessionName = item.session?.name || '';
       item.className = item.class?.name || '';
       item.armName = item.arm?.name || item.arm?.armName || '';
@@ -484,6 +495,7 @@ router.get('/application/:id', authMiddleware, adminAuth, async (req, res) => {
 
     const item = application.toObject();
     item.admissionSetup = item.admissionSetupId || item.cohort?.admissionSetupId || null;
+    item.admissionSetupId = item.admissionSetupId || item.cohort?.admissionSetupId?._id || item.cohort?.admissionSetupId || null;
     item.sessionName = item.session?.name || '';
     item.className = item.class?.name || '';
     item.armName = item.arm?.name || item.arm?.armName || '';
@@ -700,7 +712,7 @@ router.get('/setups', authMiddleware, adminAuth, async (req, res) => {
       .sort({ createdAt: -1 });
     const results = await Promise.all(setups.map(async setup => ({
       ...setup.toObject(),
-      cohortCount: await AdmissionCohort.countDocuments(schoolFilter(schoolId, { admissionSetupId: setup._id }))
+      ...(await getBoardUsage(schoolId, setup._id))
     })));
     res.json(results);
   } catch (error) {
@@ -717,9 +729,107 @@ router.get('/setup/:id', authMiddleware, adminAuth, async (req, res) => {
     const setup = await AdmissionSetup.findOne(schoolFilter(schoolId, { _id: req.params.id }))
       .populate('session', 'name').populate('classes', 'name').populate('class', 'name');
     if (!setup) return res.status(404).json({ error: 'Admission board not found.' });
-    const cohortCount = await AdmissionCohort.countDocuments(schoolFilter(schoolId, { admissionSetupId: setup._id }));
-    res.json({ ...setup.toObject(), cohortCount });
+    const usage = await getBoardUsage(schoolId, setup._id);
+    res.json({ ...setup.toObject(), ...usage });
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// UPDATE an admission board. Linked cohorts inherit the updated board settings.
+router.put('/setup/:id', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
+
+    const board = await AdmissionSetup.findOne(schoolFilter(schoolId, { _id: req.params.id }));
+    if (!board) return res.status(404).json({ error: 'Admission board not found.' });
+
+    const { title, session, term, startDate, endDate, applicationFee } = req.body || {};
+    const requestedClasses = Array.isArray(req.body.classes)
+      ? req.body.classes
+      : (req.body.classId || req.body.class ? [req.body.classId || req.body.class] : null);
+
+    if (session !== undefined && !mongoose.Types.ObjectId.isValid(session)) return res.status(400).json({ error: 'Invalid session selected.' });
+    if (term !== undefined && !['First Term', 'Second Term', 'Third Term'].includes(term)) return res.status(400).json({ error: 'Invalid term selected.' });
+
+    let classIds = null;
+    if (requestedClasses !== null) {
+      classIds = [...new Set(requestedClasses.map(String))];
+      if (!classIds.length || classIds.some(id => !mongoose.Types.ObjectId.isValid(id))) return res.status(400).json({ error: 'Select at least one valid eligible class.' });
+      const existingCohorts = await AdmissionCohort.find(schoolFilter(schoolId, { admissionSetupId: board._id })).select('class').lean();
+      const removedInUse = existingCohorts.some(cohort => !classIds.includes(String(cohort.class)));
+      if (removedInUse) return res.status(409).json({ error: 'You cannot remove a class that already has a linked cohort. Reassign or remove that cohort first.' });
+    }
+
+    const nextStart = startDate !== undefined ? new Date(startDate) : new Date(board.startDate);
+    const nextEnd = endDate !== undefined ? new Date(endDate) : new Date(board.endDate);
+    if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime()) || nextEnd < nextStart) return res.status(400).json({ error: 'Please provide valid admission dates. End date cannot be earlier than start date.' });
+    const fee = applicationFee === undefined ? Number(board.applicationFee || 0) : Number(applicationFee);
+    if (!Number.isFinite(fee) || fee < 0) return res.status(400).json({ error: 'Application fee must be a valid non-negative amount.' });
+
+    if (title !== undefined) board.title = String(title).trim() || 'Admission Board';
+    if (session !== undefined) board.session = session;
+    if (term !== undefined) board.term = term;
+    if (classIds) { board.classes = classIds; board.class = classIds[0]; }
+    if (startDate !== undefined) board.startDate = nextStart;
+    if (endDate !== undefined) board.endDate = nextEnd;
+    if (applicationFee !== undefined) board.applicationFee = fee;
+    await board.save();
+
+    await AdmissionCohort.updateMany(schoolFilter(schoolId, { admissionSetupId: board._id }), {
+      $set: { session: board.session, term: board.term, startDate: board.startDate, endDate: board.endDate, applicationFee: board.applicationFee }
+    });
+
+    await board.populate('session', 'name');
+    await board.populate('classes', 'name');
+    await board.populate('class', 'name');
+    const usage = await getBoardUsage(schoolId, board._id);
+    return res.json({ message: 'Admission board updated successfully.', ...board.toObject(), ...usage });
+  } catch (error) {
+    console.error('Update admission board error:', error);
+    return res.status(500).json({ error: error.message || 'Unable to update admission board.' });
+  }
+});
+
+// ACTIVATE / DEACTIVATE an admission board.
+router.patch('/setup/:id/status', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
+    if (typeof req.body?.isActive !== 'boolean') return res.status(400).json({ error: 'isActive must be true or false.' });
+    const board = await AdmissionSetup.findOneAndUpdate(
+      schoolFilter(schoolId, { _id: req.params.id }),
+      { $set: { isActive: req.body.isActive } },
+      { new: true, runValidators: true }
+    ).populate('session', 'name').populate('classes', 'name').populate('class', 'name');
+    if (!board) return res.status(404).json({ error: 'Admission board not found.' });
+    return res.json({ message: `Admission board ${board.isActive ? 'activated' : 'deactivated'} successfully.`, board });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Unable to update admission board status.' });
+  }
+});
+
+// DELETE a board only when it has no linked cohorts or applications.
+router.delete('/setup/:id', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+    const schoolId = String(school.schoolId || school._id);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
+    const board = await AdmissionSetup.findOne(schoolFilter(schoolId, { _id: req.params.id }));
+    if (!board) return res.status(404).json({ error: 'Admission board not found.' });
+    const usage = await getBoardUsage(schoolId, board._id);
+    if (usage.cohortCount > 0 || usage.applicationCount > 0) {
+      return res.status(409).json({ error: 'This admission board cannot be deleted because it has linked cohorts or applications.', ...usage });
+    }
+    await AdmissionSetup.deleteOne(schoolFilter(schoolId, { _id: board._id }));
+    return res.json({ message: 'Admission board deleted successfully.' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Unable to delete admission board.' });
+  }
 });
 
 // ==================== STATISTICS ENDPOINTS ====================
