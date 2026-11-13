@@ -173,6 +173,84 @@ router.get('/admission/setups', adminAuth, async (req, res) => {
   }
 });
 
+// Update an admission board and synchronize settings to its linked cohorts.
+router.put('/admission/setup/:id', adminAuth, async (req, res) => {
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+    const { id } = req.params;
+    if (!isValidObjectId(id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
+    const board = await AdmissionSetup.findOne({ _id: id, schoolId });
+    if (!board) return res.status(404).json({ error: 'Admission board not found.' });
+    const { title, session, term, startDate, endDate, applicationFee } = req.body || {};
+    const incomingClasses = Array.isArray(req.body.classes) ? req.body.classes : (req.body.classId || req.body.class ? [req.body.classId || req.body.class] : null);
+    if (session !== undefined && !isValidObjectId(session)) return res.status(400).json({ error: 'Invalid session selected.' });
+    if (term !== undefined && !VALID_TERMS.includes(term)) return res.status(400).json({ error: 'Invalid term selected.' });
+    if (incomingClasses !== null) {
+      const classIds = [...new Set(incomingClasses.map(String))];
+      if (!classIds.length || classIds.some(id => !isValidObjectId(id))) return res.status(400).json({ error: 'Select at least one valid eligible class.' });
+      const linked = await AdmissionCohort.find({ schoolId, admissionSetupId: board._id }).select('class').lean();
+      if (linked.some(c => !classIds.includes(String(c.class)))) return res.status(409).json({ error: 'A class used by an existing linked cohort cannot be removed from this board.' });
+      board.classes = classIds;
+      board.class = classIds[0];
+    }
+    const nextStart = startDate !== undefined ? new Date(startDate) : new Date(board.startDate);
+    const nextEnd = endDate !== undefined ? new Date(endDate) : new Date(board.endDate);
+    if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime()) || nextEnd < nextStart) return res.status(400).json({ error: 'Invalid admission dates.' });
+    const fee = applicationFee === undefined ? Number(board.applicationFee || 0) : Number(applicationFee);
+    if (!Number.isFinite(fee) || fee < 0) return res.status(400).json({ error: 'Application fee must be non-negative.' });
+    if (title !== undefined) board.title = String(title).trim() || 'Admission Board';
+    if (session !== undefined) board.session = session;
+    if (term !== undefined) board.term = term;
+    if (startDate !== undefined) board.startDate = nextStart;
+    if (endDate !== undefined) board.endDate = nextEnd;
+    if (applicationFee !== undefined) board.applicationFee = fee;
+    await board.save();
+    await AdmissionCohort.updateMany({ schoolId, admissionSetupId: board._id }, { $set: { session: board.session, term: board.term, startDate: board.startDate, endDate: board.endDate, applicationFee: board.applicationFee } });
+    await board.populate([{ path: 'session', select: 'name' }, { path: 'classes', select: 'name' }, { path: 'class', select: 'name' }]);
+    const cohortCount = await AdmissionCohort.countDocuments({ schoolId, admissionSetupId: board._id });
+    const applicationCount = await AdmissionApplication.countDocuments({ schoolId, admissionSetupId: board._id });
+    return res.json({ message: 'Admission board updated successfully.', board, cohortCount, linkedCohortCount: cohortCount, applicationCount });
+  } catch (error) {
+    console.error('Update admission board error:', error);
+    return res.status(500).json({ error: 'Unable to update admission board.', details: error.message });
+  }
+});
+
+// Activate or deactivate an admission board.
+router.patch('/admission/setup/:id/status', adminAuth, async (req, res) => {
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
+    if (typeof req.body?.isActive !== 'boolean') return res.status(400).json({ error: 'isActive must be true or false.' });
+    const board = await AdmissionSetup.findOneAndUpdate({ _id: req.params.id, schoolId }, { $set: { isActive: req.body.isActive } }, { new: true, runValidators: true });
+    if (!board) return res.status(404).json({ error: 'Admission board not found.' });
+    return res.json({ message: `Admission board ${board.isActive ? 'activated' : 'deactivated'} successfully.`, board });
+  } catch (error) {
+    return res.status(500).json({ error: 'Unable to update admission board status.', details: error.message });
+  }
+});
+
+// Delete is blocked whenever a board has linked cohorts or applications.
+router.delete('/admission/setup/:id', adminAuth, async (req, res) => {
+  try {
+    const schoolId = requireSchool(req, res);
+    if (!schoolId) return;
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid admission board ID.' });
+    const board = await AdmissionSetup.findOne({ _id: req.params.id, schoolId });
+    if (!board) return res.status(404).json({ error: 'Admission board not found.' });
+    const cohorts = await AdmissionCohort.find({ schoolId, admissionSetupId: board._id }).select('_id').lean();
+    const cohortIds = cohorts.map(c => c._id);
+    const applications = await AdmissionApplication.countDocuments({ schoolId, $or: [{ admissionSetupId: board._id }, ...(cohortIds.length ? [{ cohort: { $in: cohortIds } }] : [])] });
+    if (cohorts.length || applications) return res.status(409).json({ error: 'This board has linked cohorts or applications and cannot be deleted.', cohortCount: cohorts.length, applicationCount: applications });
+    await AdmissionSetup.deleteOne({ _id: board._id, schoolId });
+    return res.json({ message: 'Admission board deleted successfully.' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Unable to delete admission board.', details: error.message });
+  }
+});
+
 // ============================================================
 // ADMISSION APPLICATIONS
 // ============================================================
