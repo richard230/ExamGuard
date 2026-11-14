@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const adminAuth = require('../middleware/adminAuth');
 const { authMiddleware } = require('./auth');
@@ -9,6 +10,7 @@ const ExamSchedule = require('../models/ExamSchedule');
 const ExamMode = require('../models/ExamMode');
 const CBTMock = require('../models/CBTMock');
 const CBTMockResult = require('../models/CBTMockResult');
+const Student = require('../models/Student');
 const Result = require('../models/Result');
 const Staff = require('../models/Staff');
 const Subject = require('../models/Subject');
@@ -476,11 +478,19 @@ router.post('/cbt/mocks', authMiddleware, adminAuth, async (req, res) => {
 router.get('/results/cbt-mocks', authMiddleware, adminAuth, async (req, res) => {
   const schoolId = requireSchoolId(req, res);
   if (!schoolId) return;
-  const { sessionId, classId, type } = req.query;
+  const { sessionId, classId, type, studentId } = req.query;
   let filter = {};
   if (sessionId) filter.session = sessionId;
   if (classId) filter.class = classId;
   if (type) filter.type = type;
+  if (studentId) {
+    if (!mongoose.Types.ObjectId.isValid(String(studentId))) {
+      return res.status(400).json({ error: 'Invalid student identifier.' });
+    }
+    const student = await Student.findOne({ _id: studentId, schoolId }).select('_id');
+    if (!student) return res.status(404).json({ error: 'Student not found in this school.' });
+    filter.student = student._id;
+  }
   const results = await CBTMockResult.find({ ...filter, schoolId })
     .populate('student class exam mock')
     .sort('-date');
