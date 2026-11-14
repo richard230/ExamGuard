@@ -190,14 +190,6 @@ router.get('/arms', authMiddleware, adminAuth, async (req, res) => {
 
 
 
-// ==================== MULTI-SCHOOL / TENANT SCOPE ====================
-// Every authenticated admin endpoint resolves the current school first.
-// All cohort, application, setup and statistics queries are then restricted
-// to that school. Public applications inherit their school from the cohort.
-
-// PUBLIC: list active admission cohorts for the school currently being viewed.
-// This endpoint exposes only the minimum information needed by the public
-// admissions page. It never accepts a tenant identifier from the request body.
 router.get('/public/:schoolId/cohorts', async (req, res) => {
   try {
     const requestedSchoolId = String(req.params.schoolId || '').trim();
