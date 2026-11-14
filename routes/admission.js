@@ -924,7 +924,7 @@ router.post('/application/:id/enroll', authMiddleware, adminAuth, async (req, re
       genotype: String(body.genotype || '').trim(),
       medical: String(body.medical || '').trim(),
       password: hashedPassword,
-      accountStatus: 'active'
+      accountStatus: 'inactive'
     });
 
     await student.save();
