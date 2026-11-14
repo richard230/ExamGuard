@@ -456,12 +456,18 @@ router.get('/', authMiddleware, async (req, res) => {
 
     res.json({
       students: students.map(d => ({
+        _id: d._id,
         student_id: d.student_id,
         surname: d.surname,
         firstname: d.firstname,
         othernames: d.othernames || '',
         regNo: d.regNo,
         accountStatus: d.accountStatus || 'active',
+        subscriptionStatus: d.subscriptionStatus || '',
+        subscriptionStartDate: d.subscriptionStartDate || null,
+        subscriptionEndDate: d.subscriptionEndDate || null,
+        createdAt: d.createdAt || null,
+        updatedAt: d.updatedAt || null,
         scratchCard: d.scratchCard,
         scratchCardUsage: Number(d.scratchCardUsage || 0),
         scratchCardHistory: Array.isArray(d.scratchCardHistory) ? d.scratchCardHistory : [],
@@ -477,12 +483,29 @@ router.get('/', authMiddleware, async (req, res) => {
         parentOccupation: d.parentOccupation,
         studentEmail: d.studentEmail,
         studentPhone: d.studentPhone,
-        nationality: d.nationality,
-        state: d.state,
-        lga: d.lga,
-        previousSchool: d.previousSchool,
-        admissionDate: d.admissionDate,
-        academicSession: d.academicSession,
+        nationality: d.nationality || '',
+        state: d.state || '',
+        lga: d.lga || '',
+        address: d.address || '',
+        previousSchool: d.previousSchool || '',
+        admissionDate: d.admissionDate || null,
+        academicSession: d.academicSession || '',
+        parentRelationship: d.parentRelationship || '',
+        parentAddress: d.parentAddress || '',
+        parentOccupation: d.parentOccupation || '',
+        religion: d.religion || '',
+        bloodGroup: d.bloodGroup || '',
+        genotype: d.genotype || '',
+        medical: d.medical || '',
+        scratchCardAssignedAt: d.scratchCardAssignedAt || null,
+        skillsReports: Array.isArray(d.skillsReports) ? d.skillsReports : [],
+        academic: Array.isArray(d.academic) ? d.academic : [],
+        attendance: Array.isArray(d.attendance) ? d.attendance : [],
+        guardians: Array.isArray(d.guardians) ? d.guardians : [],
+        hostel: d.hostel || {},
+        transport: d.transport || {},
+        fees: Array.isArray(d.fees) ? d.fees : [],
+        docs: Array.isArray(d.docs) ? d.docs.map(({ base64, ...doc }) => doc) : [],
         photoBase64: d.photoBase64 || '',
       })),
       lastVisible: students.length ? students[students.length - 1].surname : null
@@ -709,6 +732,30 @@ router.put('/me', studentAuthMiddleware, upload.single('photo'), async (req, res
   }
 });
 
+// --- Administrator password reset (school-scoped; never returns credentials) ---
+router.patch('/:studentId/password', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const schoolId = getSchoolId(req);
+    if (!schoolId) return res.status(403).json({ success: false, error: 'Your account is not assigned to a school.' });
+    const password = String(req.body?.password || '');
+    if (password.length < 8 || password.length > 128) {
+      return res.status(400).json({ success: false, error: 'Password must be between 8 and 128 characters.' });
+    }
+    const studentId = String(req.params.studentId || '');
+    const lookup = [{ student_id: studentId }, { regNo: studentId }];
+    if (mongoose.Types.ObjectId.isValid(studentId)) lookup.push({ _id: new mongoose.Types.ObjectId(studentId) });
+    const student = await Student.findOne({ schoolId, $or: lookup });
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found in this school.' });
+    student.password = await bcrypt.hash(password, 12);
+    student.updatedAt = new Date();
+    await student.save();
+    return res.json({ success: true, message: 'Student password reset successfully.' });
+  } catch (err) {
+    console.error('[ADMIN STUDENT PASSWORD RESET ERROR]', err);
+    return res.status(500).json({ success: false, error: 'Unable to reset student password.' });
+  }
+});
+
 // --- Change password (student only) ---
 router.post('/change-password', studentAuthMiddleware, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
@@ -868,7 +915,7 @@ router.post('/:regNo/fees', adminAuth, async (req, res) => {
 });
 
 // Add or update skills & reports for a student (admin only)
-router.post('/:regNo/skills-report', async (req, res) => {
+router.post('/:regNo/skills-report', authMiddleware, adminAuth, async (req, res) => {
   try {
     const regNo = req.params.regNo;
     const { session, term, skills, attendance, comment } = req.body;
@@ -876,8 +923,10 @@ router.post('/:regNo/skills-report', async (req, res) => {
       return res.status(400).json({ error: 'session, term, and skills are required.' });
     }
 
-    const student = await Student.findOne({ regNo });
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    const schoolId = getSchoolId(req);
+    if (!schoolId) return res.status(403).json({ error: 'Your account is not assigned to a school.' });
+    const student = await Student.findOne({ regNo, schoolId });
+    if (!student) return res.status(404).json({ error: 'Student not found in this school.' });
 
     const reportEntry = {
       session,
@@ -893,7 +942,7 @@ router.post('/:regNo/skills-report', async (req, res) => {
     if (idx >= 0) skillsReports[idx] = reportEntry;
     else skillsReports.push(reportEntry);
 
-    await Student.updateOne({ regNo }, { $set: { skillsReports, updatedAt: new Date() } });
+    await Student.updateOne({ _id: student._id, schoolId }, { $set: { skillsReports, updatedAt: new Date() } });
 
     res.json({ message: 'Skills report saved!', skillsReports });
   } catch (err) {
@@ -902,11 +951,13 @@ router.post('/:regNo/skills-report', async (req, res) => {
 });
 
 // Get all skills & reports for a student (admin or student)
-router.get('/:regNo/skills-report', async (req, res) => {
+router.get('/:regNo/skills-report', authMiddleware, adminAuth, async (req, res) => {
   try {
     const regNo = req.params.regNo;
-    const student = await Student.findOne({ regNo });
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    const schoolId = getSchoolId(req);
+    if (!schoolId) return res.status(403).json({ error: 'Your account is not assigned to a school.' });
+    const student = await Student.findOne({ regNo, schoolId });
+    if (!student) return res.status(404).json({ error: 'Student not found in this school.' });
 
     res.json({ skillsReports: student.skillsReports || [] });
   } catch (err) {
@@ -1147,7 +1198,11 @@ router.delete('/:studentId', authMiddleware, adminAuth, async (req, res) => {
 
     const student = await Student.findOne({
       schoolId,
-      $or: [{ student_id: studentId }, { regNo: studentId }]
+      $or: [
+        { student_id: studentId },
+        { regNo: studentId },
+        ...(mongoose.Types.ObjectId.isValid(String(studentId)) ? [{ _id: new mongoose.Types.ObjectId(studentId) }] : [])
+      ]
     });
 
     if (!student) {
