@@ -70,6 +70,15 @@ const AdmissionApplicationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student',
+    default: null
+  },
+  enrolledAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
