@@ -10,6 +10,9 @@ const AdmissionSetup = require('../models/AdmissionSetup');
 const Session = require('../models/Session');
 const Class = require('../models/Class');
 const Arm = require('../models/Arm');
+const Student = require('../models/Student');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 /**
  * Resolve the current authenticated school.
@@ -766,6 +769,203 @@ router.put('/application/:id', authMiddleware, adminAuth, async (req, res) => {
     res.json({ message: `Application ${status}`, application });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ENROLL an applicant: create a real student account without changing the
+// existing Approve/Reject status endpoint or its behaviour.
+router.post('/application/:id/enroll', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireSchool(req, res);
+    if (!school) return;
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid application ID.' });
+    }
+
+    const application = await AdmissionApplication.findOne(
+      schoolFilter(school, { _id: req.params.id })
+    );
+    if (!application) {
+      return res.status(404).json({ success: false, error: 'Application not found.' });
+    }
+
+    if (application.status === 'Rejected') {
+      return res.status(400).json({ success: false, error: 'A rejected applicant cannot be enrolled.' });
+    }
+
+    // Reconcile a previous successful student creation if the request was retried.
+    const existingStudent = await Student.findOne({
+      schoolId: school._id,
+      admissionApplicationId: application._id
+    });
+    if (existingStudent) {
+      if (application.status !== 'Enrolled') {
+        application.status = 'Enrolled';
+        application.studentId = existingStudent._id;
+        application.enrolledAt = application.enrolledAt || new Date();
+        application.dateReviewed = new Date();
+        application.reviewedBy = req.user._id;
+        await application.save();
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'This applicant has already been enrolled.',
+        alreadyEnrolled: true,
+        student: {
+          _id: existingStudent._id,
+          student_id: existingStudent.student_id,
+          regNo: existingStudent.regNo,
+          surname: existingStudent.surname,
+          firstname: existingStudent.firstname
+        }
+      });
+    }
+
+    if (application.status === 'Enrolled') {
+      return res.status(409).json({
+        success: false,
+        error: 'This application is marked as enrolled, but its student account could not be found. Please verify the student records before retrying.'
+      });
+    }
+
+    const body = req.body || {};
+    const requiredFields = [
+      'surname', 'firstname', 'dob', 'gender',
+      'parentName', 'parentRelationship', 'parentPhone'
+    ];
+    const missing = requiredFields.filter(field => !String(body[field] || '').trim());
+    if (missing.length) {
+      return res.status(400).json({
+        success: false,
+        error: `The following student details are required: ${missing.join(', ')}.`
+      });
+    }
+
+    const gender = String(body.gender).trim().toLowerCase();
+    if (!['male', 'female', 'other'].includes(gender)) {
+      return res.status(400).json({ success: false, error: 'Please provide a valid gender.' });
+    }
+
+    const dob = new Date(body.dob);
+    if (Number.isNaN(dob.getTime()) || dob > new Date()) {
+      return res.status(400).json({ success: false, error: 'Please provide a valid date of birth.' });
+    }
+
+    const cohort = await AdmissionCohort.findOne(
+      schoolFilter(school, { _id: application.cohort })
+    );
+    if (!cohort) {
+      return res.status(400).json({ success: false, error: 'The applicant cohort could not be found for this school.' });
+    }
+
+    const [classDoc, armDoc, sessionDoc] = await Promise.all([
+      Class.findOne(schoolFilter(school, { _id: cohort.class })).select('name className').lean(),
+      cohort.arm ? Arm.findOne(schoolFilter(school, { _id: cohort.arm })).select('name armName').lean() : Promise.resolve(null),
+      Session.findOne(schoolFilter(school, { _id: cohort.session })).select('name').lean()
+    ]);
+
+    if (!classDoc) {
+      return res.status(400).json({ success: false, error: 'The cohort class could not be found.' });
+    }
+
+    const makeCode = (prefix, bytes = 4) =>
+      `${prefix}${crypto.randomBytes(bytes).toString('hex').toUpperCase()}`;
+
+    // Retry generated identifiers against the existing per-school unique indexes.
+    let studentId, regNo, scratchCard, identifiersAvailable = false;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      studentId = makeCode('STU-', 4);
+      regNo = makeCode('REG-', 4);
+      scratchCard = makeCode('SCR-', 6);
+      const duplicate = await Student.findOne({
+        schoolId: school._id,
+        $or: [{ student_id: studentId }, { regNo }, { scratchCard }]
+      }).select('_id').lean();
+      if (!duplicate) {
+        identifiersAvailable = true;
+        break;
+      }
+    }
+    if (!identifiersAvailable) {
+      return res.status(500).json({ success: false, error: 'Unable to generate unique student credentials. Please try again.' });
+    }
+
+    const initialPassword = makeCode('', 8);
+    const hashedPassword = await bcrypt.hash(initialPassword, 12);
+
+    const student = new Student({
+      schoolId: school._id,
+      admissionApplicationId: application._id,
+      student_id: studentId,
+      surname: String(body.surname).trim(),
+      firstname: String(body.firstname).trim(),
+      othernames: String(body.othernames || '').trim(),
+      dob: dob.toISOString().slice(0, 10),
+      gender,
+      nationality: String(body.nationality || '').trim(),
+      state: String(body.state || '').trim(),
+      lga: String(body.lga || '').trim(),
+      address: String(body.address || application.address || '').trim(),
+      photoBase64: String(body.photoBase64 || application.photoUrl || '').trim(),
+      regNo,
+      scratchCard,
+      class: String(classDoc.name || classDoc.className || cohort.class),
+      classArm: armDoc ? String(armDoc.name || armDoc.armName || '') : '',
+      previousSchool: String(body.previousSchool || application.previousSchool || '').trim(),
+      admissionDate: new Date(),
+      academicSession: String(sessionDoc?.name || cohort.session || ''),
+      parentName: String(body.parentName).trim(),
+      parentRelationship: String(body.parentRelationship).trim(),
+      parentPhone: String(body.parentPhone).trim(),
+      parentEmail: String(body.parentEmail || application.parentEmail || '').trim(),
+      parentAddress: String(body.parentAddress || body.address || application.address || '').trim(),
+      parentOccupation: String(body.parentOccupation || '').trim(),
+      studentEmail: String(body.studentEmail || application.email || '').trim().toLowerCase(),
+      studentPhone: String(body.studentPhone || application.phone || '').trim(),
+      religion: String(body.religion || '').trim(),
+      bloodGroup: String(body.bloodGroup || '').trim(),
+      genotype: String(body.genotype || '').trim(),
+      medical: String(body.medical || '').trim(),
+      password: hashedPassword,
+      accountStatus: 'active'
+    });
+
+    await student.save();
+
+    application.status = 'Enrolled';
+    application.studentId = student._id;
+    application.enrolledAt = new Date();
+    application.dateReviewed = new Date();
+    application.reviewedBy = req.user._id;
+    await application.save();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Applicant successfully enrolled and student account created.',
+      student: {
+        _id: student._id,
+        student_id: student.student_id,
+        regNo: student.regNo,
+        scratchCard: student.scratchCard,
+        surname: student.surname,
+        firstname: student.firstname,
+        class: student.class,
+        academicSession: student.academicSession
+      },
+      credentials: {
+        student_id: student.student_id,
+        regNo: student.regNo,
+        initialPassword
+      }
+    });
+  } catch (error) {
+    console.error('Applicant enrollment error:', error);
+    if (error && error.code === 11000) {
+      return res.status(409).json({ success: false, error: 'A student record with one of the generated identifiers already exists. Please try enrolling again.' });
+    }
+    return res.status(500).json({ success: false, error: error.message || 'Unable to enroll applicant.' });
   }
 });
 
