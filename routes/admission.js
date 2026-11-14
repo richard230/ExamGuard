@@ -855,7 +855,10 @@ router.post('/application/:id/enroll', authMiddleware, adminAuth, async (req, re
     const [classDoc, armDoc, sessionDoc] = await Promise.all([
       Class.findOne({ _id: cohort.class, schoolId: school._id }).select('name className').lean(),
       cohort.arm ? Arm.findOne(schoolFilter(school, { _id: cohort.arm })).select('name armName').lean() : Promise.resolve(null),
-      Session.findOne(schoolFilter(school, { _id: cohort.session })).select('name').lean()
+      Session.findOne({
+  _id: cohort.session,
+  schoolId: school._id
+}).select('name').lean()
     ]);
 
     if (!classDoc) {
