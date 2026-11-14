@@ -248,6 +248,7 @@ scratchCardHistory: [{
       ref: 'Parent',
       default: null
     },
+    admissionApplicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdmissionApplication', default: null, index: true },
 
     // Subdocument Collections
     academic: [academicSchema],
@@ -277,5 +278,6 @@ StudentSchema.index({ schoolId: 1, scratchCard: 1 }, { unique: true });
 StudentSchema.index({ schoolId: 1, class: 1 });
 StudentSchema.index({ schoolId: 1, academicSession: 1 });
 StudentSchema.index({ schoolId: 1, parentId: 1 });
+StudentSchema.index({ schoolId: 1, admissionApplicationId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Student', StudentSchema);
