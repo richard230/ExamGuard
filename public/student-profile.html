@@ -569,6 +569,23 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .profile-dashboard{max-width:1200px;margin:22px auto 0;display:grid;gap:18px}
+        .summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+        .summary-card,.panel-card{background:#fff;border:1px solid #e8edf5;border-radius:15px;padding:18px;box-shadow:0 5px 20px rgba(15,35,75,.045)}
+        .summary-card .label{font-size:.78rem;color:#718096;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+        .summary-card .value{font-size:1.25rem;font-weight:800;margin-top:8px;color:#10234a;overflow-wrap:anywhere}
+        .summary-card .hint{font-size:.8rem;color:#8a96a8;margin-top:5px}
+        .panel-card h3{margin:0;color:#14264b;font-size:1.02rem}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+        .panel-subtitle{color:#77849a;font-size:.85rem;margin:5px 0 0}.status-pill{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-size:.76rem;font-weight:800;background:#edf2f7;color:#475569;text-transform:capitalize}
+        .status-pill.active{background:#dcfce7;color:#166534}.status-pill.inactive{background:#fee2e2;color:#991b1b}
+        .action-row{display:flex;gap:9px;flex-wrap:wrap}.action-btn{border:0;border-radius:9px;padding:10px 13px;font-weight:750;cursor:pointer;background:#eaf1ff;color:#1d4ed8}.action-btn.danger{background:#fee2e2;color:#991b1b}.action-btn.success{background:#dcfce7;color:#166534}.action-btn:disabled{opacity:.55;cursor:not-allowed}
+        .report-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.report-controls label{display:block;font-size:.8rem;font-weight:700;color:#53627a;margin-bottom:5px}.report-controls select{width:100%;padding:10px;border:1px solid #dbe3ef;border-radius:9px;background:#fff;color:#1e293b}
+        .report-output{margin-top:16px}.empty-state{padding:22px;border:1px dashed #d7e0ed;border-radius:12px;text-align:center;color:#7b8798;font-size:.9rem}.report-table{width:100%;border-collapse:collapse;font-size:.87rem}.report-table th,.report-table td{text-align:left;padding:11px 9px;border-bottom:1px solid #edf1f6}.report-table th{color:#64748b;background:#f8fafc;font-size:.75rem;text-transform:uppercase}.report-table-wrap{overflow-x:auto}.report-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.report-meta div{background:#f7f9fc;border-radius:10px;padding:11px}.report-meta small{display:block;color:#718096;font-size:.73rem}.report-meta strong{display:block;margin-top:4px;color:#1e293b}
+        .activity-list{display:grid;gap:9px}.activity-item{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid #edf1f6;border-radius:10px}.activity-item strong{display:block;font-size:.88rem}.activity-item small{color:#7b8798}
+        .admin-note{font-size:.82rem;color:#78859a;line-height:1.5;margin-top:12px}
+        @media(max-width:900px){.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-meta{grid-template-columns:1fr 1fr}}
+        @media(max-width:600px){.summary-grid{grid-template-columns:1fr 1fr;gap:9px}.summary-card,.panel-card{padding:14px}.report-controls{grid-template-columns:1fr}.report-meta{grid-template-columns:1fr 1fr}.activity-item{flex-direction:column}}
     </style>
 </head>
 <body>
@@ -662,6 +679,41 @@
                         <table class="profile-detail-table" id="profile-table"></table>
                     </div>
                 </div>
+
+                <section class="profile-dashboard" aria-label="Student overview and administration">
+                    <div class="summary-grid">
+                        <div class="summary-card"><div class="label">Account status</div><div class="value" id="overviewStatus">—</div><div class="hint" id="overviewStatusHint">Student account</div></div>
+                        <div class="summary-card"><div class="label">Class & arm</div><div class="value" id="overviewClass">—</div><div class="hint">Current placement</div></div>
+                        <div class="summary-card"><div class="label">Admission date</div><div class="value" id="overviewAdmission">—</div><div class="hint">Date of enrolment</div></div>
+                        <div class="summary-card"><div class="label">Subscription</div><div class="value" id="overviewSubscription">—</div><div class="hint" id="overviewSubscriptionHint">Account access period</div></div>
+                    </div>
+
+                    <div class="panel-card">
+                        <div class="panel-head"><div><h3>Academic Results & Report Cards</h3><p class="panel-subtitle">View published results for this student by academic session and term.</p></div></div>
+                        <div class="report-controls">
+                            <div><label for="historySession">Academic session</label><select id="historySession"><option value="">Loading sessions…</option></select></div>
+                            <div><label for="historyTerm">Term</label><select id="historyTerm"><option value="">Select term</option></select></div>
+                            <button class="action-btn" id="loadReportBtn" type="button">Load report</button>
+                        </div>
+                        <div class="report-output" id="studentReportOutput"><div class="empty-state">Choose a session and term to view the student's published report card.</div></div>
+                    </div>
+
+                    <div class="panel-card">
+                        <div class="panel-head"><div><h3>Student Activity & Records</h3><p class="panel-subtitle">Key account and enrolment information currently available in the student record.</p></div></div>
+                        <div class="activity-list" id="studentActivityList"><div class="empty-state">Student activity will appear after the profile loads.</div></div>
+                    </div>
+
+                    <div class="panel-card">
+                        <div class="panel-head"><div><h3>Account Administration</h3><p class="panel-subtitle">Manage this student's access and account record.</p></div><span id="adminStatusBadge" class="status-pill">Status unknown</span></div>
+                        <div class="action-row">
+                            <button class="action-btn success" id="activateStudentBtn" type="button">Continue / Activate account</button>
+                            <button class="action-btn" id="deactivateStudentBtn" type="button">Disable account</button>
+                            <button class="action-btn danger" id="deleteStudentBtn" type="button">Delete student</button>
+                        </div>
+                        <p class="admin-note" id="accountAdminNote">Account actions are checked by the server and are restricted to authorized school staff. Activation may debit ₦200 from the school wallet when the student's paid subscription has expired. Deactivation retains unused subscription time.</p>
+                        <p class="admin-note"><strong>Password:</strong> An administrator password-reset endpoint is not present in the supplied backend. This page will not change passwords through an insecure workaround; that function can be added when the backend is updated.</p>
+                    </div>
+                </section>
             </main>
         </div>
     </div>
@@ -1003,6 +1055,8 @@
                 }
 
                 loadedStudent = stu;
+                updateStudentOverview(stu);
+                loadAcademicPeriods();
                 document.getElementById('student-avatar').src = stu.photoBase64 || stu.photo || 'https://cdn-icons-png.flaticon.com/512/3135/3135768.png';
                 document.getElementById('student-name').textContent = ((stu.firstname||'') + ' ' + (stu.surname||'')).trim();
                 document.getElementById('student-reg').textContent = 'Reg No: ' + (stu.regNo || stu.student_id || studentIdParam);
@@ -1027,7 +1081,7 @@
                     {label: "Admission Date", value: stu.admissionDate ? (new Date(stu.admissionDate)).toLocaleDateString() : ''},
                     {label: "Academic Session", value: stu.academicSession || ''}
                 ];
-                table.innerHTML = detailFields.map(f => `<tr><td>${f.label}</td><td>${f.value}</td></tr>`).join('');
+                table.innerHTML = detailFields.map(f => `<tr><td>${escapeHtml(f.label)}</td><td>${escapeHtml(f.value)}</td></tr>`).join('');
             } catch (err) {
                 console.error('Student profile error:', err);
                 profileWrapper.innerHTML = `<p style='color:#dc3545;'>${String(err.message || 'Unable to load student profile.').replace(/</g,'&lt;')}</p>`;
@@ -1035,6 +1089,106 @@
                 showSpinner(false);
             }
         }
+
+        const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        const formatDate = value => value ? new Date(value).toLocaleDateString() : 'Not recorded';
+        function studentIdentifier() { return loadedStudent?.student_id || loadedStudent?.regNo || loadedStudent?._id || ''; }
+        function updateStudentOverview(stu) {
+            const status = String(stu.accountStatus || 'unknown').toLowerCase();
+            const active = status === 'active';
+            document.getElementById('overviewStatus').textContent = status === 'unknown' ? 'Not set' : status[0].toUpperCase()+status.slice(1);
+            document.getElementById('overviewStatusHint').textContent = stu.accountStatus ? 'Account access state' : 'No account status supplied';
+            document.getElementById('adminStatusBadge').textContent = status === 'unknown' ? 'Status unknown' : status;
+            document.getElementById('adminStatusBadge').className = `status-pill ${active?'active':status==='inactive'?'inactive':''}`;
+            document.getElementById('overviewClass').textContent = [stu.class?.name || stu.class || 'Unassigned',stu.classArm].filter(Boolean).join(' · ');
+            document.getElementById('overviewAdmission').textContent = formatDate(stu.admissionDate);
+            document.getElementById('overviewSubscription').textContent = stu.subscriptionStatus || status || 'Unknown';
+            document.getElementById('overviewSubscriptionHint').textContent = stu.subscriptionEndDate ? `Valid until ${formatDate(stu.subscriptionEndDate)}` : 'No expiry date recorded';
+            document.getElementById('activateStudentBtn').disabled = active && stu.subscriptionEndDate && new Date(stu.subscriptionEndDate)>new Date();
+            document.getElementById('deactivateStudentBtn').disabled = !active;
+            const activity = [
+                ['Student record created',formatDate(stu.createdAt)],
+                ['Last record update',formatDate(stu.updatedAt)],
+                ['Admission date',formatDate(stu.admissionDate)],
+                ['Current class', [stu.class?.name || stu.class || 'Not assigned',stu.classArm].filter(Boolean).join(' · ')],
+                ['Parent / guardian',stu.parentName || 'Not recorded'],
+                ['Parent contact',stu.parentPhone || 'Not recorded'],
+                ['Previous school',stu.previousSchool || 'Not recorded']
+            ];
+            document.getElementById('studentActivityList').innerHTML = activity.map(([label,value])=>`<div class="activity-item"><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(value)}</small></div></div>`).join('');
+        }
+        async function loadAcademicPeriods() {
+            const sessionSelect=document.getElementById('historySession'), termSelect=document.getElementById('historyTerm');
+            try {
+                const [sr,tr]=await Promise.all([apiFetch(`${API_ROOT}/academics/sessions`),apiFetch(`${API_ROOT}/academics/terms`)]);
+                if(!sr.ok || !tr.ok) throw new Error('Unable to load academic sessions and terms.');
+                const [sessions,terms]=await Promise.all([sr.json(),tr.json()]);
+                sessionSelect.innerHTML='<option value="">Select session</option>'+(Array.isArray(sessions)?sessions:[]).map(x=>`<option value="${escapeHtml(x._id)}">${escapeHtml(x.name)}</option>`).join('');
+                termSelect.dataset.terms=JSON.stringify(Array.isArray(terms)?terms:[]);
+                sessionSelect.onchange=()=>renderTermsForSession();
+                renderTermsForSession();
+            } catch(err) { sessionSelect.innerHTML='<option value="">Sessions unavailable</option>'; termSelect.innerHTML='<option value="">Terms unavailable</option>'; console.warn('Academic period load:',err.message); }
+        }
+        function renderTermsForSession(){
+            const sessionId=document.getElementById('historySession').value, select=document.getElementById('historyTerm');
+            let terms=[]; try{terms=JSON.parse(select.dataset.terms||'[]')}catch{}
+            const matching=terms.filter(t=>String(t.session?._id||t.session||'')===String(sessionId));
+            select.innerHTML='<option value="">Select term</option>'+matching.map(t=>`<option value="${escapeHtml(t._id)}">${escapeHtml(t.name)}</option>`).join('');
+        }
+        async function loadStudentReport(){
+            if(!loadedStudent?._id){alert('Student record is not ready.');return;}
+            const sessionId=document.getElementById('historySession').value,termId=document.getElementById('historyTerm').value,out=document.getElementById('studentReportOutput');
+            if(!sessionId||!termId){out.innerHTML='<div class="empty-state">Select both an academic session and term.</div>';return;}
+            out.innerHTML='<div class="empty-state">Loading published report…</div>';
+            try{
+                const params=new URLSearchParams({sessionId,termId});
+                const res=await apiFetch(`${API_ROOT}/results/student/${encodeURIComponent(loadedStudent._id)}/report?${params}`);
+                const data=await res.json();
+                if(!res.ok) throw new Error(data.error||data.message||'No published report was found for this period.');
+                renderStudentReport(data);
+            }catch(err){out.innerHTML=`<div class="empty-state">${escapeHtml(err.message||'Unable to load report.')}</div>`;}
+        }
+        function renderStudentReport(data){
+            const out=document.getElementById('studentReportOutput');
+            const possibleRows=data.results||data.subjects||data.resultDetails||data.records||[];
+            const rows=Array.isArray(possibleRows)?possibleRows:[];
+            const meta=[['Student',data.studentName||data.student?.name||`${loadedStudent.firstname||''} ${loadedStudent.surname||''}`.trim()],['Class',data.className||data.class?.name||loadedStudent.class?.name||loadedStudent.class||'—'],['Session / Term',[data.session?.name||data.sessionName||'',data.term?.name||data.termName||''].filter(Boolean).join(' · ')||'Selected period']];
+            const metaHtml=`<div class="report-meta">${meta.map(([k,v])=>`<div><small>${escapeHtml(k)}</small><strong>${escapeHtml(v)}</strong></div>`).join('')}</div>`;
+            const scalarKeys=['totalScore','total','average','averageScore','grade','position','remarks','teacherComment','principalRemark','attendance'];
+            const summary=scalarKeys.filter(k=>data[k]!==undefined&&data[k]!==null&&data[k]!=='').map(k=>`<div class="activity-item"><strong>${escapeHtml(k.replace(/([A-Z])/g,' $1'))}</strong><small>${escapeHtml(typeof data[k]==='object'?JSON.stringify(data[k]):data[k])}</small></div>`).join('');
+            let table='';
+            if(rows.length){
+                const cols=[['Subject',r=>r.subject?.name||r.subjectName||r.name||'—'],['CA 1',r=>r.ca1_score??r.ca1??'—'],['CA 2',r=>r.ca2_score??r.ca2??'—'],['Midterm',r=>r.midterm_score??r.midterm??'—'],['Exam',r=>r.exam_score??r.exam??'—'],['Total',r=>r.total??r.score??'—'],['Grade',r=>r.grade??'—'],['Remark',r=>r.remarks??r.remark??'—']];
+                table=`<div class="report-table-wrap"><table class="report-table"><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${escapeHtml(c[1](r))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+            }
+            out.innerHTML=metaHtml+(summary?`<div class="activity-list" style="margin-bottom:14px">${summary}</div>`:'')+(table||'<div class="empty-state">The report was returned, but no subject rows were included.</div>');
+        }
+        async function runStudentAdminAction(action){
+            if(!loadedStudent)return;
+            const identifier=studentIdentifier(); if(!identifier){alert('A student identifier is unavailable.');return;}
+            const name=`${loadedStudent.firstname||''} ${loadedStudent.surname||''}`.trim()||loadedStudent.regNo||identifier;
+            if(action==='delete'){
+                if(!confirm(`Permanently delete ${name} from this school's student records? This endpoint deletes the student record only; it does not cascade-delete historical records.`))return;
+            } else if(action==='deactivate'){
+                if(!confirm(`Disable ${name}'s student account? Unused subscription time will be retained.`))return;
+            } else {
+                if(!confirm(`Activate or continue ${name}'s account? If the paid subscription has expired, ₦200 will be deducted from the school wallet for one calendar month.`))return;
+            }
+            const buttons=['activateStudentBtn','deactivateStudentBtn','deleteStudentBtn'].map(id=>document.getElementById(id));buttons.forEach(b=>b.disabled=true);
+            try{
+                const method=action==='delete'?'DELETE':'PATCH';
+                const res=await apiFetch(`${API_ROOT}/students/${encodeURIComponent(identifier)}${action==='delete'?'':`/${action}`}`,{method});
+                const data=await res.json();if(!res.ok)throw new Error(data.error||data.message||'The requested account action failed.');
+                if(action==='delete'){alert(data.message||'Student deleted.');window.location.href='people.html';return;}
+                alert(data.message||'Student account updated.');await fetchAndRenderStudent();
+            }catch(err){alert(err.message||'Unable to complete account action.');}
+            finally{buttons.forEach(b=>b.disabled=false);if(loadedStudent)updateStudentOverview(loadedStudent);}
+        }
+        document.getElementById('loadReportBtn').addEventListener('click',loadStudentReport);
+        document.getElementById('activateStudentBtn').addEventListener('click',()=>runStudentAdminAction('activate'));
+        document.getElementById('deactivateStudentBtn').addEventListener('click',()=>runStudentAdminAction('deactivate'));
+        document.getElementById('deleteStudentBtn').addEventListener('click',()=>runStudentAdminAction('delete'));
+
         fetchAndRenderStudent();
 
         // Skills Modal
