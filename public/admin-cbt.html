@@ -610,10 +610,14 @@ async function initializeAdminCBT() {
 function getAuthHeaders() {
   const token = getToken();
   const publicSchoolId = getConfiguredSchoolId();
+  const mongoSchoolId = currentUser?.schoolId || getConfiguredMongoSchoolId() || localStorage.getItem('schoolMongoId') || '';
+  const subdomain = getTenantSubdomain();
   return {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` }),
-    ...(publicSchoolId && { 'X-School-Code': publicSchoolId })
+    ...(publicSchoolId && { 'X-School-Code': publicSchoolId }),
+    ...(mongoSchoolId && { 'X-School-ID': String(mongoSchoolId) }),
+    ...(subdomain && { 'X-School-Subdomain': subdomain })
   };
 }
 
@@ -1434,16 +1438,73 @@ async function showResults() {
     </div>
   `;
 
-  const results = await fetch(`${API_BASE}/api/result${tenantQuery()}`, {
-    headers: getAuthHeaders()
-  }).then(r => r.json()).catch(() => []);
-  
+  let results = [];
+  let resultsLoadError = '';
+  try {
+    const response = await fetch(`${API_BASE}/api/result${tenantQuery()}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+      cache: 'no-store'
+    });
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.error || responseData.message || `Unable to load results (${response.status})`);
+    }
+
+    // Support both a direct array and common API response envelopes.
+    const resultRows = Array.isArray(responseData) ? responseData :
+      responseData.results || responseData.data?.results || responseData.data?.data ||
+      responseData.data || responseData.items || responseData.records || [];
+    if (!Array.isArray(resultRows)) {
+      throw new Error('The results endpoint returned an unsupported response format.');
+    }
+
+    // Convert populated Mongo references and alternate field names into the
+    // fields used by the results table, filters and PDF export.
+    results = resultRows.map(row => {
+      const student = row.student && typeof row.student === 'object' ? row.student : {};
+      const exam = row.exam && typeof row.exam === 'object' ? row.exam : {};
+      const subject = row.subject && typeof row.subject === 'object' ? row.subject :
+        (exam.subject && typeof exam.subject === 'object' ? exam.subject : {});
+      const studentClass = row.class && typeof row.class === 'object' ? row.class :
+        (student.class && typeof student.class === 'object' ? student.class : {});
+      const totalFromQuestions = Array.isArray(exam.questions)
+        ? exam.questions.reduce((sum, question) => sum + Number(question.score || 1), 0) : 0;
+      return {
+        ...row,
+        _id: row._id || row.id || row.resultId,
+        studentName: row.studentName || student.name || student.fullName || student.studentName || 'N/A',
+        className: row.className || student.className || studentClass.name || studentClass.className || (typeof student.class === 'string' ? student.class : '') || 'N/A',
+        subjectName: row.subjectName || subject.name || subject.subjectName || (typeof row.subject === 'string' ? row.subject : '') || 'N/A',
+        examTitle: row.examTitle || exam.title || exam.name || row.title || 'N/A',
+        score: Number(row.score ?? row.marksObtained ?? row.obtainedMarks ?? row.totalScore ?? 0),
+        total: Number(row.total ?? row.maxScore ?? row.totalMarks ?? totalFromQuestions ?? 0),
+        startedAt: row.startedAt || row.startTime || row.createdAt || null,
+        finishedAt: row.finishedAt || row.submittedAt || row.completedAt || row.updatedAt || null
+      };
+    });
+  } catch (error) {
+    console.error('Unable to load CBT results:', error);
+    resultsLoadError = error.message || 'An error occurred while loading results.';
+  }
+
   const loader = document.getElementById('resultsLoading');
   const container = document.getElementById('resultsContainer');
   if (loader) loader.style.display = 'none';
   if (container) container.style.display = 'block';
 
-  if (!Array.isArray(results) || results.length === 0) {
+  if (resultsLoadError) {
+    document.getElementById('resultsTable').innerHTML = `
+      <div class="text-center py-12 bg-red-50 rounded-lg border border-red-200">
+        <i class="fa fa-triangle-exclamation text-2xl text-red-500 mb-2"></i>
+        <p class="text-red-700 font-semibold">Could not load CBT results</p>
+        <p class="text-red-600 text-sm mt-2">${resultsLoadError}</p>
+        <button class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg" onclick="showResults()">Try Again</button>
+      </div>`;
+    return;
+  }
+
+  if (results.length === 0) {
     document.getElementById('resultsTable').innerHTML = `
       <div class="text-center py-16 bg-gradient-to-br from-[#f8f9fb] to-[#eef2f8] rounded-xl border border-dashed border-[#cbd5e1]">
         <i class="fa fa-inbox fa-3x text-gray-400 mb-4"></i>
@@ -1631,9 +1692,9 @@ async function showResults() {
     const dateTo = document.getElementById('dateToFilter').value;
 
     filteredResults = results.filter(r => {
-      const matchesSearch = !searchTerm || 
-        r.studentName.toLowerCase().includes(searchTerm) || 
-        r.examTitle.toLowerCase().includes(searchTerm);
+      const matchesSearch = !searchTerm ||
+        String(r.studentName || '').toLowerCase().includes(searchTerm) ||
+        String(r.examTitle || '').toLowerCase().includes(searchTerm);
       const matchesClass = !classValue || r.className === classValue;
       const matchesSubject = !subjectValue || r.subjectName === subjectValue;
       const matchesDate = isDateInRange(r.finishedAt || r.startedAt, dateFrom, dateTo);
