@@ -4,6 +4,8 @@ const AdmissionApplicationSchema = new mongoose.Schema({
   // Tenant ownership is optional for legacy records; all new submissions set it.
   schoolId: { type: String, index: true },
   admissionSetupId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdmissionSetup', default: null },
+  // Public, non-sequential identifier used for applicant status checks.
+  applicationReference: { type: String, trim: true, uppercase: true, index: true },
   cohort: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AdmissionCohort',
@@ -93,6 +95,7 @@ const AdmissionApplicationSchema = new mongoose.Schema({
 AdmissionApplicationSchema.index({ cohort: 1, status: 1 });
 AdmissionApplicationSchema.index({ schoolId: 1, admissionSetupId: 1 });
 AdmissionApplicationSchema.index({ email: 1 });
+AdmissionApplicationSchema.index({ schoolId: 1, applicationReference: 1 });
 AdmissionApplicationSchema.index({ dateApplied: -1 });
 
 module.exports = mongoose.model('AdmissionApplication', AdmissionApplicationSchema);
