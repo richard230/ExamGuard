@@ -123,6 +123,20 @@
     .hidden {
       display: none !important;
     }
+    body.is-booting { overflow: hidden; }
+    #schoolBootOverlay {
+      position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center;
+      justify-content: center; padding: 24px; background: rgba(247, 249, 251, .97);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: opacity .28s ease, visibility .28s ease;
+    }
+    #schoolBootOverlay.is-ready { opacity: 0; visibility: hidden; pointer-events: none; }
+    .boot-spinner {
+      width: 48px; height: 48px; border-radius: 50%; border: 4px solid #dbe5eb;
+      border-top-color: var(--brand); animation: bootSpin .8s linear infinite;
+    }
+    @keyframes bootSpin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .boot-spinner { animation-duration: 1.8s; } }
     @media (max-width: 640px) {
       .hero-title {
         font-size: 2.25rem;
@@ -131,7 +145,18 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col is-booting" aria-busy="true">
+  <!-- Blocks the page until the correct school's configuration has been loaded and cached. -->
+  <div id="schoolBootOverlay" role="status" aria-live="polite" aria-label="Loading school portal">
+    <div class="w-full max-w-sm text-center">
+      <div class="boot-spinner mx-auto"></div>
+      <p id="bootTitle" class="mt-6 text-lg font-extrabold text-slate-900">Preparing your school portal</p>
+      <p id="bootMessage" class="mt-2 text-sm leading-relaxed text-slate-500">Loading and securely caching your school details…</p>
+      <div class="mt-6 h-1.5 overflow-hidden rounded-full bg-slate-200">
+        <div class="h-full w-2/3 rounded-full brand-bg animate-pulse"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- Top Utility Bar -->
   <div class="bg-slate-950 text-slate-300 text-xs border-b border-white/5">
@@ -188,12 +213,12 @@
       <div class="absolute -right-8 -top-20 w-[360px] h-[360px] rounded-full border border-white/10 pointer-events-none"></div>
       <div class="absolute left-1/2 bottom-0 w-[600px] h-[240px] bg-white/[0.03] blur-3xl rounded-full -translate-x-1/2 pointer-events-none"></div>
 
-      <div class="w-full max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-20 relative">
+      <div class="w-full max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14 relative">
         <div class="grid lg:grid-cols-12 gap-8 xl:gap-12 items-center">
           <div class="lg:col-span-8">
             <div class="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm mb-6">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="eyebrow text-amber-300">Admissions Open · Your next chapter starts here</span>
+              <span class="eyebrow text-amber-300">Admissions are open</span>
             </div>
 
             <h1 class="hero-title text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.08]">
@@ -202,12 +227,12 @@
             </h1>
 
             <p id="heroDescription" class="mt-5 text-slate-200 text-base sm:text-lg leading-relaxed max-w-2xl">
-              Discover the right learning opportunity and take the first step towards joining our school community through a streamlined, guided application.
+              Apply to <span id="heroSchoolName" class="font-semibold text-white">our school</span> and track your admission here.
             </p>
 
             <div class="mt-8 flex flex-wrap gap-3.5">
               <a href="#opportunities" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl px-6 py-3.5 text-sm sm:text-base transition shadow-lg shadow-black/15 inline-flex items-center gap-2">
-                <span>Explore admission options</span>
+                <span>View classes</span>
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
                 </svg>
@@ -258,7 +283,7 @@
     </section>
 
     <!-- Available Admission Opportunities -->
-    <section id="opportunities" class="py-16 md:py-20 bg-slate-50/80 border-b border-slate-200/60">
+    <section id="opportunities" data-admission-view="opportunities" class="py-12 md:py-14 bg-slate-50/80 border-b border-slate-200/60">
       <div class="w-full max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
           <div>
@@ -292,7 +317,7 @@
     </section>
 
     <!-- How To Apply Steps Overview -->
-    <section id="process" class="py-16 md:py-20 bg-white">
+    <section id="process" data-admission-view="apply" class="py-10 md:py-12 bg-white">
       <div class="w-full max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center max-w-2xl mx-auto mb-12">
           <div class="eyebrow brand-text mb-2.5">Simple and straightforward</div>
@@ -328,7 +353,7 @@
     </section>
 
     <!-- Multi-Step Online Admission Form Section -->
-    <section id="apply" class="py-16 md:py-24 bg-slate-50 border-y border-slate-200/80">
+    <section id="apply" data-admission-view="apply" class="py-12 md:py-16 bg-slate-50 border-y border-slate-200/80">
       <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
           <div class="eyebrow brand-text mb-2.5">Guided Online Application</div>
@@ -698,7 +723,7 @@
     </section>
 
     <!-- NEW SECTION: Application Status Portal -->
-    <section id="status" class="py-16 md:py-24 bg-white border-b border-slate-200/80">
+    <section id="status" data-admission-view="status" class="py-12 md:py-16 bg-white border-b border-slate-200/80">
       <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
           <div class="eyebrow brand-text mb-2.5">Admissions Decision &amp; Tracking</div>
@@ -815,7 +840,7 @@
     </section>
 
     <!-- FAQs Accordion -->
-    <section id="faq" class="py-16 md:py-20 bg-slate-50/50">
+    <section id="faq" data-admission-view="faq" class="py-12 md:py-14 bg-slate-50/50">
       <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-10">
           <div class="eyebrow brand-text mb-2.5">Need a hand?</div>
@@ -960,6 +985,7 @@
 
     $('schoolName').textContent = name;
     $('formSchoolName').textContent = name;
+    if ($('heroSchoolName')) $('heroSchoolName').textContent = name;
     $('footerSchoolName').textContent = name;
     $('footerSchool').textContent = name + ' admissions';
     $('topSchoolLabel').textContent = name + ' · Official admissions portal';
@@ -1020,13 +1046,21 @@
     if (subdomain) url.searchParams.set('subdomain', subdomain);
     const headers = {};
     if (state.schoolId) headers['X-School-Code'] = state.schoolId;
-    const cached = safeJson(localStorage.getItem('schoolConfig'));
+    const cacheIdentity = state.schoolId || subdomain || 'default';
+    const scopedCacheKey = 'admissionsSchoolConfig:' + cacheIdentity;
+    const scopedCached = safeJson(localStorage.getItem(scopedCacheKey));
+    const legacyCached = safeJson(localStorage.getItem('schoolConfig'));
+    const legacyCachedId = legacyCached?.schoolId || legacyCached?.school?._id || legacyCached?._id || '';
+    // Never fall back to another school's shared legacy cache when an identity is known.
+    const cached = scopedCached || (!state.schoolId || !legacyCachedId || String(legacyCachedId) === String(state.schoolId) ? legacyCached : null);
 
     try {
       const config = await fetchJson(url.toString(), { headers });
       state.school = extractSchool(config);
       const resolvedId = pick(state.school.schoolId, state.school._id, state.school.raw?.schoolId, state.school.raw?.school?._id);
       if (resolvedId) state.schoolId = String(resolvedId);
+      // Cache under a school-specific key first, then retain the legacy key for compatibility.
+      localStorage.setItem('admissionsSchoolConfig:' + (state.schoolId || subdomain || 'default'), JSON.stringify(config));
       localStorage.setItem('schoolConfig', JSON.stringify(config));
       if (state.schoolId) localStorage.setItem('publicSchoolId', state.schoolId);
     } catch (error) {
@@ -1893,6 +1927,84 @@
     doc.save('Official-Letter-of-Enrolment-' + refNumber + '.pdf');
   }
 
+  /* --- PENDING APPLICATION STATUS PDF --- */
+  async function generatePendingStatusPDF(appRecord) {
+    if (!window.jspdf || !appRecord) throw new Error('PDF service is unavailable or application details are missing.');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+    const school = state.school || {};
+    const raw = school.raw || {};
+    const homepage = school.homepage || {};
+    const schoolName = pick(school.name, school.schoolName, school.displayName, homepage.schoolName, raw.school?.name, 'Official School');
+    const brand = hexRgb(pick(school.primaryColor, school.branding?.primaryColor, school.theme?.primary, homepage.primaryColor, '#12324A'), [18, 50, 74]);
+    const accent = hexRgb(pick(school.accentColor, school.branding?.accentColor, school.theme?.accent, homepage.accentColor, '#C69A45'), [198, 154, 69]);
+    const muted = [102, 115, 128];
+    const ink = [48, 60, 72];
+    const W = 210, M = 18, CW = W - M * 2;
+    const applicantName = String(appRecord.name || 'Applicant');
+    const refNumber = String(appRecord.referenceNumber || '—');
+    const className = String(appRecord.className || '—');
+    const sessionName = String(appRecord.sessionName || '—');
+    const termName = String(appRecord.term || '—');
+    const submitted = appRecord.createdAt || appRecord.submittedAt || appRecord.applicationDate;
+    const submittedDate = submitted ? formatDate(submitted) : 'Not available';
+    const logoImage = await resolveLogoImage();
+
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, 210, 297, 'F');
+    doc.setDrawColor(...brand); doc.setLineWidth(0.7); doc.rect(8, 8, 194, 281);
+    doc.setDrawColor(...accent); doc.setLineWidth(0.35); doc.rect(10, 10, 190, 277);
+    doc.setFillColor(...brand); doc.rect(10, 10, 190, 5, 'F');
+    let y = 27;
+    if (logoImage) {
+      const ratio = Math.min(22 / logoImage.naturalWidth, 22 / logoImage.naturalHeight);
+      const iw = logoImage.naturalWidth * ratio, ih = logoImage.naturalHeight * ratio;
+      try { doc.addImage(logoImage, (logoImage.src || '').toLowerCase().includes('.png') ? 'PNG' : 'JPEG', (W - iw) / 2, y, iw, ih, undefined, 'FAST'); } catch (_) {}
+      y += ih + 7;
+    }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(...brand);
+    doc.text(doc.splitTextToSize(schoolName.toUpperCase(), CW).slice(0, 2), W / 2, y, { align: 'center' });
+    y += 13;
+    doc.setFontSize(8); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal');
+    doc.text('OFFICE OF THE ADMISSIONS COMMITTEE', W / 2, y, { align: 'center' });
+    y += 10;
+    doc.setDrawColor(...accent); doc.setLineWidth(0.7); doc.line(M, y, W - M, y);
+    y += 14;
+    doc.setFillColor(255, 248, 230); doc.setDrawColor(...accent); doc.roundedRect(M, y, CW, 15, 2, 2, 'FD');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(145, 101, 24);
+    doc.text('APPLICATION RECEIVED — PENDING REVIEW', W / 2, y + 9.5, { align: 'center' });
+    y += 27;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...ink);
+    doc.text('Dear ' + applicantName + ',', M, y);
+    y += 9;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...ink);
+    const paragraph = 'This notice confirms that your admission application to ' + schoolName + ' has been received. It is currently pending review by the admissions team. No final admission decision has been made at this stage.';
+    const paragraphLines = doc.splitTextToSize(paragraph, CW);
+    doc.text(paragraphLines, M, y);
+    y += paragraphLines.length * 5 + 12;
+    doc.setFillColor(248, 250, 252); doc.setDrawColor(218, 226, 233); doc.roundedRect(M, y, CW, 57, 2, 2, 'FD');
+    doc.setFillColor(...accent); doc.rect(M, y, 2.5, 57, 'F');
+    const field = (label, value, x, yy) => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...muted); doc.text(label.toUpperCase(), x, yy);
+      doc.setFontSize(9.5); doc.setTextColor(...brand); doc.text(doc.splitTextToSize(String(value || '—'), 72)[0], x, yy + 6);
+    };
+    field('Application reference', refNumber, M + 8, y + 12);
+    field('Applicant name', applicantName, M + 98, y + 12);
+    field('Applied class', className, M + 8, y + 31);
+    field('Session and term', sessionName + ' · ' + termName, M + 98, y + 31);
+    field('Date submitted', submittedDate, M + 8, y + 49);
+    y += 72;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...brand);
+    doc.text('WHAT HAPPENS NEXT?', M, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...ink);
+    const next = doc.splitTextToSize('The admissions team will review the information and documents submitted. Please monitor the contact details supplied in your application and use your application reference number whenever you make an enquiry. You may return to the admissions portal to check for status updates.', CW);
+    doc.text(next, M, y);
+    doc.setDrawColor(218, 226, 233); doc.line(M, 276, W - M, 276);
+    doc.setFontSize(7); doc.setTextColor(...muted);
+    doc.text('Application Status Notice · Reference: ' + refNumber, W / 2, 282, { align: 'center' });
+    doc.save('Application-Pending-' + refNumber.replace(/[^a-z0-9_-]/gi, '-') + '.pdf');
+  }
+
   /* --- ELEVATED APPROVED (SCREENING/INTERVIEW) NOTICE PDF --- */
   async function generateApprovedNoticePDF(appRecord) {
     if (!window.jspdf || !appRecord) return;
@@ -1935,6 +2047,18 @@
       : new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
 
     const logoImage = await resolveLogoImage();
+
+    // Keep this helper local to this PDF generator; the enrolment PDF has its own helper.
+    const drawFieldPair = (label, value, xPos, yPos, highlight = false) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.6);
+      doc.setTextColor(...muted);
+      doc.text(String(label).toUpperCase(), xPos, yPos);
+      doc.setFontSize(8.8);
+      doc.setTextColor(...(highlight ? navy : deepSlate));
+      const lines = doc.splitTextToSize(String(value || '—'), CW / 2 - 12);
+      doc.text(lines[0] || '—', xPos, yPos + 4.8);
+    };
 
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, W, H, 'F');
@@ -2425,6 +2549,23 @@
       $('downloadStatusPdfBtnText').textContent = 'Download Screening Notice (PDF)';
       actionSection.classList.remove('hidden');
 
+    } else if (!rejected && !waitlisted) {
+      banner.classList.add('bg-slate-50', 'border-slate-200');
+      iconBox.classList.add('brand-bg', 'text-white');
+      iconBox.textContent = '…';
+      $('statusHeadline').textContent = 'Application Under Review';
+      pill.classList.add('bg-slate-200', 'text-slate-800');
+      pill.textContent = '● Pending Review';
+      msgBox.classList.add('bg-slate-50', 'border-slate-200', 'text-slate-700');
+      msgBox.textContent = record.remarks || 'Your application has been received and is awaiting review by the admissions team.';
+      actionSection.className = 'rounded-2xl border-2 border-slate-200 bg-slate-50 p-5';
+      $('actionSubBadge').className = 'inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-600';
+      $('actionSubBadgeText').textContent = 'Application receipt available';
+      $('actionTitle').textContent = 'Pending Application Notice';
+      $('actionDesc').textContent = 'Download a PDF receipt showing your application details and current pending status.';
+      $('downloadStatusPdfBtnText').textContent = 'Download Pending Notice (PDF)';
+      actionSection.classList.remove('hidden');
+
     } else if (rejected) {
       banner.classList.add('bg-red-50/60', 'border-red-200');
       iconBox.classList.add('bg-red-600', 'text-white');
@@ -2530,28 +2671,78 @@
     $('statusQueryInput').classList.remove('field-error');
   });
 
-  $('downloadStatusPdfBtn').addEventListener('click', () => {
-    if (!state.checkedApplication) return;
-    const r = state.checkedApplication;
-    if (isEnrolledStatus(r.status)) {
-      generateEnrolledAdmissionLetterPDF(r);
-    } else if (isApprovedStatus(r.status)) {
-      generateApprovedNoticePDF(r);
+  $('downloadStatusPdfBtn').addEventListener('click', async () => {
+    if (!state.checkedApplication) return showStatusAlert('Check an application first to download its PDF.');
+    const btn = $('downloadStatusPdfBtn');
+    const label = $('downloadStatusPdfBtnText');
+    const original = label.textContent;
+    btn.disabled = true;
+    label.textContent = 'Preparing PDF…';
+    try {
+      const r = state.checkedApplication;
+      if (isEnrolledStatus(r.status)) await generateEnrolledAdmissionLetterPDF(r);
+      else if (isApprovedStatus(r.status)) await generateApprovedNoticePDF(r);
+      else await generatePendingStatusPDF(r);
+    } catch (error) {
+      console.error('Admission PDF generation failed:', error);
+      showStatusAlert(error.message || 'Unable to generate the PDF. Please try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      label.textContent = original;
     }
   });
+
+  // Keep the admissions experience focused: show one main section at a time.
+  function showAdmissionView(view, scroll = true) {
+    document.querySelectorAll('[data-admission-view]').forEach(section => {
+      section.classList.toggle('hidden', section.dataset.admissionView !== view);
+    });
+    document.querySelectorAll('[data-admission-tab]').forEach(tab => {
+      const active = tab.dataset.admissionTab === view;
+      tab.classList.toggle('brand-bg', active);
+      tab.classList.toggle('text-white', active);
+      tab.classList.toggle('bg-slate-100', !active);
+      tab.classList.toggle('text-slate-600', !active);
+      tab.setAttribute('aria-current', active ? 'page' : 'false');
+    });
+    if (scroll) document.querySelector('[data-admission-view="' + view + '"]')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  document.querySelectorAll('[data-admission-tab]').forEach(tab => {
+    tab.addEventListener('click', () => showAdmissionView(tab.dataset.admissionTab));
+  });
+  document.querySelectorAll('a[href="#opportunities"], a[href="#apply"], a[href="#process"], a[href="#status"], a[href="#faq"]').forEach(link => {
+    link.addEventListener('click', () => {
+      const href = link.getAttribute('href');
+      const view = href === '#opportunities' ? 'opportunities' : (href === '#status' ? 'status' : (href === '#faq' ? 'faq' : 'apply'));
+      showAdmissionView(view, false);
+    });
+  });
+  showAdmissionView('opportunities', false);
 
   $('year').textContent = new Date().getFullYear();
   updateStepperUI();
 
+  function closeSchoolBootOverlay() {
+    const overlay = $('schoolBootOverlay');
+    if (overlay) overlay.classList.add('is-ready');
+    document.body.classList.remove('is-booting');
+    document.body.removeAttribute('aria-busy');
+    window.setTimeout(() => overlay?.remove(), 350);
+  }
+
   (async () => {
     try {
-      await loadSchool();
+      $('bootMessage').textContent = 'Connecting to your school and loading its official details…';
+      await loadSchool(); // Applies branding and writes the school-specific cache before the page is revealed.
+      $('bootMessage').textContent = 'School verified. Loading admission options…';
       await loadCohorts();
     } catch (error) {
       $('cohortLoading').classList.add('hidden');
       $('cohortError').textContent = error.message;
       $('cohortError').classList.remove('hidden');
       $('cohortCount').textContent = 'School not identified';
+    } finally {
+      closeSchoolBootOverlay();
     }
   })();
 })();
