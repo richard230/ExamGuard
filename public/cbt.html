@@ -1268,7 +1268,7 @@
       };
 
       try {
-        await fetch(API_BASE_URL + '/api/result', {
+        const response = await fetch(API_BASE_URL + '/api/result', {
           method: 'POST',
           headers: schoolHeaders({
             'Content-Type': 'application/json',
@@ -1276,12 +1276,23 @@
           }),
           body: JSON.stringify({ ...payload, schoolId: getResolvedSchoolId() })
         });
+        const responseData = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(responseData.error || responseData.message || `Submission failed (${response.status})`);
+        }
+
+        logStudentActivity('submitted', { answers });
+        showResults();
       } catch (e) {
         console.error('Submission error:', e);
+        document.getElementById('cbtResultArea').innerHTML = `
+          <div class="cbt-empty-state">
+            <div class="cbt-empty-icon" style="color:var(--danger)"><i class="fas fa-triangle-exclamation"></i></div>
+            <div class="cbt-empty-title">Submission Could Not Be Confirmed</div>
+            <div class="cbt-empty-text">${String(e.message || 'Please check your connection and contact your school administrator.').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}</div>
+            <button class="cbt-btn cbt-btn-primary" onclick="location.reload()">Return to Exam Portal</button>
+          </div>`;
       }
-
-      logStudentActivity('submitted', { answers });
-      showResults();
     }
 
     function showResults() {
