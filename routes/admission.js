@@ -559,6 +559,127 @@ router.put('/cohorts/:id/close', authMiddleware, adminAuth, async (req, res) => 
 
 // ==================== APPLICATION ENDPOINTS ====================
 
+// PUBLIC APPLICATION STATUS LOOKUP
+// Must be registered BEFORE router.get('/application/:id').
+
+router.get('/public/:schoolId/status', async (req, res) => {
+  try {
+    const schoolId = String(req.params.schoolId || '').trim();
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const referenceNumber = String(
+      req.query.referenceNumber || req.query.query || ''
+    ).trim();
+
+    if (!schoolId) {
+      return res.status(400).json({
+        success: false,
+        error: 'School identifier is required.'
+      });
+    }
+
+    if (!email && !referenceNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Enter your registered email or application reference number.'
+      });
+    }
+
+    // Resolve the school independently of admin authentication.
+    const schoolQuery = {
+      status: 'active',
+      isDeleted: { $ne: true }
+    };
+
+    if (mongoose.Types.ObjectId.isValid(schoolId)) {
+      schoolQuery._id = schoolId;
+    } else {
+      schoolQuery.schoolId = schoolId;
+    }
+
+    const school = await School.findOne(schoolQuery)
+      .select('_id schoolId name')
+      .lean();
+
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        error: 'The selected school could not be found.'
+      });
+    }
+
+    const identifiers = [
+      school.schoolId,
+      String(school._id)
+    ].filter(Boolean).map(String);
+
+    const conditions = [];
+
+    if (email) {
+      conditions.push({
+        email: { $regex: '^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', $options: 'i' }
+      });
+    }
+
+    if (referenceNumber) {
+      if (mongoose.Types.ObjectId.isValid(referenceNumber)) {
+        conditions.push({ _id: referenceNumber });
+      }
+
+      conditions.push(
+        { applicationNumber: referenceNumber },
+        { referenceNumber: referenceNumber },
+        { refNumber: referenceNumber }
+      );
+    }
+
+    const application = await AdmissionApplication.findOne({
+      schoolId: { $in: identifiers },
+      $or: conditions
+    })
+      .select('-documents')
+      .populate('cohort', 'name class arm session term applicationFee')
+      .populate('class', 'name')
+      .populate('arm', 'name armName')
+      .populate('session', 'name')
+      .lean();
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: 'No application was found matching the supplied information.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      application: {
+        ...application,
+        referenceNumber:
+          application.applicationNumber ||
+          application.referenceNumber ||
+          application.refNumber ||
+          String(application._id),
+        name: application.name,
+        email: application.email,
+        status: application.status || 'Pending',
+        remarks: application.notes || '',
+        className: application.class?.name || '',
+        armName: application.arm?.name || application.arm?.armName || '',
+        sessionName: application.session?.name || '',
+        createdAt: application.createdAt || application.dateApplied
+      }
+    });
+
+  } catch (error) {
+    console.error('Public application status lookup error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to retrieve application status at this time.'
+    });
+  }
+});
+
 // GET all applications
 router.get('/applications', authMiddleware, adminAuth, async (req, res) => {
   try {
