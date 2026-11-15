@@ -559,128 +559,118 @@ router.put('/cohorts/:id/close', authMiddleware, adminAuth, async (req, res) => 
 
 // ==================== APPLICATION ENDPOINTS ====================
 
+// GET all applications
 // PUBLIC APPLICATION STATUS LOOKUP
-// Must be registered BEFORE router.get('/application/:id').
-
+// Accepts either a registered email address or an application reference.
+// Results are always restricted to the school in the URL.
 router.get('/public/:schoolId/status', async (req, res) => {
   try {
-    const schoolId = String(req.params.schoolId || '').trim();
+    const requestedSchoolId = String(req.params.schoolId || '').trim();
     const email = String(req.query.email || '').trim().toLowerCase();
     const referenceNumber = String(
-      req.query.referenceNumber || req.query.query || ''
+      req.query.referenceNumber || req.query.reference || req.query.query || ''
     ).trim();
 
-    if (!schoolId) {
+    if (!requestedSchoolId || requestedSchoolId.length > 128) {
+      return res.status(400).json({ success: false, error: 'A valid school identifier is required.' });
+    }
+    if ((!email && !referenceNumber) || (email && referenceNumber)) {
       return res.status(400).json({
         success: false,
-        error: 'School identifier is required.'
+        error: 'Provide either the registered email address or the application reference number.'
       });
     }
-
-    if (!email && !referenceNumber) {
-      return res.status(400).json({
-        success: false,
-        error: 'Enter your registered email or application reference number.'
-      });
+    if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+      return res.status(400).json({ success: false, error: 'Enter a valid registered email address.' });
+    }
+    if (referenceNumber && referenceNumber.length > 128) {
+      return res.status(400).json({ success: false, error: 'The application reference is invalid.' });
     }
 
-    // Resolve the school independently of admin authentication.
-    const schoolQuery = {
-      status: 'active',
-      isDeleted: { $ne: true }
-    };
-
-    if (mongoose.Types.ObjectId.isValid(schoolId)) {
-      schoolQuery._id = schoolId;
+    const schoolQuery = { status: 'active', isDeleted: { $ne: true } };
+    if (mongoose.Types.ObjectId.isValid(requestedSchoolId)) {
+      schoolQuery._id = requestedSchoolId;
     } else {
-      schoolQuery.schoolId = schoolId;
+      schoolQuery.schoolId = requestedSchoolId;
     }
-
-    const school = await School.findOne(schoolQuery)
-      .select('_id schoolId name')
-      .lean();
-
+    const school = await School.findOne(schoolQuery).select('_id schoolId name schoolName').lean();
     if (!school) {
-      return res.status(404).json({
-        success: false,
-        error: 'The selected school could not be found.'
-      });
+      return res.status(404).json({ success: false, error: 'The selected school could not be found.' });
     }
 
-    const identifiers = [
-      school.schoolId,
-      String(school._id)
-    ].filter(Boolean).map(String);
-
-    const conditions = [];
-
+    let match = {};
     if (email) {
-      conditions.push({
-        email: { $regex: '^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', $options: 'i' }
-      });
-    }
-
-    if (referenceNumber) {
-      if (mongoose.Types.ObjectId.isValid(referenceNumber)) {
-        conditions.push({ _id: referenceNumber });
-      }
-
-      conditions.push(
+      // Escape user input before using it in a case-insensitive exact-match regex.
+      const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      match.email = { $regex: `^${escapedEmail}$`, $options: 'i' };
+    } else {
+      const referenceMatches = [
         { applicationNumber: referenceNumber },
-        { referenceNumber: referenceNumber },
-        { refNumber: referenceNumber }
-      );
+        { referenceNumber }
+      ];
+      if (mongoose.Types.ObjectId.isValid(referenceNumber)) {
+        referenceMatches.push({ _id: referenceNumber });
+      }
+      match.$or = referenceMatches;
     }
 
-    const application = await AdmissionApplication.findOne({
-      schoolId: { $in: identifiers },
-      $or: conditions
-    })
-      .select('-documents')
-      .populate('cohort', 'name class arm session term applicationFee')
+    const applications = await AdmissionApplication.find(schoolFilter(school, match))
+      .populate({ path: 'cohort', populate: [
+        { path: 'class', select: 'name' },
+        { path: 'arm', select: 'name armName' },
+        { path: 'session', select: 'name' }
+      ] })
+      .populate('session', 'name')
       .populate('class', 'name')
       .populate('arm', 'name armName')
-      .populate('session', 'name')
+      .sort({ dateApplied: -1, createdAt: -1, _id: -1 })
+      .limit(email ? 20 : 1)
       .lean();
 
-    if (!application) {
+    if (!applications.length) {
       return res.status(404).json({
         success: false,
-        error: 'No application was found matching the supplied information.'
+        error: 'No application was found with those details for this school. Check the email/reference and try again.'
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      application: {
-        ...application,
-        referenceNumber:
-          application.applicationNumber ||
-          application.referenceNumber ||
-          application.refNumber ||
-          String(application._id),
-        name: application.name,
-        email: application.email,
+    const publicApplications = applications.map(application => {
+      const cohort = application.cohort || {};
+      const classRecord = application.class || cohort.class;
+      const armRecord = application.arm || cohort.arm;
+      const sessionRecord = application.session || cohort.session;
+      return {
+        _id: application._id,
+        applicationNumber: application.applicationNumber || application.referenceNumber || String(application._id),
+        referenceNumber: application.applicationNumber || application.referenceNumber || String(application._id),
+        name: application.name || '',
+        email: application.email || '',
         status: application.status || 'Pending',
-        remarks: application.notes || '',
-        className: application.class?.name || '',
-        armName: application.arm?.name || application.arm?.armName || '',
-        sessionName: application.session?.name || '',
-        createdAt: application.createdAt || application.dateApplied
-      }
+        notes: application.notes || '',
+        remarks: application.notes || application.remarks || '',
+        phone: application.phone || '',
+        className: classRecord?.name || '',
+        armName: armRecord?.name || armRecord?.armName || '',
+        sessionName: sessionRecord?.name || '',
+        term: application.term || cohort.term || '',
+        createdAt: application.createdAt || application.dateApplied || null,
+        dateApplied: application.dateApplied || application.createdAt || null
+      };
     });
 
+    return res.json({
+      success: true,
+      school: { schoolId: school.schoolId || String(school._id), name: school.schoolName || school.name || '' },
+      count: publicApplications.length,
+      applications: publicApplications,
+      application: publicApplications[0]
+    });
   } catch (error) {
-    console.error('Public application status lookup error:', error);
-
-    return res.status(500).json({
-      success: false,
-      error: 'Unable to retrieve application status at this time.'
-    });
+    console.error('Public admission status lookup error:', error);
+    return res.status(500).json({ success: false, error: 'Unable to retrieve application status at this time.' });
   }
 });
 
-// GET all applications
 router.get('/applications', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireSchool(req, res);
