@@ -2186,45 +2186,28 @@
     $('statusResultCard').classList.remove('hidden');
   }
 
-  async function lookupApplicationStatus(query) {
-    const trimmed = query.trim();
-    const isEmail = trimmed.includes('@');
-    const paramKey = isEmail ? 'email' : 'referenceNumber';
-    const encodedSchool = encodeURIComponent(state.schoolId);
-    const encodedQuery = encodeURIComponent(trimmed);
 
-    const endpoints = [
-      `${API}/api/admission/public/${encodedSchool}/status?${paramKey}=${encodedQuery}&query=${encodedQuery}`,
-      `${API}/api/admission/public/status?schoolId=${encodedSchool}&${paramKey}=${encodedQuery}&query=${encodedQuery}`,
-      `${API}/api/admission/application/status?schoolId=${encodedSchool}&${paramKey}=${encodedQuery}`,
-      `${API}/api/admission/status/${encodedQuery}?schoolId=${encodedSchool}`
-    ];
+async function lookupApplicationStatus(query) {
+  const trimmed = query.trim();
+  const isEmail = trimmed.includes('@');
 
-    let lastError = null;
-    for (const url of endpoints) {
-      try {
-        const res = await fetchJson(url);
-        const candidate = res.application || (Array.isArray(res.applications) ? res.applications[0] : null) || res.data || res;
-        if (candidate && (candidate.name || candidate.email || candidate.applicationNumber || candidate.referenceNumber || candidate.status)) {
-          return normalizeApplicationRecord(candidate);
-        }
-      } catch (err) {
-        lastError = err;
-      }
-    }
+  const paramKey = isEmail ? 'email' : 'referenceNumber';
 
-    // Fallback: check recently submitted applications saved on this device
-    const localApps = safeJson(localStorage.getItem('submittedApplications')) || [];
-    const localMatch = localApps.find(item =>
-      String(item.referenceNumber || '').toLowerCase() === trimmed.toLowerCase() ||
-      String(item.email || '').toLowerCase() === trimmed.toLowerCase()
+  const url =
+    `${API}/api/admission/public/${encodeURIComponent(state.schoolId)}/status` +
+    `?${paramKey}=${encodeURIComponent(trimmed)}`;
+
+  const result = await fetchJson(url);
+
+  if (!result.success || !result.application) {
+    throw new Error(
+      result.error || 'No matching application was found.'
     );
-    if (localMatch) {
-      return normalizeApplicationRecord(localMatch);
-    }
-
-    throw new Error(lastError?.message || 'No application record matched that reference number or email address.');
   }
+
+  return normalizeApplicationRecord(result.application);
+}
+
 
   $('statusCheckForm').addEventListener('submit', async (e) => {
     e.preventDefault();
