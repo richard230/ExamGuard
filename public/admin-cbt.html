@@ -592,13 +592,15 @@ function tenantQuery(extra = {}) {
 
 async function initializeAdminCBT() {
   try {
+    // Resolve the tenant's school configuration first so branding and school IDs
+    // are available before authenticated requests and the dashboard are initialized.
     await loadSchoolConfig();
     await loadAuthenticatedUser();
     showExams();
+    hidePageSpinner();
   } catch (error) {
     console.error('CBT tenant initialization failed:', error);
-    const spinner = document.getElementById('pageSpinnerOverlay');
-    if (spinner) spinner.style.display = 'none';
+    hidePageSpinner();
     const content = document.getElementById('contentArea');
     if (content) content.innerHTML = `<div class="min-h-[500px] flex items-center justify-center"><div class="max-w-md text-center p-8 rounded-2xl bg-white border border-red-200 shadow-sm"><div class="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 text-red-600 flex items-center justify-center"><i class="fa-solid fa-shield-halved text-2xl"></i></div><h2 class="text-xl font-bold text-slate-900 mb-2">School Access Required</h2><p class="text-slate-600">${error.message || 'Unable to load this school portal.'}</p><a href="login.html" class="inline-flex mt-5 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold">Sign In Again</a></div></div>`;
   }
@@ -615,19 +617,17 @@ function getAuthHeaders() {
   };
 }
 
-// Spinner overlay logic
-document.addEventListener('DOMContentLoaded', () => {
+// Spinner remains visible until tenant configuration and admin initialization finish.
+function hidePageSpinner() {
   const spinner = document.getElementById('pageSpinnerOverlay');
-  if (spinner) spinner.style.display = 'flex';
-  setTimeout(() => {
-    if (spinner) {
-      spinner.style.opacity = '0';
-      setTimeout(() => {
-        spinner.style.display = 'none';
-      }, 400);
-    }
-  }, 1200);
-});
+  if (!spinner) return;
+
+  spinner.style.opacity = '0';
+  spinner.style.pointerEvents = 'none';
+  window.setTimeout(() => {
+    spinner.style.display = 'none';
+  }, 400);
+}
 
 // Sidebar mobile toggle logic
 const sidebar = document.getElementById('sidebar');
