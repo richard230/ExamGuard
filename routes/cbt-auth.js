@@ -26,10 +26,23 @@ function getStudentName(student) {
 // and password hashes are never selected or returned.
 router.get('/offline-roster', authMiddleware, async (req, res) => {
   try {
-    const role = String(req.user?.role || '').toLowerCase();
+    const role = String(req.user?.role || '').trim().toLowerCase();
+    // authMiddleware resolves school staff accounts using Staff.access_level
+    // (for example: teacher, principal, accountant, admin) and school users
+    // using User.role. A school-linked superadmin account is also permitted;
+    // only student and parent accounts are excluded from roster preparation.
     const schoolId = req.user?.schoolId;
-    if (!schoolId || ['student', 'parent', 'superadmin'].includes(role)) {
-      return res.status(403).json({ error: 'School staff access is required to prepare offline CBT.' });
+    const isNonStaffAccount = ['student', 'parent'].includes(role);
+    if (!schoolId || isNonStaffAccount) {
+      console.warn('[OFFLINE CBT] Roster access denied:', {
+        role: role || '(missing)',
+        hasSchoolId: Boolean(schoolId),
+        userId: req.user?.id ? String(req.user.id) : null
+      });
+      return res.status(403).json({
+        error: 'A school-linked staff or administrator account is required to prepare offline CBT.',
+        code: !schoolId ? 'SCHOOL_CONTEXT_MISSING' : 'STAFF_ROLE_REQUIRED'
+      });
     }
 
     const students = await Student.find({
