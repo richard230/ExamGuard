@@ -44,7 +44,10 @@ async function resolveCurrentSchool(req) {
   const user = req.user || {};
   const identifiers = getUserSchoolIdentifiers(user);
   const requestedId = getRequestedSchoolId(req);
-  const schoolIdentifier = requestedId || identifiers[0] || '';
+  // The authenticated account's tenant is authoritative. Request-supplied
+  // school identifiers are only a fallback for platform-level accounts.
+  const authenticatedSchoolId = user.schoolId || identifiers[0] || '';
+  const schoolIdentifier = authenticatedSchoolId || requestedId || '';
 
   if (!schoolIdentifier) return null;
 
@@ -120,12 +123,18 @@ router.delete('/:id', authMiddleware, adminAuth, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { exam, answers, startedAt, finishedAt } = req.body;
-    const studentId = req.user ? req.user._id : req.body.student;
+
+    // authMiddleware exposes the authenticated account ID as req.user.id
+    // (not req.user._id). A student must always submit under their own ID;
+    // never trust a client-supplied student ID for a student session.
+    const studentId = req.user?.role === 'student'
+      ? req.user.id
+      : req.body.student;
     const school = await resolveCurrentSchool(req);
     if (!school) return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
     const schoolId = schoolIdForQueries(school);
 
-    if (!exam || !answers || !studentId) {
+    if (!exam || !Array.isArray(answers) || !studentId) {
       return res.status(400).json({ error: 'Missing required fields.' });
     }
 
@@ -153,7 +162,7 @@ router.post('/', authMiddleware, async (req, res) => {
     // --- Correct: Always save ObjectId for class ---
     // Find the student's class and always use the Class ObjectId
     const studentDoc = await Student.findOne({ _id: studentId, schoolId });
-    if (!studentDoc) return res.status(400).json({ error: 'Student not found.' });
+    if (!studentDoc) return res.status(404).json({ error: 'Authenticated student was not found in the active school.' });
     let classId = studentDoc.class;
 
     // If it's a string and not an ObjectId, try to resolve using the name
