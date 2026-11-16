@@ -118,6 +118,31 @@ function makeReference(prefix = 'WAL') {
   return `${prefix}-${Date.now()}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
+// Paystack Nigeria local transaction pricing when the merchant has enabled
+// "Pass fees to customers" in the Paystack Dashboard:
+// 1.5% + ₦100, ₦100 waived below ₦2,500, maximum fee ₦2,000.
+// Calculate in kobo and gross-up the base amount because Paystack also charges
+// its percentage fee on the surcharge itself.
+function calculatePaystackCustomerTotalKobo(baseAmountKobo) {
+  const base = Math.round(Number(baseAmountKobo));
+  if (!Number.isSafeInteger(base) || base <= 0) {
+    throw new Error('Invalid base payment amount.');
+  }
+
+  const rate = 0.015;
+  const flatFee = base < 250000 ? 0 : 10000; // ₦100 in kobo
+  const feeCap = 200000; // ₦2,000 in kobo
+  const feeBeforeGrossUp = base * rate + flatFee;
+
+  if (feeBeforeGrossUp >= feeCap) {
+    return base + feeCap;
+  }
+
+  // Paystack's published gross-up formula includes an additional ₦0.01.
+  // Round upward to the next kobo so the intended net amount is covered.
+  return Math.ceil((base + flatFee) / (1 - rate) + 1);
+}
+
 // ===== SCHOOL WALLET =====
 
 /**
@@ -206,6 +231,8 @@ router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminA
     if (!Number.isFinite(amount) || amount <= 0 || !email) {
       return res.status(400).json({ success: false, error: 'A valid amount and payer email are required.' });
     }
+    const baseAmountKobo = Math.round(amount * 100);
+    const expectedPaystackAmountKobo = calculatePaystackCustomerTotalKobo(baseAmountKobo);
     if (!process.env.PAYSTACK_SECRET_KEY) {
       return res.status(503).json({ success: false, error: 'Paystack is not configured. Set PAYSTACK_SECRET_KEY on the server.' });
     }
@@ -245,7 +272,10 @@ router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminA
         metadata: {
           purpose: 'school_wallet_funding',
           schoolId: req.schoolId,
-          schoolIdentifier: String(school.schoolId || school._id)
+          schoolIdentifier: String(school.schoolId || school._id),
+          baseAmountKobo,
+          expectedPaystackAmountKobo,
+          paystackFeeModel: 'NG_LOCAL_1.5_PERCENT_PLUS_100_CAPPED_2000'
         }
       })
     });
@@ -263,13 +293,26 @@ router.post('/school-wallet/funding/paystack/initialize', authMiddleware, adminA
           reference, payerEmail: email,
           description: 'Paystack wallet funding',
           createdAt: new Date(),
-          metadata: { accessCode: payload.data.access_code }
+          metadata: {
+            accessCode: payload.data.access_code,
+            baseAmountKobo,
+            expectedPaystackAmountKobo,
+            paystackFeeModel: 'NG_LOCAL_1.5_PERCENT_PLUS_100_CAPPED_2000'
+          }
         }}
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
-    res.json({ success: true, reference, checkoutUrl: payload.data.authorization_url, authorizationUrl: payload.data.authorization_url });
+    res.json({
+      success: true,
+      reference,
+      amount,
+      paystackFee: (expectedPaystackAmountKobo - baseAmountKobo) / 100,
+      customerTotal: expectedPaystackAmountKobo / 100,
+      checkoutUrl: payload.data.authorization_url,
+      authorizationUrl: payload.data.authorization_url
+    });
   } catch (err) {
     console.error('Paystack initialization failed:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -317,7 +360,13 @@ router.get('/school-wallet/funding/paystack/verify', authMiddleware, adminAuth, 
     }
     const paystackData = payload.data;
     const paidAmountKobo = Number(paystackData.amount);
-    const expectedAmountKobo = Math.round(Number(transaction.amount) * 100);
+    const baseAmountKobo = Math.round(Number(transaction.amount) * 100);
+    // Prefer the amount saved at initialization. The fallback supports pending
+    // transactions created before this update was deployed.
+    const expectedAmountKobo = Number(
+      transaction.metadata?.expectedPaystackAmountKobo ||
+      calculatePaystackCustomerTotalKobo(baseAmountKobo)
+    );
     const metadataSchoolId = paystackData.metadata?.schoolId;
     const metadataMatches = metadataSchoolId == null || String(metadataSchoolId) === String(req.schoolId);
     const referenceMatches = String(paystackData.reference || '') === reference;
@@ -327,7 +376,8 @@ router.get('/school-wallet/funding/paystack/verify', authMiddleware, adminAuth, 
       console.warn('[SchoolWallet] Paystack transaction did not pass validation', {
         reference, paystackStatus: paystackData.status, referenceMatches, amountMatches,
         currencyMatches, metadataMatches, expectedAmountKobo, paidAmountKobo,
-        metadataSchoolId: metadataSchoolId == null ? null : String(metadataSchoolId), schoolId: String(req.schoolId)
+        metadataSchoolId: metadataSchoolId == null ? null : String(metadataSchoolId),
+        baseAmountKobo, expectedAmountKobo, schoolId: String(req.schoolId)
       });
       return res.status(409).json({ success: false, error: 'Paystack has not confirmed a matching successful payment for this reference. Check the reference, amount, currency and school, then retry.' });
     }
@@ -343,7 +393,16 @@ router.get('/school-wallet/funding/paystack/verify', authMiddleware, adminAuth, 
     const updated = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
     const credited = result.modifiedCount === 1;
     console.info('[SchoolWallet] Paystack verification finished', { schoolId: req.schoolId, reference, credited, balance: updated?.balance || 0 });
-    res.json({ success: true, credited, alreadyVerified: !credited, balance: updated?.balance || 0, reference });
+    res.json({
+      success: true,
+      credited,
+      alreadyVerified: !credited,
+      balance: updated?.balance || 0,
+      reference,
+      baseAmount: transaction.amount,
+      amountPaid: paidAmountKobo / 100,
+      paystackFee: (paidAmountKobo - baseAmountKobo) / 100
+    });
   } catch (err) {
     console.error('Paystack verification failed:', err);
     res.status(500).json({ success: false, error: err.message });
