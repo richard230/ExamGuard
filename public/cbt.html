@@ -898,6 +898,97 @@
     let currentQ = 0;
     let timerSeconds = 0;
     let timerInterval = null;
+    let offlineMode = false;
+    let pendingSubmissionId = null;
+
+    const OFFLINE_DB_NAME = 'examguard-cbt-offline-v1';
+    function openOfflineDb() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) return reject(new Error('IndexedDB is unavailable'));
+        const request = indexedDB.open(OFFLINE_DB_NAME, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('cache')) db.createObjectStore('cache');
+          if (!db.objectStoreNames.contains('queue')) db.createObjectStore('queue', { keyPath: 'id' });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    async function offlineGet(storeName, key) {
+      const db = await openOfflineDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => db.close();
+      });
+    }
+    async function offlinePut(storeName, value, key) {
+      const db = await openOfflineDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        if (storeName === 'queue') tx.objectStore(storeName).put(value);
+        else tx.objectStore(storeName).put(value, key);
+        tx.oncomplete = () => { db.close(); resolve(true); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      });
+    }
+    async function offlineDelete(storeName, key) {
+      const db = await openOfflineDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).delete(key);
+        tx.oncomplete = () => { db.close(); resolve(true); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      });
+    }
+    function cachedOfflineStudent() {
+      try { return JSON.parse(sessionStorage.getItem('cbt_offline_student') || 'null'); } catch (_) { return null; }
+    }
+    async function persistExamState() {
+      if (!exam || !student?._id) return;
+      try {
+        await offlinePut('cache', { answers, currentQ, timerSeconds, startedAt, updatedAt: new Date().toISOString() }, 'attempt:' + student._id + ':' + exam._id);
+      } catch (e) { console.warn('Unable to persist CBT attempt locally:', e); }
+    }
+    async function restoreExamState() {
+      const saved = await offlineGet('cache', 'attempt:' + student._id + ':' + exam._id);
+      if (saved) {
+        if (Array.isArray(saved.answers) && saved.answers.length === questions.length) answers = saved.answers;
+        if (Number.isFinite(saved.currentQ)) currentQ = Math.max(0, Math.min(saved.currentQ, questions.length - 1));
+        if (Number.isFinite(saved.timerSeconds) && saved.timerSeconds > 0) timerSeconds = saved.timerSeconds;
+        if (saved.startedAt) startedAt = saved.startedAt;
+      }
+    }
+    async function syncQueuedSubmissions() {
+      if (!navigator.onLine || !token) return;
+      const db = await openOfflineDb();
+      const queued = await new Promise((resolve, reject) => {
+        const tx = db.transaction('queue', 'readonly');
+        const req = tx.objectStore('queue').getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => db.close();
+      });
+      for (const item of queued) {
+        // Student JWTs may only sync that same student's queued records.
+        // Never let one student session submit another student's offline work.
+        if (item.payload?.student && String(item.payload.student) !== String(student._id)) continue;
+        try {
+          const isActivity = item.kind === 'activity';
+          const response = await fetch(API_BASE_URL + (isActivity ? '/api/activity' : '/api/result'), {
+            method: 'POST',
+            headers: schoolHeaders({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'X-Offline-Submission-ID': item.id }),
+            body: JSON.stringify({ ...item.payload, schoolId: item.schoolId, offlineSubmissionId: item.id, offlineCaptured: true })
+          });
+          if (response.ok) await offlineDelete('queue', item.id);
+          else if (response.status === 401 || response.status === 403) break;
+        } catch (e) { break; }
+      }
+    }
+    window.addEventListener('online', () => { syncQueuedSubmissions(); });
 
     /* Multi-Tenant Configuration Helpers */
     function getSchoolSubdomain() {
@@ -982,6 +1073,10 @@
         ...extra
       };
 
+      if (!navigator.onLine || offlineMode) {
+        try { await offlinePut('queue', { id: 'activity-' + Date.now() + '-' + Math.random().toString(36).slice(2), payload: { ...payload, offline: true }, schoolId: getResolvedSchoolId(), kind: 'activity' }); } catch (_) {}
+        return;
+      }
       try {
         await fetch(API_BASE_URL + '/api/activity', {
           method: 'POST',
@@ -1000,6 +1095,18 @@
     async function loadStudent() {
       try {
         if (!token) {
+          const offlineStudent = cachedOfflineStudent();
+          if (offlineStudent && String(offlineStudent.schoolId) === String(getResolvedSchoolId())) {
+            offlineMode = true;
+            student._id = offlineStudent._id;
+            student.name = offlineStudent.name || 'Student';
+            student.class = offlineStudent.class || '-';
+            student.classId = offlineStudent.class || '';
+            student.email = '-';
+            fillStudentSidebar();
+            showExamCodePrompt();
+            return;
+          }
           showExamCodePrompt();
           return;
         }
@@ -1025,6 +1132,7 @@
 
         fillStudentSidebar();
         showExamCodePrompt();
+        syncQueuedSubmissions();
 
       } catch (error) {
         console.warn('Error loading student profile:', error);
@@ -1074,6 +1182,31 @@
       errorEl.textContent = '';
 
       try {
+        if (!navigator.onLine || offlineMode) {
+          const schoolId = getResolvedSchoolId();
+          const cached = await offlineGet('cache', 'exams:' + schoolId);
+          const match = (cached || []).find(item =>
+            String(item.examCode || '').toUpperCase() === examCode &&
+            String(item.className || '').trim().toLowerCase() === String(student.class || '').trim().toLowerCase() &&
+            item.cachedAt && (Date.now() - new Date(item.cachedAt).getTime()) <= 48 * 60 * 60 * 1000
+          );
+          if (!match) throw new Error('This exam has not been downloaded to this CBT computer. Connect while online and load it once before the exam.');
+          exam = match.exam;
+          questions = Array.isArray(exam.questions) ? exam.questions : [];
+          answers = Array(questions.length).fill(null);
+          timerSeconds = (exam.duration || 15) * 60;
+          currentQ = 0;
+          startedAt = new Date().toISOString();
+          offlineMode = true;
+          await restoreExamState();
+          document.getElementById('cbtNoExamArea').style.display = 'none';
+          document.getElementById('cbtExamArea').style.display = 'block';
+          document.getElementById('cbtExamLoader').style.display = 'none';
+          fillStudentSidebar(); renderQuestion(); startTimer();
+          logStudentActivity('started', { offline: true });
+          return;
+        }
+
         const res = await fetch(API_BASE_URL + '/api/cbt/auth/code-login', {
           method: 'POST',
           headers: schoolHeaders({ 'Content-Type': 'application/json' }),
@@ -1094,11 +1227,19 @@
         }
 
         exam = data.exam || data;
+        try {
+          const schoolId = getResolvedSchoolId();
+          const cachedExams = (await offlineGet('cache', 'exams:' + schoolId)) || [];
+          const next = cachedExams.filter(item => String(item.examCode || '').toUpperCase() !== examCode);
+          next.push({ examCode, exam, className: student.class || '', cachedAt: new Date().toISOString() });
+          await offlinePut('cache', next, 'exams:' + schoolId);
+        } catch (cacheErr) { console.warn('Exam could not be cached for offline use:', cacheErr); }
         questions = Array.isArray(exam.questions) ? exam.questions : [];
         answers = Array(questions.length).fill(null);
         timerSeconds = (exam.duration || 15) * 60;
         currentQ = 0;
         startedAt = new Date().toISOString();
+        await restoreExamState();
 
         document.getElementById('cbtNoExamArea').style.display = 'none';
         document.getElementById('cbtExamArea').style.display = 'block';
@@ -1178,13 +1319,15 @@
     window.gotoQuestion = function (qIdx) {
       currentQ = qIdx;
       renderQuestion();
-      logStudentActivity('navigated', { questionIndex: qIdx });
+      logStudentActivity('navigated', { questionIndex: qIdx, offline: offlineMode });
+      persistExamState();
     };
 
     window.selectAnswer = function (idx) {
       answers[currentQ] = idx;
       renderQuestion();
-      logStudentActivity('answered', { questionIndex: currentQ, answer: idx });
+      logStudentActivity('answered', { questionIndex: currentQ, answer: idx, offline: offlineMode });
+      persistExamState();
     };
 
     document.getElementById('cbtPrevBtn').onclick = function () {
@@ -1229,6 +1372,7 @@
       timerInterval = setInterval(() => {
         timerSeconds--;
         updateTimerDisplay();
+        persistExamState();
         if (timerSeconds <= 0) {
           clearInterval(timerInterval);
           alert("Time is up! Your examination will be submitted automatically.");
@@ -1268,6 +1412,18 @@
       };
 
       try {
+        if (!navigator.onLine || offlineMode) {
+          const id = 'result-' + student._id + '-' + exam._id + '-' + Date.now();
+          await offlinePut('queue', { id, payload, schoolId: getResolvedSchoolId(), kind: 'result', queuedAt: new Date().toISOString() });
+          await offlinePut('cache', { answers, currentQ, timerSeconds: 0, startedAt, submitted: true, submissionId: id }, 'attempt:' + student._id + ':' + exam._id);
+          document.getElementById('cbtResultArea').innerHTML = `
+            <div class="cbt-empty-state">
+              <div class="cbt-empty-icon" style="color:var(--warning)"><i class="fas fa-cloud-arrow-up"></i></div>
+              <div class="cbt-empty-title">Exam Saved on This Computer</div>
+              <div class="cbt-empty-text">Your answers are safely queued on this computer and have not yet been received by the school server. When internet returns, reconnect and sign in normally to allow automatic synchronisation.</div>
+            </div>`;
+          return;
+        }
         const response = await fetch(API_BASE_URL + '/api/result', {
           method: 'POST',
           headers: schoolHeaders({
@@ -1326,6 +1482,7 @@
       localStorage.removeItem('student_token');
       localStorage.removeItem('studentToken');
       localStorage.removeItem('token');
+      sessionStorage.removeItem('cbt_offline_student');
       window.location.href = 'cbt-login.html';
     };
 
@@ -1340,6 +1497,11 @@
       }
       loadStudent();
     })();
+  </script>
+<script>
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/cbt-offline-sw.js').catch(err => console.warn('Offline shell registration failed:', err)));
+    }
   </script>
 </body>
 </html>
