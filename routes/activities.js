@@ -60,7 +60,10 @@ async function resolveCurrentSchool(req) {
   const identifiers = getUserSchoolIdentifiers(user);
   const requestedId = getRequestedSchoolId(req);
 
-  const schoolIdentifier = requestedId || identifiers[0] || '';
+  // Prefer the tenant bound to the verified token. Client-supplied school IDs
+  // must not override the authenticated account's school context.
+  const authenticatedSchoolId = user.schoolId || identifiers[0] || '';
+  const schoolIdentifier = authenticatedSchoolId || requestedId || '';
 
   if (!schoolIdentifier) return null;
 
@@ -198,12 +201,18 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const {
-      student,
+      student: requestedStudentId,
       exam,
       action,
       timestamp,
       ...rest
     } = req.body;
+
+    // For student sessions, bind the activity to the authenticated student.
+    // Other authenticated roles may submit a student ID for administrative use.
+    const student = req.user?.role === 'student'
+      ? req.user.id
+      : requestedStudentId;
 
     if (!student || !exam || !action) {
       return res.status(400).json({
