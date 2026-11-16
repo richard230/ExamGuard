@@ -322,7 +322,8 @@
         return clean(
           cached?._id ||
           cached?.schoolId ||
-          cached?.id
+          cached?.id ||
+          localStorage.getItem(SCHOOL_ID_KEY)
         );
       } catch (_) {
         return clean(localStorage.getItem(SCHOOL_ID_KEY));
@@ -735,20 +736,66 @@
     }
 
     async function prepareOfflineRoster() {
-      const schoolId = clean(currentSchool?._id || currentSchool?.schoolId || currentSchool?.id || getCachedSchoolId());
-      const staffToken = clean(localStorage.getItem('staff_token') || localStorage.getItem('admin_token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken') || localStorage.getItem('token'));
-      if (!schoolId || !staffToken || !navigator.onLine) return;
+      const expectedSchoolId = clean(
+        currentSchool?._id || currentSchool?.schoolId || currentSchool?.id || getCachedSchoolId()
+      );
+      const tokenKeys = ['staff_token', 'admin_token', 'authToken', 'accessToken', 'token'];
+      let staffToken = '';
+      let tokenKey = '';
+      for (const key of tokenKeys) {
+        const candidate = clean(localStorage.getItem(key));
+        if (candidate) { staffToken = candidate; tokenKey = key; break; }
+      }
+
+      if (!navigator.onLine) return { ok: false, reason: 'offline' };
+      if (!staffToken) return { ok: false, reason: 'no-staff-session' };
+      if (!expectedSchoolId) return { ok: false, reason: 'no-school-id' };
+
       try {
         const response = await fetch(API_BASE_URL + '/api/cbt/auth/offline-roster', {
-          headers: { Authorization: 'Bearer ' + staffToken, 'X-School-ID': schoolId, Accept: 'application/json' }
+          headers: {
+            Authorization: 'Bearer ' + staffToken,
+            'X-School-ID': expectedSchoolId,
+            Accept: 'application/json'
+          }
         });
-        if (!response.ok) return;
-        const data = await response.json();
-        if (data.success && String(data.schoolId) === String(schoolId) && Array.isArray(data.students)) {
-          await offlineCacheSet('roster:' + schoolId, { generatedAt: data.generatedAt, students: data.students });
-          console.info('Offline CBT roster prepared:', data.students.length, 'students');
+        let data = {};
+        try { data = await response.json(); } catch (_) {}
+        if (!response.ok || !data.success) {
+          const message = data.error || data.message || ('Roster request failed (' + response.status + ').');
+          console.warn('[OFFLINE CBT] Roster download rejected:', { status: response.status, code: data.code, message, tokenKey });
+          return { ok: false, reason: 'server-rejected', message };
         }
-      } catch (err) { console.warn('Offline roster preparation skipped:', err); }
+
+        const serverSchoolId = clean(data.schoolId);
+        if (!serverSchoolId || serverSchoolId !== expectedSchoolId) {
+          const message = 'The staff account and this CBT portal belong to different school records. Refresh the correct school portal before preparing offline CBT.';
+          console.error('[OFFLINE CBT] School ID mismatch:', { expectedSchoolId, serverSchoolId, tokenKey });
+          return { ok: false, reason: 'school-mismatch', message };
+        }
+        if (!Array.isArray(data.students) || !data.students.length) {
+          return { ok: false, reason: 'empty-roster', message: 'The server returned an empty student roster.' };
+        }
+
+        const cacheValue = {
+          schoolId: serverSchoolId,
+          generatedAt: data.generatedAt || new Date().toISOString(),
+          students: data.students
+        };
+        const cacheKey = 'roster:' + serverSchoolId;
+        await offlineCacheSet(cacheKey, cacheValue);
+        const saved = await offlineCacheGet(cacheKey);
+        if (!saved || !Array.isArray(saved.students) || saved.students.length !== data.students.length) {
+          throw new Error("The roster was downloaded but could not be verified in this computer\'s offline storage.");
+        }
+        console.info('[OFFLINE CBT] Roster saved and verified:', {
+          schoolId: serverSchoolId, students: saved.students.length, tokenKey
+        });
+        return { ok: true, count: saved.students.length, schoolId: serverSchoolId };
+      } catch (err) {
+        console.warn('[OFFLINE CBT] Roster preparation failed:', err);
+        return { ok: false, reason: 'storage-or-network-error', message: err.message || 'Unable to save the offline roster.' };
+      }
     }
 
     async function tryOfflineStudentLogin(regNo, firstName) {
@@ -841,8 +888,13 @@
       }
 
       // If a school staff/admin session is already present on this centre PC,
-      // refresh the minimal offline roster before the internet is lost.
-      prepareOfflineRoster();
+      // complete and verify the roster save before students can use offline login.
+      const rosterResult = await prepareOfflineRoster();
+      if (rosterResult.ok) {
+        showSchoolConfigurationError('Offline CBT is ready on this computer. ' + rosterResult.count + ' student records have been securely cached for this school.');
+      } else if (rosterResult.reason !== 'no-staff-session' && rosterResult.reason !== 'offline') {
+        showSchoolConfigurationError(rosterResult.message || 'Offline roster preparation did not complete.');
+      }
 
       loginForm.addEventListener(
         "submit",
