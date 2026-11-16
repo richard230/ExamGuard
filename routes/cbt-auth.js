@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const Student = require('../models/Student');
 const Exam = require('../models/CBTExam');
 const Class = require('../models/Class');
+const { authMiddleware } = require('./auth');
 
 // ================= HELPERS =================
 function normalizeCode(code) {
@@ -17,6 +18,42 @@ function getStudentName(student) {
   if (student.name) return student.name;
   return `${student.firstname || ''} ${student.surname || ''}`.trim() || 'Student';
 }
+
+
+// ================= OFFLINE CBT ROSTER =================
+// Only authenticated school personnel may preload the minimum student
+// identity fields needed for centre-based offline identification. Passwords
+// and password hashes are never selected or returned.
+router.get('/offline-roster', authMiddleware, async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    const schoolId = req.user?.schoolId;
+    if (!schoolId || ['student', 'parent', 'superadmin'].includes(role)) {
+      return res.status(403).json({ error: 'School staff access is required to prepare offline CBT.' });
+    }
+
+    const students = await Student.find({
+      schoolId,
+      accountStatus: { $ne: 'inactive' }
+    }).select('_id regNo firstname surname class accountStatus').lean();
+
+    return res.json({
+      success: true,
+      schoolId: String(schoolId),
+      generatedAt: new Date().toISOString(),
+      students: students.map(s => ({
+        id: String(s._id),
+        regNo: String(s.regNo || '').trim(),
+        firstname: String(s.firstname || '').trim(),
+        surname: String(s.surname || '').trim(),
+        class: s.class || ''
+      })).filter(s => s.id && s.regNo && s.firstname)
+    });
+  } catch (err) {
+    console.error('Offline CBT roster error:', err);
+    return res.status(500).json({ error: 'Unable to prepare offline student roster.' });
+  }
+});
 
 // ================= CODE LOGIN =================
 router.post('/code-login', async (req, res) => {
