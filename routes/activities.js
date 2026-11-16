@@ -205,6 +205,7 @@ router.post('/', authMiddleware, async (req, res) => {
       exam,
       action,
       timestamp,
+      schoolId: _clientSuppliedSchoolId, // Never persist the public school code directly.
       ...rest
     } = req.body;
 
@@ -254,14 +255,16 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     const activity = new Activity({
-      schoolId,
+      ...rest,
+      // Keep trusted, validated values after rest so request data cannot
+      // overwrite tenant or relationship fields.
+      schoolId, // MongoDB School _id (ObjectId), not a public code such as SCH-GOL-9DC2BF.
       student,
       exam,
       action,
       timestamp: timestamp
         ? new Date(timestamp)
-        : new Date(),
-      ...rest
+        : new Date()
     });
 
     await activity.save();
