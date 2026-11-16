@@ -283,28 +283,34 @@
      * already-open school portal does not suddenly lose its tenant.
      */
     function getSchoolSubdomain() {
-      const host = window.location.hostname.toLowerCase();
+      const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
 
-      const examGuardMatch = host.match(
-        /^([a-z0-9-]+)\.examguard\.com\.ng$/
-      );
+      // Keep tenant resolution consistent with the main school login page.
+      // ExamGuard deployments may use either supported school domain.
+      const supportedDomains = [
+        'goldlincschools.com.ng',
+        'examguard.com.ng'
+      ];
 
-      if (examGuardMatch && examGuardMatch[1]) {
-        const subdomain = examGuardMatch[1];
-
-        // Do not treat the main site as a school tenant.
-        if (!["www", "examguard"].includes(subdomain)) {
-          return subdomain;
+      for (const baseDomain of supportedDomains) {
+        const suffix = '.' + baseDomain;
+        if (host.endsWith(suffix)) {
+          const subdomain = host.slice(0, -suffix.length);
+          if (subdomain && !subdomain.includes('.') &&
+              !['www', 'examguard'].includes(subdomain)) {
+            return subdomain;
+          }
         }
       }
 
-      // Local/development or fallback access.
+      // Local/development and explicitly supplied tenant fallbacks.
       return clean(
-        getQueryParam("subdomain") ||
-        getQueryParam("schoolSubdomain") ||
+        getQueryParam('subdomain') ||
+        getQueryParam('schoolSubdomain') ||
+        getQueryParam('school') ||
         sessionStorage.getItem(SCHOOL_SUBDOMAIN_KEY) ||
         localStorage.getItem(SCHOOL_SUBDOMAIN_KEY)
-      );
+      ).toLowerCase();
     }
 
     /*
@@ -641,9 +647,8 @@
           );
 
           cachedIsSameTenant =
-            !cachedSubdomain ||
-            cachedSubdomain.toLowerCase() ===
-              subdomain.toLowerCase();
+            Boolean(cachedSubdomain) &&
+            cachedSubdomain.toLowerCase() === subdomain.toLowerCase();
         } catch (_) {}
 
         if (!cachedIsSameTenant) {
@@ -739,7 +744,12 @@
       const expectedSchoolId = clean(
         currentSchool?._id || currentSchool?.schoolId || currentSchool?.id || getCachedSchoolId()
       );
-      const tokenKeys = ['staff_token', 'admin_token', 'authToken', 'accessToken', 'token'];
+      // The main portal login writes the current authenticated session to
+      // token/authToken. Legacy staff_token/admin_token keys may belong to a
+      // previous school on a shared computer, so never prefer them.
+      const role = clean(localStorage.getItem('userRole')).toLowerCase();
+      const isStudentOrParent = ['student', 'parent'].includes(role);
+      const tokenKeys = ['token', 'authToken'];
       let staffToken = '';
       let tokenKey = '';
       for (const key of tokenKeys) {
@@ -748,7 +758,7 @@
       }
 
       if (!navigator.onLine) return { ok: false, reason: 'offline' };
-      if (!staffToken) return { ok: false, reason: 'no-staff-session' };
+      if (!staffToken || isStudentOrParent) return { ok: false, reason: 'no-staff-session' };
       if (!expectedSchoolId) return { ok: false, reason: 'no-school-id' };
 
       try {
@@ -769,8 +779,15 @@
 
         const serverSchoolId = clean(data.schoolId);
         if (!serverSchoolId || serverSchoolId !== expectedSchoolId) {
-          const message = 'The staff account and this CBT portal belong to different school records. Refresh the correct school portal before preparing offline CBT.';
-          console.error('[OFFLINE CBT] School ID mismatch:', { expectedSchoolId, serverSchoolId, tokenKey });
+          const message = 'The active staff session does not match the school loaded by this CBT portal. Sign out, open the CBT page from the correct school subdomain, sign in again, and then prepare the offline roster.';
+          console.error('[OFFLINE CBT] School ID mismatch:', {
+            expectedSchoolId,
+            serverSchoolId,
+            tokenKey,
+            portalSubdomain: getSchoolSubdomain(),
+            sessionSchoolId: clean(localStorage.getItem(SCHOOL_ID_KEY)),
+            sessionRole: clean(localStorage.getItem('userRole'))
+          });
           return { ok: false, reason: 'school-mismatch', message };
         }
         if (!Array.isArray(data.students) || !data.students.length) {
