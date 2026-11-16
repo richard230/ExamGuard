@@ -43,8 +43,15 @@ router.post('/code-login', async (req, res) => {
     }
 
     const studentSchoolId = student.schoolId.toString();
+
+    // Do not reject a valid student because the browser has a stale school
+    // selection cached in localStorage. The student record is authoritative;
+    // class and exam lookups below remain restricted to this student's school.
     if (schoolId && String(schoolId) !== studentSchoolId) {
-      return res.status(403).json({ error: 'Student does not belong to the selected school.' });
+      console.warn('[CBT CODE LOGIN] Ignoring stale/mismatched client schoolId', {
+        suppliedSchoolId: String(schoolId),
+        studentSchoolId
+      });
     }
 
     if (!student.class) {
