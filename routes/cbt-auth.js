@@ -21,7 +21,7 @@ function getStudentName(student) {
 // ================= CODE LOGIN =================
 router.post('/code-login', async (req, res) => {
   try {
-    const { examCode, classId, studentId } = req.body;
+    const { examCode, classId, studentId, schoolId } = req.body;
 
     // ---------- VALIDATION ----------
     if (!examCode || !classId || !studentId) {
@@ -30,10 +30,21 @@ router.post('/code-login', async (req, res) => {
       });
     }
 
-    // ---------- STUDENT ----------
+    // ---------- STUDENT / SCHOOL CONTEXT ----------
+    // The student's stored school is authoritative; never trust a schoolId
+    // supplied by the browser without checking it against the student record.
     const student = await Student.findById(studentId);
     if (!student) {
       return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (!student.schoolId) {
+      return res.status(403).json({ error: 'Student account is not associated with a school.' });
+    }
+
+    const studentSchoolId = student.schoolId.toString();
+    if (schoolId && String(schoolId) !== studentSchoolId) {
+      return res.status(403).json({ error: 'Student does not belong to the selected school.' });
     }
 
     if (!student.class) {
@@ -42,7 +53,8 @@ router.post('/code-login', async (req, res) => {
 
     // ---------- CLASS LOOKUP ----------
     const classDoc = await Class.findOne({
-      name: classId // e.g. "SS1"
+      name: classId, // e.g. "SS1"
+      schoolId: student.schoolId
     });
 
     if (!classDoc) {
@@ -64,7 +76,8 @@ router.post('/code-login', async (req, res) => {
     // ---------- EXAM ----------
     const exam = await Exam.findOne({
       examCode: normalizeCode(examCode),
-      class: classDoc._id, // ✅ FIXED
+      class: classDoc._id,
+      schoolId: student.schoolId,
       isCodeActive: true,
       status: { $in: ['Scheduled', 'Active'] }
     });
@@ -76,14 +89,24 @@ router.post('/code-login', async (req, res) => {
     }
 
     // ---------- TOKEN ----------
+    // authMiddleware identifies accounts using decoded.id and verifies with
+    // process.env.JWT_SECRET. Include both the expected id and school context.
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not configured; refusing to issue a CBT token.');
+      return res.status(500).json({ error: 'Authentication is not configured on the server.' });
+    }
+
     const token = jwt.sign(
       {
-        studentId: student._id,
-        examId: exam._id,
-        classId: classDoc._id,
+        id: student._id.toString(),
+        studentId: student._id.toString(),
+        schoolId: studentSchoolId,
+        examId: exam._id.toString(),
+        classId: classDoc._id.toString(),
+        role: 'student',
         type: 'student'
       },
-      process.env.JWT_SECRET || 'dev-secret',
+      process.env.JWT_SECRET,
       { expiresIn: '12h' }
     );
 
@@ -125,18 +148,19 @@ router.post('/code-login', async (req, res) => {
 // ================= VALIDATE CODE =================
 router.post('/validate-code', async (req, res) => {
   try {
-    const { examCode, classId } = req.body;
+    const { examCode, classId, schoolId } = req.body;
 
-    if (!examCode || !classId) {
+    if (!examCode || !classId || !schoolId) {
       return res.status(400).json({
-        error: 'examCode and classId required',
+        error: 'examCode, classId and schoolId required',
         valid: false
       });
     }
 
-    // ---------- CLASS ----------
+    // ---------- CLASS (SCHOOL-SCOPED) ----------
     const classDoc = await Class.findOne({
-      name: classId
+      name: classId,
+      schoolId
     });
 
     if (!classDoc) {
@@ -150,6 +174,7 @@ router.post('/validate-code', async (req, res) => {
     const exam = await Exam.findOne({
       examCode: normalizeCode(examCode),
       class: classDoc._id,
+      schoolId,
       isCodeActive: true,
       status: { $in: ['Scheduled', 'Active'] }
     });
