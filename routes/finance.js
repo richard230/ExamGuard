@@ -370,14 +370,23 @@ router.get('/school-wallet/funding/paystack/verify', authMiddleware, adminAuth, 
     const metadataSchoolId = paystackData.metadata?.schoolId;
     const metadataMatches = metadataSchoolId == null || String(metadataSchoolId) === String(req.schoolId);
     const referenceMatches = String(paystackData.reference || '') === reference;
-    const amountMatches = Number.isFinite(paidAmountKobo) && paidAmountKobo === expectedAmountKobo;
+    // Paystack's dashboard fee pass-through can round its final customer
+    // charge one kobo below the documented gross-up estimate. Accept only a
+    // one-kobo variance; never accept an amount below the wallet principal.
+    const amountDifferenceKobo = Number.isFinite(paidAmountKobo)
+      ? paidAmountKobo - expectedAmountKobo
+      : null;
+    const amountMatches = Number.isSafeInteger(paidAmountKobo) &&
+      paidAmountKobo >= baseAmountKobo &&
+      Math.abs(amountDifferenceKobo) <= 1;
     const currencyMatches = !paystackData.currency || String(paystackData.currency).toUpperCase() === 'NGN';
     if (String(paystackData.status || '').toLowerCase() !== 'success' || !referenceMatches || !amountMatches || !currencyMatches || !metadataMatches) {
       console.warn('[SchoolWallet] Paystack transaction did not pass validation', {
         reference, paystackStatus: paystackData.status, referenceMatches, amountMatches,
         currencyMatches, metadataMatches, expectedAmountKobo, paidAmountKobo,
+        amountDifferenceKobo,
         metadataSchoolId: metadataSchoolId == null ? null : String(metadataSchoolId),
-        baseAmountKobo, expectedAmountKobo, schoolId: String(req.schoolId)
+        baseAmountKobo, schoolId: String(req.schoolId)
       });
       return res.status(409).json({ success: false, error: 'Paystack has not confirmed a matching successful payment for this reference. Check the reference, amount, currency and school, then retry.' });
     }
