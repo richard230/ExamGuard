@@ -9,6 +9,7 @@ const School = require('../models/School');
 const Student = require('../models/Student');
 const ScratchCard = require('../models/ScratchCard');
 const ScratchCardPurchase = require('../models/ScratchCardPurchase');
+const SchoolWallet = require('../models/SchoolWallet');
 
 const CARD_PRICE_NAIRA = 150;
 const MAX_PURCHASE_QUANTITY = 1000;
@@ -85,7 +86,7 @@ async function resolveSchool(req, res) {
     $or: conditions,
     status: 'active',
     isDeleted: { $ne: true }
-  }).select('_id schoolId schoolName email adminEmail status subdomain customDomain');
+  }).select('_id schoolId schoolName email adminEmail status');
 
   if (!school) {
     res.status(404).json({
@@ -130,29 +131,6 @@ function safeEqual(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
-// Structured diagnostics for Render logs. Never include API keys, authorization
-// headers, card codes, customer email addresses, or full webhook payloads.
-function paymentLog(event, details = {}) {
-  const record = {
-    event,
-    timestamp: new Date().toISOString(),
-    ...details
-  };
-  console.log(`[ScratchCards][${event}] ${JSON.stringify(record)}`);
-}
-
-function errorDetails(error) {
-  return {
-    message: error?.message || String(error),
-    name: error?.name || 'Error',
-    code: error?.code || null,
-    statusCode: error?.statusCode || null,
-    providerHttpStatus: error?.providerHttpStatus || null,
-    providerCode: error?.providerCode || null,
-    stack: error?.stack || null
-  };
-}
-
 async function parseProviderResponse(response) {
   const text = await response.text();
   let payload;
@@ -164,15 +142,11 @@ async function parseProviderResponse(response) {
   }
 
   if (!response.ok) {
-    const error = new Error(
+    throw new Error(
       payload.message ||
       payload.error ||
       `Payment provider request failed (${response.status}).`
     );
-    error.statusCode = 502;
-    error.providerHttpStatus = response.status;
-    error.providerCode = payload.code || payload.type || null;
-    throw error;
   }
 
   return payload;
@@ -287,124 +261,27 @@ async function verifyPaystack(purchase) {
     throw error;
   }
 
-  const expectedAmount = Number(
-    purchase.amountSubunits != null
-      ? purchase.amountSubunits
-      : Number(purchase.amountNaira || 0) * 100
+  const response = await fetch(
+    `https://api.paystack.co/transaction/verify/${encodeURIComponent(purchase.reference)}`,
+    { headers: { Authorization: `Bearer ${secret}` } }
   );
-  const expectedCurrency = String(purchase.currency || CURRENCY).trim().toUpperCase();
-  const expectedReference = String(purchase.reference || '').trim();
-  const verifyUrl = `https://api.paystack.co/transaction/verify/${encodeURIComponent(expectedReference)}`;
+  const result = await parseProviderResponse(response);
+  const transaction = result.data;
 
-  paymentLog('PaystackVerificationStarted', {
-    reference: expectedReference,
-    purchaseId: String(purchase._id),
-    schoolId: String(purchase.schoolId),
-    expectedAmountSubunits: expectedAmount,
-    expectedCurrency,
-    purchasePaymentStatus: purchase.paymentStatus,
-    provider: purchase.provider
-  });
-
-  let response;
-  try {
-    response = await fetch(verifyUrl, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${secret}`, Accept: 'application/json' }
-    });
-  } catch (error) {
-    paymentLog('PaystackVerificationNetworkError', {
-      reference: expectedReference,
-      purchaseId: String(purchase._id),
-      error: errorDetails(error)
-    });
-    throw error;
-  }
-
-  let result;
-  try {
-    result = await parseProviderResponse(response);
-  } catch (error) {
-    paymentLog('PaystackVerificationHttpError', {
-      reference: expectedReference,
-      purchaseId: String(purchase._id),
-      providerHttpStatus: response.status,
-      error: errorDetails(error)
-    });
-    throw error;
-  }
-
-  const transaction = result?.data || null;
-  const actualReference = String(transaction?.reference || '').trim();
-  const actualStatus = String(transaction?.status || '').trim().toLowerCase();
-  const actualCurrency = String(transaction?.currency || '').trim().toUpperCase();
-  const actualAmount = Number(transaction?.amount);
-  const requestedAmountRaw = transaction?.requested_amount;
-  const transactionFeesRaw = transaction?.fees;
-  const requestedAmount = Number(requestedAmountRaw);
-  const transactionFees = Number(transactionFeesRaw);
-  const hasRequestedAmount = requestedAmountRaw !== null && requestedAmountRaw !== undefined && requestedAmountRaw !== '' && Number.isFinite(requestedAmount) && requestedAmount >= 0;
-  const hasTransactionFees = transactionFeesRaw !== null && transactionFeesRaw !== undefined && transactionFeesRaw !== '' && Number.isFinite(transactionFees) && transactionFees >= 0;
-
-  // Paystack's `amount` can represent the total paid by the customer, including
-  // processing fees. `requested_amount` represents the amount our integration
-  // originally requested. Prefer that field; otherwise reconcile amount - fees.
-  // Never accept an arbitrary overpayment or ignore an unexplained difference.
-  const amountBasisSubunits = hasRequestedAmount
-    ? requestedAmount
-    : (hasTransactionFees && Number.isFinite(actualAmount)
-      ? actualAmount - transactionFees
-      : actualAmount);
-  const amountBreakdownConsistent =
-    !(hasRequestedAmount && hasTransactionFees && Number.isFinite(actualAmount)) ||
-    actualAmount === requestedAmount + transactionFees;
-
-  const checks = {
-    providerAccepted: result?.status === true,
-    transactionPresent: Boolean(transaction),
-    statusIsSuccess: actualStatus === 'success',
-    referenceMatches: actualReference === expectedReference,
-    currencyMatches: actualCurrency === expectedCurrency,
-    amountMatches: Number.isFinite(amountBasisSubunits) && amountBasisSubunits === expectedAmount,
-    amountBreakdownConsistent
-  };
-  const verified = Object.values(checks).every(Boolean);
-
-  const diagnostics = {
-    reference: expectedReference,
-    purchaseId: String(purchase._id),
-    schoolId: String(purchase.schoolId),
-    providerHttpStatus: response.status,
-    providerAccepted: result?.status === true,
-    providerMessage: result?.message || null,
-    transactionId: transaction?.id != null ? String(transaction.id) : null,
-    returnedReference: actualReference || null,
-    returnedStatus: actualStatus || null,
-    returnedAmountSubunits: Number.isFinite(actualAmount) ? actualAmount : null,
-    returnedRequestedAmountSubunits: hasRequestedAmount ? requestedAmount : null,
-    returnedFeesSubunits: hasTransactionFees ? transactionFees : null,
-    reconciledBaseAmountSubunits: Number.isFinite(amountBasisSubunits) ? amountBasisSubunits : null,
-    expectedAmountSubunits: expectedAmount,
-    returnedCurrency: actualCurrency || null,
-    expectedCurrency,
-    checks,
-    verified
-  };
-
-  paymentLog(verified ? 'PaystackVerificationSucceeded' : 'PaystackVerificationRejected', diagnostics);
+  const verified =
+    result.status === true &&
+    transaction?.status === 'success' &&
+    transaction?.reference === purchase.reference &&
+    transaction?.currency === CURRENCY &&
+    Number(transaction?.amount) === purchase.amountSubunits;
 
   if (!verified) {
-    return {
-      verified: false,
-      diagnostics,
-      providerResponse: transaction || result
-    };
+    return { verified: false, providerResponse: transaction || result };
   }
 
   return {
     verified: true,
     transactionId: String(transaction.id || ''),
-    diagnostics,
     providerResponse: transaction
   };
 }
@@ -504,7 +381,10 @@ async function fulfillPaidPurchase(purchaseId) {
     await purchase.save();
   }
 
-  const validityDays = DEFAULT_CARD_VALIDITY_DAYS;
+  const validityDays = Math.min(
+    730,
+    Math.max(1, Number(process.env.SCRATCH_CARD_VALIDITY_DAYS) || 365)
+  );
   const now = new Date();
   const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
@@ -570,6 +450,84 @@ async function requireSchoolAdmin(req, res) {
   return school;
 }
 
+async function resolveSchool(req, res) {
+  const user = req.user || {};
+  const userIdentifiers = [
+    user.schoolId,
+    user.schoolKey,
+    user.schoolCode,
+    typeof user.school === 'string' ? user.school : null,
+    user.school?._id,
+    user.school?.schoolId
+  ].filter(Boolean).map(value => String(value).trim());
+
+  const requested = String(
+    req.body?.schoolId ||
+    req.query?.schoolId ||
+    req.headers['x-school-id'] ||
+    req.headers['x-school-code'] ||
+    ''
+  ).trim();
+
+  const platformRoles = [user.role, user.userType, user.accountType, user.type]
+    .filter(Boolean)
+    .map(value => String(value).toLowerCase().trim());
+
+  const platformAdmin = platformRoles.some(role =>
+    ['systemadmin', 'system_admin', 'platformadmin', 'platform_admin'].includes(role)
+  );
+
+  const schoolKey = requested || userIdentifiers[0] || '';
+
+  if (!schoolKey) {
+    res.status(403).json({
+      success: false,
+      error: 'Your account is not associated with a school.'
+    });
+    return null;
+  }
+
+  const conditions = [
+    { schoolId: schoolKey.toUpperCase() },
+    { subdomain: schoolKey.toLowerCase() },
+    { customDomain: schoolKey.toLowerCase() }
+  ];
+
+  if (mongoose.Types.ObjectId.isValid(schoolKey)) {
+    conditions.unshift({ _id: new mongoose.Types.ObjectId(schoolKey) });
+  }
+
+  const school = await School.findOne({
+    $or: conditions,
+    status: 'active',
+    isDeleted: { $ne: true }
+  }).select('_id schoolId schoolName email adminEmail status');
+
+  if (!school) {
+    res.status(404).json({
+      success: false,
+      error: 'School not found or inactive.'
+    });
+    return null;
+  }
+
+  if (!platformAdmin) {
+    const belongs = userIdentifiers.some(identifier =>
+      identifier === String(school._id) ||
+      identifier.toUpperCase() === String(school.schoolId || '').toUpperCase()
+    );
+
+    if (!belongs) {
+      res.status(403).json({
+        success: false,
+        error: 'You are not authorized to access this school.'
+      });
+      return null;
+    }
+  }
+
+  return school;
+}
 
 function purchaseResponse(purchase) {
   return {
@@ -587,154 +545,8 @@ function purchaseResponse(purchase) {
   };
 }
 
-
-function getSchoolPortalBaseUrl(school) {
-  const customDomain = String(school?.customDomain || '').trim();
-  const subdomain = String(school?.subdomain || '').trim();
-  const baseDomain = String(process.env.GOLDLINCSCHOOLS_BASE_DOMAIN || 'goldlincschools.com.ng')
-    .trim().replace(/^https?:\/\//i, '').replace(/\/$/, '');
-
-  // Custom domains are read from the trusted School record, never from callback query parameters.
-  if (customDomain) {
-    try {
-      const candidate = /^https?:\/\//i.test(customDomain) ? customDomain : `https://${customDomain}`;
-      const parsed = new URL(candidate);
-      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-        return parsed.origin;
-      }
-    } catch (_) {
-      // Fall through to the platform subdomain/default portal.
-    }
-  }
-
-  if (subdomain && /^[a-z0-9-]+$/i.test(subdomain)) {
-    return `https://${subdomain.toLowerCase()}.${baseDomain}`;
-  }
-
-  const fallback = String(process.env.GOLDLINCSCHOOLS_FRONTEND_URL || 'https://goldlincschools.com.ng').trim();
-  try {
-    return new URL(fallback).origin;
-  } catch (_) {
-    return 'https://goldlincschools.com.ng';
-  }
-}
-
-function redirectAfterScratchCardPayment(res, school, status, reference, message) {
-  const baseUrl = getSchoolPortalBaseUrl(school);
-  let target;
-  try {
-    const configuredPath = String(process.env.SCRATCH_CARD_RETURN_PATH || '/').trim();
-    target = new URL(configuredPath.startsWith('/') ? configuredPath : `/${configuredPath}`, baseUrl);
-  } catch (_) {
-    target = new URL('/', baseUrl);
-  }
-
-  target.searchParams.set('payment', status);
-  target.searchParams.set('payment_type', 'scratch_card_pool');
-  if (reference) target.searchParams.set('reference', reference);
-  if (message) target.searchParams.set('payment_message', message);
-  return res.redirect(303, target.toString());
-}
-
-// Paystack/Flutterwave return URL. Public by design: payment is verified server-to-server.
-// GET /api/scratch-cards/payment/callback?reference=...
-router.get('/payment/callback', async (req, res) => {
-  const reference = String(
-    req.query.reference || req.query.trxref || req.query.tx_ref || ''
-  ).trim();
-
-  if (!reference) {
-    return redirectAfterScratchCardPayment(
-      res,
-      null,
-      'failed',
-      '',
-      'The payment reference was not provided.'
-    );
-  }
-
-  try {
-    const purchase = await ScratchCardPurchase.findOne({ reference });
-    if (!purchase) {
-      return redirectAfterScratchCardPayment(
-        res, null, 'failed', reference, 'We could not find this payment.'
-      );
-    }
-
-    const school = await School.findById(purchase.schoolId)
-      .select('_id schoolId schoolName subdomain customDomain status isDeleted');
-
-    if (!school) {
-      return redirectAfterScratchCardPayment(
-        res, null, 'failed', reference, 'The school associated with this purchase could not be found.'
-      );
-    }
-
-    if (purchase.paymentStatus !== 'paid') {
-      const verification = await verifyGatewayPayment(purchase);
-      if (!verification.verified) {
-        paymentLog('CallbackVerificationRejected', {
-          reference,
-          purchaseId: String(purchase._id),
-          schoolId: String(school._id),
-          provider: purchase.provider,
-          diagnostics: verification.diagnostics || null
-        });
-        return redirectAfterScratchCardPayment(
-          res, school, 'processing', reference,
-          'Your payment is being reconciled. Do not pay again; contact the school administrator if your account was debited.'
-        );
-      }
-      await markPurchasePaid(purchase, verification);
-      paymentLog('CallbackPaymentMarkedPaid', {
-        reference,
-        purchaseId: String(purchase._id),
-        schoolId: String(school._id),
-        provider: purchase.provider,
-        transactionId: verification.transactionId || null
-      });
-      paymentLog('PurchaseMarkedPaid', {
-        reference: purchase.reference,
-        purchaseId: String(purchase._id),
-        schoolId: String(school._id),
-        provider: purchase.provider,
-        transactionId: verification.transactionId || null
-      });
-    }
-
-    const fulfillment = await fulfillPaidPurchase(purchase._id);
-    const latestPurchase = await ScratchCardPurchase.findById(purchase._id);
-
-    if (!fulfillment.complete) {
-      return redirectAfterScratchCardPayment(
-        res, school, 'processing', reference,
-        'Payment was confirmed. Your scratch-card pool is still being prepared.'
-      );
-    }
-
-    return redirectAfterScratchCardPayment(
-      res, school, 'success', reference,
-      `${latestPurchase.quantity} scratch cards are ready for use.`
-    );
-  } catch (error) {
-    paymentLog('PaymentCallbackError', { reference, error: errorDetails(error) });
-    try {
-      const purchase = await ScratchCardPurchase.findOne({ reference });
-      const school = purchase
-        ? await School.findById(purchase.schoolId).select('_id schoolId schoolName subdomain customDomain')
-        : null;
-      return redirectAfterScratchCardPayment(
-        res, school, 'processing', reference,
-        'We are checking your payment. Please refresh the scratch-card purchase history shortly.'
-      );
-    } catch (redirectError) {
-      console.error('Scratch-card callback redirect error:', redirectError);
-      return res.status(500).send('Unable to process the payment return. Please contact support.');
-    }
-  }
-});
-
-// Paystack webhook. This route is intentionally public; authenticity is established by HMAC.
+// PUBLIC Paystack webhook. Keep this before router.use(authMiddleware, adminAuth).
+// This single endpoint handles both scratch-card purchases and school-wallet DVAs.
 router.post('/webhooks/paystack', async (req, res) => {
   try {
     const secret = process.env.PAYSTACK_SECRET_KEY;
@@ -754,72 +566,189 @@ router.post('/webhooks/paystack', async (req, res) => {
     const event = req.body || {};
     if (event.event !== 'charge.success') return res.json({ received: true });
 
-    const reference = String(event.data?.reference || '').trim();
+    const transaction = event.data || {};
+    const reference = String(transaction.reference || '').trim();
     if (!reference) return res.json({ received: true });
 
-    const purchase = await ScratchCardPurchase.findOne({ reference, provider: 'paystack' });
-    if (!purchase) return res.json({ received: true });
+    // First handle existing scratch-card purchases without changing their flow.
+    const purchase = await ScratchCardPurchase.findOne({ reference });
+    if (purchase && purchase.provider === 'paystack') {
+      const isValid =
+        String(transaction.status || '').toLowerCase() === 'success' &&
+        String(transaction.currency || '').toUpperCase() === CURRENCY &&
+        Number.isSafeInteger(Number(transaction.amount)) &&
+        Number(transaction.amount) === purchase.amountSubunits;
 
-    // Never fulfil from webhook payload alone. Verify the reference directly with Paystack.
-    const verification = await verifyPaystack(purchase);
-    if (!verification.verified) {
-      paymentLog('PaystackWebhookVerificationRejected', {
-        reference,
-        purchaseId: String(purchase._id),
-        diagnostics: verification.diagnostics || null
+      if (!isValid) return res.json({ received: true });
+
+      await markPurchasePaid(purchase, {
+        verified: true,
+        transactionId: String(transaction.id || ''),
+        providerResponse: transaction
       });
-      return res.json({ received: true, verified: false });
+      await fulfillPaidPurchase(purchase._id);
+      return res.json({ received: true, handled: 'scratch_card' });
     }
 
-    await markPurchasePaid(purchase, verification);
-    paymentLog('PaystackWebhookPaymentMarkedPaid', {
-      reference,
-      purchaseId: String(purchase._id),
-      transactionId: verification.transactionId || null
-    });
-    await fulfillPaidPurchase(purchase._id);
-    return res.json({ received: true });
-  } catch (error) {
-    paymentLog('PaystackWebhookError', { error: errorDetails(error) });
-    return res.status(500).json({ error: 'Unable to process payment webhook.' });
-  }
-});
-
-// Flutterwave webhook. This route is also public; the configured webhook hash authenticates it.
-router.post('/webhooks/flutterwave', async (req, res) => {
-  try {
-    const webhookHash = process.env.FLW_WEBHOOK_HASH;
-    if (!webhookHash) {
-      return res.status(503).json({ error: 'Flutterwave webhook is not configured.' });
+    // Dedicated Virtual Account transfers arrive through the dedicated_nuban
+    // channel. Verify the reference server-to-server before crediting any wallet.
+    const eventAuthorization = transaction.authorization || {};
+    if (String(eventAuthorization.channel || '').toLowerCase() !== 'dedicated_nuban') {
+      return res.json({ received: true });
     }
 
-    const signature = String(
-      req.headers['verif-hash'] ||
-      req.headers['flutterwave-signature'] ||
-      ''
+    const verificationResponse = await fetch(
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          Accept: 'application/json'
+        }
+      }
     );
-    if (!signature || !safeEqual(signature, webhookHash)) {
-      return res.status(401).json({ error: 'Invalid webhook signature.' });
+    const verificationPayload = await verificationResponse.json().catch(() => ({}));
+    if (!verificationResponse.ok || verificationPayload.status !== true || !verificationPayload.data) {
+      console.error('[SchoolWallet][DVA Webhook] Paystack verification failed', {
+        reference,
+        httpStatus: verificationResponse.status,
+        message: verificationPayload.message
+      });
+      return res.status(502).json({ error: 'Unable to verify the dedicated-account transfer yet.' });
     }
 
-    const payload = req.body || {};
-    const transaction = payload.data || payload;
-    const reference = String(transaction.tx_ref || transaction.reference || '').trim();
-    if (!reference) return res.json({ received: true });
+    const verified = verificationPayload.data;
+    const verifiedReference = String(verified.reference || '').trim();
+    const amountKobo = Number(verified.amount);
+    const currency = String(verified.currency || '').toUpperCase();
+    const authorization = verified.authorization || {};
+    const verifiedChannel = String(authorization.channel || '').toLowerCase();
+    const receiverAccountNumber = String(
+      authorization.receiver_bank_account_number ||
+      authorization.account_number ||
+      eventAuthorization.receiver_bank_account_number ||
+      ''
+    ).trim();
+    const customerCode = String(
+      verified.customer?.customer_code ||
+      transaction.customer?.customer_code ||
+      ''
+    ).trim();
 
-    const purchase = await ScratchCardPurchase.findOne({ reference, provider: 'flutterwave' });
-    if (!purchase) return res.json({ received: true });
+    if (
+      String(verified.status || '').toLowerCase() !== 'success' ||
+      verifiedReference !== reference ||
+      !Number.isSafeInteger(amountKobo) || amountKobo <= 0 ||
+      currency !== CURRENCY ||
+      (verifiedChannel && verifiedChannel !== 'dedicated_nuban')
+    ) {
+      console.warn('[SchoolWallet][DVA Webhook] Transfer did not pass validation', {
+        reference,
+        status: verified.status,
+        verifiedReference,
+        amountKobo,
+        currency,
+        verifiedChannel
+      });
+      return res.json({ received: true });
+    }
 
-    // Verify with Flutterwave's API before changing the purchase state.
-    const verification = await verifyFlutterwave(purchase);
-    if (!verification.verified) return res.json({ received: true });
+    let wallet = null;
+    if (receiverAccountNumber) {
+      wallet = await SchoolWallet.findOne({
+        'dedicatedAccount.accountNumber': receiverAccountNumber,
+        'dedicatedAccount.active': true
+      });
+    }
+    if (!wallet && customerCode) {
+      wallet = await SchoolWallet.findOne({
+        paystackCustomerCode: customerCode,
+        'dedicatedAccount.active': true
+      });
+    }
+    if (!wallet) {
+      console.warn('[SchoolWallet][DVA Webhook] No school wallet matched the receiving account', {
+        reference,
+        receiverAccountLast4: receiverAccountNumber ? receiverAccountNumber.slice(-4) : null,
+        customerCode: customerCode || null
+      });
+      return res.json({ received: true });
+    }
 
-    await markPurchasePaid(purchase, verification);
-    await fulfillPaidPurchase(purchase._id);
-    return res.json({ received: true });
+    // When Paystack supplies the receiving account number, it must match the
+    // exact account assigned to this school. Customer-code matching is only a
+    // fallback for webhook payloads that omit that field.
+    if (receiverAccountNumber && String(wallet.dedicatedAccount?.accountNumber) !== receiverAccountNumber) {
+      return res.json({ received: true });
+    }
+    if (!receiverAccountNumber && customerCode && String(wallet.paystackCustomerCode) !== customerCode) {
+      return res.json({ received: true });
+    }
+
+    const amountNaira = Number((amountKobo / 100).toFixed(2));
+    const payerName = String(
+      authorization.sender_name ||
+      transaction.customer?.first_name && `${transaction.customer.first_name} ${transaction.customer.last_name || ''}`.trim() ||
+      'Bank transfer'
+    ).trim();
+    const payerEmail = String(verified.customer?.email || transaction.customer?.email || '').trim().toLowerCase();
+
+    // Atomic duplicate guard: repeated Paystack webhook deliveries cannot credit
+    // the same reference twice, even if they arrive concurrently.
+    const creditResult = await SchoolWallet.updateOne(
+      {
+        _id: wallet._id,
+        'transactions.reference': { $ne: reference }
+      },
+      {
+        $inc: { balance: amountNaira, totalCredited: amountNaira },
+        $push: {
+          transactions: {
+            type: 'credit',
+            source: 'paystack_dva',
+            amount: amountNaira,
+            status: 'completed',
+            reference,
+            payerName,
+            payerEmail,
+            description: 'Paystack dedicated bank-account wallet funding',
+            createdAt: new Date(verified.paid_at || Date.now()),
+            verifiedAt: new Date(),
+            metadata: {
+              paystackTransactionId: String(verified.id || ''),
+              channel: verifiedChannel || 'dedicated_nuban',
+              senderBank: String(authorization.sender_bank || ''),
+              receivingBank: String(authorization.receiver_bank || wallet.dedicatedAccount?.bankName || ''),
+              receivingAccountLast4: receiverAccountNumber.slice(-4),
+              paystackCustomerCode: customerCode || wallet.paystackCustomerCode || ''
+            }
+          }
+        }
+      }
+    );
+
+    if (creditResult.modifiedCount !== 1) {
+      const alreadyProcessed = await SchoolWallet.exists({
+        _id: wallet._id,
+        'transactions.reference': reference
+      });
+      if (!alreadyProcessed) {
+        console.error('[SchoolWallet][DVA Webhook] Wallet credit update did not modify a document', { reference, schoolId: wallet.schoolId });
+        return res.status(500).json({ error: 'Wallet credit could not be recorded.' });
+      }
+      return res.json({ received: true, duplicate: true });
+    }
+
+    console.info('[SchoolWallet][DVA Webhook] Wallet credited', {
+      schoolId: wallet.schoolId,
+      reference,
+      amount: amountNaira,
+      balanceUpdated: true
+    });
+    return res.json({ received: true, handled: 'school_wallet_dva' });
   } catch (error) {
-    console.error('Flutterwave scratch-card webhook error:', error);
-    return res.status(500).json({ error: 'Unable to process payment webhook.' });
+    console.error('Paystack webhook processing error:', error);
+    return res.status(500).json({ error: 'Unable to process Paystack webhook.' });
   }
 });
 
@@ -945,7 +874,11 @@ router.post('/purchases/initiate', async (req, res) => {
       });
     }
 
-    const callbackUrl = String(process.env.SCRATCH_CARD_CALLBACK_URL || '').trim();
+    const callbackUrl = String(
+      process.env.SCRATCH_CARD_CALLBACK_URL ||
+      req.body.callbackUrl ||
+      ''
+    ).trim();
 
     if (!callbackUrl) {
       return res.status(503).json({
@@ -989,25 +922,8 @@ router.post('/purchases/initiate', async (req, res) => {
         data: purchaseResponse(purchase)
       });
     } catch (gatewayError) {
-      // Log actionable gateway diagnostics, but never log API keys or authorization headers.
-      console.error('[ScratchCards][GatewayInitializeFailed]', JSON.stringify({
-        provider,
-        reference,
-        schoolId: String(school._id),
-        quantity,
-        amountNaira,
-        providerHttpStatus: gatewayError.providerHttpStatus || null,
-        providerCode: gatewayError.providerCode || null,
-        error: gatewayError.message,
-        at: new Date().toISOString()
-      }));
-
       purchase.paymentStatus = 'failed';
-      purchase.providerResponse = {
-        error: gatewayError.message,
-        providerHttpStatus: gatewayError.providerHttpStatus || null,
-        providerCode: gatewayError.providerCode || null
-      };
+      purchase.providerResponse = { error: gatewayError.message };
       await purchase.save();
 
       const status = gatewayError.statusCode || 502;
@@ -1047,21 +963,11 @@ router.get('/purchases/:reference/verify', async (req, res) => {
       const verification = await verifyGatewayPayment(purchase);
 
       if (!verification.verified) {
-        paymentLog('PurchaseVerificationRejected', {
-          reference: purchase.reference,
-          purchaseId: String(purchase._id),
-          schoolId: String(school._id),
-          provider: purchase.provider,
-          paymentStatus: purchase.paymentStatus,
-          fulfillmentStatus: purchase.fulfillmentStatus,
-          diagnostics: verification.diagnostics || null
-        });
         return res.status(402).json({
           success: false,
           paymentStatus: purchase.paymentStatus,
           fulfillmentStatus: purchase.fulfillmentStatus,
-          verification: verification.diagnostics || null,
-          error: 'Payment provider did not return all expected verification details. Check server logs for the exact failed condition.'
+          error: 'Payment has not been verified as successful.'
         });
       }
 
@@ -1085,10 +991,7 @@ router.get('/purchases/:reference/verify', async (req, res) => {
       data: purchaseResponse(updatedPurchase)
     });
   } catch (error) {
-    paymentLog('PurchaseVerificationError', {
-      reference: String(req.params.reference || ''),
-      error: errorDetails(error)
-    });
+    console.error('Scratch-card purchase verification error:', error);
     return res.status(error.statusCode || 500).json({
       success: false,
       error: error.message || 'Unable to verify purchase.'
@@ -1382,5 +1285,52 @@ router.post('/pool/:id/revoke', async (req, res) => {
   }
 });
 
+// POST /webhooks/flutterwave
+router.post('/webhooks/flutterwave', async (req, res) => {
+  try {
+    const webhookHash = process.env.FLW_WEBHOOK_HASH;
+    if (!webhookHash) {
+      return res.status(503).json({ error: 'Flutterwave webhook is not configured.' });
+    }
+
+    const signature = String(
+      req.headers['verif-hash'] ||
+      req.headers['flutterwave-signature'] ||
+      ''
+    );
+
+    if (!signature || !safeEqual(signature, webhookHash)) {
+      return res.status(401).json({ error: 'Invalid webhook signature.' });
+    }
+
+    const payload = req.body || {};
+    const transaction = payload.data || payload;
+    const reference = transaction.tx_ref || transaction.reference || '';
+    const purchase = await ScratchCardPurchase.findOne({ reference });
+
+    if (!purchase || purchase.provider !== 'flutterwave') {
+      return res.json({ received: true });
+    }
+
+    const isValid =
+      String(transaction.status || '').toLowerCase() === 'successful' &&
+      String(transaction.currency || '').toUpperCase() === CURRENCY &&
+      Number(transaction.amount) === purchase.amountNaira;
+
+    if (!isValid) return res.json({ received: true });
+
+    await markPurchasePaid(purchase, {
+      verified: true,
+      transactionId: String(transaction.id || ''),
+      providerResponse: transaction
+    });
+
+    await fulfillPaidPurchase(purchase._id);
+    return res.json({ received: true });
+  } catch (error) {
+    console.error('Flutterwave scratch-card webhook error:', error);
+    return res.status(500).json({ error: 'Unable to process payment webhook.' });
+  }
+});
 
 module.exports = router;

@@ -87,35 +87,70 @@ async function requireFinanceSchool(req, res) {
   return school;
 }
 
-// Dedicated wallet collection: one ledger per school. Kept in this file so
-// existing installations do not need an additional model import.
-const SchoolWalletSchema = new mongoose.Schema({
-  schoolId: { type: String, required: true, unique: true, index: true },
-  currency: { type: String, default: 'NGN' },
-  balance: { type: Number, default: 0, min: 0 },
-  totalCredited: { type: Number, default: 0, min: 0 },
-  totalDebited: { type: Number, default: 0, min: 0 },
-  transactions: [{
-    type: { type: String, enum: ['credit', 'debit'], required: true },
-    source: { type: String, enum: ['direct_transfer', 'paystack', 'adjustment', 'expense', 'student_activation'], required: true },
-    amount: { type: Number, required: true, min: 0 },
-    status: { type: String, enum: ['pending', 'completed', 'rejected'], default: 'pending' },
-    reference: { type: String, required: true },
-    payerName: String,
-    payerEmail: String,
-    description: String,
-    createdAt: { type: Date, default: Date.now },
-    verifiedAt: Date,
-    verifiedBy: String,
-    metadata: mongoose.Schema.Types.Mixed
-  }]
-}, { timestamps: true, collection: 'schoolwallets' });
-
-const SchoolWallet = mongoose.models.SchoolWallet ||
-  mongoose.model('SchoolWallet', SchoolWalletSchema);
+// Shared school-wallet model is also used by the public Paystack webhook route.
+const SchoolWallet = require('../models/SchoolWallet');
 
 function makeReference(prefix = 'WAL') {
   return `${prefix}-${Date.now()}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
+}
+
+
+async function paystackApiRequest(path, method = 'GET', body = undefined) {
+  if (!process.env.PAYSTACK_SECRET_KEY) {
+    const error = new Error('Paystack is not configured. Set PAYSTACK_SECRET_KEY on the server.');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const response = await fetch(`https://api.paystack.co${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+      Accept: 'application/json',
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {})
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.status !== true) {
+    const error = new Error(payload.message || `Paystack returned HTTP ${response.status}.`);
+    error.statusCode = response.status || 502;
+    error.paystackResponse = payload;
+    throw error;
+  }
+  return payload.data;
+}
+
+function splitSchoolName(value) {
+  const words = String(value || 'School').trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: words.shift() || 'School',
+    lastName: words.join(' ') || 'School'
+  };
+}
+
+function normalizeNigerianPhone(value) {
+  const raw = String(value || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('0')) return `+234${digits.slice(1)}`;
+  if (digits.length === 13 && digits.startsWith('234')) return `+${digits}`;
+  if (raw.startsWith('+') && digits.length >= 10) return `+${digits}`;
+  return raw;
+}
+
+function publicDedicatedAccount(account) {
+  if (!account) return null;
+  return {
+    id: account.id || null,
+    accountName: account.accountName || '',
+    accountNumber: account.accountNumber || '',
+    bankName: account.bankName || '',
+    bankSlug: account.bankSlug || '',
+    currency: account.currency || 'NGN',
+    active: Boolean(account.active),
+    assigned: Boolean(account.assigned),
+    createdAt: account.createdAt || null
+  };
 }
 
 // Paystack Nigeria local transaction pricing when the merchant has enabled
@@ -165,11 +200,315 @@ router.get('/school-wallet', authMiddleware, adminAuth, async (req, res) => {
       totalCredits: wallet?.totalCredited || 0,
       totalDebits: wallet?.totalDebited || 0,
       currency: wallet?.currency || 'NGN',
+      dedicatedAccount: publicDedicatedAccount(wallet?.dedicatedAccount),
       transactions
     });
   } catch (err) {
     console.error('School wallet load failed:', err);
     res.status(err.statusCode || 500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/finance/school-wallet/dedicated-account
+ * Return this school's permanent Paystack bank-transfer account, if assigned.
+ */
+router.get('/school-wallet/dedicated-account', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    return res.json({
+      success: true,
+      account: publicDedicatedAccount(wallet?.dedicatedAccount),
+      accountReady: Boolean(wallet?.dedicatedAccount?.accountNumber && wallet?.dedicatedAccount?.active)
+    });
+  } catch (err) {
+    console.error('[SchoolWallet][DVA] Account load failed:', err);
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/finance/school-wallet/dedicated-account
+ * Create and permanently assign a Paystack DVA to the authenticated school.
+ * Requires an explicit consent confirmation from an authorized school admin.
+ */
+router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async (req, res) => {
+  let lockAcquired = false;
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+
+    if (req.body?.consent !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please confirm that you are authorized to use the school contact details to create its dedicated bank account.'
+      });
+    }
+    if (!/^(NG|NIGERIA)$/i.test(String(school.country || '').trim())) {
+      return res.status(400).json({ success: false, error: 'Paystack Nigerian dedicated virtual accounts can only be created for schools registered in Nigeria.' });
+    }
+
+    const schoolName = String(school.schoolName || school.name || '').trim();
+    const email = String(school.adminEmail || school.email || '').trim().toLowerCase();
+    const phone = normalizeNigerianPhone(school.adminPhone || school.phone);
+    if (!schoolName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone) {
+      return res.status(400).json({
+        success: false,
+        error: 'The school profile must contain a valid school name, administrator email and phone number before a dedicated account can be created.'
+      });
+    }
+
+    await SchoolWallet.findOneAndUpdate(
+      { schoolId: req.schoolId },
+      { $setOnInsert: { schoolId: req.schoolId, currency: 'NGN' } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    let currentWallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    if (currentWallet?.dedicatedAccount?.accountNumber && currentWallet.dedicatedAccount.active) {
+      return res.json({
+        success: true,
+        alreadyAssigned: true,
+        account: publicDedicatedAccount(currentWallet.dedicatedAccount),
+        message: 'This school already has a dedicated bank account.'
+      });
+    }
+
+    const now = new Date();
+    const lock = await SchoolWallet.findOneAndUpdate(
+      {
+        schoolId: req.schoolId,
+        $and: [
+          { $or: [
+            { 'dedicatedAccount.accountNumber': { $exists: false } },
+            { 'dedicatedAccount.active': false },
+            { 'dedicatedAccount.accountNumber': null }
+          ] },
+          { $or: [
+            { dedicatedAccountCreationLockUntil: { $exists: false } },
+            { dedicatedAccountCreationLockUntil: null },
+            { dedicatedAccountCreationLockUntil: { $lt: now } }
+          ] }
+        ]
+      },
+      { $set: { dedicatedAccountCreationLockUntil: new Date(Date.now() + 3 * 60 * 1000) } },
+      { new: true }
+    ).lean();
+
+    if (!lock) {
+      currentWallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+      if (currentWallet?.dedicatedAccount?.accountNumber && currentWallet.dedicatedAccount.active) {
+        return res.json({ success: true, alreadyAssigned: true, account: publicDedicatedAccount(currentWallet.dedicatedAccount) });
+      }
+      return res.status(409).json({ success: false, error: 'A dedicated account request is already being processed. Please wait a moment and refresh.' });
+    }
+    lockAcquired = true;
+
+    const { firstName, lastName } = splitSchoolName(schoolName);
+    const metadata = {
+      examguardSchoolId: String(req.schoolId),
+      examguardSchoolCode: String(school.schoolId || ''),
+      examguardSchoolName: schoolName,
+      purpose: 'school_wallet_funding'
+    };
+
+    // Reuse a customer already saved for this school. Otherwise look up the
+    // school's registered email before creating a new Paystack customer.
+    let customer = null;
+    if (lock.paystackCustomerCode) {
+      try {
+        customer = await paystackApiRequest(`/customer/${encodeURIComponent(lock.paystackCustomerCode)}`);
+      } catch (lookupError) {
+        if (lookupError.statusCode !== 404) throw lookupError;
+      }
+    }
+    if (!customer) {
+      try {
+        customer = await paystackApiRequest(`/customer/${encodeURIComponent(email)}`);
+      } catch (lookupError) {
+        if (lookupError.statusCode !== 404) throw lookupError;
+      }
+    }
+
+    if (customer?.customer_code) {
+      const existingSchoolMapping = customer.metadata?.examguardSchoolId;
+      if (existingSchoolMapping && String(existingSchoolMapping) !== String(req.schoolId)) {
+        const conflict = new Error('This Paystack customer email is already linked to a different school. Update the school contact email before creating its dedicated account.');
+        conflict.statusCode = 409;
+        throw conflict;
+      }
+      // Keep the Paystack customer details aligned with the school's current
+      // official contact record and attach the tenant mapping for auditability.
+      const updatedCustomer = await paystackApiRequest(
+        `/customer/${encodeURIComponent(customer.customer_code)}`,
+        'PUT',
+        { first_name: firstName, last_name: lastName, phone, metadata }
+      );
+      customer = { ...customer, ...updatedCustomer };
+    } else {
+      try {
+        customer = await paystackApiRequest('/customer', 'POST', {
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          metadata
+        });
+      } catch (createError) {
+        // A simultaneous/previous request may have created this email already.
+        if (createError.statusCode !== 400 && createError.statusCode !== 409) throw createError;
+        customer = await paystackApiRequest(`/customer/${encodeURIComponent(email)}`);
+        if (customer?.customer_code) {
+          const updatedCustomer = await paystackApiRequest(
+            `/customer/${encodeURIComponent(customer.customer_code)}`,
+            'PUT',
+            { first_name: firstName, last_name: lastName, phone, metadata }
+          );
+          customer = { ...customer, ...updatedCustomer };
+        }
+      }
+    }
+
+    if (!customer?.customer_code) {
+      throw new Error('Paystack did not return a valid customer code for this school.');
+    }
+
+    // If the Paystack customer already owns a DVA (e.g. a prior request reached
+    // Paystack but the local save failed), reuse it instead of creating another.
+    let dva = customer.dedicated_account;
+    if (!(dva?.account_number && dva?.active && dva?.assigned)) {
+      const requestBody = {
+        customer: customer.customer_code,
+        first_name: firstName,
+        last_name: lastName,
+        phone
+      };
+      // Paystack requires test-bank when creating DVAs with a test secret key.
+      if (String(process.env.PAYSTACK_SECRET_KEY || '').startsWith('sk_test_')) {
+        requestBody.preferred_bank = 'test-bank';
+      }
+      dva = await paystackApiRequest('/dedicated_account', 'POST', requestBody);
+    }
+
+    if (!dva?.account_number || !dva?.account_name || !(dva.active === true || Number(dva.active) === 1)) {
+      throw new Error('Paystack did not return an active dedicated bank account. Please check your Paystack dashboard and try again.');
+    }
+
+    const accountRecord = {
+      id: Number(dva.id) || undefined,
+      accountName: String(dva.account_name),
+      accountNumber: String(dva.account_number),
+      bankName: String(dva.bank?.name || ''),
+      bankSlug: String(dva.bank?.slug || dva.bank?.name || '').toLowerCase().replace(/\s+/g, '-'),
+      currency: String(dva.currency || 'NGN').toUpperCase(),
+      active: true,
+      assigned: Boolean(dva.assigned),
+      createdAt: dva.created_at ? new Date(dva.created_at) : new Date(),
+      consentAt: new Date(),
+      consentedBy: String(req.user?._id || req.user?.id || '')
+    };
+
+    const saved = await SchoolWallet.findOneAndUpdate(
+      { schoolId: req.schoolId },
+      {
+        $set: {
+          paystackCustomerCode: customer.customer_code,
+          dedicatedAccount: accountRecord
+        },
+        $unset: { dedicatedAccountCreationLockUntil: '' }
+      },
+      { new: true }
+    ).lean();
+    lockAcquired = false;
+
+    console.info('[SchoolWallet][DVA] Dedicated account assigned', {
+      schoolId: req.schoolId,
+      customerCode: customer.customer_code,
+      accountNumberLast4: accountRecord.accountNumber.slice(-4),
+      bankName: accountRecord.bankName
+    });
+
+    return res.status(201).json({
+      success: true,
+      account: publicDedicatedAccount(saved?.dedicatedAccount || accountRecord),
+      message: 'Dedicated bank account created successfully. The school can now fund its wallet by bank transfer.'
+    });
+  } catch (err) {
+    if (lockAcquired) {
+      try {
+        await SchoolWallet.updateOne(
+          { schoolId: String(req.schoolId || '') },
+          { $unset: { dedicatedAccountCreationLockUntil: '' } }
+        );
+      } catch (_) {}
+    }
+    console.error('[SchoolWallet][DVA] Account creation failed:', {
+      schoolId: req.schoolId,
+      statusCode: err.statusCode,
+      message: err.message,
+      paystackMessage: err.paystackResponse?.message
+    });
+    const status = err.statusCode === 503 ? 503 : (err.statusCode >= 400 && err.statusCode < 500 ? 422 : 502);
+    return res.status(status).json({
+      success: false,
+      error: err.message || 'Unable to create the dedicated bank account.',
+      code: err.statusCode === 400 ? 'PAYSTACK_DVA_REQUIREMENTS' : undefined
+    });
+  }
+});
+
+/**
+ * POST /api/finance/school-wallet/dedicated-account/requery
+ * Ask Paystack to check recent transfers. Paystack limits this to once per 10 minutes.
+ */
+router.post('/school-wallet/dedicated-account/requery', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res);
+    if (!school) return;
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    const account = wallet?.dedicatedAccount;
+    if (!account?.accountNumber || !account.active) {
+      return res.status(404).json({ success: false, error: 'This school does not have an active dedicated bank account.' });
+    }
+
+    const now = new Date();
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+    const claimed = await SchoolWallet.findOneAndUpdate(
+      {
+        schoolId: req.schoolId,
+        'dedicatedAccount.accountNumber': account.accountNumber,
+        $or: [
+          { 'dedicatedAccount.lastRequeryAt': { $exists: false } },
+          { 'dedicatedAccount.lastRequeryAt': null },
+          { 'dedicatedAccount.lastRequeryAt': { $lte: tenMinutesAgo } }
+        ]
+      },
+      { $set: { 'dedicatedAccount.lastRequeryAt': now } },
+      { new: true }
+    ).lean();
+    if (!claimed) {
+      return res.status(429).json({ success: false, error: 'Please wait at least 10 minutes between transfer checks.' });
+    }
+
+    const localDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(now);
+    const params = new URLSearchParams({
+      account_number: account.accountNumber,
+      provider_slug: account.bankSlug,
+      date: localDate
+    });
+    const result = await paystackApiRequest(`/dedicated_account/requery?${params.toString()}`);
+    return res.json({
+      success: true,
+      message: 'Paystack is checking this account for recent transfers. Your wallet will update automatically when a transfer is confirmed.',
+      checkedAt: now
+    });
+  } catch (err) {
+    console.error('[SchoolWallet][DVA] Requery failed:', err);
+    return res.status(err.statusCode || 502).json({ success: false, error: err.message });
   }
 });
 
