@@ -490,6 +490,57 @@
                 <div class="rounded-2xl bg-white/10 border border-white/10 p-4"><p class="text-[11px] uppercase tracking-wider text-blue-200">Total debited</p><p id="walletTotalDebit" class="font-bold text-lg mt-1">₦—</p></div>
               </div>
             </div>
+
+            <!-- Permanent Paystack Dedicated Virtual Account -->
+            <section class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div class="p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100">
+                <div class="flex items-start gap-3">
+                  <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0"><i class="fa fa-building-columns text-lg"></i></div>
+                  <div>
+                    <h3 class="font-bold text-slate-900">Dedicated bank transfer account</h3>
+                    <p class="text-xs text-slate-500 mt-1 max-w-2xl">A permanent bank account for this school. Transfer to it anytime and confirmed payments will automatically fund this school's wallet.</p>
+                  </div>
+                </div>
+                <span id="dvaStatusPill" class="inline-flex items-center gap-2 self-start md:self-center rounded-full bg-slate-100 text-slate-600 px-3 py-1.5 text-[11px] font-bold"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Not created</span>
+              </div>
+
+              <div id="dvaAccountEmpty" class="p-5 sm:p-6">
+                <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div class="max-w-2xl">
+                    <p class="font-semibold text-slate-800 text-sm">Get a permanent account number for your school</p>
+                    <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">Paystack will create a dedicated Nigerian bank account using the school's registered name and contact details. You only need to create it once.</p>
+                    <p class="text-[11px] text-slate-500 mt-2"><i class="fa fa-shield-halved text-emerald-600 mr-1"></i>Your wallet is credited only after Paystack confirms the incoming transfer.</p>
+                  </div>
+                  <button type="button" id="dvaCreateButton" onclick="openDedicatedAccountConsent()" class="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-5 py-3 text-sm font-bold shadow-sm"><i class="fa fa-plus"></i>Create dedicated account</button>
+                </div>
+              </div>
+
+              <div id="dvaAccountDetails" class="hidden p-5 sm:p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div class="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                    <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Bank</p>
+                    <p id="dvaBankName" class="mt-2 font-bold text-slate-900">—</p>
+                  </div>
+                  <div class="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                    <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Account name</p>
+                    <p id="dvaAccountName" class="mt-2 font-bold text-slate-900 break-words">—</p>
+                  </div>
+                  <div class="rounded-2xl bg-blue-50 border border-blue-100 p-4">
+                    <p class="text-[10px] uppercase tracking-wider text-blue-700 font-bold">Account number</p>
+                    <div class="mt-1 flex items-center justify-between gap-2">
+                      <p id="dvaAccountNumber" class="text-xl sm:text-2xl font-extrabold tracking-wider text-blue-950">—</p>
+                      <button type="button" onclick="copyDedicatedAccountNumber()" class="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-100 px-3 py-2 text-xs font-bold"><i class="fa fa-copy"></i><span>Copy</span></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p class="text-[11px] text-slate-500 leading-relaxed"><i class="fa fa-circle-info text-blue-600 mr-1"></i>Use this account only for this school's ExamGuard wallet. Transfers are matched automatically; wallet credit may take a short time after the bank transfer.</p>
+                  <button type="button" id="dvaRequeryButton" onclick="checkDedicatedAccountTransfers()" class="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 px-4 py-2.5 text-xs font-bold"><i class="fa fa-rotate"></i>Check for transfer</button>
+                </div>
+                <p id="dvaTransferStatus" class="text-[11px] text-slate-500 mt-3" aria-live="polite"></p>
+              </div>
+            </section>
+
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
               <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <h3 class="font-bold text-slate-900"><i class="fa fa-circle-plus text-emerald-600 mr-2"></i>Fund school account</h3>
@@ -768,6 +819,25 @@
         <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><i class="fa fa-building-columns"></i></div>
         <div><div class="text-xs font-bold text-slate-800">Bank Accounts & Wallets</div><div class="text-[10px] text-slate-500">Manage finance accounts</div></div>
       </button>
+    </div>
+  </div>
+
+  <!-- Dedicated account consent modal -->
+  <div id="dvaConsentModal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="dvaConsentTitle">
+    <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-slate-100 flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0"><i class="fa fa-shield-halved"></i></div>
+        <div><h3 id="dvaConsentTitle" class="font-bold text-slate-900">Authorize dedicated account creation</h3><p class="text-xs text-slate-500 mt-1">Please review this before continuing.</p></div>
+        <button type="button" onclick="closeDedicatedAccountConsent()" class="ml-auto text-slate-400 hover:text-slate-700 p-1" aria-label="Close"><i class="fa fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 leading-relaxed">A permanent Nigerian bank account will be requested from Paystack using the school's registered name, administrator email and phone number. The account will be linked to this school's ExamGuard wallet. Paystack's applicable transfer processing fees may apply.</div>
+        <label class="flex items-start gap-3 cursor-pointer text-xs text-slate-700 leading-relaxed"><input id="dvaConsentCheck" type="checkbox" class="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"><span>I am authorized to use the school's registered contact details to create and operate this dedicated bank account, and I consent to Paystack processing those details for this purpose.</span></label>
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeDedicatedAccountConsent()" class="flex-1 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-3 text-sm font-semibold">Cancel</button>
+          <button type="button" id="dvaConfirmCreateButton" onclick="createDedicatedWalletAccount()" class="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-4 py-3 text-sm font-bold">Agree & create</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1276,6 +1346,7 @@
       document.getElementById('walletTotalCredit').textContent = money(data.totalCredit ?? data.totalCredits ?? 0);
       document.getElementById('walletTotalDebit').textContent = money(data.totalDebit ?? data.totalDebits ?? 0);
       document.getElementById('schoolWalletStatus').textContent = data.currency ? `Live wallet balance · ${data.currency}` : 'Wallet data received from school finance service.';
+      renderDedicatedWalletAccount(data.dedicatedAccount || null);
       const rows = data.transactions || data.activity || data.entries || [];
       document.getElementById('walletActivityBody').innerHTML = rows.length ? rows.map((item, index) => {
         const isPending = String(item.status || 'pending').toLowerCase() === 'pending';
@@ -1290,6 +1361,122 @@
       document.querySelectorAll('[data-wallet-verify]').forEach(button => {
         button.addEventListener('click', () => retryWalletPayment(button.dataset.walletVerify, button));
       });
+    }
+
+    function renderDedicatedWalletAccount(account) {
+      const empty = document.getElementById('dvaAccountEmpty');
+      const details = document.getElementById('dvaAccountDetails');
+      const pill = document.getElementById('dvaStatusPill');
+      const isReady = Boolean(account && account.accountNumber && account.active);
+      empty.classList.toggle('hidden', isReady);
+      details.classList.toggle('hidden', !isReady);
+      if (isReady) {
+        document.getElementById('dvaBankName').textContent = account.bankName || 'Bank account';
+        document.getElementById('dvaAccountName').textContent = account.accountName || '—';
+        document.getElementById('dvaAccountNumber').textContent = account.accountNumber || '—';
+        pill.className = 'inline-flex items-center gap-2 self-start md:self-center rounded-full bg-emerald-50 text-emerald-700 px-3 py-1.5 text-[11px] font-bold';
+        pill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active account';
+      } else {
+        pill.className = 'inline-flex items-center gap-2 self-start md:self-center rounded-full bg-slate-100 text-slate-600 px-3 py-1.5 text-[11px] font-bold';
+        pill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Not created';
+      }
+    }
+
+    function openDedicatedAccountConsent() {
+      const checkbox = document.getElementById('dvaConsentCheck');
+      if (checkbox) checkbox.checked = false;
+      openModal('dvaConsentModal');
+    }
+
+    function closeDedicatedAccountConsent() {
+      closeModal('dvaConsentModal');
+    }
+
+    async function createDedicatedWalletAccount() {
+      const checkbox = document.getElementById('dvaConsentCheck');
+      if (!checkbox?.checked) {
+        showToast('Please confirm your authorization and consent first.', 'error');
+        return;
+      }
+      const button = document.getElementById('dvaConfirmCreateButton');
+      const original = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>Creating account…';
+      try {
+        const response = await apiFetch(`${API_ROOT}/finance/school-wallet/dedicated-account`, {
+          method: 'POST',
+          body: JSON.stringify({ consent: true })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || result.message || `Account creation failed (${response.status}).`);
+        }
+        closeDedicatedAccountConsent();
+        if (result.account) renderDedicatedWalletAccount(result.account);
+        await fetchSchoolWallet();
+        showToast(result.alreadyAssigned ? 'This school already has a dedicated account.' : 'Dedicated bank account created successfully.');
+      } catch (error) {
+        showErrorModal(error.message || 'Unable to create the dedicated bank account.', 'Account creation failed');
+      } finally {
+        button.disabled = false;
+        button.innerHTML = original;
+      }
+    }
+
+    async function copyDedicatedAccountNumber() {
+      const accountNumber = document.getElementById('dvaAccountNumber')?.textContent?.trim();
+      if (!accountNumber || accountNumber === '—') return;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(accountNumber);
+        } else {
+          const field = document.createElement('textarea');
+          field.value = accountNumber;
+          field.style.position = 'fixed';
+          field.style.opacity = '0';
+          document.body.appendChild(field);
+          field.select();
+          const copied = document.execCommand('copy');
+          field.remove();
+          if (!copied) throw new Error('Clipboard unavailable');
+        }
+        showToast('Account number copied.');
+      } catch (_) {
+        showErrorModal('Unable to copy automatically. Please select and copy the account number manually.', 'Copy unavailable', accountNumber, false);
+      }
+    }
+
+    async function checkDedicatedAccountTransfers() {
+      const button = document.getElementById('dvaRequeryButton');
+      const status = document.getElementById('dvaTransferStatus');
+      if (!button) return;
+      const original = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Checking…';
+      if (status) status.textContent = 'Asking Paystack to check recent transfers. This may take a short time.';
+      try {
+        const response = await apiFetch(`${API_ROOT}/finance/school-wallet/dedicated-account/requery`, {
+          method: 'POST',
+          body: JSON.stringify({})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.error || result.message || `Transfer check failed (${response.status}).`);
+        if (status) status.textContent = result.message || 'Paystack has been asked to check recent transfers. Your wallet will update after confirmation.';
+        showToast('Transfer check requested.');
+        await fetchSchoolWallet();
+        // Paystack confirms asynchronously through the webhook. Refresh a few
+        // times so a newly confirmed transfer appears without a manual reload.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 4000));
+          await fetchSchoolWallet();
+        }
+      } catch (error) {
+        if (status) status.textContent = error.message || 'Unable to check transfers right now.';
+        showErrorModal(error.message || 'Unable to check dedicated account transfers.', 'Transfer check failed');
+      } finally {
+        button.disabled = false;
+        button.innerHTML = original;
+      }
     }
 
     async function retryWalletPayment(reference, button) {
@@ -1915,6 +2102,7 @@ function setupSearch(inputId, tableId) {
         closeModal('expenseReviewModal');
         closeModal('bankAccountModal');
         closeModal('documentPreviewModal');
+        closeDedicatedAccountConsent();
       }
     });
 
