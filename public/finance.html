@@ -28,15 +28,11 @@
     .wallet-method-btn{border:1px solid #e2e8f0;border-radius:12px;padding:11px 8px;font-size:12px;font-weight:700;color:#475569;background:#f8fafc}
     .wallet-method-btn.selected{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
     .finance-section{scroll-margin-top:145px}
-    #walletActivityScroll{max-height: min(58vh, 560px); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin}
-    #walletActivityScroll thead{position:sticky;top:0;z-index:2}
-    @media(max-width:767px){
-      #financeSectionNav{display:none!important}
-      #finance-overview .finance-page-heading{display:none!important}
-      #section-wallet .wallet-balance-card{position:sticky;top:76px;z-index:18}
-      #walletActivityScroll{max-height:52vh}
-    }
-    @media(min-width:768px){.finance-nav-btn{padding:9px 14px;font-size:12px}}
+    .wallet-balance-card{position:sticky;top:76px;z-index:8;}
+    .wallet-activity-scroll{max-height:360px;overflow:auto;overscroll-behavior:contain;}
+    .wallet-activity-scroll thead{position:sticky;top:0;z-index:2;}
+    @media(max-width:767px){.wallet-balance-card{top:68px;padding:1.15rem;border-radius:1.25rem}.wallet-activity-scroll{max-height:300px}}
+    @media(max-width:640px){.finance-nav-btn{padding:8px 12px;font-size:11px}}
   </style>
 </head>
 
@@ -389,7 +385,7 @@
         <div class="max-w-7xl mx-auto space-y-6">
           
           <!-- Finance module navigation: available on desktop and mobile -->
-          <nav aria-label="Finance sections" class="sticky top-[65px] z-10 -mx-1 px-1 py-2 bg-slate-50/95 backdrop-blur">
+          <nav aria-label="Finance sections" class="hidden md:block sticky top-[65px] z-10 -mx-1 px-1 py-2 bg-slate-50/95 backdrop-blur">
             <div class="flex gap-2 overflow-x-auto pb-1" id="financeSectionNav">
               <button type="button" data-finance-section="overview" onclick="showSection('overview')" class="finance-nav-btn active">Overview</button>
               <button type="button" data-finance-section="wallet" onclick="showSection('wallet')" class="finance-nav-btn">School Wallet</button>
@@ -406,8 +402,8 @@
 
           <section id="finance-overview" class="finance-view space-y-6">
           <!-- Page Header -->
-          <div class="finance-page-heading flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div class="flex items-center gap-3">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="hidden sm:flex items-center gap-3">
               <span class="w-11 h-11 rounded-2xl bg-blue-100 text-blue-700 inline-flex items-center justify-center shadow-sm text-lg">
                 <i class="fa fa-wallet"></i>
               </span>
@@ -483,7 +479,7 @@
 
           <!-- School Wallet -->
           <section id="section-wallet" class="finance-section hidden space-y-5">
-            <div class="wallet-balance-card rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-blue-700 text-white p-6 sm:p-8 shadow-xl">
+            <div id="schoolWalletStickyCard" class="wallet-balance-card rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-blue-700 text-white p-6 sm:p-8 shadow-xl">
               <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
                 <div>
                   <p class="text-sm text-blue-100 font-semibold"><i class="fa fa-shield-halved mr-2"></i>School Wallet</p>
@@ -491,7 +487,7 @@
                   <p id="schoolWalletBalance" class="text-3xl sm:text-4xl font-bold tracking-tight mt-4">₦—</p>
                   <p id="schoolWalletStatus" class="text-xs text-blue-200 mt-2">Connect to your school wallet to view the live balance.</p>
                 </div>
-                <button type="button" onclick="fetchSchoolWallet({silent:false})" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-semibold"><i class="fa fa-rotate mr-2"></i>Refresh balance</button>
+                <button type="button" onclick="fetchSchoolWallet()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-semibold"><i class="fa fa-rotate mr-2"></i>Refresh balance</button>
               </div>
               <div class="grid grid-cols-2 gap-3 mt-7">
                 <div class="rounded-2xl bg-white/10 border border-white/10 p-4"><p class="text-[11px] uppercase tracking-wider text-blue-200">Total credited</p><p id="walletTotalCredit" class="font-bold text-lg mt-1">₦—</p></div>
@@ -573,7 +569,7 @@
               </div>
               <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <div class="flex items-center justify-between"><h3 class="font-bold text-slate-900">Wallet activity</h3><span class="text-[10px] text-slate-400">Latest entries</span></div>
-                <div id="walletActivityScroll" class="overflow-auto mt-4 rounded-xl"><table class="w-full text-xs text-left"><thead class="text-slate-500 uppercase bg-slate-50"><tr><th class="p-3">Date</th><th class="p-3">Description</th><th class="p-3">Amount</th><th class="p-3">Status / Action</th></tr></thead><tbody id="walletActivityBody"><tr><td colspan="4" class="p-8 text-center text-slate-400">Wallet activity will appear here when connected.</td></tr></tbody></table></div>
+                <div class="wallet-activity-scroll overflow-x-auto mt-4"><table class="w-full text-xs text-left"><thead class="text-slate-500 uppercase bg-slate-50"><tr><th class="p-3">Date</th><th class="p-3">Description</th><th class="p-3">Amount</th><th class="p-3">Status / Action</th></tr></thead><tbody id="walletActivityBody"><tr><td colspan="4" class="p-8 text-center text-slate-400">Wallet activity will appear here when connected.</td></tr></tbody></table></div>
               </div>
             </div>
           </section>
@@ -795,9 +791,9 @@
 
     <!-- 2x2 Fixed Card Grid in Mobile Menu -->
     <div class="grid grid-cols-2 gap-3">
-      <button onclick="showSection('overview')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-left transition-colors">
-        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center mb-2"><i class="fa fa-chart-pie"></i></div>
-        <div class="text-xs font-bold text-slate-800">Overview</div><div class="text-[10px] text-slate-500">Finance dashboard</div>
+      <button onclick="showSection('overview')" data-drawer-hide="drawer-bottom-menu" class="col-span-2 p-3.5 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-left flex items-center gap-3 transition-colors">
+        <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0"><i class="fa fa-chart-pie"></i></div>
+        <div><div class="text-xs font-bold text-slate-800">Overview</div><div class="text-[10px] text-slate-500">Finance dashboard and summary</div></div>
       </button>
       <button onclick="showSection('wallet')" data-drawer-hide="drawer-bottom-menu" class="p-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-colors">
         <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2"><i class="fa fa-wallet"></i></div>
@@ -1319,12 +1315,7 @@
       showToast('Finance records refreshed');
     }
 
-    let activeFinanceSection = 'overview';
-    let walletRefreshTimer = null;
-    let walletRefreshInFlight = false;
-
     function showSection(name) {
-      activeFinanceSection = name;
       const sectionMap = {
         fees:'section-fees', invoices:'section-invoices', receipts:'section-receipts',
         expenses:'section-expenses', transactions:'section-transactions', reports:'section-reports',
@@ -1341,9 +1332,9 @@
         btn.classList.toggle('active', active);
         btn.setAttribute('aria-current', active ? 'page' : 'false');
       });
-      if (name === 'wallet') { fetchSchoolWallet({silent:true}); startWalletAutoRefresh(); }
-      else stopWalletAutoRefresh();
+      if (name === 'wallet') fetchSchoolWallet();
       if (name === 'accounts') fetchBankAccounts();
+      updateWalletAutoRefresh();
       const target = name === 'overview' ? document.getElementById('finance-overview') : document.getElementById(sectionMap[name]);
       target?.scrollIntoView({behavior:'smooth',block:'start'});
     }
@@ -1517,46 +1508,48 @@
       }
     }
 
-    async function fetchSchoolWallet({silent = false} = {}) {
+    let walletRefreshInFlight = false;
+    async function fetchSchoolWallet(options = {}) {
+      const silent = options.silent === true;
       if (walletRefreshInFlight) return;
       walletRefreshInFlight = true;
       const status = document.getElementById('schoolWalletStatus');
-      if (!silent) status.textContent = 'Retrieving school wallet balance…';
+      if (!silent && status) status.textContent = 'Retrieving school wallet balance…';
       try {
-        const response = await fetch(API_ROOT + '/finance/school-wallet', {
-          method: 'GET', headers: authHeaders(), cache: 'no-store'
-        });
+        // Do not use getJson here: silent polling must never open error dialogs
+        // or replace a previously verified balance with an error state.
+        const response = await apiFetch(`${API_ROOT}/finance/school-wallet`);
         if (!response.ok) throw new Error(`Wallet request failed (${response.status})`);
         const raw = await response.json();
         if (!raw) throw new Error('Wallet service returned no data');
         renderSchoolWallet(raw);
-        const updated = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-        status.textContent = `Balance updated ${updated} · Automatically checking for new funding`;
+        const refreshedAt = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        if (status) status.textContent = `Balance updated · ${refreshedAt}`;
       } catch (err) {
-        if (!silent) {
-          status.textContent = 'Unable to retrieve the latest wallet balance. It will retry automatically.';
-          console.warn('School wallet load:', err);
-        }
+        console.warn('School wallet refresh:', err);
+        if (!silent && status) status.textContent = 'Unable to refresh wallet right now. Your last displayed balance has been retained.';
       } finally {
         walletRefreshInFlight = false;
       }
     }
 
-    function startWalletAutoRefresh() {
-      stopWalletAutoRefresh();
-      // Check quietly every 15 seconds while the wallet section is open.
-      walletRefreshTimer = setInterval(() => {
-        if (activeFinanceSection === 'wallet' && !document.hidden) fetchSchoolWallet({silent:true});
-      }, 15000);
+    let walletAutoRefreshTimer = null;
+    function updateWalletAutoRefresh() {
+      const walletVisible = !document.getElementById('section-wallet')?.classList.contains('hidden');
+      if (walletAutoRefreshTimer) {
+        clearInterval(walletAutoRefreshTimer);
+        walletAutoRefreshTimer = null;
+      }
+      if (walletVisible) {
+        // Quietly check every 15 seconds while the wallet is open.
+        walletAutoRefreshTimer = setInterval(() => {
+          if (!document.hidden) fetchSchoolWallet({silent:true});
+        }, 15000);
+      }
     }
-
-    function stopWalletAutoRefresh() {
-      if (walletRefreshTimer) clearInterval(walletRefreshTimer);
-      walletRefreshTimer = null;
-    }
-
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && activeFinanceSection === 'wallet') fetchSchoolWallet({silent:true});
+      const walletVisible = !document.getElementById('section-wallet')?.classList.contains('hidden');
+      if (walletVisible && !document.hidden) fetchSchoolWallet({silent:true});
     });
 
     async function submitDirectWalletFunding(event) {
