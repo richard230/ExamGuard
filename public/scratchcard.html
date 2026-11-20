@@ -1418,12 +1418,30 @@ function closePurchaseModal() {
   $('purchaseModal')?.classList.remove('show');
 }
 
-function updatePurchaseTotal() {
-  const quantity = Number($('purchaseModalQty')?.value || $('purchaseQty')?.value || 0);
-  const total = quantity * CARD_PRICE_NAIRA;
+function updatePurchaseTotal(event) {
+  // Use the field the user actually changed. The previous implementation
+  // always preferred the modal quantity, so dashboard edits were ignored
+  // whenever the modal still contained an older value.
+  const sourceId = event?.target?.id;
+  const source = sourceId === 'purchaseQty'
+    ? $('purchaseQty')
+    : sourceId === 'purchaseModalQty'
+      ? $('purchaseModalQty')
+      : ($('purchaseModal')?.classList.contains('show') ? $('purchaseModalQty') : $('purchaseQty'));
 
-  if ($('purchaseTotal')) $('purchaseTotal').textContent = formatMoney(total);
-  if ($('purchaseModalTotal')) $('purchaseModalTotal').textContent = formatMoney(total);
+  const rawQuantity = Number(source?.value || 0);
+  const quantity = Number.isFinite(rawQuantity) ? Math.max(0, rawQuantity) : 0;
+  const formattedTotal = formatMoney(quantity * CARD_PRICE_NAIRA);
+
+  // Keep both quantity fields in sync so the dashboard and modal always
+  // represent the same pending purchase.
+  const quickQty = $('purchaseQty');
+  const modalQty = $('purchaseModalQty');
+  if (quickQty && quickQty !== source) quickQty.value = source?.value ?? '';
+  if (modalQty && modalQty !== source) modalQty.value = source?.value ?? '';
+
+  if ($('purchaseTotal')) $('purchaseTotal').textContent = formattedTotal;
+  if ($('purchaseModalTotal')) $('purchaseModalTotal').textContent = formattedTotal;
   updateWalletPaymentAvailability();
 }
 
@@ -2308,12 +2326,30 @@ function closePurchaseModal() {
   $('purchaseModal')?.classList.remove('show');
 }
 
-function updatePurchaseTotal() {
-  const quantity = Number($('purchaseModalQty')?.value || $('purchaseQty')?.value || 0);
-  const total = quantity * CARD_PRICE_NAIRA;
+function updatePurchaseTotal(event) {
+  // Use the field the user actually changed. The previous implementation
+  // always preferred the modal quantity, so dashboard edits were ignored
+  // whenever the modal still contained an older value.
+  const sourceId = event?.target?.id;
+  const source = sourceId === 'purchaseQty'
+    ? $('purchaseQty')
+    : sourceId === 'purchaseModalQty'
+      ? $('purchaseModalQty')
+      : ($('purchaseModal')?.classList.contains('show') ? $('purchaseModalQty') : $('purchaseQty'));
 
-  if ($('purchaseTotal')) $('purchaseTotal').textContent = formatMoney(total);
-  if ($('purchaseModalTotal')) $('purchaseModalTotal').textContent = formatMoney(total);
+  const rawQuantity = Number(source?.value || 0);
+  const quantity = Number.isFinite(rawQuantity) ? Math.max(0, rawQuantity) : 0;
+  const formattedTotal = formatMoney(quantity * CARD_PRICE_NAIRA);
+
+  // Keep both quantity fields in sync so the dashboard and modal always
+  // represent the same pending purchase.
+  const quickQty = $('purchaseQty');
+  const modalQty = $('purchaseModalQty');
+  if (quickQty && quickQty !== source) quickQty.value = source?.value ?? '';
+  if (modalQty && modalQty !== source) modalQty.value = source?.value ?? '';
+
+  if ($('purchaseTotal')) $('purchaseTotal').textContent = formattedTotal;
+  if ($('purchaseModalTotal')) $('purchaseModalTotal').textContent = formattedTotal;
   updateWalletPaymentAvailability();
 }
 
