@@ -410,32 +410,81 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       consentedBy: String(req.user?._id || req.user?.id || '')
     };
 
-    // Persist the Paystack assignment atomically and verify it can be read back.
-    const persistResult = await SchoolWallet.updateOne(
-      { schoolId: String(req.schoolId) },
-      {
-        $set: {
-          schoolId: String(req.schoolId),
-          currency: 'NGN',
-          paystackCustomerCode: String(customer.customer_code),
-          dedicatedAccount: accountRecord
+    // Persist against the canonical school ObjectId. Read-back deliberately
+    // uses schoolId alone first: extra predicates can hide a successful write
+    // when legacy customer-code/account data is formatted differently.
+    let persistResult;
+    try {
+      persistResult = await SchoolWallet.updateOne(
+        { schoolId: String(req.schoolId) },
+        {
+          $set: {
+            schoolId: String(req.schoolId),
+            currency: 'NGN',
+            paystackCustomerCode: String(customer.customer_code).trim(),
+            dedicatedAccount: accountRecord
+          },
+          $unset: { dedicatedAccountCreationLockUntil: '' }
         },
-        $unset: { dedicatedAccountCreationLockUntil: '' }
-      },
-      { upsert: true, runValidators: true, setDefaultsOnInsert: true }
-    );
-
-    const saved = await SchoolWallet.findOne({
-      schoolId: String(req.schoolId),
-      paystackCustomerCode: String(customer.customer_code),
-      'dedicatedAccount.accountNumber': accountRecord.accountNumber,
-      'dedicatedAccount.active': true
-    }).lean();
-
-    if (!saved?.dedicatedAccount?.accountNumber) {
-      throw new Error('Paystack created the account, but ExamGuard could not confirm that it was saved to this school wallet. Do not create another account; contact support.');
+        { upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      );
+    } catch (writeError) {
+      console.error('[SchoolWallet][DVA] MongoDB account write failed', {
+        schoolId: String(req.schoolId),
+        mongoCode: writeError.code || null,
+        mongoCodeName: writeError.codeName || null,
+        mongoMessage: writeError.message,
+        accountNumberLast4: accountRecord.accountNumber.slice(-4)
+      });
+      // A unique-account-index conflict may mean this Paystack account is
+      // already mapped to another wallet. Never silently move it between schools.
+      if (writeError.code === 11000) {
+        const existingMapping = await SchoolWallet.findOne({
+          'dedicatedAccount.accountNumber': accountRecord.accountNumber
+        }).select('schoolId').lean();
+        if (existingMapping && String(existingMapping.schoolId) !== String(req.schoolId)) {
+          const conflict = new Error('Paystack returned an account number already assigned to another school wallet. The existing mapping was preserved; contact support.');
+          conflict.statusCode = 409;
+          throw conflict;
+        }
+      }
+      throw writeError;
     }
 
+    console.info('[SchoolWallet][DVA] MongoDB write result', {
+      schoolId: String(req.schoolId),
+      acknowledged: Boolean(persistResult?.acknowledged),
+      matchedCount: persistResult?.matchedCount ?? null,
+      modifiedCount: persistResult?.modifiedCount ?? null,
+      upsertedCount: persistResult?.upsertedCount ?? null,
+      upsertedId: persistResult?.upsertedId ? String(persistResult.upsertedId) : null
+    });
+
+    let saved = await SchoolWallet.findOne({ schoolId: String(req.schoolId) }).lean();
+    const savedAccountNumber = String(saved?.dedicatedAccount?.accountNumber || '').replace(/\D/g, '');
+    const expectedAccountNumber = String(accountRecord.accountNumber).replace(/\D/g, '');
+    const accountWasSaved = Boolean(
+      saved &&
+      savedAccountNumber === expectedAccountNumber &&
+      saved?.dedicatedAccount?.active === true
+    );
+
+    if (!accountWasSaved) {
+      console.error('[SchoolWallet][DVA] Account read-back mismatch', {
+        schoolId: String(req.schoolId),
+        walletFound: Boolean(saved),
+        walletId: saved?._id ? String(saved._id) : null,
+        savedCustomerCode: saved?.paystackCustomerCode || null,
+        expectedCustomerCode: String(customer.customer_code),
+        savedAccountLast4: savedAccountNumber ? savedAccountNumber.slice(-4) : null,
+        expectedAccountLast4: expectedAccountNumber.slice(-4),
+        savedAccountActive: saved?.dedicatedAccount?.active ?? null,
+        mongoCollection: SchoolWallet.collection?.name || null
+      });
+      throw new Error('Paystack created the account, but MongoDB read-back did not confirm the account under this school. The Paystack account was retained and will be reused on the next safe retry; do not create another account.');
+    }
+
+    // Release the creation lock only after the account is confirmed persisted.
     lockAcquired = false;
 
     console.info('[SchoolWallet][DVA] Dedicated account persisted and assigned', {
@@ -445,7 +494,7 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       bankName: accountRecord.bankName,
       matchedWalletId: String(saved._id),
       matchedAccount: true,
-      upserted: Boolean(persistResult.upsertedCount)
+      upserted: Boolean(persistResult?.upsertedCount)
     });
 
     return res.status(201).json({
