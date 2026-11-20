@@ -137,9 +137,19 @@ async function paystackApiRequest(path, method = 'GET', body = undefined) {
 
 function splitSchoolName(value) {
   const words = String(value || 'School').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return { firstName: 'School', lastName: 'School' };
+  if (words.length === 1) return { firstName: words[0], lastName: words[0] };
+
+  // Paystack's Nigerian dedicated-account name display has been returning
+  // last_name before first_name. Reverse the API fields so the bank-facing
+  // account name follows the school's original word order.
+  // Example: "Goldlinc Schools Manuhf" is sent as:
+  // first_name = "Schools Manuhf", last_name = "Goldlinc".
+  // Paystack then displays: "GOLDLINC SCHOOLS MANUHF".
+  const firstWord = words.shift();
   return {
-    firstName: words.shift() || 'School',
-    lastName: words.join(' ') || 'School'
+    firstName: words.join(' '),
+    lastName: firstWord
   };
 }
 
