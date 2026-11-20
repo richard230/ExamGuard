@@ -90,20 +90,6 @@ async function requireFinanceSchool(req, res) {
 // Shared school-wallet model is also used by the public Paystack webhook route.
 const SchoolWallet = require('../models/SchoolWallet');
 
-// Use the native MongoDB collection for DVA fields. This deliberately bypasses
-// Mongoose schema strictness/casting so a stale or differently-compiled model
-// cannot silently discard the dedicated-account fields.
-function schoolWalletCollection() {
-  if (!SchoolWallet.collection || !SchoolWallet.collection.collectionName) {
-    throw new Error('School wallet MongoDB collection is not available.');
-  }
-  return SchoolWallet.collection;
-}
-
-async function findSchoolWalletRaw(schoolId) {
-  return schoolWalletCollection().findOne({ schoolId: String(schoolId) });
-}
-
 function makeReference(prefix = 'WAL') {
   return `${prefix}-${Date.now()}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
 }
@@ -137,19 +123,9 @@ async function paystackApiRequest(path, method = 'GET', body = undefined) {
 
 function splitSchoolName(value) {
   const words = String(value || 'School').trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return { firstName: 'School', lastName: 'School' };
-  if (words.length === 1) return { firstName: words[0], lastName: words[0] };
-
-  // Paystack's Nigerian dedicated-account name display has been returning
-  // last_name before first_name. Reverse the API fields so the bank-facing
-  // account name follows the school's original word order.
-  // Example: "Goldlinc Schools Manuhf" is sent as:
-  // first_name = "Schools Manuhf", last_name = "Goldlinc".
-  // Paystack then displays: "GOLDLINC SCHOOLS MANUHF".
-  const firstWord = words.shift();
   return {
-    firstName: words.join(' '),
-    lastName: firstWord
+    firstName: words.shift() || 'School',
+    lastName: words.join(' ') || 'School'
   };
 }
 
@@ -212,7 +188,7 @@ router.get('/school-wallet', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const wallet = await findSchoolWalletRaw(req.schoolId);
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
     const transactions = (wallet?.transactions || [])
       .slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 100);
     res.json({
@@ -241,7 +217,7 @@ router.get('/school-wallet/dedicated-account', authMiddleware, adminAuth, async 
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const wallet = await findSchoolWalletRaw(req.schoolId);
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
     return res.json({
       success: true,
       account: publicDedicatedAccount(wallet?.dedicatedAccount),
@@ -290,7 +266,7 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    let currentWallet = await findSchoolWalletRaw(req.schoolId);
+    let currentWallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
     if (currentWallet?.dedicatedAccount?.accountNumber && currentWallet.dedicatedAccount.active) {
       return res.json({
         success: true,
@@ -322,7 +298,7 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
     ).lean();
 
     if (!lock) {
-      currentWallet = await findSchoolWalletRaw(req.schoolId);
+      currentWallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
       if (currentWallet?.dedicatedAccount?.accountNumber && currentWallet.dedicatedAccount.active) {
         return res.json({ success: true, alreadyAssigned: true, account: publicDedicatedAccount(currentWallet.dedicatedAccount) });
       }
@@ -434,96 +410,32 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       consentedBy: String(req.user?._id || req.user?.id || '')
     };
 
-    // Persist against the canonical school ObjectId. Read-back deliberately
-    // uses schoolId alone first: extra predicates can hide a successful write
-    // when legacy customer-code/account data is formatted differently.
-    let persistResult;
-    try {
-      const collection = schoolWalletCollection();
-      const schemaDiagnostics = {
-        collection: collection.collectionName,
-        modelName: SchoolWallet.modelName,
-        customerCodePath: Boolean(SchoolWallet.schema.path('paystackCustomerCode')),
-        dedicatedAccountPath: Boolean(SchoolWallet.schema.path('dedicatedAccount')),
-        accountNumberPath: Boolean(SchoolWallet.schema.path('dedicatedAccount.accountNumber')),
-        mongoDatabase: collection.conn?.name || null
-      };
-      console.info('[SchoolWallet][DVA] Runtime model inspection', schemaDiagnostics);
-
-      // Native collection write: no Mongoose strict-mode filtering or casting.
-      persistResult = await collection.updateOne(
-        { schoolId: String(req.schoolId) },
-        {
-          $set: {
-            schoolId: String(req.schoolId),
-            currency: 'NGN',
-            paystackCustomerCode: String(customer.customer_code).trim(),
-            dedicatedAccount: accountRecord
-          },
-          $unset: { dedicatedAccountCreationLockUntil: '' },
-          $setOnInsert: { balance: 0, totalCredited: 0, totalDebited: 0, transactions: [], createdAt: new Date() }
+    // Persist the Paystack assignment atomically and verify it can be read back.
+    const persistResult = await SchoolWallet.updateOne(
+      { schoolId: String(req.schoolId) },
+      {
+        $set: {
+          schoolId: String(req.schoolId),
+          currency: 'NGN',
+          paystackCustomerCode: String(customer.customer_code),
+          dedicatedAccount: accountRecord
         },
-        { upsert: true }
-      );
-    } catch (writeError) {
-      console.error('[SchoolWallet][DVA] MongoDB account write failed', {
-        schoolId: String(req.schoolId),
-        mongoCode: writeError.code || null,
-        mongoCodeName: writeError.codeName || null,
-        mongoMessage: writeError.message,
-        accountNumberLast4: accountRecord.accountNumber.slice(-4)
-      });
-      // A unique-account-index conflict may mean this Paystack account is
-      // already mapped to another wallet. Never silently move it between schools.
-      if (writeError.code === 11000) {
-        const existingMapping = await schoolWalletCollection().findOne(
-          { 'dedicatedAccount.accountNumber': accountRecord.accountNumber },
-          { projection: { schoolId: 1 } }
-        );
-        if (existingMapping && String(existingMapping.schoolId) !== String(req.schoolId)) {
-          const conflict = new Error('Paystack returned an account number already assigned to another school wallet. The existing mapping was preserved; contact support.');
-          conflict.statusCode = 409;
-          throw conflict;
-        }
-      }
-      throw writeError;
-    }
-
-    console.info('[SchoolWallet][DVA] MongoDB write result', {
-      schoolId: String(req.schoolId),
-      acknowledged: Boolean(persistResult?.acknowledged),
-      matchedCount: persistResult?.matchedCount ?? null,
-      modifiedCount: persistResult?.modifiedCount ?? null,
-      upsertedCount: persistResult?.upsertedCount ?? null,
-      upsertedId: persistResult?.upsertedId ? String(persistResult.upsertedId) : null
-    });
-
-    let saved = await findSchoolWalletRaw(req.schoolId);
-    const savedAccountNumber = String(saved?.dedicatedAccount?.accountNumber || '').replace(/\D/g, '');
-    const expectedAccountNumber = String(accountRecord.accountNumber).replace(/\D/g, '');
-    const accountWasSaved = Boolean(
-      saved &&
-      savedAccountNumber === expectedAccountNumber &&
-      saved?.dedicatedAccount?.active === true
+        $unset: { dedicatedAccountCreationLockUntil: '' }
+      },
+      { upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
 
-    if (!accountWasSaved) {
-      console.error('[SchoolWallet][DVA] Account read-back mismatch', {
-        schoolId: String(req.schoolId),
-        walletFound: Boolean(saved),
-        walletId: saved?._id ? String(saved._id) : null,
-        savedCustomerCode: saved?.paystackCustomerCode || null,
-        expectedCustomerCode: String(customer.customer_code),
-        savedAccountLast4: savedAccountNumber ? savedAccountNumber.slice(-4) : null,
-        expectedAccountLast4: expectedAccountNumber.slice(-4),
-        savedAccountActive: saved?.dedicatedAccount?.active ?? null,
-        mongoCollection: SchoolWallet.collection?.collectionName || null,
-        mongoDatabase: SchoolWallet.collection?.conn?.name || null
-      });
-      throw new Error('Paystack created the account, but MongoDB read-back did not confirm the account under this school. The Paystack account was retained and will be reused on the next safe retry; do not create another account.');
+    const saved = await SchoolWallet.findOne({
+      schoolId: String(req.schoolId),
+      paystackCustomerCode: String(customer.customer_code),
+      'dedicatedAccount.accountNumber': accountRecord.accountNumber,
+      'dedicatedAccount.active': true
+    }).lean();
+
+    if (!saved?.dedicatedAccount?.accountNumber) {
+      throw new Error('Paystack created the account, but ExamGuard could not confirm that it was saved to this school wallet. Do not create another account; contact support.');
     }
 
-    // Release the creation lock only after the account is confirmed persisted.
     lockAcquired = false;
 
     console.info('[SchoolWallet][DVA] Dedicated account persisted and assigned', {
@@ -533,7 +445,7 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       bankName: accountRecord.bankName,
       matchedWalletId: String(saved._id),
       matchedAccount: true,
-      upserted: Boolean(persistResult?.upsertedCount)
+      upserted: Boolean(persistResult.upsertedCount)
     });
 
     return res.status(201).json({
@@ -573,7 +485,7 @@ router.post('/school-wallet/dedicated-account/requery', authMiddleware, adminAut
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const wallet = await findSchoolWalletRaw(req.schoolId);
+    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
     const account = wallet?.dedicatedAccount;
     if (!account?.accountNumber || !account.active) {
       return res.status(404).json({ success: false, error: 'This school does not have an active dedicated bank account.' });
@@ -581,9 +493,9 @@ router.post('/school-wallet/dedicated-account/requery', authMiddleware, adminAut
 
     const now = new Date();
     const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
-    const claimed = await schoolWalletCollection().updateOne(
+    const claimed = await SchoolWallet.findOneAndUpdate(
       {
-        schoolId: String(req.schoolId),
+        schoolId: req.schoolId,
         'dedicatedAccount.accountNumber': account.accountNumber,
         $or: [
           { 'dedicatedAccount.lastRequeryAt': { $exists: false } },
@@ -591,9 +503,10 @@ router.post('/school-wallet/dedicated-account/requery', authMiddleware, adminAut
           { 'dedicatedAccount.lastRequeryAt': { $lte: tenMinutesAgo } }
         ]
       },
-      { $set: { 'dedicatedAccount.lastRequeryAt': now } }
-    );
-    if (claimed.modifiedCount !== 1) {
+      { $set: { 'dedicatedAccount.lastRequeryAt': now } },
+      { new: true }
+    ).lean();
+    if (!claimed) {
       return res.status(429).json({ success: false, error: 'Please wait at least 10 minutes between transfer checks.' });
     }
 
@@ -1088,10 +1001,9 @@ router.get('/transactions', authMiddleware, adminAuth, async (req, res) => {
     let matchStage = schoolFilter(req.schoolId);
     if (status) matchStage.status = status;
     if (startDate && endDate) {
-      matchStage.transactionDate = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      const endExclusive = new Date(endDate);
+      endExclusive.setDate(endExclusive.getDate() + 1);
+      matchStage.transactionDate = { $gte: new Date(startDate), $lt: endExclusive };
     }
 
     let transactions = [];
@@ -1239,21 +1151,57 @@ router.get('/approvals', authMiddleware, adminAuth, async (req, res) => {
  */
 router.get('/bank-accounts', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const school = await requireFinanceSchool(req, res);
-    if (!school) return;
-    // No hard-coded bank balances: configure real bank accounts per school before displaying them.
-    const bankAccounts = [];
-    const totalBalance = 0;
+    const school = await requireFinanceSchool(req, res); if (!school) return;
+    const accounts = await mongoose.connection.collection('financebankaccounts')
+      .find({ schoolId: req.schoolId }).sort({ createdAt: -1 }).toArray();
+    res.json({ success: true, accounts, totalBalance: accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0), count: accounts.length });
+  } catch (err) { console.error('Bank accounts load failed:', err); res.status(500).json({success:false,error:err.message}); }
+});
 
-    res.json({
-      accounts: bankAccounts,
-      totalBalance,
-      count: bankAccounts.length
-    });
-  } catch (err) {
-    console.error('Error fetching bank accounts:', err);
-    res.status(500).json({ error: err.message });
-  }
+router.post('/bank-accounts', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res); if (!school) return;
+    const { accountName, bankName, accountNumber, balance = 0, type = 'Operational' } = req.body || {};
+    if (!accountName?.trim() || !bankName?.trim() || !/^\d{10}$/.test(String(accountNumber || '')) || !Number.isFinite(Number(balance)) || Number(balance) < 0)
+      return res.status(400).json({success:false,error:'Provide a valid account name, bank, 10-digit account number and non-negative opening balance.'});
+    const collection = mongoose.connection.collection('financebankaccounts');
+    const duplicate = await collection.findOne({schoolId:req.schoolId, accountNumber:String(accountNumber)});
+    if (duplicate) return res.status(409).json({success:false,error:'This bank account is already registered for this school.'});
+    const account = {_id:new mongoose.Types.ObjectId(), schoolId:req.schoolId, accountName:accountName.trim(), bankName:bankName.trim(), accountNumber:String(accountNumber), balance:Number(balance), type:String(type), status:'Active', createdAt:new Date(), updatedAt:new Date()};
+    await collection.insertOne(account); res.status(201).json({success:true,account});
+  } catch (err) { console.error('Bank account create failed:',err); res.status(500).json({success:false,error:err.message}); }
+});
+
+router.put('/bank-accounts/:accountId', authMiddleware, adminAuth, async (req, res) => {
+  try {
+    const school = await requireFinanceSchool(req, res); if (!school) return;
+    if (!mongoose.Types.ObjectId.isValid(req.params.accountId)) return res.status(400).json({success:false,error:'Invalid bank account ID.'});
+    const {accountName,bankName,accountNumber,balance,type,status} = req.body || {};
+    if (!accountName?.trim() || !bankName?.trim() || !/^\d{10}$/.test(String(accountNumber || '')) || !Number.isFinite(Number(balance)) || Number(balance)<0)
+      return res.status(400).json({success:false,error:'Invalid bank account details.'});
+    const collection = mongoose.connection.collection('financebankaccounts');
+    const duplicate = await collection.findOne({schoolId:req.schoolId,accountNumber:String(accountNumber),_id:{$ne:new mongoose.Types.ObjectId(req.params.accountId)}});
+    if (duplicate) return res.status(409).json({success:false,error:'This account number is already registered.'});
+    const result = await collection.findOneAndUpdate({_id:new mongoose.Types.ObjectId(req.params.accountId),schoolId:req.schoolId},{$set:{accountName:accountName.trim(),bankName:bankName.trim(),accountNumber:String(accountNumber),balance:Number(balance),type:String(type||'Operational'),status:String(status||'Active'),updatedAt:new Date()}},{returnDocument:'after'});
+    const account = result?.value || result;
+    if (!account) return res.status(404).json({success:false,error:'Bank account not found.'});
+    res.json({success:true,account});
+  } catch (err) { console.error('Bank account update failed:',err); res.status(500).json({success:false,error:err.message}); }
+});
+
+router.get('/settings', authMiddleware, adminAuth, async (req,res)=>{
+  try { const school=await requireFinanceSchool(req,res); if(!school)return; const doc=await mongoose.connection.collection('schools').findOne({_id:school._id},{projection:{financeSettings:1}}); res.json({success:true,settings:doc?.financeSettings||{autoReminder:false,emailReceipts:true,smsNotification:false,financialYearStart:'01-01'}}); }
+  catch(err){res.status(500).json({success:false,error:err.message});}
+});
+router.put('/settings', authMiddleware, adminAuth, async (req,res)=>{
+  try {
+    const school=await requireFinanceSchool(req,res); if(!school)return;
+    const {autoReminder,emailReceipts,smsNotification,financialYearStart}=req.body||{};
+    if(typeof autoReminder!=='boolean'||typeof emailReceipts!=='boolean'||typeof smsNotification!=='boolean'||!/^\d{2}-\d{2}$/.test(String(financialYearStart||''))) return res.status(400).json({success:false,error:'Invalid finance settings.'});
+    const settings={autoReminder,emailReceipts,smsNotification,financialYearStart,updatedAt:new Date()};
+    await mongoose.connection.collection('schools').updateOne({_id:school._id},{$set:{financeSettings:settings}});
+    res.json({success:true,settings});
+  } catch(err){console.error('Finance settings save failed:',err);res.status(500).json({success:false,error:err.message});}
 });
 
 // ===== FEE MANAGEMENT =====
@@ -1340,13 +1288,15 @@ router.patch('/fees/:feeId', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const { status, amountPaid, paymentMethod, notes } = req.body;
+    const { status, amount, amountPaid, paymentMethod, notes, dueDate } = req.body;
     const fee = await Fee.findOne(schoolFilter(req.schoolId, { _id: req.params.feeId }));
 
     if (!fee) return res.status(404).json({ error: 'Fee not found' });
 
-    if (status) fee.status = status;
+    if (status) fee.status = String(status).toLowerCase();
+    if (amount !== undefined) { if (!Number.isFinite(Number(amount)) || Number(amount) < 0) return res.status(400).json({error:'Invalid fee amount'}); fee.amount = Number(amount); }
     if (amountPaid !== undefined) fee.amountPaid = amountPaid;
+    if (dueDate) fee.dueDate = new Date(dueDate);
     if (paymentMethod) fee.paymentMethod = paymentMethod;
     if (notes) fee.notes = notes;
 
@@ -1419,7 +1369,7 @@ router.post('/invoices', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const { studentId, items, notes } = req.body;
+    const { studentId, items, notes, dueDate } = req.body;
 
     if (!studentId || !items || items.length === 0) {
       return res.status(400).json({ error: 'Invalid invoice data' });
@@ -1437,7 +1387,7 @@ router.post('/invoices', authMiddleware, adminAuth, async (req, res) => {
       totalAmount,
       status: 'pending',
       notes,
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+      dueDate: dueDate ? new Date(dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
 
     await invoice.save();
