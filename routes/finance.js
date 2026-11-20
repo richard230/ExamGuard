@@ -410,29 +410,47 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       consentedBy: String(req.user?._id || req.user?.id || '')
     };
 
-    const saved = await SchoolWallet.findOneAndUpdate(
-      { schoolId: req.schoolId },
+    // Persist the Paystack assignment atomically and verify it can be read back.
+    const persistResult = await SchoolWallet.updateOne(
+      { schoolId: String(req.schoolId) },
       {
         $set: {
-          paystackCustomerCode: customer.customer_code,
+          schoolId: String(req.schoolId),
+          currency: 'NGN',
+          paystackCustomerCode: String(customer.customer_code),
           dedicatedAccount: accountRecord
         },
         $unset: { dedicatedAccountCreationLockUntil: '' }
       },
-      { new: true }
-    ).lean();
+      { upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    const saved = await SchoolWallet.findOne({
+      schoolId: String(req.schoolId),
+      paystackCustomerCode: String(customer.customer_code),
+      'dedicatedAccount.accountNumber': accountRecord.accountNumber,
+      'dedicatedAccount.active': true
+    }).lean();
+
+    if (!saved?.dedicatedAccount?.accountNumber) {
+      throw new Error('Paystack created the account, but ExamGuard could not confirm that it was saved to this school wallet. Do not create another account; contact support.');
+    }
+
     lockAcquired = false;
 
-    console.info('[SchoolWallet][DVA] Dedicated account assigned', {
+    console.info('[SchoolWallet][DVA] Dedicated account persisted and assigned', {
       schoolId: req.schoolId,
       customerCode: customer.customer_code,
       accountNumberLast4: accountRecord.accountNumber.slice(-4),
-      bankName: accountRecord.bankName
+      bankName: accountRecord.bankName,
+      matchedWalletId: String(saved._id),
+      matchedAccount: true,
+      upserted: Boolean(persistResult.upsertedCount)
     });
 
     return res.status(201).json({
       success: true,
-      account: publicDedicatedAccount(saved?.dedicatedAccount || accountRecord),
+      account: publicDedicatedAccount(saved.dedicatedAccount),
       message: 'Dedicated bank account created successfully. The school can now fund its wallet by bank transfer.'
     });
   } catch (err) {

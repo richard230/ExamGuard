@@ -653,36 +653,56 @@ router.post('/webhooks/paystack', async (req, res) => {
       return res.json({ received: true });
     }
 
+    const normalizedReceiver = receiverAccountNumber.replace(/\\D/g, '');
     let wallet = null;
-    if (receiverAccountNumber) {
+
+    // Prefer an exact receiving-account match. Do not hide incomplete records
+    // behind an active:true query; diagnose them explicitly below.
+    if (normalizedReceiver) {
       wallet = await SchoolWallet.findOne({
-        'dedicatedAccount.accountNumber': receiverAccountNumber,
-        'dedicatedAccount.active': true
+        'dedicatedAccount.accountNumber': normalizedReceiver
       });
     }
-    if (!wallet && customerCode) {
+
+    // Customer-code fallback is only safe when Paystack omits the receiver number.
+    if (!wallet && !normalizedReceiver && customerCode) {
       wallet = await SchoolWallet.findOne({
-        paystackCustomerCode: customerCode,
-        'dedicatedAccount.active': true
+        paystackCustomerCode: customerCode
       });
     }
+
     if (!wallet) {
-      console.warn('[SchoolWallet][DVA Webhook] No school wallet matched the receiving account', {
+      console.error('[SchoolWallet][DVA Webhook] No school wallet matched the receiving account; webhook must be retried after mapping is repaired', {
         reference,
-        receiverAccountLast4: receiverAccountNumber ? receiverAccountNumber.slice(-4) : null,
+        receiverAccountLast4: normalizedReceiver ? normalizedReceiver.slice(-4) : null,
         customerCode: customerCode || null
       });
-      return res.json({ received: true });
+      return res.status(500).json({ error: 'No ExamGuard school wallet is mapped to this dedicated account. Retry after the account mapping is repaired.' });
+    }
+
+    if (!wallet.dedicatedAccount?.active || !wallet.dedicatedAccount?.accountNumber) {
+      console.error('[SchoolWallet][DVA Webhook] Matched wallet has no active dedicated account', {
+        reference,
+        schoolId: wallet.schoolId,
+        customerCode: wallet.paystackCustomerCode || null
+      });
+      return res.status(500).json({ error: 'The matched school wallet has an incomplete dedicated-account record.' });
     }
 
     // When Paystack supplies the receiving account number, it must match the
     // exact account assigned to this school. Customer-code matching is only a
     // fallback for webhook payloads that omit that field.
-    if (receiverAccountNumber && String(wallet.dedicatedAccount?.accountNumber) !== receiverAccountNumber) {
-      return res.json({ received: true });
+    if (normalizedReceiver && String(wallet.dedicatedAccount?.accountNumber).replace(/\\D/g, '') !== normalizedReceiver) {
+      console.error('[SchoolWallet][DVA Webhook] Receiving account mismatch', {
+        reference,
+        schoolId: wallet.schoolId,
+        receiverAccountLast4: normalizedReceiver.slice(-4),
+        mappedAccountLast4: String(wallet.dedicatedAccount?.accountNumber || '').slice(-4)
+      });
+      return res.status(500).json({ error: 'The receiving account does not match the school mapped dedicated account.' });
     }
-    if (!receiverAccountNumber && customerCode && String(wallet.paystackCustomerCode) !== customerCode) {
-      return res.json({ received: true });
+    if (!normalizedReceiver && customerCode && String(wallet.paystackCustomerCode) !== customerCode) {
+      return res.status(500).json({ error: 'The Paystack customer does not match the mapped school wallet.' });
     }
 
     const amountNaira = Number((amountKobo / 100).toFixed(2));
@@ -719,7 +739,7 @@ router.post('/webhooks/paystack', async (req, res) => {
               channel: verifiedChannel || 'dedicated_nuban',
               senderBank: String(authorization.sender_bank || ''),
               receivingBank: String(authorization.receiver_bank || wallet.dedicatedAccount?.bankName || ''),
-              receivingAccountLast4: receiverAccountNumber.slice(-4),
+              receivingAccountLast4: normalizedReceiver ? normalizedReceiver.slice(-4) : '',
               paystackCustomerCode: customerCode || wallet.paystackCustomerCode || ''
             }
           }
