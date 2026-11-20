@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Finance | School Administration</title>
-  <meta name="viewport" content="width=device-width, initial-scale=0.87">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
@@ -28,10 +28,10 @@
     .wallet-method-btn{border:1px solid #e2e8f0;border-radius:12px;padding:11px 8px;font-size:12px;font-weight:700;color:#475569;background:#f8fafc}
     .wallet-method-btn.selected{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
     .finance-section{scroll-margin-top:145px}
-    .wallet-balance-card{position:static;}
+    .wallet-balance-card{position:sticky;top:76px;z-index:8;}
     .wallet-activity-scroll{max-height:360px;overflow:auto;overscroll-behavior:contain;}
     .wallet-activity-scroll thead{position:sticky;top:0;z-index:2;}
-    @media(max-width:767px){.wallet-balance-card{padding:1.15rem;border-radius:1.25rem}.wallet-activity-scroll{max-height:300px}}
+    @media(max-width:767px){.wallet-balance-card{top:68px;padding:1.15rem;border-radius:1.25rem}.wallet-activity-scroll{max-height:300px}}
     @media(max-width:640px){.finance-nav-btn{padding:8px 12px;font-size:11px}}
   </style>
 </head>
@@ -80,8 +80,8 @@
       </div>
       <form id="invoiceForm" onsubmit="handleInvoiceSubmit(event)" class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Student Name / ID</label>
-          <input id="invStudentName" type="text" required placeholder="e.g. John Doe (STD-1002)" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          <label class="block text-xs font-bold text-slate-700 mb-1">Student MongoDB ID</label>
+          <input id="invStudentName" type="text" required placeholder="Enter the student record ID" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -93,19 +93,10 @@
             <input id="invAmount" type="number" step="0.01" min="0" required placeholder="50000" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Due Date</label>
-            <input id="invDueDate" type="date" required class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
-            <select id="invStatus" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
-              <option value="Pending">Pending</option>
-              <option value="Paid">Paid</option>
-              <option value="Overdue">Overdue</option>
-            </select>
-          </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Due Date</label>
+          <input id="invDueDate" type="date" required class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+          <p class="text-[11px] text-slate-500 mt-1">New invoices are created as pending until payment is recorded.</p>
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Description / Notes</label>
@@ -222,8 +213,8 @@
           <input id="reviewExpenseNote" type="text" placeholder="Optional reviewer notes..." class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500/20 outline-none">
         </div>
         <div class="flex gap-2">
-          <button onclick="submitExpenseDecision('Rejected')" class="w-1/2 py-2.5 text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl">Reject</button>
-          <button onclick="submitExpenseDecision('Approved')" class="w-1/2 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm">Approve</button>
+          <button onclick="submitExpenseDecision('rejected')" class="w-1/2 py-2.5 text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl">Reject</button>
+          <button onclick="submitExpenseDecision('approved')" class="w-1/2 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm">Approve</button>
         </div>
       </div>
     </div>
@@ -381,8 +372,8 @@
         </div>
       </header>
 
-      <main class="flex-1 px-4 sm:px-6 pt-3 sm:pt-6 pb-28 md:pb-12">
-        <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+      <main class="flex-1 px-4 sm:px-6 py-6 pb-28 md:pb-12">
+        <div class="max-w-7xl mx-auto space-y-6">
           
           <!-- Finance module navigation: available on desktop and mobile -->
           <nav aria-label="Finance sections" class="hidden md:block sticky top-[65px] z-10 -mx-1 px-1 py-2 bg-slate-50/95 backdrop-blur">
@@ -400,7 +391,7 @@
             </div>
           </nav>
 
-          <section id="finance-overview" class="finance-view space-y-4 sm:space-y-6">
+          <section id="finance-overview" class="finance-view space-y-6">
           <!-- Page Header -->
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div class="hidden sm:flex items-center gap-3">
@@ -678,7 +669,7 @@
               <div class="flex flex-wrap gap-2">
                 <input id="transactionStartDate" type="date" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2 outline-none focus:ring-2 focus:ring-blue-500/20">
                 <input id="transactionEndDate" type="date" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2 outline-none focus:ring-2 focus:ring-blue-500/20">
-                <button onclick="reconcileTransactions()" class="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors">Reconcile</button>
+                <button onclick="reconcileTransactions()" class="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors">Refresh transactions</button>
                 <button onclick="exportTransactions()" class="px-3 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">Export</button>
               </div>
             </div>
@@ -1084,17 +1075,15 @@
 
     async function getJson(path) {
       const res = await apiFetch(API_ROOT + path);
-      if (!res.ok) {
-        showErrorModal(`Failed to load data from endpoint: ${path}`, `HTTP Error ${res.status}`);
-        return null;
-      }
-      return res.json();
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.success === false) throw new Error(payload.error || payload.message || `Request failed (${res.status}) at ${path}`);
+      return payload;
     }
 
     function unwrapList(raw) {
       if (!raw) return [];
       if (Array.isArray(raw)) return raw;
-      return raw?.data || raw?.items || raw?.results || raw?.records || [];
+      return raw?.data || raw?.items || raw?.results || raw?.records || raw?.transactions || raw?.accounts || [];
     }
 
     function unwrapObject(raw) {
@@ -1103,15 +1092,17 @@
     }
 
     async function fetchFinanceSummary() {
-      const raw = await getJson('/finance/summary');
-      if (!raw) return;
-      const data = unwrapObject(raw);
-      document.getElementById('totalRevenue').textContent = money(data.totalRevenue);
-      document.getElementById('totalPayments').textContent = money(data.completedPayments);
-      document.getElementById('totalPending').textContent = money(data.pending);
-      document.getElementById('totalExpenses').textContent = money(data.totalExpenses);
-      renderRevenueChart(data.months || [], data.incomes || []);
-      renderPaymentStatusChart(data.paymentStats || {});
+      const [raw, monthlyRaw, distributionRaw] = await Promise.all([
+        getJson('/finance/summary'), getJson('/finance/revenue/monthly'), getJson('/finance/payment-distribution')
+      ]);
+      const data = unwrapObject(raw); const revenue = data.revenue || {}; const fees = data.fees || {}; const expenses = data.expenses || {};
+      document.getElementById('totalRevenue').textContent = money(data.totalRevenue ?? revenue.total ?? 0);
+      document.getElementById('totalPayments').textContent = money(data.completedPayments ?? fees.paid ?? 0);
+      document.getElementById('totalPending').textContent = money(data.pending ?? fees.pending ?? 0);
+      document.getElementById('totalExpenses').textContent = money(data.totalExpenses ?? expenses.approved ?? 0);
+      const monthly = unwrapList(monthlyRaw);
+      renderRevenueChart(monthly.map(x => x.monthName), monthly.map(x => Number(x.revenue || 0)));
+      renderPaymentStatusChart(distributionRaw || {});
     }
 
     async function fetchFeeBreakdown() {
@@ -1127,13 +1118,13 @@
         <tr class="hover:bg-slate-50/80 transition-colors">
           <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(fee.student?.name || fee.studentName || 'N/A')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.class?.name || fee.className || '')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.type || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.feeType || fee.type || '')}</td>
           <td class="px-4 py-3 font-bold text-slate-900">${money(fee.amount)}</td>
           <td class="px-4 py-3">${statusBadge(fee.status)}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.term || '')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.session || '')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.due || fee.dueDate || '')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.method || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml((fee.dueDate || fee.due || '').toString().slice(0,10))}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(fee.paymentMethod || fee.method || '')}</td>
           <td class="px-4 py-3"><button onclick="editFee('${escapeHtml(fee.id || fee._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Edit</button></td>
         </tr>`).join('') : emptyRow(10, 'No fee records found');
     }
@@ -1155,11 +1146,11 @@
       const tbody = document.getElementById('invoiceTableBody');
       tbody.innerHTML = data.length ? data.slice(0, 30).map(inv => `
         <tr class="hover:bg-slate-50/80 transition-colors">
-          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(inv.invoiceNo || '#')}</td>
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(inv.invoiceNumber || inv.invoiceNo || '#')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.student?.name || inv.studentName || 'N/A')}</td>
-          <td class="px-4 py-3 font-bold text-slate-900">${money(inv.amount)}</td>
+          <td class="px-4 py-3 font-bold text-slate-900">${money(inv.totalAmount ?? inv.amount)}</td>
           <td class="px-4 py-3">${statusBadge(inv.status)}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(inv.date ? String(inv.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml((inv.createdAt || inv.date) ? String(inv.createdAt || inv.date).slice(0,10) : '')}</td>
           <td class="px-4 py-3"><button onclick="viewInvoice('${escapeHtml(inv.id || inv._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">View</button></td>
         </tr>`).join('') : emptyRow(6, 'No invoices found');
     }
@@ -1171,11 +1162,11 @@
       const tbody = document.getElementById('receiptTableBody');
       tbody.innerHTML = data.length ? data.slice(0, 30).map(rec => `
         <tr class="hover:bg-slate-50/80 transition-colors">
-          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(rec.receiptNo || '#')}</td>
+          <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(rec.receiptNumber || rec.receiptNo || '#' )}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.student?.name || rec.studentName || 'N/A')}</td>
           <td class="px-4 py-3 font-bold text-slate-900">${money(rec.amount)}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.paymentDate ? String(rec.paymentDate).slice(0,10) : '')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.method || '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml((rec.transactionDate || rec.paymentDate) ? String(rec.transactionDate || rec.paymentDate).slice(0,10) : '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml(rec.paymentMethod || rec.method || '')}</td>
           <td class="px-4 py-3"><button onclick="downloadReceipt('${escapeHtml(rec.id || rec._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Download</button></td>
         </tr>`).join('') : emptyRow(6, 'No receipts found');
     }
@@ -1192,12 +1183,12 @@
       tbody.innerHTML = data.length ? data.map(exp => `
         <tr class="hover:bg-slate-50/80 transition-colors">
           <td class="px-4 py-3 font-bold text-slate-800">${escapeHtml(exp.requestId || '#')}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.requestedBy?.name || exp.requestedByName || 'N/A')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml((typeof exp.requestedBy === 'string' ? exp.requestedBy : exp.requestedBy?.name) || exp.requestedByName || 'N/A')}</td>
           <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.category || '')}</td>
           <td class="px-4 py-3 font-bold text-slate-900">${money(exp.amount)}</td>
           <td class="px-4 py-3 text-slate-600 max-w-xs truncate" title="${escapeHtml(exp.purpose || '')}">${escapeHtml(exp.purpose || '')}</td>
           <td class="px-4 py-3">${statusBadge(exp.status)}</td>
-          <td class="px-4 py-3 text-slate-600">${escapeHtml(exp.date ? String(exp.date).slice(0,10) : '')}</td>
+          <td class="px-4 py-3 text-slate-600">${escapeHtml((exp.requestDate || exp.date) ? String(exp.requestDate || exp.date).slice(0,10) : '')}</td>
           <td class="px-4 py-3"><button onclick="approveExpense('${escapeHtml(exp.id || exp._id || '')}')" class="text-blue-600 hover:text-blue-700 font-semibold">Review</button></td>
         </tr>`).join('') : emptyRow(8, 'No expense requests found');
     }
@@ -1212,9 +1203,9 @@
       }
     }
 
-    async function fetchTransactions() {
-      const raw = await getJson('/finance/transactions');
-      const data = unwrapList(raw);
+    async function fetchTransactions(query = '') {
+      const raw = await getJson('/finance/transactions' + query);
+      const data = unwrapList(raw).map(t => ({...t, credit: t.type === 'payment' ? Number(t.amount || 0) : 0, debit: t.type === 'expense' ? Number(t.amount || 0) : 0, verified: String(t.status || '').toLowerCase() === 'completed'}));
       financeCache.transactions = data;
       renderTransactionTable(data);
     }
@@ -1259,10 +1250,10 @@
       revenueChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: months.length ? months : ['Jan','Feb','Mar','Apr','May','Jun'],
+          labels: months,
           datasets: [{
             label: 'Monthly Revenue',
-            data: incomes.length ? incomes : [0,0,0,0,0,0],
+            data: incomes,
             borderWidth: 2,
             borderColor: '#2563eb',
             backgroundColor: 'rgba(37, 99, 235, 0.08)',
@@ -1311,8 +1302,9 @@
         fetchFinanceSummary, fetchFeeBreakdown, fetchInvoices, fetchPaymentReceipts,
         fetchExpenseRequests, fetchTransactions, fetchBankAccounts
       ];
-      await Promise.allSettled(jobs.map(fn => fn()));
-      showToast('Finance records refreshed');
+      const results = await Promise.allSettled(jobs.map(fn => fn()));
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length) { console.error('Finance refresh failures:', failed.map(x => x.reason)); showToast(`${failed.length} finance section(s) could not be refreshed. Check your connection and server logs.`, 'error'); } else showToast('Finance records refreshed from the server.');
     }
 
     function showSection(name) {
@@ -1668,44 +1660,27 @@ function setupSearch(inputId, tableId) {
 
     function createNewInvoice() {
       document.getElementById('invoiceForm').reset();
+      const due = new Date(); due.setDate(due.getDate()+30); document.getElementById('invDueDate').value = due.toISOString().slice(0,10);
       openModal('invoiceModal');
     }
 
     async function handleInvoiceSubmit(e) {
       e.preventDefault();
+      const amount = Number(document.getElementById('invAmount').value);
       const payload = {
-        studentName: document.getElementById('invStudentName').value,
-        feeType: document.getElementById('invFeeType').value,
-        amount: parseFloat(document.getElementById('invAmount').value),
+        studentId: document.getElementById('invStudentName').value.trim(),
+        items: [{ description: document.getElementById('invFeeType').value.trim(), quantity: 1, unitPrice: amount }],
         dueDate: document.getElementById('invDueDate').value,
-        status: document.getElementById('invStatus').value,
-        description: document.getElementById('invDescription').value
+        notes: document.getElementById('invDescription').value.trim()
       };
-
+      if (!payload.studentId || !Number.isFinite(amount) || amount <= 0) return showToast('Enter a valid student ID and amount.', 'error');
       try {
-        const res = await apiFetch(`${API_ROOT}/finance/invoices`, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        showToast('Invoice created successfully');
-        closeModal('invoiceModal');
-        await fetchInvoices();
-        await fetchFinanceSummary();
-      } catch (err) {
-        showToast('Failed to create invoice via API. Added locally.', 'error');
-        // Fallback local append
-        financeCache.invoices.unshift({
-          id: 'INV-' + Date.now(),
-          invoiceNo: 'INV-' + Math.floor(1000 + Math.random() * 9000),
-          studentName: payload.studentName,
-          amount: payload.amount,
-          status: payload.status,
-          date: new Date().toISOString()
-        });
-        fetchInvoices();
-        closeModal('invoiceModal');
-      }
+        const res = await apiFetch(`${API_ROOT}/finance/invoices`, {method:'POST', body:JSON.stringify(payload)});
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || result.success === false) throw new Error(result.error || result.message || `Invoice creation failed (${res.status})`);
+        showToast('Invoice created successfully'); closeModal('invoiceModal');
+        await Promise.all([fetchInvoices(), fetchFinanceSummary()]);
+      } catch (err) { showErrorModal(err.message || 'Invoice could not be created.', 'Invoice not created'); }
     }
 
     function editFee(id) {
@@ -1715,9 +1690,9 @@ function setupSearch(inputId, tableId) {
       document.getElementById('editFeeId').value = id;
       document.getElementById('editFeeStudent').value = item.student?.name || item.studentName || 'Student';
       document.getElementById('editFeeAmount').value = item.amount || 0;
-      document.getElementById('editFeeStatus').value = item.status || 'Pending';
+      document.getElementById('editFeeStatus').value = String(item.status || 'pending').toLowerCase().replace(/^./, c => c.toUpperCase());
       document.getElementById('editFeeMethod').value = item.method || 'Bank Transfer';
-      document.getElementById('editFeeDueDate').value = item.due || item.dueDate || '';
+      document.getElementById('editFeeDueDate').value = String(item.dueDate || item.due || '').slice(0,10);
       openModal('feeEditModal');
     }
 
@@ -1726,41 +1701,30 @@ function setupSearch(inputId, tableId) {
       const id = document.getElementById('editFeeId').value;
       const payload = {
         amount: parseFloat(document.getElementById('editFeeAmount').value),
-        status: document.getElementById('editFeeStatus').value,
-        method: document.getElementById('editFeeMethod').value,
-        dueDate: document.getElementById('editFeeDueDate').value
+        status: document.getElementById('editFeeStatus').value.toLowerCase(),
+        dueDate: document.getElementById('editFeeDueDate').value,
+        paymentMethod: document.getElementById('editFeeMethod').value,
+        notes: '', amountPaid: document.getElementById('editFeeStatus').value.toLowerCase() === 'paid' ? parseFloat(document.getElementById('editFeeAmount').value) : 0
       };
 
       try {
         const res = await apiFetch(`${API_ROOT}/finance/fees/${id}`, {
-          method: 'PUT',
+          method: 'PATCH',
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result=await res.json().catch(()=>({})); if (!res.ok || result.success===false) throw new Error(result.error || result.message || `HTTP ${res.status}`);
         showToast('Fee record updated successfully');
-      } catch (err) {
-        // Fallback local update
-        const item = financeCache.fees.find(f => String(f.id || f._id) === String(id));
-        if (item) {
-          item.amount = payload.amount;
-          item.status = payload.status;
-          item.method = payload.method;
-          item.due = payload.dueDate;
-        }
-        showToast('Updated fee record');
-      }
+      } catch (err) { showErrorModal(err.message || 'Fee update failed. No local changes were made.', 'Fee not updated'); return; }
       closeModal('feeEditModal');
-      fetchFeeBreakdown();
-      fetchFinanceSummary();
+      await Promise.all([fetchFeeBreakdown(), fetchFinanceSummary()]);
     }
 
     function viewInvoice(id) {
-      const inv = financeCache.invoices.find(i => String(i.id || i._id) === String(id)) || {
-        invoiceNo: id, studentName: 'Student', amount: 0, status: 'Pending', date: new Date()
-      };
+      const inv = financeCache.invoices.find(i => String(i.id || i._id) === String(id));
+      if (!inv) return showErrorModal('Invoice record is no longer available. Refresh the invoice list.', 'Invoice not found');
 
       const schoolName = currentSchool?.schoolName || 'School Administration';
-      document.getElementById('docModalTitle').textContent = `Invoice ${inv.invoiceNo || id}`;
+      document.getElementById('docModalTitle').textContent = `Invoice ${inv.invoiceNumber || inv.invoiceNo || id}`;
       
       document.getElementById('printableDocumentArea').innerHTML = `
         <div class="flex justify-between items-start border-b border-slate-200 pb-4">
@@ -1770,8 +1734,8 @@ function setupSearch(inputId, tableId) {
           </div>
           <div class="text-right">
             <span class="text-xs uppercase font-bold text-slate-400">INVOICE</span>
-            <p class="font-bold text-blue-600 text-sm">${escapeHtml(inv.invoiceNo || '#')}</p>
-            <p class="text-xs text-slate-500">${inv.date ? String(inv.date).slice(0,10) : ''}</p>
+            <p class="font-bold text-blue-600 text-sm">${escapeHtml(inv.invoiceNumber || inv.invoiceNo || '#')}</p>
+            <p class="text-xs text-slate-500">${(inv.createdAt || inv.date) ? String(inv.createdAt || inv.date).slice(0,10) : ''}</p>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-4 text-xs my-4">
@@ -1787,14 +1751,14 @@ function setupSearch(inputId, tableId) {
         <table class="w-full text-xs text-left border-t border-b border-slate-200 my-4">
           <thead><tr class="bg-slate-50 border-b border-slate-200"><th class="py-2 px-3">Description</th><th class="py-2 px-3 text-right">Amount</th></tr></thead>
           <tbody>
-            <tr><td class="py-3 px-3 font-medium">${escapeHtml(inv.feeType || inv.description || 'Tuition / School Fees')}</td><td class="py-3 px-3 text-right font-bold">${money(inv.amount)}</td></tr>
+            <tr><td class="py-3 px-3 font-medium">${escapeHtml(inv.items?.map(item => item.description).join(', ') || inv.feeType || inv.description || 'School fees')}</td><td class="py-3 px-3 text-right font-bold">${money(inv.totalAmount ?? inv.amount)}</td></tr>
           </tbody>
         </table>
         <div class="flex justify-between items-center text-xs pt-2">
           <p class="text-slate-500">Thank you for your prompt payment.</p>
           <div class="text-right">
             <span class="text-slate-500 font-bold">Total Due: </span>
-            <span class="text-base font-bold text-slate-900">${money(inv.amount)}</span>
+            <span class="text-base font-bold text-slate-900">${money(inv.totalAmount ?? inv.amount)}</span>
           </div>
         </div>
       `;
@@ -1802,9 +1766,8 @@ function setupSearch(inputId, tableId) {
     }
 
     function downloadReceipt(id) {
-      const rec = financeCache.receipts.find(r => String(r.id || r._id) === String(id)) || {
-        receiptNo: id, studentName: 'Student', amount: 0, paymentDate: new Date(), method: 'Cash'
-      };
+      const rec = financeCache.receipts.find(r => String(r.id || r._id) === String(id));
+      if (!rec) return showErrorModal('Receipt record is no longer available. Refresh the receipts list.', 'Receipt not found');
 
       const schoolName = currentSchool?.schoolName || 'School Administration';
       document.getElementById('docModalTitle').textContent = `Payment Receipt ${rec.receiptNo || id}`;
@@ -1817,14 +1780,14 @@ function setupSearch(inputId, tableId) {
           </div>
           <div class="text-right">
             <span class="text-xs uppercase font-bold text-emerald-600">PAID</span>
-            <p class="font-bold text-slate-800 text-sm">${escapeHtml(rec.receiptNo || '#')}</p>
-            <p class="text-xs text-slate-500">${rec.paymentDate ? String(rec.paymentDate).slice(0,10) : ''}</p>
+            <p class="font-bold text-slate-800 text-sm">${escapeHtml(rec.receiptNumber || rec.receiptNo || '#' )}</p>
+            <p class="text-xs text-slate-500">${(rec.transactionDate || rec.paymentDate) ? String(rec.transactionDate || rec.paymentDate).slice(0,10) : ''}</p>
           </div>
         </div>
         <div class="space-y-3 text-xs my-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
           <div class="flex justify-between"><span class="text-slate-500">Received From:</span> <span class="font-bold text-slate-800">${escapeHtml(rec.student?.name || rec.studentName || 'Student')}</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Amount Paid:</span> <span class="font-bold text-emerald-700 text-sm">${money(rec.amount)}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">Payment Method:</span> <span class="font-semibold text-slate-700">${escapeHtml(rec.method || 'Bank Transfer')}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Payment Method:</span> <span class="font-semibold text-slate-700">${escapeHtml(rec.paymentMethod || rec.method || 'Bank Transfer')}</span></div>
         </div>
         <div class="pt-4 border-t border-slate-200 flex justify-between items-center text-xs">
           <p class="text-slate-400 italic">System generated electronic receipt.</p>
@@ -1845,35 +1808,15 @@ function setupSearch(inputId, tableId) {
 
     async function handleExpenseSubmit(e) {
       e.preventDefault();
-      const payload = {
-        category: document.getElementById('expCategory').value,
-        amount: parseFloat(document.getElementById('expAmount').value),
-        purpose: document.getElementById('expPurpose').value
-      };
-
+      const payload = { requestedBy: document.getElementById('adminName').textContent.trim() || 'School Administrator', category: document.getElementById('expCategory').value, amount: Number(document.getElementById('expAmount').value), purpose: document.getElementById('expPurpose').value.trim() };
+      if (!Number.isFinite(payload.amount) || payload.amount <= 0 || !payload.purpose) return showToast('Enter a valid amount and purpose.', 'error');
       try {
-        const res = await apiFetch(`${API_ROOT}/finance/expenses`, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        showToast('Expense request submitted');
-      } catch (err) {
-        financeCache.expenses.unshift({
-          id: 'EXP-' + Date.now(),
-          requestId: 'REQ-' + Math.floor(1000 + Math.random() * 9000),
-          requestedByName: document.getElementById('adminName').textContent,
-          category: payload.category,
-          amount: payload.amount,
-          purpose: payload.purpose,
-          status: 'Pending',
-          date: new Date().toISOString()
-        });
-        showToast('Expense request submitted locally');
-      }
-      closeModal('expenseModal');
-      fetchExpenseRequests();
-      fetchFinanceSummary();
+        const res = await apiFetch(`${API_ROOT}/finance/expenses`, {method:'POST', body:JSON.stringify(payload)});
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || result.success === false) throw new Error(result.error || result.message || `Request failed (${res.status})`);
+        showToast('Expense request submitted'); closeModal('expenseModal');
+        await Promise.all([fetchExpenseRequests(), fetchFinanceSummary()]);
+      } catch (err) { showErrorModal(err.message || 'Expense request could not be submitted.', 'Request not submitted'); }
     }
 
     function approveExpense(id) {
@@ -1883,7 +1826,7 @@ function setupSearch(inputId, tableId) {
       document.getElementById('reviewExpenseId').value = id;
       document.getElementById('expenseReviewDetails').innerHTML = `
         <div class="flex justify-between"><span class="font-bold">Request ID:</span> <span>${escapeHtml(exp.requestId || id)}</span></div>
-        <div class="flex justify-between"><span class="font-bold">Requested By:</span> <span>${escapeHtml(exp.requestedBy?.name || exp.requestedByName || 'N/A')}</span></div>
+        <div class="flex justify-between"><span class="font-bold">Requested By:</span> <span>${escapeHtml((typeof exp.requestedBy === 'string' ? exp.requestedBy : exp.requestedBy?.name) || exp.requestedByName || 'N/A')}</span></div>
         <div class="flex justify-between"><span class="font-bold">Category:</span> <span>${escapeHtml(exp.category || '')}</span></div>
         <div class="flex justify-between"><span class="font-bold">Amount:</span> <span class="font-bold text-rose-600">${money(exp.amount)}</span></div>
         <div><span class="font-bold block mb-0.5">Purpose:</span> <p class="italic text-slate-700">${escapeHtml(exp.purpose || '')}</p></div>
@@ -1893,57 +1836,28 @@ function setupSearch(inputId, tableId) {
 
     async function submitExpenseDecision(status) {
       const id = document.getElementById('reviewExpenseId').value;
-      const note = document.getElementById('reviewExpenseNote').value;
-
+      const approverNotes = document.getElementById('reviewExpenseNote').value.trim();
       try {
-        const res = await apiFetch(`${API_ROOT}/finance/expenses/${id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ status, note })
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        showToast(`Expense ${status.toLowerCase()}`);
-      } catch (err) {
-        const exp = financeCache.expenses.find(e => String(e.id || e._id) === String(id));
-        if (exp) exp.status = status;
-        showToast(`Expense ${status.toLowerCase()}`);
-      }
-      closeModal('expenseReviewModal');
-      fetchExpenseRequests();
-      fetchFinanceSummary();
+        const res = await apiFetch(`${API_ROOT}/finance/expenses/${id}`, {method:'PATCH', body:JSON.stringify({status:String(status).toLowerCase(), approverNotes})});
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || result.success === false) throw new Error(result.error || result.message || `HTTP ${res.status}`);
+        closeModal('expenseReviewModal'); showToast(`Expense ${status.toLowerCase()}`);
+        await Promise.all([fetchExpenseRequests(), fetchFinanceSummary()]);
+      } catch (err) { showErrorModal(err.message || 'Expense decision was not saved.', 'Update failed'); }
     }
 
     async function reconcileTransactions() {
       const start = document.getElementById('transactionStartDate').value;
       const end = document.getElementById('transactionEndDate').value;
-
-      try {
-        let query = '';
-        if (start && end) query = `?startDate=${start}&endDate=${end}`;
-        const raw = await getJson('/finance/transactions' + query);
-        const data = unwrapList(raw);
-        
-        // Mark all retrieved transactions verified
-        data.forEach(t => t.verified = true);
-        financeCache.transactions = data;
-        renderTransactionTable(data);
-        showToast('Transactions successfully reconciled');
-      } catch (err) {
-        financeCache.transactions.forEach(t => t.verified = true);
-        renderTransactionTable(financeCache.transactions);
-        showToast('Local transactions marked reconciled');
-      }
+      if ((start && !end) || (!start && end)) return showToast('Select both start and end dates.', 'error');
+      const query = start && end ? `?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}` : '';
+      try { await fetchTransactions(query); showToast('Transactions refreshed from the server.'); }
+      catch (err) { showErrorModal(err.message || 'Unable to refresh transactions.', 'Refresh failed'); }
     }
 
     function exportTransactions() {
       exportCSV('transactions.csv', financeCache.transactions.map(x => ({
-        Reference: x.ref || '',
-        Date: x.date ? String(x.date).slice(0,10) : '',
-        Description: x.description || '',
-        Credit: x.credit || 0,
-        Debit: x.debit || 0,
-        Balance: x.balance || 0,
-        Method: x.method || '',
-        Verified: x.verified ? 'Yes' : 'No'
+        Reference: x.ref || '', Date: x.date ? String(x.date).slice(0,10) : '', Description: x.description || x.studentName || x.type || '', Credit: x.type === 'payment' ? x.amount || 0 : 0, Debit: x.type === 'expense' ? x.amount || 0 : 0, Method: x.method || '', Status: x.status || ''
       })));
     }
 
@@ -1968,7 +1882,7 @@ function setupSearch(inputId, tableId) {
               <p class="text-lg font-bold text-rose-600 mt-1">${document.getElementById('totalExpenses').textContent}</p>
             </div>
           </div>
-          <p class="text-slate-600">Executive summary generated on ${now}. All ledger entries verified.</p>
+          <p class="text-slate-600">Executive summary generated on ${now}. Figures are based on records currently returned by the server.</p>
         `;
       } else if (type === 'fees') {
         title = 'Fee Collection Report';
@@ -1985,7 +1899,7 @@ function setupSearch(inputId, tableId) {
         `;
       } else {
         title = `${type.toUpperCase()} Audit Report`;
-        contentHtml = `<p class="text-slate-600">Audit trail generated on ${now}. Total active ledger records compiled: ${financeCache.transactions.length + financeCache.expenses.length}.</p>`;
+        contentHtml = `<p class="text-slate-600">Report generated on ${now}. Total server records compiled: ${financeCache.transactions.length + financeCache.expenses.length}.</p>`;
       }
 
       financeCache.currentReport = { type, title, generatedAt: now };
@@ -2031,62 +1945,29 @@ function setupSearch(inputId, tableId) {
     }
 
     async function handleBankAccountSubmit(e) {
-      e.preventDefault();
-      const id = document.getElementById('bankAccountId').value;
-      const payload = {
-        accountName: document.getElementById('accName').value,
-        bankName: document.getElementById('accBank').value,
-        accountNumber: document.getElementById('accNumber').value,
-        balance: parseFloat(document.getElementById('accBalance').value),
-        type: document.getElementById('accType').value
-      };
-
+      e.preventDefault(); const id = document.getElementById('bankAccountId').value;
+      const payload = {accountName:document.getElementById('accName').value.trim(),bankName:document.getElementById('accBank').value.trim(),accountNumber:document.getElementById('accNumber').value.trim(),balance:Number(document.getElementById('accBalance').value),type:document.getElementById('accType').value};
       try {
-        const url = id ? `${API_ROOT}/finance/bank-accounts/${id}` : `${API_ROOT}/finance/bank-accounts`;
-        const method = id ? 'PUT' : 'POST';
-        const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        showToast('Bank account saved');
-      } catch (err) {
-        if (id) {
-          const acc = financeCache.bankAccounts.find(a => String(a.id || a._id) === String(id));
-          if (acc) Object.assign(acc, payload);
-        } else {
-          financeCache.bankAccounts.push({ id: 'ACC-' + Date.now(), ...payload, status: 'Active' });
-        }
-        showToast('Bank account configured locally');
-      }
-      closeModal('bankAccountModal');
-      fetchBankAccounts();
+        const url = id ? `${API_ROOT}/finance/bank-accounts/${encodeURIComponent(id)}` : `${API_ROOT}/finance/bank-accounts`;
+        const res = await apiFetch(url,{method:id?'PUT':'POST',body:JSON.stringify(payload)}); const result=await res.json().catch(()=>({}));
+        if(!res.ok || result.success===false) throw new Error(result.error||result.message||`HTTP ${res.status}`);
+        closeModal('bankAccountModal'); await fetchBankAccounts(); showToast('Bank account saved to the school records.');
+      } catch(err){showErrorModal(err.message||'Bank account could not be saved.','Save failed');}
     }
 
     async function saveSettings() {
-      const settings = {
-        autoReminder: document.getElementById('autoReminder').checked,
-        emailReceipts: document.getElementById('emailReceipts').checked,
-        smsNotification: document.getElementById('smsNotification').checked,
-        financialYearStart: document.getElementById('financialYearStart').value
-      };
-
-      try {
-        const res = await apiFetch(`${API_ROOT}/finance/settings`, {
-          method: 'POST',
-          body: JSON.stringify(settings)
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        showToast('Settings saved to server');
-      } catch (err) {
-        localStorage.setItem('financeSettings', JSON.stringify(settings));
-        showToast('Finance settings saved locally');
-      }
+      const settings={autoReminder:document.getElementById('autoReminder').checked,emailReceipts:document.getElementById('emailReceipts').checked,smsNotification:document.getElementById('smsNotification').checked,financialYearStart:document.getElementById('financialYearStart').value};
+      try { const res=await apiFetch(`${API_ROOT}/finance/settings`,{method:'PUT',body:JSON.stringify(settings)}); const result=await res.json().catch(()=>({})); if(!res.ok||result.success===false) throw new Error(result.error||result.message||`HTTP ${res.status}`); showToast('Finance settings saved to the school account.'); }
+      catch(err){showErrorModal(err.message||'Settings could not be saved to the server.','Save failed');}
     }
 
-    function loadSavedSettings() {
-      const saved = JSON.parse(localStorage.getItem('financeSettings') || '{}');
-      if (saved.autoReminder !== undefined) document.getElementById('autoReminder').checked = saved.autoReminder;
-      if (saved.emailReceipts !== undefined) document.getElementById('emailReceipts').checked = saved.emailReceipts;
-      if (saved.smsNotification !== undefined) document.getElementById('smsNotification').checked = saved.smsNotification;
-      if (saved.financialYearStart) document.getElementById('financialYearStart').value = saved.financialYearStart;
+    async function loadSavedSettings() {
+      try { const raw=await getJson('/finance/settings'); const saved=raw.settings||raw.data?.settings||{};
+        if(saved.autoReminder!==undefined) document.getElementById('autoReminder').checked=!!saved.autoReminder;
+        if(saved.emailReceipts!==undefined) document.getElementById('emailReceipts').checked=!!saved.emailReceipts;
+        if(saved.smsNotification!==undefined) document.getElementById('smsNotification').checked=!!saved.smsNotification;
+        if(saved.financialYearStart) document.getElementById('financialYearStart').value=saved.financialYearStart;
+      } catch(err){console.warn('Finance settings could not be loaded:',err); showToast('Finance settings could not be loaded from the server.','error');}
     }
 
     async function init() {
