@@ -70,7 +70,7 @@ app.use(express.json({
 }));
 /* ================= Middleware ================= */
 
-app.use(express.json({ limit: '20mb' }));
+// JSON is parsed once above with raw-body capture for Paystack signatures.
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
