@@ -29,6 +29,18 @@
     .wallet-method-btn.selected{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
     .finance-section{scroll-margin-top:145px}
     @media(max-width:640px){.finance-nav-btn{padding:8px 12px;font-size:11px}}
+
+    @media (max-width: 767px) {
+      #financeSectionNav { display: none !important; }
+      #finance-overview > .flex.flex-col.sm\\:flex-row.sm\\:items-center.sm\\:justify-between { display: none !important; }
+    }
+    #section-wallet .wallet-funding-panel { align-self: start; }
+    #section-wallet .wallet-activity-panel { min-height: 0; }
+    #section-wallet .wallet-activity-scroll { max-height: min(560px, 68vh); overflow: auto; overscroll-behavior: contain; }
+    #section-wallet .wallet-activity-scroll thead { position: sticky; top: 0; z-index: 2; }
+    @media (min-width: 1280px) {
+      #section-wallet .wallet-funding-panel { position: sticky; top: 92px; }
+    }
   </style>
 </head>
 
@@ -542,7 +554,7 @@
             </section>
 
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div class="wallet-funding-panel bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <h3 class="font-bold text-slate-900"><i class="fa fa-circle-plus text-emerald-600 mr-2"></i>Fund school account</h3>
                 <p class="text-xs text-slate-500 mt-1">Choose a secure funding method. Funds are added only after server-side confirmation.</p>
                 <div class="grid grid-cols-2 gap-2 mt-5">
@@ -563,9 +575,9 @@
                   <p class="text-[11px] leading-relaxed text-slate-500">The amount entered is the exact amount credited to the school wallet. Paystack may add its processing fee to the amount you pay at checkout. The backend verifies the wallet amount separately and does not credit the fee. Never enter card details on this page.</p>
                 </form>
               </div>
-              <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div class="wallet-activity-panel bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <div class="flex items-center justify-between"><h3 class="font-bold text-slate-900">Wallet activity</h3><span class="text-[10px] text-slate-400">Latest entries</span></div>
-                <div class="overflow-x-auto mt-4"><table class="w-full text-xs text-left"><thead class="text-slate-500 uppercase bg-slate-50"><tr><th class="p-3">Date</th><th class="p-3">Description</th><th class="p-3">Amount</th><th class="p-3">Status / Action</th></tr></thead><tbody id="walletActivityBody"><tr><td colspan="4" class="p-8 text-center text-slate-400">Wallet activity will appear here when connected.</td></tr></tbody></table></div>
+                <div class="wallet-activity-scroll overflow-x-auto mt-4"><table class="w-full text-xs text-left"><thead class="text-slate-500 uppercase bg-slate-50"><tr><th class="p-3">Date</th><th class="p-3">Description</th><th class="p-3">Amount</th><th class="p-3">Status / Action</th></tr></thead><tbody id="walletActivityBody"><tr><td colspan="4" class="p-8 text-center text-slate-400">Wallet activity will appear here when connected.</td></tr></tbody></table></div>
               </div>
             </div>
           </section>
@@ -1499,20 +1511,49 @@
       }
     }
 
-    async function fetchSchoolWallet() {
+    let walletRefreshInFlight = false;
+    let walletLastSuccessfulRefresh = 0;
+    const WALLET_SILENT_REFRESH_MS = 15000;
+
+    async function fetchSchoolWallet(options = {}) {
+      const silent = options.silent === true;
       const status = document.getElementById('schoolWalletStatus');
-      status.textContent = 'Retrieving school wallet balance…';
+      if (walletRefreshInFlight) return;
+      walletRefreshInFlight = true;
+      if (!silent && status) status.textContent = 'Retrieving school wallet balance…';
       try {
         const raw = await getJson('/finance/school-wallet');
         if (!raw) throw new Error('Wallet service returned no data');
         renderSchoolWallet(raw);
+        walletLastSuccessfulRefresh = Date.now();
+        if (status && silent) status.textContent =
+          `Balance updated · ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
       } catch (err) {
-        document.getElementById('schoolWalletBalance').textContent = 'Unavailable';
-        document.getElementById('walletTotalCredit').textContent = '—';
-        document.getElementById('walletTotalDebit').textContent = '—';
-        status.textContent = 'School wallet API is not available yet. Connect the backend wallet service to show a verified balance.';
-        console.warn('School wallet load:', err);
+        if (!silent) {
+          if (status) status.textContent =
+            'Unable to refresh the school wallet right now. Your last displayed balance is retained.';
+          console.warn('School wallet load:', err);
+        }
+      } finally {
+        walletRefreshInFlight = false;
       }
+    }
+
+    function startWalletSilentRefresh() {
+      if (window.walletSilentRefreshTimer) clearInterval(window.walletSilentRefreshTimer);
+      window.walletSilentRefreshTimer = setInterval(() => {
+        const section = document.getElementById('section-wallet');
+        if (section && !section.classList.contains('hidden') &&
+            document.visibilityState === 'visible' &&
+            Date.now() - walletLastSuccessfulRefresh >= WALLET_SILENT_REFRESH_MS) {
+          fetchSchoolWallet({silent:true});
+        }
+      }, WALLET_SILENT_REFRESH_MS);
+      document.addEventListener('visibilitychange', () => {
+        const section = document.getElementById('section-wallet');
+        if (document.visibilityState === 'visible' && section &&
+            !section.classList.contains('hidden')) fetchSchoolWallet({silent:true});
+      });
     }
 
     async function submitDirectWalletFunding(event) {
@@ -2064,6 +2105,7 @@ function setupSearch(inputId, tableId) {
 
         await loadSchoolConfig();
         await loadAdminIdentity();
+        startWalletSilentRefresh();
         await refreshFinance();
         loadSavedSettings();
         await handlePaystackReturn();
