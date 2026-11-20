@@ -83,6 +83,17 @@
     .payment-confirmation-card{animation:paymentPop .24s ease}
     @keyframes paymentPop{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
     .payment-status-icon{width:76px;height:76px;border-radius:24px;display:grid;place-items:center;margin:0 auto 18px;font-size:30px}
+    .payment-method-tile{min-width:0;min-height:76px;border:1px solid #e2e8f0;border-radius:13px;background:#fff;padding:9px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:.18s ease}
+    .payment-method-tile:hover{border-color:#93c5fd;background:#f8fbff}
+    .payment-method-tile.selected{border:2px solid #2563eb;background:#eff6ff;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+    .payment-logo{height:22px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;white-space:nowrap}
+    .paystack-logo{color:#0ba4db;letter-spacing:-.7px;font-size:14px}
+    .flutterwave-logo{color:#f59e0b;font-size:10px;letter-spacing:-.4px}
+    .flutterwave-logo span{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:6px;background:#f59e0b;color:white;font-size:13px;margin-right:3px}
+    .wallet-logo{color:#2563eb;font-size:20px}
+    .payment-method-label{font-size:10px;font-weight:800;color:#334155}
+    #paymentProvider{font-size:11px;padding:8px 10px}
+    @media(max-width:380px){.payment-method-tile{min-height:70px;padding:7px 3px}.payment-logo{font-size:11px}.payment-method-label{font-size:9px}}
 
     @media(max-width:767px){
       .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}
@@ -516,6 +527,31 @@
       </div>
 
       <div class="p-5 space-y-4">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <label class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Choose payment method</label>
+            <span id="walletBalanceMini" class="text-[10px] font-extrabold text-emerald-700">Wallet: checking…</span>
+          </div>
+          <div id="paymentMethodTiles" class="grid grid-cols-3 gap-2">
+            <button type="button" class="payment-method-tile selected" data-payment-method="paystack" aria-pressed="true">
+              <span class="payment-logo paystack-logo">paystack</span><span class="payment-method-label">Paystack</span>
+            </button>
+            <button type="button" class="payment-method-tile" data-payment-method="flutterwave" aria-pressed="false">
+              <span class="payment-logo flutterwave-logo"><span>F</span> Flutterwave</span><span class="payment-method-label">Flutterwave</span>
+            </button>
+            <button type="button" class="payment-method-tile" data-payment-method="school_wallet" aria-pressed="false">
+              <span class="payment-logo wallet-logo"><i class="fa-solid fa-wallet"></i></span><span class="payment-method-label">School Wallet</span>
+              <span id="walletTileBalance" class="text-[9px] text-slate-500 font-bold">Loading balance…</span>
+            </button>
+          </div>
+          <select id="paymentProvider" class="field mt-2" aria-label="Payment method">
+            <option value="paystack">Paystack</option>
+            <option value="flutterwave">Flutterwave</option>
+            <option value="school_wallet">School Wallet</option>
+          </select>
+          <p id="walletPaymentHint" class="hidden mt-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2">Your school wallet balance must cover the full purchase total.</p>
+        </div>
+
         <div>
           <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5">Number of cards</label>
           <input id="purchaseModalQty" type="number" min="1" max="1000" value="25" class="field font-bold text-slate-800" />
@@ -1291,47 +1327,91 @@ function renderActivityLog() {
   if ($('nextActivityPage')) $('nextActivityPage').disabled = start + 5 >= activityLog.length;
 }
 
+let scratchWalletBalance = null;
+
 function makePurchaseProviderSelect() {
-  let select = $('paymentProvider');
-  if (select) return select;
-
-  const purchaseModal = $('purchaseModal');
-  const quickPurchase = $('purchaseQty')?.closest('.card-panel');
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'mb-3';
-  wrapper.innerHTML = `
-    <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5" for="paymentProvider">Payment gateway</label>
-    <select id="paymentProvider" class="field">
-      <option value="paystack">Paystack</option>
-      <option value="flutterwave">Flutterwave</option>
-    </select>
-  `;
-
-  if (purchaseModal) {
-    const body = purchaseModal.querySelector('.p-5.space-y-4');
-    if (body) body.insertBefore(wrapper, body.firstChild);
-  } else if (quickPurchase) {
-    const qty = $('purchaseQty')?.closest('div');
-    if (qty) qty.parentNode.insertBefore(wrapper, qty);
+  const select = $('paymentProvider');
+  if (select && !select.dataset.bound) {
+    select.dataset.bound = '1';
+    select.addEventListener('change', () => setSelectedPaymentMethod(select.value));
   }
+  return select;
+}
 
-  return $('paymentProvider');
+function setSelectedPaymentMethod(method) {
+  const select = $('paymentProvider');
+  if (select && select.value !== method) select.value = method;
+  document.querySelectorAll('[data-payment-method]').forEach(tile => {
+    const selected = tile.dataset.paymentMethod === method;
+    tile.classList.toggle('selected', selected);
+    tile.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+  const walletSelected = method === 'school_wallet';
+  $('walletPaymentHint')?.classList.toggle('hidden', !walletSelected);
+  updateWalletPaymentAvailability();
+}
+
+function bindPaymentMethodTiles() {
+  document.querySelectorAll('[data-payment-method]').forEach(tile => {
+    if (tile.dataset.bound) return;
+    tile.dataset.bound = '1';
+    tile.addEventListener('click', () => setSelectedPaymentMethod(tile.dataset.paymentMethod));
+  });
+  makePurchaseProviderSelect();
+  setSelectedPaymentMethod($('paymentProvider')?.value || 'paystack');
+}
+
+async function loadScratchWalletBalance() {
+  try {
+    const response = await api(`${API_ROOT}/scratch-cards/wallet-balance`);
+    const result = await readJson(response);
+    if (!response.ok || result.success === false) throw new Error(result.error || 'Unable to load wallet.');
+    scratchWalletBalance = Number(result.balance || 0);
+    $('walletBalanceMini').textContent = `Wallet: ${formatMoney(scratchWalletBalance)}`;
+    $('walletTileBalance').textContent = formatMoney(scratchWalletBalance);
+    updateWalletPaymentAvailability();
+  } catch (error) {
+    scratchWalletBalance = null;
+    $('walletBalanceMini').textContent = 'Wallet unavailable';
+    $('walletTileBalance').textContent = 'Unavailable';
+    updateWalletPaymentAvailability();
+  }
+}
+
+function updateWalletPaymentAvailability() {
+  const walletTile = document.querySelector('[data-payment-method="school_wallet"]');
+  const total = Number($('purchaseModalQty')?.value || $('purchaseQty')?.value || 0) * CARD_PRICE_NAIRA;
+  const enough = Number.isFinite(scratchWalletBalance) && scratchWalletBalance >= total && total > 0;
+  if (walletTile) {
+    walletTile.classList.toggle('opacity-50', scratchWalletBalance === null);
+    walletTile.title = scratchWalletBalance === null ? 'Wallet balance unavailable' : (enough ? 'Sufficient wallet balance' : 'Insufficient wallet balance for this quantity');
+  }
+  const hint = $('walletPaymentHint');
+  if (hint && $('paymentProvider')?.value === 'school_wallet') {
+    hint.textContent = scratchWalletBalance === null
+      ? 'Wallet balance could not be loaded. Refresh and try again.'
+      : enough
+        ? `Your wallet has enough funds. ${formatMoney(total)} will be deducted when you confirm.`
+        : `Insufficient balance. Required: ${formatMoney(total)} · Available: ${formatMoney(scratchWalletBalance)}.`;
+  }
+  const confirm = $('confirmPurchaseModalBtn');
+  if (confirm && $('paymentProvider')?.value === 'school_wallet') confirm.disabled = !enough;
+  else if (confirm) confirm.disabled = false;
 }
 
 function openPurchaseModal() {
   const modal = $('purchaseModal');
   if (modal) {
+    const quickQuantity = Number($('purchaseQty')?.value || 25);
+    if ($('purchaseModalQty')) $('purchaseModalQty').value = String(quickQuantity > 0 ? quickQuantity : 25);
     modal.classList.add('show');
-    makePurchaseProviderSelect();
+    bindPaymentMethodTiles();
     updatePurchaseTotal();
+    loadScratchWalletBalance();
     return;
   }
-
-  const qty = $('purchaseQty');
-  if (qty) qty.focus();
-  makePurchaseProviderSelect();
-  toast('Choose a payment gateway and quantity, then purchase the pool.', 'info');
+  $('purchaseQty')?.focus();
+  toast('Choose a payment method and quantity, then purchase the pool.', 'info');
 }
 
 function closePurchaseModal() {
@@ -1344,6 +1424,7 @@ function updatePurchaseTotal() {
 
   if ($('purchaseTotal')) $('purchaseTotal').textContent = formatMoney(total);
   if ($('purchaseModalTotal')) $('purchaseModalTotal').textContent = formatMoney(total);
+  updateWalletPaymentAvailability();
 }
 
 function getPurchaseQuantity(button) {
@@ -1359,25 +1440,42 @@ async function startPurchase(button) {
     toast('Enter a whole number between 1 and 1,000.', 'warning');
     return;
   }
+  const total = quantity * CARD_PRICE_NAIRA;
+  if (provider === 'school_wallet' && (scratchWalletBalance === null || scratchWalletBalance < total)) {
+    await loadScratchWalletBalance();
+    if (scratchWalletBalance === null || scratchWalletBalance < total) {
+      toast(`Insufficient school-wallet balance. Required ${formatMoney(total)}; available ${formatMoney(scratchWalletBalance || 0)}.`, 'warning');
+      updateWalletPaymentAvailability();
+      return;
+    }
+  }
 
-  await withBusy(button, 'Starting checkout…', async () => {
-    const callbackUrl = new URL(location.href);
-    callbackUrl.searchParams.set('scratchPaymentReturn', '1');
+  await withBusy(button, provider === 'school_wallet' ? 'Processing wallet payment…' : 'Starting checkout…', async () => {
+    const payload = { quantity, provider };
+    if (provider !== 'school_wallet') {
+      const callbackUrl = new URL(location.href);
+      callbackUrl.searchParams.set('scratchPaymentReturn', '1');
+      payload.callbackUrl = callbackUrl.toString();
+    }
 
     const response = await api(`${API_ROOT}/scratch-cards/purchases/initiate`, {
       method: 'POST',
-      body: JSON.stringify({
-        quantity,
-        provider,
-        callbackUrl: callbackUrl.toString()
-      })
+      body: JSON.stringify(payload)
     });
-
     const result = await readJson(response);
-    if (!response.ok || !result.success || !result.data?.checkoutUrl) {
-      throw new Error(result.error || result.message || 'Could not start payment checkout.');
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || result.message || 'Could not complete scratch-card purchase.');
     }
 
+    if (provider === 'school_wallet') {
+      closePurchaseModal();
+      toast(result.message || 'Payment successful. Scratch cards added to your school pool.', 'success');
+      await loadScratchWalletBalance();
+      await refreshDataAfterPayment();
+      return;
+    }
+
+    if (!result.data?.checkoutUrl) throw new Error('The payment provider did not return a checkout URL.');
     closePurchaseModal();
     location.assign(result.data.checkoutUrl);
   });
@@ -2122,40 +2220,88 @@ function renderActivityLog() {
 }
 
 function makePurchaseProviderSelect() {
-  let select = $('paymentProvider');
-  if (select) return select;
-
-  const wrapper = document.createElement('div');
-  wrapper.className = 'mb-3';
-  wrapper.innerHTML = `
-    <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1.5" for="paymentProvider">Payment gateway</label>
-    <select id="paymentProvider" class="field">
-      <option value="paystack">Paystack</option>
-      <option value="flutterwave">Flutterwave</option>
-    </select>
-  `;
-
-  const modalQuantityInput = $('purchaseModalQty');
-  const insertionPoint = modalQuantityInput?.closest('div');
-  if (insertionPoint?.parentNode) insertionPoint.parentNode.insertBefore(wrapper, insertionPoint);
-  else {
-    const quickQuantity = $('purchaseQty')?.closest('div');
-    if (quickQuantity?.parentNode) quickQuantity.parentNode.insertBefore(wrapper, quickQuantity);
+  const select = $('paymentProvider');
+  if (select && !select.dataset.bound) {
+    select.dataset.bound = '1';
+    select.addEventListener('change', () => setSelectedPaymentMethod(select.value));
   }
-  return $('paymentProvider');
+  return select;
+}
+
+function setSelectedPaymentMethod(method) {
+  const select = $('paymentProvider');
+  if (select && select.value !== method) select.value = method;
+  document.querySelectorAll('[data-payment-method]').forEach(tile => {
+    const selected = tile.dataset.paymentMethod === method;
+    tile.classList.toggle('selected', selected);
+    tile.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+  const walletSelected = method === 'school_wallet';
+  $('walletPaymentHint')?.classList.toggle('hidden', !walletSelected);
+  updateWalletPaymentAvailability();
+}
+
+function bindPaymentMethodTiles() {
+  document.querySelectorAll('[data-payment-method]').forEach(tile => {
+    if (tile.dataset.bound) return;
+    tile.dataset.bound = '1';
+    tile.addEventListener('click', () => setSelectedPaymentMethod(tile.dataset.paymentMethod));
+  });
+  makePurchaseProviderSelect();
+  setSelectedPaymentMethod($('paymentProvider')?.value || 'paystack');
+}
+
+async function loadScratchWalletBalance() {
+  try {
+    const response = await api(`${API_ROOT}/scratch-cards/wallet-balance`);
+    const result = await readJson(response);
+    if (!response.ok || result.success === false) throw new Error(result.error || 'Unable to load wallet.');
+    scratchWalletBalance = Number(result.balance || 0);
+    $('walletBalanceMini').textContent = `Wallet: ${formatMoney(scratchWalletBalance)}`;
+    $('walletTileBalance').textContent = formatMoney(scratchWalletBalance);
+    updateWalletPaymentAvailability();
+  } catch (error) {
+    scratchWalletBalance = null;
+    $('walletBalanceMini').textContent = 'Wallet unavailable';
+    $('walletTileBalance').textContent = 'Unavailable';
+    updateWalletPaymentAvailability();
+  }
+}
+
+function updateWalletPaymentAvailability() {
+  const walletTile = document.querySelector('[data-payment-method="school_wallet"]');
+  const total = Number($('purchaseModalQty')?.value || $('purchaseQty')?.value || 0) * CARD_PRICE_NAIRA;
+  const enough = Number.isFinite(scratchWalletBalance) && scratchWalletBalance >= total && total > 0;
+  if (walletTile) {
+    walletTile.classList.toggle('opacity-50', scratchWalletBalance === null);
+    walletTile.title = scratchWalletBalance === null ? 'Wallet balance unavailable' : (enough ? 'Sufficient wallet balance' : 'Insufficient wallet balance for this quantity');
+  }
+  const hint = $('walletPaymentHint');
+  if (hint && $('paymentProvider')?.value === 'school_wallet') {
+    hint.textContent = scratchWalletBalance === null
+      ? 'Wallet balance could not be loaded. Refresh and try again.'
+      : enough
+        ? `Your wallet has enough funds. ${formatMoney(total)} will be deducted when you confirm.`
+        : `Insufficient balance. Required: ${formatMoney(total)} · Available: ${formatMoney(scratchWalletBalance)}.`;
+  }
+  const confirm = $('confirmPurchaseModalBtn');
+  if (confirm && $('paymentProvider')?.value === 'school_wallet') confirm.disabled = !enough;
+  else if (confirm) confirm.disabled = false;
 }
 
 function openPurchaseModal() {
-  if ($('purchaseModal')) {
-    $('purchaseModal').classList.add('show');
+  const modal = $('purchaseModal');
+  if (modal) {
+    const quickQuantity = Number($('purchaseQty')?.value || 25);
+    if ($('purchaseModalQty')) $('purchaseModalQty').value = String(quickQuantity > 0 ? quickQuantity : 25);
+    modal.classList.add('show');
+    bindPaymentMethodTiles();
+    updatePurchaseTotal();
+    loadScratchWalletBalance();
+    return;
   }
-  makePurchaseProviderSelect();
-  updatePurchaseTotal();
-
-  if (!$('purchaseModal')) {
-    $('purchaseQty')?.focus();
-    toast('Choose a payment gateway and quantity, then purchase the pool.', 'info');
-  }
+  $('purchaseQty')?.focus();
+  toast('Choose a payment method and quantity, then purchase the pool.', 'info');
 }
 
 function closePurchaseModal() {
@@ -2168,6 +2314,7 @@ function updatePurchaseTotal() {
 
   if ($('purchaseTotal')) $('purchaseTotal').textContent = formatMoney(total);
   if ($('purchaseModalTotal')) $('purchaseModalTotal').textContent = formatMoney(total);
+  updateWalletPaymentAvailability();
 }
 
 function getPurchaseQuantity(button) {
@@ -2183,25 +2330,42 @@ async function startPurchase(button) {
     toast('Enter a whole number between 1 and 1,000.', 'warning');
     return;
   }
+  const total = quantity * CARD_PRICE_NAIRA;
+  if (provider === 'school_wallet' && (scratchWalletBalance === null || scratchWalletBalance < total)) {
+    await loadScratchWalletBalance();
+    if (scratchWalletBalance === null || scratchWalletBalance < total) {
+      toast(`Insufficient school-wallet balance. Required ${formatMoney(total)}; available ${formatMoney(scratchWalletBalance || 0)}.`, 'warning');
+      updateWalletPaymentAvailability();
+      return;
+    }
+  }
 
-  await withBusy(button, 'Starting checkout…', async () => {
-    const callbackUrl = new URL(location.href);
-    callbackUrl.searchParams.set('scratchPaymentReturn', '1');
+  await withBusy(button, provider === 'school_wallet' ? 'Processing wallet payment…' : 'Starting checkout…', async () => {
+    const payload = { quantity, provider };
+    if (provider !== 'school_wallet') {
+      const callbackUrl = new URL(location.href);
+      callbackUrl.searchParams.set('scratchPaymentReturn', '1');
+      payload.callbackUrl = callbackUrl.toString();
+    }
 
     const response = await api(`${API_ROOT}/scratch-cards/purchases/initiate`, {
       method: 'POST',
-      body: JSON.stringify({
-        quantity,
-        provider,
-        callbackUrl: callbackUrl.toString()
-      })
+      body: JSON.stringify(payload)
     });
-
     const result = await readJson(response);
-    if (!response.ok || !result.success || !result.data?.checkoutUrl) {
-      throw new Error(result.error || result.message || 'Could not start payment checkout.');
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || result.message || 'Could not complete scratch-card purchase.');
     }
 
+    if (provider === 'school_wallet') {
+      closePurchaseModal();
+      toast(result.message || 'Payment successful. Scratch cards added to your school pool.', 'success');
+      await loadScratchWalletBalance();
+      await refreshDataAfterPayment();
+      return;
+    }
+
+    if (!result.data?.checkoutUrl) throw new Error('The payment provider did not return a checkout URL.');
     closePurchaseModal();
     location.assign(result.data.checkoutUrl);
   });
@@ -2555,7 +2719,7 @@ function setupActionHandlers() {
     toast(`Cleared ${count} selection${count === 1 ? '' : 's'}.`, 'success');
   }));
   $('exportBtn')?.addEventListener('click', event => exportStudentsCsv(event.currentTarget));
-  $('confirmPurchaseBtn')?.addEventListener('click', event => startPurchase(event.currentTarget));
+  $('confirmPurchaseBtn')?.addEventListener('click', () => openPurchaseModal());
   $('confirmPurchaseModalBtn')?.addEventListener('click', event => startPurchase(event.currentTarget));
   $('refreshBtn')?.addEventListener('click', event => withBusy(event.currentTarget, 'Refreshing…', refreshData));
   $('poolRefreshBtn')?.addEventListener('click', event => withBusy(event.currentTarget, 'Refreshing…', refreshData));
@@ -2563,6 +2727,7 @@ function setupActionHandlers() {
 
   $('purchaseQty')?.addEventListener('input', updatePurchaseTotal);
   $('purchaseModalQty')?.addEventListener('input', updatePurchaseTotal);
+  bindPaymentMethodTiles();
 
   $('searchInput')?.addEventListener('input', applyFilters);
   ['classFilter', 'sessionFilter', 'statusFilter', 'usageFilter'].forEach(id => {
