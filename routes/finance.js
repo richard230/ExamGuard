@@ -90,6 +90,20 @@ async function requireFinanceSchool(req, res) {
 // Shared school-wallet model is also used by the public Paystack webhook route.
 const SchoolWallet = require('../models/SchoolWallet');
 
+// Use the native MongoDB collection for DVA fields. This deliberately bypasses
+// Mongoose schema strictness/casting so a stale or differently-compiled model
+// cannot silently discard the dedicated-account fields.
+function schoolWalletCollection() {
+  if (!SchoolWallet.collection || !SchoolWallet.collection.collectionName) {
+    throw new Error('School wallet MongoDB collection is not available.');
+  }
+  return SchoolWallet.collection;
+}
+
+async function findSchoolWalletRaw(schoolId) {
+  return schoolWalletCollection().findOne({ schoolId: String(schoolId) });
+}
+
 function makeReference(prefix = 'WAL') {
   return `${prefix}-${Date.now()}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
 }
@@ -188,7 +202,7 @@ router.get('/school-wallet', authMiddleware, adminAuth, async (req, res) => {
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    const wallet = await findSchoolWalletRaw(req.schoolId);
     const transactions = (wallet?.transactions || [])
       .slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 100);
     res.json({
@@ -217,7 +231,7 @@ router.get('/school-wallet/dedicated-account', authMiddleware, adminAuth, async 
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    const wallet = await findSchoolWalletRaw(req.schoolId);
     return res.json({
       success: true,
       account: publicDedicatedAccount(wallet?.dedicatedAccount),
@@ -266,7 +280,7 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    let currentWallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    let currentWallet = await findSchoolWalletRaw(req.schoolId);
     if (currentWallet?.dedicatedAccount?.accountNumber && currentWallet.dedicatedAccount.active) {
       return res.json({
         success: true,
@@ -298,7 +312,7 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
     ).lean();
 
     if (!lock) {
-      currentWallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+      currentWallet = await findSchoolWalletRaw(req.schoolId);
       if (currentWallet?.dedicatedAccount?.accountNumber && currentWallet.dedicatedAccount.active) {
         return res.json({ success: true, alreadyAssigned: true, account: publicDedicatedAccount(currentWallet.dedicatedAccount) });
       }
@@ -415,7 +429,19 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
     // when legacy customer-code/account data is formatted differently.
     let persistResult;
     try {
-      persistResult = await SchoolWallet.updateOne(
+      const collection = schoolWalletCollection();
+      const schemaDiagnostics = {
+        collection: collection.collectionName,
+        modelName: SchoolWallet.modelName,
+        customerCodePath: Boolean(SchoolWallet.schema.path('paystackCustomerCode')),
+        dedicatedAccountPath: Boolean(SchoolWallet.schema.path('dedicatedAccount')),
+        accountNumberPath: Boolean(SchoolWallet.schema.path('dedicatedAccount.accountNumber')),
+        mongoDatabase: collection.conn?.name || null
+      };
+      console.info('[SchoolWallet][DVA] Runtime model inspection', schemaDiagnostics);
+
+      // Native collection write: no Mongoose strict-mode filtering or casting.
+      persistResult = await collection.updateOne(
         { schoolId: String(req.schoolId) },
         {
           $set: {
@@ -424,9 +450,10 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
             paystackCustomerCode: String(customer.customer_code).trim(),
             dedicatedAccount: accountRecord
           },
-          $unset: { dedicatedAccountCreationLockUntil: '' }
+          $unset: { dedicatedAccountCreationLockUntil: '' },
+          $setOnInsert: { balance: 0, totalCredited: 0, totalDebited: 0, transactions: [], createdAt: new Date() }
         },
-        { upsert: true, runValidators: true, setDefaultsOnInsert: true }
+        { upsert: true }
       );
     } catch (writeError) {
       console.error('[SchoolWallet][DVA] MongoDB account write failed', {
@@ -439,9 +466,10 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       // A unique-account-index conflict may mean this Paystack account is
       // already mapped to another wallet. Never silently move it between schools.
       if (writeError.code === 11000) {
-        const existingMapping = await SchoolWallet.findOne({
-          'dedicatedAccount.accountNumber': accountRecord.accountNumber
-        }).select('schoolId').lean();
+        const existingMapping = await schoolWalletCollection().findOne(
+          { 'dedicatedAccount.accountNumber': accountRecord.accountNumber },
+          { projection: { schoolId: 1 } }
+        );
         if (existingMapping && String(existingMapping.schoolId) !== String(req.schoolId)) {
           const conflict = new Error('Paystack returned an account number already assigned to another school wallet. The existing mapping was preserved; contact support.');
           conflict.statusCode = 409;
@@ -460,7 +488,7 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
       upsertedId: persistResult?.upsertedId ? String(persistResult.upsertedId) : null
     });
 
-    let saved = await SchoolWallet.findOne({ schoolId: String(req.schoolId) }).lean();
+    let saved = await findSchoolWalletRaw(req.schoolId);
     const savedAccountNumber = String(saved?.dedicatedAccount?.accountNumber || '').replace(/\D/g, '');
     const expectedAccountNumber = String(accountRecord.accountNumber).replace(/\D/g, '');
     const accountWasSaved = Boolean(
@@ -479,7 +507,8 @@ router.post('/school-wallet/dedicated-account', authMiddleware, adminAuth, async
         savedAccountLast4: savedAccountNumber ? savedAccountNumber.slice(-4) : null,
         expectedAccountLast4: expectedAccountNumber.slice(-4),
         savedAccountActive: saved?.dedicatedAccount?.active ?? null,
-        mongoCollection: SchoolWallet.collection?.name || null
+        mongoCollection: SchoolWallet.collection?.collectionName || null,
+        mongoDatabase: SchoolWallet.collection?.conn?.name || null
       });
       throw new Error('Paystack created the account, but MongoDB read-back did not confirm the account under this school. The Paystack account was retained and will be reused on the next safe retry; do not create another account.');
     }
@@ -534,7 +563,7 @@ router.post('/school-wallet/dedicated-account/requery', authMiddleware, adminAut
   try {
     const school = await requireFinanceSchool(req, res);
     if (!school) return;
-    const wallet = await SchoolWallet.findOne({ schoolId: req.schoolId }).lean();
+    const wallet = await findSchoolWalletRaw(req.schoolId);
     const account = wallet?.dedicatedAccount;
     if (!account?.accountNumber || !account.active) {
       return res.status(404).json({ success: false, error: 'This school does not have an active dedicated bank account.' });
@@ -542,9 +571,9 @@ router.post('/school-wallet/dedicated-account/requery', authMiddleware, adminAut
 
     const now = new Date();
     const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
-    const claimed = await SchoolWallet.findOneAndUpdate(
+    const claimed = await schoolWalletCollection().updateOne(
       {
-        schoolId: req.schoolId,
+        schoolId: String(req.schoolId),
         'dedicatedAccount.accountNumber': account.accountNumber,
         $or: [
           { 'dedicatedAccount.lastRequeryAt': { $exists: false } },
@@ -552,10 +581,9 @@ router.post('/school-wallet/dedicated-account/requery', authMiddleware, adminAut
           { 'dedicatedAccount.lastRequeryAt': { $lte: tenMinutesAgo } }
         ]
       },
-      { $set: { 'dedicatedAccount.lastRequeryAt': now } },
-      { new: true }
-    ).lean();
-    if (!claimed) {
+      { $set: { 'dedicatedAccount.lastRequeryAt': now } }
+    );
+    if (claimed.modifiedCount !== 1) {
       return res.status(429).json({ success: false, error: 'Please wait at least 10 minutes between transfer checks.' });
     }
 

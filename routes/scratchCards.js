@@ -665,7 +665,7 @@ router.post('/webhooks/paystack', async (req, res) => {
 
     let wallet = null;
     if (receiverAccountNumber) {
-      wallet = await SchoolWallet.findOne({
+      wallet = await SchoolWallet.collection.findOne({
         'dedicatedAccount.accountNumber': receiverAccountNumber,
         'dedicatedAccount.active': true
       });
@@ -674,7 +674,7 @@ router.post('/webhooks/paystack', async (req, res) => {
     // Customer-code fallback is allowed only when Paystack omitted the
     // receiving account number. If both are supplied, the exact account wins.
     if (!wallet && !receiverAccountNumber && customerCode) {
-      wallet = await SchoolWallet.findOne({
+      wallet = await SchoolWallet.collection.findOne({
         paystackCustomerCode: customerCode,
         'dedicatedAccount.active': true
       });
@@ -683,7 +683,7 @@ router.post('/webhooks/paystack', async (req, res) => {
     // Last-resort tenant metadata lookup helps diagnose/recover legacy records,
     // but it must never credit a wallet if a supplied account number conflicts.
     if (!wallet && !receiverAccountNumber && metadataSchoolId) {
-      wallet = await SchoolWallet.findOne({
+      wallet = await SchoolWallet.collection.findOne({
         schoolId: metadataSchoolId,
         paystackCustomerCode: customerCode,
         'dedicatedAccount.active': true
@@ -727,7 +727,10 @@ router.post('/webhooks/paystack', async (req, res) => {
 
     // Atomic duplicate guard: repeated Paystack webhook deliveries cannot credit
     // the same reference twice, even if they arrive concurrently.
-    const creditResult = await SchoolWallet.updateOne(
+    // Use the native collection for the DVA mapping and credit ledger as well.
+    // This keeps webhook matching/crediting independent of any stale Mongoose
+    // model schema while preserving the atomic duplicate-reference guard.
+    const creditResult = await SchoolWallet.collection.updateOne(
       {
         _id: wallet._id,
         'transactions.reference': { $ne: reference }
@@ -760,10 +763,10 @@ router.post('/webhooks/paystack', async (req, res) => {
     );
 
     if (creditResult.modifiedCount !== 1) {
-      const alreadyProcessed = await SchoolWallet.exists({
+      const alreadyProcessed = await SchoolWallet.collection.findOne({
         _id: wallet._id,
         'transactions.reference': reference
-      });
+      }, { projection: { _id: 1 } });
       if (!alreadyProcessed) {
         console.error('[SchoolWallet][DVA Webhook] Wallet credit update did not modify a document', { reference, schoolId: wallet.schoolId });
         return res.status(500).json({ error: 'Wallet credit could not be recorded.' });
