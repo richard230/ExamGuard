@@ -406,7 +406,7 @@ async function fulfillPaidPurchase(purchaseId) {
           expiresAt,
           usedCount: 0,
           metadata: {
-            provider: purchase.provider,
+            provider: purchase.providerResponse?.paymentMethod || purchase.provider,
             purchaseReference: purchase.reference
           }
         }
@@ -533,7 +533,7 @@ function purchaseResponse(purchase) {
   return {
     id: purchase._id,
     reference: purchase.reference,
-    provider: purchase.provider,
+    provider: purchase.providerResponse?.paymentMethod || purchase.provider,
     quantity: purchase.quantity,
     unitPriceNaira: purchase.unitPriceNaira,
     amountNaira: purchase.amountNaira,
@@ -853,6 +853,32 @@ router.get('/pool', async (req, res) => {
   }
 });
 
+// GET /api/scratch-cards/wallet-balance
+// Reads the school wallet directly from MongoDB to stay consistent with DVA credits.
+router.get('/wallet-balance', async (req, res) => {
+  try {
+    const school = await requireSchoolAdmin(req, res);
+    if (!school) return;
+
+    const wallet = await SchoolWallet.collection.findOne(
+      { schoolId: String(school._id) },
+      { projection: { balance: 1, currency: 1, dedicatedAccount: 1 } }
+    );
+
+    return res.json({
+      success: true,
+      balance: Math.max(0, Number(wallet?.balance) || 0),
+      currency: wallet?.currency || CURRENCY
+    });
+  } catch (error) {
+    console.error('Scratch-card wallet balance error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to load school wallet balance.'
+    });
+  }
+});
+
 // GET /api/scratch-cards/purchases
 router.get('/purchases', async (req, res) => {
   try {
@@ -862,12 +888,18 @@ router.get('/purchases', async (req, res) => {
     const purchases = await ScratchCardPurchase.find({ schoolId: school._id })
       .sort({ createdAt: -1 })
       .limit(100)
-      .select('-generatedCodes -providerResponse')
+      .select('-generatedCodes')
       .lean();
 
     return res.json({
       success: true,
-      data: purchases
+      data: purchases.map(purchase => {
+        const { providerResponse, ...safePurchase } = purchase;
+        return {
+          ...safePurchase,
+          provider: providerResponse?.paymentMethod || purchase.provider
+        };
+      })
     });
   } catch (error) {
     console.error('Scratch-card purchase history error:', error);
@@ -887,10 +919,10 @@ router.post('/purchases/initiate', async (req, res) => {
     const provider = String(req.body.provider || '').trim().toLowerCase();
     const quantity = Number(req.body.quantity);
 
-    if (!['paystack', 'flutterwave'].includes(provider)) {
+    if (!['paystack', 'flutterwave', 'school_wallet'].includes(provider)) {
       return res.status(400).json({
         success: false,
-        error: 'Choose Paystack or Flutterwave.'
+        error: 'Choose Paystack, Flutterwave or School Wallet.'
       });
     }
 
@@ -902,33 +934,36 @@ router.post('/purchases/initiate', async (req, res) => {
     }
 
     const email = String(req.user.email || school.adminEmail || school.email || '').trim().toLowerCase();
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        error: 'An account email is required to initialize payment.'
-      });
-    }
-
     const callbackUrl = String(
       process.env.SCRATCH_CARD_CALLBACK_URL ||
       req.body.callbackUrl ||
       ''
     ).trim();
 
-    if (!callbackUrl) {
+    if (provider !== 'school_wallet' && !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'An account email is required to initialize gateway payment.'
+      });
+    }
+
+    if (provider !== 'school_wallet' && !callbackUrl) {
       return res.status(503).json({
         success: false,
-        error: 'Set SCRATCH_CARD_CALLBACK_URL on the server before enabling card purchases.'
+        error: 'Set SCRATCH_CARD_CALLBACK_URL on the server before enabling gateway purchases.'
       });
     }
 
     const amountNaira = quantity * CARD_PRICE_NAIRA;
     const reference = `SC-${Date.now()}-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
+    // The existing purchase schema may constrain provider to gateway names.
+    // Keep its schema-compatible value and record the actual wallet tender in
+    // providerResponse.paymentMethod for history, audit and fulfillment.
     const purchase = await ScratchCardPurchase.create({
       schoolId: school._id,
       createdBy: req.user.id || req.user._id || null,
-      provider,
+      provider: provider === 'school_wallet' ? 'paystack' : provider,
       reference,
       quantity,
       unitPriceNaira: CARD_PRICE_NAIRA,
@@ -938,6 +973,130 @@ router.post('/purchases/initiate', async (req, res) => {
       paymentStatus: 'pending',
       fulfillmentStatus: 'pending'
     });
+
+    if (provider === 'school_wallet') {
+      try {
+        const walletCollection = SchoolWallet.collection;
+        const walletFilter = {
+          schoolId: String(school._id),
+          balance: { $gte: amountNaira },
+          'transactions.reference': { $ne: reference }
+        };
+        const debit = await walletCollection.updateOne(
+          walletFilter,
+          {
+            $inc: {
+              balance: -amountNaira,
+              totalDebited: amountNaira
+            },
+            $push: {
+              transactions: {
+                type: 'debit',
+                source: 'adjustment',
+                amount: amountNaira,
+                status: 'completed',
+                reference,
+                description: `Scratch-card pool purchase (${quantity} cards)`,
+                createdAt: new Date(),
+                verifiedAt: new Date(),
+                metadata: {
+                  purpose: 'scratch_card_pool',
+                  purchaseId: String(purchase._id),
+                  quantity,
+                  unitPriceNaira: CARD_PRICE_NAIRA
+                }
+              }
+            }
+          }
+        );
+
+        if (debit.modifiedCount !== 1) {
+          const wallet = await walletCollection.findOne(
+            { schoolId: String(school._id) },
+            { projection: { balance: 1 } }
+          );
+          await ScratchCardPurchase.updateOne(
+            { _id: purchase._id, paymentStatus: 'pending' },
+            {
+              $set: {
+                paymentStatus: 'failed',
+                providerResponse: {
+                  paymentMethod: 'school_wallet',
+                  error: 'Insufficient school wallet balance.'
+                }
+              }
+            }
+          );
+          return res.status(402).json({
+            success: false,
+            error: 'Insufficient school wallet balance.',
+            required: amountNaira,
+            balance: Math.max(0, Number(wallet?.balance) || 0)
+          });
+        }
+
+        purchase.paymentStatus = 'paid';
+        purchase.paidAt = new Date();
+        purchase.providerResponse = {
+          paymentMethod: 'school_wallet',
+          walletDebited: true,
+          amountNaira
+        };
+        await purchase.save();
+
+        try {
+          const fulfillment = await fulfillPaidPurchase(purchase._id);
+          const completedPurchase = await ScratchCardPurchase.findById(purchase._id);
+          if (!fulfillment.complete) {
+            return res.status(202).json({
+              success: true,
+              paymentStatus: 'paid',
+              fulfillmentStatus: completedPurchase?.fulfillmentStatus || 'processing',
+              message: 'Wallet payment was successful. Scratch-card pool fulfillment is processing; do not pay again.',
+              data: purchaseResponse(completedPurchase || purchase)
+            });
+          }
+
+          return res.status(201).json({
+            success: true,
+            message: 'Scratch cards purchased successfully using the school wallet.',
+            data: purchaseResponse(completedPurchase)
+          });
+        } catch (fulfillmentError) {
+          console.error('[ScratchCards][WalletFulfillmentPending]', {
+            reference,
+            purchaseId: String(purchase._id),
+            message: fulfillmentError.message
+          });
+          const currentPurchase = await ScratchCardPurchase.findById(purchase._id);
+          return res.status(202).json({
+            success: true,
+            paymentStatus: 'paid',
+            fulfillmentStatus: currentPurchase?.fulfillmentStatus || 'processing',
+            message: 'Wallet payment was successful. Card generation is pending; do not pay again.',
+            data: purchaseResponse(currentPurchase || purchase)
+          });
+        }
+      } catch (walletError) {
+        console.error('Scratch-card wallet payment error:', walletError);
+        // If the debit already happened, never mark the purchase unpaid or invite
+        // the user to retry payment. Keep it paid and let fulfillment be retried.
+        const current = await ScratchCardPurchase.findById(purchase._id).catch(() => null);
+        if (current?.paymentStatus === 'paid') {
+          return res.status(202).json({
+            success: true,
+            paymentStatus: 'paid',
+            fulfillmentStatus: current.fulfillmentStatus,
+            message: 'Wallet debit was recorded. Card generation is pending; do not pay again.',
+            data: purchaseResponse(current)
+          });
+        }
+        return res.status(500).json({
+          success: false,
+          error: 'Unable to complete school wallet payment. Please check wallet transactions before retrying.'
+        });
+      }
+    }
 
     try {
       const initialized = await initializeGatewayPayment({
@@ -994,7 +1153,8 @@ router.get('/purchases/:reference/verify', async (req, res) => {
       });
     }
 
-    if (purchase.paymentStatus !== 'paid') {
+    const paymentMethod = purchase.providerResponse?.paymentMethod || purchase.provider;
+    if (purchase.paymentStatus !== 'paid' && paymentMethod !== 'school_wallet') {
       const verification = await verifyGatewayPayment(purchase);
 
       if (!verification.verified) {
@@ -1007,6 +1167,12 @@ router.get('/purchases/:reference/verify', async (req, res) => {
       }
 
       await markPurchasePaid(purchase, verification);
+    } else if (purchase.paymentStatus !== 'paid') {
+      return res.status(402).json({
+        success: false,
+        paymentStatus: purchase.paymentStatus,
+        error: 'School wallet payment has not been recorded as completed.'
+      });
     }
 
     const fulfillment = await fulfillPaidPurchase(purchase._id);
