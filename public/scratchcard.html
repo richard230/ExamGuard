@@ -2007,8 +2007,14 @@ async function loadPool() {
   const allCards = [];
   let requestedPage = 1;
   let totalPages = 1;
+  const MAX_POOL_PAGES_PER_REFRESH = 100;
 
   do {
+    if (requestedPage > MAX_POOL_PAGES_PER_REFRESH) {
+      console.warn('Scratch-card pool pagination reached the safety limit; showing the records loaded so far.');
+      break;
+    }
+
     const url = new URL(`${API_ROOT}/scratch-cards/pool`);
     url.searchParams.set('page', String(requestedPage));
     url.searchParams.set('limit', String(POOL_PAGE_SIZE));
@@ -2020,8 +2026,10 @@ async function loadPool() {
       throw new Error(result.error || result.message || `Could not load scratch-card pool (${response.status}).`);
     }
 
-    allCards.push(...unwrapCards(result));
-    totalPages = Number(result.pagination?.pages || 1);
+    const pageCards = unwrapCards(result);
+    allCards.push(...pageCards);
+    const reportedPages = Number(result.pagination?.pages);
+    totalPages = Number.isFinite(reportedPages) && reportedPages >= 1 ? Math.min(reportedPages, MAX_POOL_PAGES_PER_REFRESH) : 1;
     requestedPage += 1;
   } while (requestedPage <= totalPages);
 
@@ -2053,6 +2061,7 @@ async function loadPurchases() {
 }
 
 async function loadAllData() {
+  // Resolve the tenant once, then load the three school-scoped datasets together.
   await loadCurrentSchool();
   await Promise.all([loadStudents(), loadPool(), loadPurchases()]);
   populateFilters();
@@ -2909,19 +2918,35 @@ function setupActionHandlers() {
   });
 }
 
+let scratchPageInitializationStarted = false;
+
 async function initialize() {
+  if (scratchPageInitializationStarted) return;
+  scratchPageInitializationStarted = true;
   setupActionHandlers();
 
-  if (!token) {
-    toast('Sign in before managing scratch cards.', 'error');
-    $('loading')?.remove();
-    return;
-  }
+  const loadingOverlay = $('loading');
+  const initializationTimeoutMs = 45000;
+  let timeoutId;
 
   try {
-    await loadCurrentSchool();
-    await verifyPaymentReturn();
-    await refreshData();
+    if (!token) {
+      throw new Error('No administrator login token found. Please sign in again.');
+    }
+
+    const initializationTask = (async () => {
+      await verifyPaymentReturn();
+      await loadAllData();
+    })();
+
+    await Promise.race([
+      initializationTask,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(
+          'The scratch-card page is taking too long to load. Check your internet connection and server status, then tap Refresh.'
+        )), initializationTimeoutMs);
+      })
+    ]);
   } catch (error) {
     console.error('Scratch-card initialization failed:', error);
     toast(error.message || 'Could not load scratch-card information.', 'error');
@@ -2932,11 +2957,16 @@ async function initialize() {
       $('poolRows').innerHTML = `<tr><td colspan="6" class="p-10 text-center text-rose-600">${esc(error.message || 'Could not load card pool.')}</td></tr>`;
     }
   } finally {
-    $('loading')?.remove();
+    clearTimeout(timeoutId);
+    loadingOverlay?.remove();
   }
 }
 
-document.addEventListener('DOMContentLoaded', initialize);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initialize, { once: true });
+} else {
+  initialize();
+}
   </script>
 </body>
 </html>
