@@ -10,20 +10,86 @@
   <style>
     :root {
       --school-primary: #1e40af;
+      --school-primary-hover: #17338c;
       --school-accent: #3b82f6;
+      --primary-soft: #eff6ff;
+      --sidebar-width: 276px;
+      --header-height: 64px;
+      --bg-page: #f4f7fb;
+      --bg-lighter: #f8fafc;
+      --surface: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+      --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.06);
+      --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Compact, school-branded sidebar header */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      font-family: var(--font-main);
+      background: var(--bg-page);
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body.sidebar-open,
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    /* App Wrapper */
+    .app-wrapper {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-width);
+      height: 100dvh;
+      background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 18px 14px 14px;
+      z-index: 1050;
+      box-shadow: 4px 0 24px rgba(2, 11, 24, 0.14);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
     .sidebar-header {
       display: flex !important;
-      flex-direction: column !important;
-      align-items: flex-start !important;
-      justify-content: flex-start !important;
-      gap: 12px !important;
-      min-width: 0;
-      padding: 24px 18px 20px !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 10px !important;
+      padding: 4px 4px 16px !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      flex-shrink: 0;
       height: auto !important;
-      box-sizing: border-box;
+    }
+
+    .sidebar-brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      flex: 1;
     }
 
     .sidebar-logo,
@@ -31,22 +97,26 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 58px !important;
-      height: 58px !important;
-      min-width: 58px;
-      max-width: 58px;
-      min-height: 58px;
-      max-height: 58px;
-      flex: 0 0 58px;
-      box-sizing: border-box;
+      width: 44px !important;
+      height: 44px !important;
+      min-width: 44px;
+      max-width: 44px;
+      min-height: 44px;
+      max-height: 44px;
+      flex: 0 0 44px;
+      border-radius: 11px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffe066;
       object-fit: contain;
-      border-radius: 10px;
       overflow: hidden;
     }
 
     .sidebar-logo-image {
       display: block;
       background: #fff;
+      padding: 3px;
     }
 
     .school-logo-hidden {
@@ -54,70 +124,1010 @@
     }
 
     .sidebar-brand {
-      display: block;
-      width: 100%;
       min-width: 0;
-      max-width: 100%;
-      overflow: hidden;
+      flex: 1;
     }
 
     .sidebar-brand h3 {
-      display: block;
-      max-width: 100%;
-      margin: 0 0 4px;
-      font-size: 15px;
-      line-height: 1.3;
-      font-weight: 700;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: normal;
+      margin: 0 0 2px;
+      font-size: 0.96rem;
+      line-height: 1.25;
+      font-weight: 800;
+      color: #ffe066;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .sidebar-brand p {
-      margin: 0 0 5px;
-      font-size: 12px;
-      line-height: 1.4;
-      white-space: normal;
+      margin: 0;
+      font-size: 0.78rem;
+      line-height: 1.3;
+      color: #cbd5e1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .school-id-label {
       display: block;
-      max-width: 100%;
-      font-size: 10px;
-      line-height: 1.35;
-      opacity: .78;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      margin-top: 2px;
+      font-size: 0.68rem;
+      line-height: 1.2;
+      color: #93c5fd;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .school-name-loading {
-      opacity: 0.7;
+      opacity: 0.75;
+    }
+
+    .sidebar-close {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 0;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 1.15rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .sidebar-close:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
 
     .sidebar-nav {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 2px 8px;
+    }
+
+    .nav-section-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      padding: 8px 12px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .nav-item i {
+      width: 18px;
+      text-align: center;
+      font-size: 0.95rem;
+      color: #93c5fd;
+      flex-shrink: 0;
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.09);
+      color: #fff;
+    }
+
+    .nav-item.active {
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffe066;
+    }
+
+    .nav-item.active i {
+      color: #ffe066;
+    }
+
+    .sidebar-footer {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 10px 4px;
+      margin-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .sidebar-footer-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffe066;
+      font-weight: 800;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .sidebar-footer-info {
       min-width: 0;
+      flex: 1;
+    }
+
+    .sidebar-footer-info p {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-footer-info span {
+      display: block;
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(2px);
+      z-index: 1040;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    /* Sticky Top Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: var(--sidebar-width);
+      width: calc(100% - var(--sidebar-width));
+      height: var(--header-height);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 900;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .sidebar-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--school-primary);
+      font-size: 1.05rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      min-width: 0;
+    }
+
+    .header-title h1 {
+      margin: 0;
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-title p {
+      margin: 1px 0 0;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .header-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: var(--surface);
+      color: var(--school-primary);
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .header-btn:hover {
+      background: var(--primary-soft);
+      border-color: #93c5fd;
+    }
+
+    .header-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--school-primary);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Main Workspace */
+    .main {
+      flex: 1;
+      min-width: 0;
+      margin-left: var(--sidebar-width);
+      padding: calc(var(--header-height) + 22px) 24px 40px;
+    }
+
+    .main-content {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .stat-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.05rem;
+      flex-shrink: 0;
+    }
+
+    .stat-icon.blue { background: #eff6ff; color: #1d4ed8; }
+    .stat-icon.green { background: #ecfdf5; color: #047857; }
+    .stat-icon.orange { background: #fffbeb; color: #b45309; }
+    .stat-icon.red { background: #fef2f2; color: #b91c1c; }
+
+    .stat-content {
+      min-width: 0;
+    }
+
+    .stat-content h3 {
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stat-value {
+      margin: 3px 0 0;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.15;
+    }
+
+    /* Tabs */
+    .tabs-container {
+      display: inline-flex;
+      gap: 6px;
+      background: #e2e8f0;
+      padding: 5px;
+      border-radius: 12px;
+      margin-bottom: 18px;
+      max-width: 100%;
+    }
+
+    .tab-btn {
+      border: 0;
+      background: transparent;
+      color: #475569;
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 700;
+      padding: 9px 16px;
+      border-radius: 9px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--school-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Two-Column Workspace Grid for Upload Tab */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .workspace-side {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      position: sticky;
+      top: calc(var(--header-height) + 18px);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .card-header-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--school-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .card-header h2 {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .card-header p {
+      margin: 3px 0 0;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .step-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--school-primary);
+      background: var(--primary-soft);
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    /* Alerts */
+    .alert {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 0.86rem;
+    }
+
+    .alert.show,
+    .alert.active {
+      display: flex;
+    }
+
+    .alert-success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+    .alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+
+    .alert-title {
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    /* Forms */
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .form-row.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .form-row.single {
+      grid-template-columns: 1fr;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .form-label {
+      font-size: 0.83rem;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+
+    .required {
+      color: #dc2626;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .form-textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: var(--school-primary);
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12);
+    }
+
+    .form-hint {
+      margin-top: 4px;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    /* File Upload Zone */
+    .file-upload-wrapper {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .file-upload-area {
+      position: relative;
+      border: 2px dashed #cbd5e1;
+      border-radius: 14px;
+      background: #f8fafc;
+      padding: 26px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .file-upload-area:hover,
+    .file-upload-area.dragover {
+      border-color: var(--school-primary);
+      background: var(--primary-soft);
+    }
+
+    .file-upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .file-upload-icon {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 10px;
+      border-radius: 12px;
+      background: #dbeafe;
+      color: var(--school-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .file-upload-text h3 {
+      margin: 0 0 4px;
+      font-size: 0.94rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .file-upload-text p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .file-upload-hint {
+      margin-top: 8px;
+      font-size: 0.73rem;
+      color: #94a3b8;
+    }
+
+    .file-list {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Buttons */
+    .button-group {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      border-radius: 10px;
+      border: 0;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn-primary {
+      background: var(--school-primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--school-primary-hover);
+    }
+
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+    }
+
+    .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    .btn-full {
+      width: 100%;
+    }
+
+    /* Progress Section */
+    .progress-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .progress-header h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+
+    .progress-percentage {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--school-primary);
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 9px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--school-primary), var(--school-accent));
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    .progress-info {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .progress-item {
+      background: #f8fafc;
+      border: 1px solid #f1f5f9;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .progress-item-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .progress-item-value {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-top: 2px;
+    }
+
+    /* Preview Table & Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 16px;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 12px;
+      border-radius: 14px;
+      background: #f1f5f9;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .empty-state h3 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+      color: var(--text-main);
+    }
+
+    .empty-state p {
+      margin: 0;
+      font-size: 0.85rem;
+    }
+
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .table {
+      width: 100%;
+      min-width: 600px;
+      border-collapse: collapse;
+    }
+
+    .table th,
+    .table td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.86rem;
+    }
+
+    .table th {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.48);
+      backdrop-filter: blur(2px);
+      z-index: 1200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal.active,
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      max-width: 540px;
+      width: 100%;
+      max-height: 88dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 44px rgba(15, 23, 42, 0.22);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--school-primary);
+    }
+
+    .modal-close {
+      background: #f1f5f9;
+      border: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #475569;
+    }
+
+    .modal-body {
+      padding: 18px 20px;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Responsive Breakpoints */
+    @media (max-width: 1024px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .workspace-side {
+        position: static;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .sidebar.active {
+        transform: translateX(0);
+      }
+
+      .sidebar-close {
+        display: inline-flex;
+      }
+
+      .header {
+        left: 0;
+        width: 100%;
+        padding: 0 14px;
+      }
+
+      .sidebar-toggle {
+        display: inline-flex;
+      }
+
+      .header-title p {
+        display: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: calc(var(--header-height) + 16px) 14px 32px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header-btn span {
+        display: none;
+      }
+
+      .header-btn {
+        padding: 9px 11px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .stat-card {
+        padding: 12px;
+        gap: 10px;
+      }
+
+      .stat-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 0.92rem;
+      }
+
+      .stat-value {
+        font-size: 1.2rem;
+      }
+
+      .tabs-container {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+      }
+
+      .tab-btn {
+        padding: 9px 8px;
+        font-size: 0.78rem;
+        gap: 5px;
+      }
+
+      .card {
+        padding: 16px 14px;
+        border-radius: 14px;
+      }
+
+      .form-row,
+      .form-row.three {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .button-group {
+        flex-direction: column-reverse;
+        align-items: stretch;
+      }
+
+      .button-group .btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="app-wrapper">
-    <aside class="sidebar">
+    <!-- Sidebar Drawer -->
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
       <div class="sidebar-header">
-        <div class="sidebar-logo" id="sidebarLogoFallback" aria-hidden="true">EG</div>
-        <img
-          id="schoolLogo"
-          class="sidebar-logo sidebar-logo-image school-logo-hidden"
-          alt=""
-        >
-        <div class="sidebar-brand">
-          <h3 id="sidebarSchoolName" class="school-name-loading">School Portal</h3>
-          <p id="sidebarSchoolTagline">Student Results</p>
-          <small id="sidebarSchoolId" class="school-id-label" aria-live="polite"></small>
+        <div class="sidebar-brand-wrap">
+          <div class="sidebar-logo" id="sidebarLogoFallback" aria-hidden="true">EG</div>
+          <img
+            id="schoolLogo"
+            class="sidebar-logo sidebar-logo-image school-logo-hidden"
+            alt=""
+          >
+          <div class="sidebar-brand">
+            <h3 id="sidebarSchoolName" class="school-name-loading">School Portal</h3>
+            <p id="sidebarSchoolTagline">Student Results</p>
+            <small id="sidebarSchoolId" class="school-id-label" aria-live="polite"></small>
+          </div>
         </div>
+        <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close navigation">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
 
       <nav class="sidebar-nav">
+        <div class="nav-section-label">Results Workspace</div>
         <div class="nav-item" onclick="navigateTab('dashboard')">
           <i class="fas fa-chart-line"></i>
           <span>Dashboard</span>
@@ -134,6 +1144,8 @@
           <i class="fas fa-file-pdf"></i>
           <span>View Results</span>
         </div>
+
+        <div class="nav-section-label">Administration</div>
         <div class="nav-item" onclick="navigateTab('settings')">
           <i class="fas fa-cog"></i>
           <span>Settings</span>
@@ -153,15 +1165,21 @@
       </div>
     </aside>
 
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Top Header -->
     <header class="header">
       <div class="header-left">
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Open navigation">
+          <i class="fas fa-bars"></i>
+        </button>
         <div class="header-title">
           <h1>Upload Student Data</h1>
           <p id="headerSubtitle">Manage and upload student results for your school</p>
         </div>
       </div>
       <div class="header-right">
-        <button class="header-btn" type="button" onclick="downloadTemplate()">
+        <button class="header-btn" type="button" onclick="downloadTemplate()" title="Download Template">
           <i class="fas fa-download"></i>
           <span>Download Template</span>
         </button>
@@ -169,307 +1187,326 @@
       </div>
     </header>
 
+    <!-- Main Content -->
     <main class="main">
       <div class="main-content">
-        <div class="tabs-container">
-          <button class="tab-btn active" type="button" onclick="switchTab('upload-tab')">
-            <i class="fas fa-arrow-up"></i> Upload
-          </button>
-          <button class="tab-btn" type="button" onclick="switchTab('bulk-tab')">
-            <i class="fas fa-list"></i> Bulk Operations
-          </button>
-          <button class="tab-btn" type="button" onclick="switchTab('preview-tab')">
-            <i class="fas fa-eye"></i> Preview
-          </button>
-        </div>
-
-        <div id="upload-tab" class="tab-content active">
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-icon blue">
-                <i class="fas fa-users"></i>
-              </div>
-              <div class="stat-content">
-                <h3>Total Records</h3>
-                <p class="stat-value" id="totalRecords">0</p>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-icon green">
-                <i class="fas fa-check-circle"></i>
-              </div>
-              <div class="stat-content">
-                <h3>Uploaded</h3>
-                <p class="stat-value" id="uploadedCount">0</p>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-icon orange">
-                <i class="fas fa-hourglass"></i>
-              </div>
-              <div class="stat-content">
-                <h3>Pending</h3>
-                <p class="stat-value" id="pendingCount">0</p>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-icon red">
-                <i class="fas fa-exclamation-circle"></i>
-              </div>
-              <div class="stat-content">
-                <h3>Errors</h3>
-                <p class="stat-value" id="errorCount">0</p>
-              </div>
+        <!-- Summary Metrics -->
+        <section class="stats-grid" aria-label="Upload summary">
+          <div class="stat-card">
+            <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+            <div class="stat-content">
+              <h3>Total Records</h3>
+              <p class="stat-value" id="totalRecords">0</p>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-header">
-              <div class="card-header-icon">
-                <i class="fas fa-cloud-upload-alt"></i>
-              </div>
-              <div>
-                <h2>Upload Student Results</h2>
-                <p>Upload results to the universal server or sync from your school backend</p>
-              </div>
+          <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-content">
+              <h3>Uploaded</h3>
+              <p class="stat-value" id="uploadedCount">0</p>
             </div>
+          </div>
 
-            <div class="alert alert-success" id="successAlert">
-              <div class="alert-icon"><i class="fas fa-check-circle"></i></div>
-              <div class="alert-content">
-                <div class="alert-title">Success!</div>
-                <div class="alert-message" id="successMessage">Operation completed successfully</div>
-              </div>
+          <div class="stat-card">
+            <div class="stat-icon orange"><i class="fas fa-hourglass"></i></div>
+            <div class="stat-content">
+              <h3>Pending</h3>
+              <p class="stat-value" id="pendingCount">0</p>
             </div>
+          </div>
 
-            <div class="alert alert-error" id="errorAlert">
-              <div class="alert-icon"><i class="fas fa-exclamation-circle"></i></div>
-              <div class="alert-content">
-                <div class="alert-title">Error</div>
-                <div class="alert-message" id="errorMessage">An error occurred</div>
-              </div>
+          <div class="stat-card">
+            <div class="stat-icon red"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="stat-content">
+              <h3>Errors</h3>
+              <p class="stat-value" id="errorCount">0</p>
             </div>
+          </div>
+        </section>
 
-            <div class="alert alert-warning" id="warningAlert">
-              <div class="alert-icon"><i class="fas fa-info-circle"></i></div>
-              <div class="alert-content">
-                <div class="alert-title">Info</div>
-                <div class="alert-message" id="warningMessage">Please review the information</div>
+        <!-- Workspace Tabs -->
+        <div class="tabs-container" role="tablist">
+          <button class="tab-btn active" type="button" onclick="switchTab('upload-tab')">
+            <i class="fas fa-arrow-up"></i> <span>Upload</span>
+          </button>
+          <button class="tab-btn" type="button" onclick="switchTab('bulk-tab')">
+            <i class="fas fa-list"></i> <span>Bulk Ops</span>
+          </button>
+          <button class="tab-btn" type="button" onclick="switchTab('preview-tab')">
+            <i class="fas fa-eye"></i> <span>Preview</span>
+          </button>
+        </div>
+
+        <!-- TAB 1: UPLOAD WORKSPACE -->
+        <div id="upload-tab" class="tab-content active">
+          <div class="workspace-grid">
+            <!-- Primary File Upload Form -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-header-icon">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div>
+                  <h2>Upload Student Results</h2>
+                  <p>Select session details and attach a JSON, CSV, or XLSX score sheet</p>
+                </div>
               </div>
-            </div>
 
-            <form id="uploadForm">
-              <div class="form-row three">
-                <div class="form-group">
-                  <label class="form-label" for="sessionInput">
-                    Academic Session <span class="required">*</span>
-                  </label>
-                  <input type="text" class="form-input" id="sessionInput" placeholder="e.g., 2024/2025" required>
-                  <span class="form-hint">Prefilled from your school configuration when available</span>
+              <div class="alert alert-success" id="successAlert">
+                <div class="alert-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="alert-content">
+                  <div class="alert-title">Success!</div>
+                  <div class="alert-message" id="successMessage">Operation completed successfully</div>
+                </div>
+              </div>
+
+              <div class="alert alert-error" id="errorAlert">
+                <div class="alert-icon"><i class="fas fa-exclamation-circle"></i></div>
+                <div class="alert-content">
+                  <div class="alert-title">Error</div>
+                  <div class="alert-message" id="errorMessage">An error occurred</div>
+                </div>
+              </div>
+
+              <div class="alert alert-warning" id="warningAlert">
+                <div class="alert-icon"><i class="fas fa-info-circle"></i></div>
+                <div class="alert-content">
+                  <div class="alert-title">Info</div>
+                  <div class="alert-message" id="warningMessage">Please review the information</div>
+                </div>
+              </div>
+
+              <form id="uploadForm">
+                <span class="step-badge">Step 1 &middot; Academic Context</span>
+                <div class="form-row three">
+                  <div class="form-group">
+                    <label class="form-label" for="sessionInput">
+                      Academic Session <span class="required">*</span>
+                    </label>
+                    <input type="text" class="form-input" id="sessionInput" placeholder="e.g., 2024/2025" required>
+                    <span class="form-hint">Prefilled from school config</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="termInput">
+                      Term <span class="required">*</span>
+                    </label>
+                    <select class="form-select" id="termInput" required>
+                      <option value="">Select Term</option>
+                      <option value="First Term">First Term</option>
+                      <option value="Second Term">Second Term</option>
+                      <option value="Third Term">Third Term</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="classInput">
+                      Class / Grade <span class="required">*</span>
+                    </label>
+                    <input type="text" class="form-input" id="classInput" placeholder="e.g., JSS1A" required>
+                    <span class="form-hint">Class or grade level</span>
+                  </div>
                 </div>
 
-                <div class="form-group">
-                  <label class="form-label" for="termInput">
-                    Term <span class="required">*</span>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label" for="subjectInput">
+                      Subject <span class="required">*</span>
+                    </label>
+                    <input type="text" class="form-input" id="subjectInput" placeholder="e.g., Mathematics" required>
+                    <span class="form-hint">Subject name</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="scoreTypeInput">
+                      Score Type <span class="required">*</span>
+                    </label>
+                    <select class="form-select" id="scoreTypeInput" required>
+                      <option value="">Select Score Type</option>
+                      <option value="ca1_score">Continuous Assessment 1</option>
+                      <option value="ca2_score">Continuous Assessment 2</option>
+                      <option value="midterm_score">Midterm Exam</option>
+                      <option value="exam_score">Final Exam</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="file-upload-wrapper">
+                  <span class="step-badge">Step 2 &middot; Score Sheet File</span>
+                  <label class="form-label" for="fileInput">
+                    Upload File <span class="required">*</span>
                   </label>
-                  <select class="form-select" id="termInput" required>
-                    <option value="">Select Term</option>
-                    <option value="First Term">First Term</option>
-                    <option value="Second Term">Second Term</option>
-                    <option value="Third Term">Third Term</option>
+                  <div class="file-upload-area" id="fileUploadArea" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                    <input type="file" id="fileInput" accept=".json,.csv,.xlsx" aria-label="Upload a JSON, CSV, or XLSX file">
+                    <div class="file-upload-icon">
+                      <i class="fas fa-file-import"></i>
+                    </div>
+                    <div class="file-upload-text">
+                      <h3>Tap to choose a file or drag &amp; drop</h3>
+                      <p>Supports JSON, CSV, or XLSX</p>
+                    </div>
+                    <div class="file-upload-hint">Maximum file size: 50MB</div>
+                  </div>
+                  <div id="fileList" class="file-list"></div>
+                </div>
+
+                <div class="button-group">
+                  <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-arrow-up"></i>
+                    <span id="submitBtnText">Upload to Universal Server</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Right Rail: Progress + Backend Sync -->
+            <div class="workspace-side">
+              <div class="card progress-section" id="progressSection">
+                <div class="progress-header">
+                  <h3>Upload Progress</h3>
+                  <div class="progress-percentage">
+                    <span id="progressPercent">0</span>%
+                  </div>
+                </div>
+
+                <div class="progress-bar-container">
+                  <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                </div>
+
+                <div class="progress-info">
+                  <div class="progress-item">
+                    <div class="progress-item-label">Processing</div>
+                    <div class="progress-item-value" id="processingCount">0</div>
+                  </div>
+                  <div class="progress-item">
+                    <div class="progress-item-label">Successful</div>
+                    <div class="progress-item-value" id="successCount">0</div>
+                  </div>
+                  <div class="progress-item">
+                    <div class="progress-item-label">Failed</div>
+                    <div class="progress-item-value" id="failedCount">0</div>
+                  </div>
+                  <div class="progress-item">
+                    <div class="progress-item-label">Total</div>
+                    <div class="progress-item-value" id="totalUploadCount">0</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-header-icon">
+                    <i class="fas fa-server"></i>
+                  </div>
+                  <div>
+                    <h2>Sync from School Backend</h2>
+                    <p>Pull student scores directly via your school API</p>
+                  </div>
+                </div>
+
+                <div class="form-row single">
+                  <div class="form-group">
+                    <label class="form-label" for="backendUrlInput">Backend Endpoint URL</label>
+                    <input type="url" class="form-input" id="backendUrlInput" placeholder="https://your-school-backend.com/api">
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="apiKeyInput">API Key</label>
+                    <input type="password" class="form-input" id="apiKeyInput" placeholder="Your backend API key" autocomplete="off">
+                  </div>
+                </div>
+
+                <button type="button" class="btn btn-secondary btn-full" onclick="fetchFromBackend()">
+                  <i class="fas fa-sync-alt"></i>
+                  <span id="fetchBtnText">Sync from Backend</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: BULK OPERATIONS -->
+        <div id="bulk-tab" class="tab-content">
+          <div class="workspace-grid">
+            <div class="card">
+              <div class="card-header">
+                <div class="card-header-icon">
+                  <i class="fas fa-list"></i>
+                </div>
+                <div>
+                  <h2>Bulk Operations</h2>
+                  <p>Run batch publishing, merging, or export tasks across records</p>
+                </div>
+              </div>
+
+              <div class="form-row single">
+                <div class="form-group">
+                  <label class="form-label" for="bulkOperationType">
+                    Operation Type <span class="required">*</span>
+                  </label>
+                  <select class="form-select" id="bulkOperationType">
+                    <option value="">Select Operation</option>
+                    <option value="merge">Merge Duplicate Results</option>
+                    <option value="publish">Publish All Drafts</option>
+                    <option value="sync">Sync with Universal Server</option>
+                    <option value="export">Export Results</option>
                   </select>
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label" for="classInput">
-                    Class/Grade <span class="required">*</span>
-                  </label>
-                  <input type="text" class="form-input" id="classInput" placeholder="e.g., JSS1A" required>
-                  <span class="form-hint">Class or grade level</span>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label" for="subjectInput">
-                    Subject <span class="required">*</span>
-                  </label>
-                  <input type="text" class="form-input" id="subjectInput" placeholder="e.g., Mathematics" required>
-                  <span class="form-hint">Subject name</span>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label" for="scoreTypeInput">
-                    Score Type <span class="required">*</span>
-                  </label>
-                  <select class="form-select" id="scoreTypeInput" required>
-                    <option value="">Select Score Type</option>
-                    <option value="ca1_score">Continuous Assessment 1</option>
-                    <option value="ca2_score">Continuous Assessment 2</option>
-                    <option value="midterm_score">Midterm Exam</option>
-                    <option value="exam_score">Final Exam</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="file-upload-wrapper">
-                <label class="form-label" for="fileInput">
-                  Upload File <span class="required">*</span>
-                </label>
-                <div class="file-upload-area" id="fileUploadArea" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                  <input type="file" id="fileInput" accept=".json,.csv,.xlsx" aria-label="Upload a JSON, CSV, or XLSX file">
-                  <div class="file-upload-icon">
-                    <i class="fas fa-file-import"></i>
-                  </div>
-                  <div class="file-upload-text">
-                    <h3>Click to upload or drag and drop</h3>
-                    <p>JSON, CSV, or XLSX format</p>
-                  </div>
-                  <div class="file-upload-hint">Maximum file size: 50MB</div>
-                </div>
-                <div id="fileList" class="file-list"></div>
-              </div>
-
-              <hr style="margin: 28px 0; border: none; border-top: 2px solid var(--border);">
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label" for="backendUrlInput">Or Sync from School Backend</label>
-                  <input type="url" class="form-input" id="backendUrlInput" placeholder="https://your-school-backend.com/api">
-                  <span class="form-hint">Optional: Fetch directly from your school system</span>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label" for="apiKeyInput">API Key</label>
-                  <input type="password" class="form-input" id="apiKeyInput" placeholder="Your backend API key" autocomplete="off">
-                  <span class="form-hint">Required for backend sync</span>
+                  <label class="form-label" for="recordsInput">Select Records</label>
+                  <textarea class="form-textarea" id="recordsInput" placeholder="Paste result IDs (one per line) or leave empty for all"></textarea>
+                  <span class="form-hint">Leave empty to apply to all records</span>
                 </div>
               </div>
 
               <div class="button-group">
-                <button type="button" class="btn btn-secondary" onclick="fetchFromBackend()">
-                  <i class="fas fa-sync-alt"></i>
-                  <span id="fetchBtnText">Sync from Backend</span>
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                  <i class="fas fa-rotate-left"></i>
+                  <span>Reset</span>
                 </button>
-                <button type="submit" class="btn btn-primary" id="submitBtn">
-                  <i class="fas fa-arrow-up"></i>
-                  <span id="submitBtnText">Upload to Universal Server</span>
+                <button type="button" class="btn btn-primary" onclick="executeBulkOperation()">
+                  <i class="fas fa-gear"></i>
+                  <span>Execute Operation</span>
                 </button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card progress-section" id="progressSection">
-            <div class="progress-header">
-              <h3>Upload Progress</h3>
-              <div class="progress-percentage">
-                <span id="progressPercent">0</span>%
               </div>
             </div>
 
-            <div class="progress-bar-container">
-              <div class="progress-bar" id="progressBar" style="width: 0%"></div>
-            </div>
+            <div class="card" id="bulkStatusCard" style="display: none;">
+              <div class="card-header">
+                <div class="card-header-icon">
+                  <i class="fas fa-circle-check"></i>
+                </div>
+                <div>
+                  <h2>Operation Status</h2>
+                  <p id="operationStatusText">Processing...</p>
+                </div>
+              </div>
 
-            <div class="progress-info">
-              <div class="progress-item">
-                <div class="progress-item-label">Processing</div>
-                <div class="progress-item-value" id="processingCount">0</div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" id="bulkProgressBar" style="width: 0%"></div>
               </div>
-              <div class="progress-item">
-                <div class="progress-item-label">Successful</div>
-                <div class="progress-item-value" id="successCount">0</div>
-              </div>
-              <div class="progress-item">
-                <div class="progress-item-label">Failed</div>
-                <div class="progress-item-value" id="failedCount">0</div>
-              </div>
-              <div class="progress-item">
-                <div class="progress-item-label">Total</div>
-                <div class="progress-item-value" id="totalUploadCount">0</div>
+
+              <div class="progress-info">
+                <div class="progress-item">
+                  <div class="progress-item-label">Processed</div>
+                  <div class="progress-item-value" id="bulkProcessed">0</div>
+                </div>
+                <div class="progress-item">
+                  <div class="progress-item-label">Successful</div>
+                  <div class="progress-item-value" id="bulkSuccess">0</div>
+                </div>
+                <div class="progress-item">
+                  <div class="progress-item-label">Failed</div>
+                  <div class="progress-item-value" id="bulkFailed">0</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div id="bulk-tab" class="tab-content">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-header-icon">
-                <i class="fas fa-list"></i>
-              </div>
-              <div>
-                <h2>Bulk Operations</h2>
-                <p>Manage multiple uploads and batch operations</p>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="bulkOperationType">
-                Operation Type <span class="required">*</span>
-              </label>
-              <select class="form-select" id="bulkOperationType">
-                <option value="">Select Operation</option>
-                <option value="merge">Merge Duplicate Results</option>
-                <option value="publish">Publish All Drafts</option>
-                <option value="sync">Sync with Universal Server</option>
-                <option value="export">Export Results</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="recordsInput">Select Records</label>
-              <textarea class="form-textarea" id="recordsInput" placeholder="Paste result IDs (one per line) or leave empty for all"></textarea>
-              <span class="form-hint">Leave empty to apply to all records</span>
-            </div>
-
-            <div class="button-group">
-              <button type="button" class="btn btn-primary" onclick="executeBulkOperation()">
-                <i class="fas fa-gear"></i>
-                <span>Execute Operation</span>
-              </button>
-              <button type="button" class="btn btn-secondary" onclick="resetForm()">
-                <i class="fas fa-rotate-left"></i>
-                <span>Reset</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="card" id="bulkStatusCard" style="display: none;">
-            <div class="card-header">
-              <div class="card-header-icon">
-                <i class="fas fa-circle-check"></i>
-              </div>
-              <div>
-                <h2>Operation Status</h2>
-                <p id="operationStatusText">Processing...</p>
-              </div>
-            </div>
-
-            <div class="progress-bar-container">
-              <div class="progress-bar" id="bulkProgressBar" style="width: 0%"></div>
-            </div>
-
-            <div class="progress-info">
-              <div class="progress-item">
-                <div class="progress-item-label">Processed</div>
-                <div class="progress-item-value" id="bulkProcessed">0</div>
-              </div>
-              <div class="progress-item">
-                <div class="progress-item-label">Successful</div>
-                <div class="progress-item-value" id="bulkSuccess">0</div>
-              </div>
-              <div class="progress-item">
-                <div class="progress-item-label">Failed</div>
-                <div class="progress-item-value" id="bulkFailed">0</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <!-- TAB 3: DATA PREVIEW -->
         <div id="preview-tab" class="tab-content">
           <div class="card">
             <div class="card-header">
@@ -478,7 +1515,7 @@
               </div>
               <div>
                 <h2>Data Preview</h2>
-                <p>Review data before uploading</p>
+                <p>Inspect parsed rows before committing them to the server</p>
               </div>
             </div>
 
@@ -506,25 +1543,60 @@
     </main>
   </div>
 
+  <!-- Template Modal -->
   <div class="modal" id="templateModal">
     <div class="modal-content">
       <div class="modal-header">
         <h2 class="modal-title">Upload Template</h2>
-        <button class="modal-close" onclick="closeModal('templateModal')">
+        <button type="button" class="modal-close" onclick="closeModal('templateModal')" aria-label="Close modal">
           <i class="fas fa-times"></i>
         </button>
       </div>
       <div class="modal-body">
-        <p><strong>Template Format (JSON):</strong></p>
-        <pre style="background: var(--bg-lighter); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem;"><code id="templateCode"></code></pre>
+        <p style="margin-top:0;font-size:0.88rem;color:var(--text-muted);"><strong>Template Format (JSON):</strong></p>
+        <pre style="background: var(--bg-lighter); border: 1px solid var(--border); padding: 12px; border-radius: 10px; overflow-x: auto; font-size: 0.82rem;"><code id="templateCode"></code></pre>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('templateModal')">Close</button>
-        <button class="btn btn-primary" onclick="copyTemplate()">Copy to Clipboard</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('templateModal')">Close</button>
+        <button type="button" class="btn btn-primary" onclick="copyTemplate()">Copy to Clipboard</button>
       </div>
     </div>
   </div>
 
   <script src="result-verify.js"></script>
+  <script>
+    (() => {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleBtn = document.getElementById('sidebarToggle');
+      const closeBtn = document.getElementById('sidebarClose');
+
+      function openSidebar() {
+        sidebar.classList.add('active');
+        overlay.classList.add('active');
+        document.body.classList.add('sidebar-open');
+      }
+
+      function closeSidebar() {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+      }
+
+      toggleBtn?.addEventListener('click', openSidebar);
+      closeBtn?.addEventListener('click', closeSidebar);
+      overlay?.addEventListener('click', closeSidebar);
+
+      sidebar?.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          if (window.innerWidth <= 860) closeSidebar();
+        });
+      });
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeSidebar();
+      });
+    })();
+  </script>
 </body>
 </html>
