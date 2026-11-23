@@ -260,6 +260,42 @@
                     </div>
                 </section>
 
+
+                <!-- LIVE STUDENT BIRTHDAY REMINDERS -->
+                <section id="birthdayReminderSection" class="relative overflow-hidden rounded-2xl border border-rose-100 dark:border-rose-900/50 bg-gradient-to-br from-white via-rose-50/70 to-amber-50/70 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 shadow-sm">
+                    <div class="absolute -right-10 -top-12 w-48 h-48 rounded-full bg-rose-200/30 dark:bg-rose-500/10 blur-2xl pointer-events-none"></div>
+                    <div class="relative p-4 sm:p-5">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-cake-candles"></i></div>
+                                <div class="min-w-0">
+                                    <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">Birthday Reminders</h2>
+                                    <p id="birthdayReminderSubtitle" class="text-xs text-slate-500 dark:text-slate-400">Celebrating our students, one birthday at a time</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span id="birthdayReminderStatus" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold bg-white/80 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Loading</span>
+                                <a href="students-birthdays.html" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition"><i class="fa-solid fa-calendar-heart"></i> Birthday Centre <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 sm:gap-3 mt-4">
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-slate-700 p-3"><p class="text-[10px] uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Today</p><p id="birthdayTodayMetric" class="text-2xl font-black text-rose-600 dark:text-rose-300 mt-1">—</p></div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/60 border border-amber-100 dark:border-slate-700 p-3"><p class="text-[10px] uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">Next 7 days</p><p id="birthdayWeekMetric" class="text-2xl font-black text-amber-600 dark:text-amber-300 mt-1">—</p></div>
+                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/60 border border-indigo-100 dark:border-slate-700 p-3"><p class="text-[10px] uppercase tracking-wide font-bold text-slate-500 dark:text-slate-400">This month</p><p id="birthdayMonthMetric" class="text-2xl font-black text-indigo-600 dark:text-indigo-300 mt-1">—</p></div>
+                        </div>
+                        <div class="mt-4">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <h3 class="text-xs font-extrabold text-slate-800 dark:text-slate-100"><i class="fa-regular fa-bell text-rose-500 mr-1"></i> Birthday watchlist</h3>
+                                <button id="refreshBirthdaysBtn" type="button" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 hover:underline"><i class="fa-solid fa-rotate mr-1"></i> Refresh</button>
+                            </div>
+                            <div id="birthdayReminderList" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                                <div class="col-span-full rounded-xl border border-dashed border-slate-200 dark:border-slate-700 p-5 text-center text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Checking upcoming birthdays…</div>
+                            </div>
+                            <p id="birthdayReminderFootnote" class="text-[10px] text-slate-400 mt-2">Reminders are based on student date-of-birth records.</p>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- ADMIN QUICK ACCESS -->
                 <section id="adminQuickAccess" class="space-y-4" aria-labelledby="quickAccessHeading">
                     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
@@ -1042,6 +1078,129 @@
         });
     }
 
+
+    // Student birthday reminders use the same school-scoped birthday endpoint as Birthday Centre.
+    let birthdayReminderRecords = [];
+    const birthdayReminderCache = new Map();
+
+    function escapeBirthdayHTML(value) {
+        return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+
+    function birthdayDateOnly(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function getBirthdayDate(student) {
+        const raw = student?.dob || student?.dateOfBirth || student?.birthDate;
+        if (!raw) return null;
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function birthdayStudentName(student) {
+        return student?.name || student?.fullName ||
+            [student?.firstName, student?.middleName, student?.lastName].filter(Boolean).join(' ') ||
+            student?.studentName || 'Student';
+    }
+
+    async function requestBirthdayMonth(month) {
+        if (birthdayReminderCache.has(month)) return birthdayReminderCache.get(month);
+        const token = localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_API}/students/birthdays?month=${month}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                ...(publicSchoolId ? {'X-School-Code': publicSchoolId} : {})
+            }
+        });
+        if (!response.ok) throw new Error(`Birthday service returned ${response.status}`);
+        const payload = await response.json();
+        const rows = Array.isArray(payload) ? payload :
+            (payload.students || payload.birthdays || payload.data?.students || payload.data?.birthdays ||
+             (Array.isArray(payload.data) ? payload.data : []));
+        birthdayReminderCache.set(month, rows);
+        return rows;
+    }
+
+    function renderBirthdayReminders() {
+        const today = birthdayDateOnly(new Date());
+        const weekEnd = new Date(today);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        const valid = birthdayReminderRecords.map(student => {
+            const dob = getBirthdayDate(student);
+            if (!dob) return null;
+            const next = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
+            if (next < today) next.setFullYear(today.getFullYear() + 1);
+            return {student, dob, next, dayGap: Math.round((next - today) / 86400000)};
+        }).filter(Boolean);
+        const todayList = valid.filter(x => x.dayGap === 0);
+        const weekList = valid.filter(x => x.dayGap >= 1 && x.dayGap <= 7);
+        const monthList = valid.filter(x => x.dob.getMonth() === today.getMonth());
+        const watchlist = [...todayList, ...weekList].sort((a,b) => a.dayGap-b.dayGap || birthdayStudentName(a.student).localeCompare(birthdayStudentName(b.student)));
+
+        document.getElementById('birthdayTodayMetric').textContent = todayList.length;
+        document.getElementById('birthdayWeekMetric').textContent = weekList.length;
+        document.getElementById('birthdayMonthMetric').textContent = monthList.length;
+        document.getElementById('birthdayReminderSubtitle').textContent = todayList.length
+            ? `${todayList.length} student${todayList.length === 1 ? '' : 's'} celebrating today — send them your wishes!`
+            : weekList.length ? `${weekList.length} student birthday${weekList.length === 1 ? '' : 's'} coming up in the next 7 days`
+            : 'No birthdays today; here is the next celebration on the calendar.';
+        const status = document.getElementById('birthdayReminderStatus');
+        status.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${todayList.length ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}"></span>${todayList.length ? 'Celebrate today' : 'Up to date'}`;
+
+        const list = document.getElementById('birthdayReminderList');
+        if (!watchlist.length) {
+            const next = valid.sort((a,b)=>a.dayGap-b.dayGap)[0];
+            list.innerHTML = next ? `<div class="col-span-full rounded-xl bg-white/70 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between gap-3"><div><p class="text-xs font-bold text-slate-800 dark:text-slate-100">Next birthday: ${escapeBirthdayHTML(birthdayStudentName(next.student))}</p><p class="text-[11px] text-slate-500">${next.next.toLocaleDateString(undefined,{day:'numeric',month:'long'})} · ${escapeBirthdayHTML(next.student.className || next.student.class || next.student.classArm || 'Class not specified')}</p></div><span class="text-xs font-bold text-indigo-600">${next.dayGap} day${next.dayGap===1?'':'s'}</span></div>` :
+                '<div class="col-span-full rounded-xl border border-dashed border-slate-200 dark:border-slate-700 p-5 text-center text-xs text-slate-400">No student birthday records were returned for the current and next month.</div>';
+            return;
+        }
+        list.innerHTML = watchlist.slice(0,9).map(({student,dob,dayGap,next}) => {
+            const name = birthdayStudentName(student);
+            const className = student.className || student.class || student.classArm || 'Class not specified';
+            const photo = student.photo_url || student.photoUrl || student.passport || '';
+            const initials = name.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
+            const dateLabel = next.toLocaleDateString(undefined,{day:'numeric',month:'short'});
+            const when = dayGap === 0 ? 'Today 🎉' : dayGap === 1 ? 'Tomorrow' : `In ${dayGap} days`;
+            const phone = String(student.phone || student.phoneNumber || student.parentPhone || '').replace(/[^\d+]/g,'');
+            const message = encodeURIComponent(`Happy birthday ${name}! Wishing you a wonderful year ahead from ${currentSchool?.schoolName || currentSchool?.name || 'your school'}.`);
+            const greet = phone ? `<a target="_blank" rel="noopener" href="https://wa.me/${phone.replace(/^\+/,'')}?text=${message}" class="text-[10px] font-bold text-emerald-600 hover:underline">Send wishes <i class="fa-brands fa-whatsapp"></i></a>` : '';
+            return `<article class="flex items-center gap-3 rounded-xl bg-white/85 dark:bg-slate-900/60 border ${dayGap===0?'border-rose-200 dark:border-rose-900':'border-slate-200 dark:border-slate-700'} p-3 min-w-0">
+                ${photo ? `<img src="${escapeBirthdayHTML(photo)}" alt="" class="w-10 h-10 rounded-full object-cover bg-slate-100" onerror="this.style.display='none'">` : `<div class="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 flex items-center justify-center text-xs font-black">${escapeBirthdayHTML(initials)}</div>`}
+                <div class="min-w-0 flex-1"><p class="text-xs font-extrabold text-slate-900 dark:text-white truncate">${escapeBirthdayHTML(name)}</p><p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${escapeBirthdayHTML(className)} · ${dateLabel}</p><div class="mt-1 flex items-center gap-2"><span class="text-[10px] font-bold ${dayGap===0?'text-rose-600':'text-amber-600'}">${when}</span>${greet}</div></div>
+            </article>`;
+        }).join('');
+        if (watchlist.length > 9) list.insertAdjacentHTML('beforeend', `<a href="students-birthdays.html" class="col-span-full text-center text-[11px] font-bold text-indigo-600 dark:text-indigo-300 hover:underline py-2">View ${watchlist.length-9} more upcoming celebrations →</a>`);
+    }
+
+    async function fetchBirthdayReminders() {
+        const list = document.getElementById('birthdayReminderList');
+        const status = document.getElementById('birthdayReminderStatus');
+        if (!list || !localStorage.getItem('token') && !localStorage.getItem('adminToken') && !localStorage.getItem('authToken')) return;
+        list.innerHTML = '<div class="col-span-full p-5 text-center text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Loading student birthdays…</div>';
+        status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Syncing';
+        try {
+            const now = new Date();
+            const months = [now.getMonth()+1, (now.getMonth()+1)%12+1];
+            const results = await Promise.all(months.map(requestBirthdayMonth));
+            const seen = new Set();
+            birthdayReminderRecords = results.flat().filter(student => {
+                const key = String(student._id || student.id || `${birthdayStudentName(student)}-${student.dob || student.dateOfBirth}`);
+                if (seen.has(key)) return false;
+                seen.add(key); return true;
+            });
+            renderBirthdayReminders();
+            document.getElementById('birthdayReminderFootnote').textContent = `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · School-scoped student birthday records`;
+        } catch (error) {
+            console.error('Birthday reminder fetch failed:', error);
+            status.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Unavailable';
+            list.innerHTML = `<div class="col-span-full rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20 p-4 text-xs text-rose-700 dark:text-rose-300">Could not load birthday reminders. ${escapeBirthdayHTML(error.message)} <button id="retryBirthdayReminder" class="ml-2 font-bold underline">Try again</button></div>`;
+            document.getElementById('retryBirthdayReminder')?.addEventListener('click', () => { birthdayReminderCache.clear(); fetchBirthdayReminders(); });
+        }
+    }
+
     function initializeBottomToolbar() {
         const btn = document.getElementById('adminBottomMenuBtn');
         const drawer = document.getElementById('adminBottomDrawer');
@@ -1103,6 +1262,10 @@
         });
 
         document.getElementById('printDashboardBtn')?.addEventListener('click', () => window.print());
+        document.getElementById('refreshBirthdaysBtn')?.addEventListener('click', () => {
+            birthdayReminderCache.clear();
+            fetchBirthdayReminders();
+        });
 
         document.getElementById('copySchoolIdBtn')?.addEventListener('click', async () => {
             const schoolId = currentSchool?.schoolId || currentUser?.schoolId || publicSchoolId || document.getElementById('sidebarSchoolId')?.textContent?.trim();
@@ -1310,7 +1473,7 @@
         const user = await loadAuthenticatedUser();
         if (!user) return;
 
-        await fetchDashboardData();
+        await Promise.allSettled([fetchDashboardData(), fetchBirthdayReminders()]);
 
         if (spinner) {
             spinner.style.opacity = '0';
