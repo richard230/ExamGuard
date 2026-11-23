@@ -248,10 +248,10 @@ Signed in as <strong id="adminName" class="text-slate-200">Admin</strong>
 <table class="w-full text-xs md:text-sm text-left text-slate-600" id="parentsTable" style="display: none;">
 <thead class="text-xs text-slate-700 uppercase bg-slate-100/80 border-b border-slate-200">
 <tr>
+<th scope="col" class="px-4 py-3.5 font-bold w-14">S/N</th>
 <th scope="col" class="px-4 py-3.5 font-bold">Name</th>
 <th scope="col" class="px-4 py-3.5 font-bold">Email / Username</th>
 <th scope="col" class="px-4 py-3.5 font-bold">Phone Number</th>
-<th scope="col" class="px-4 py-3.5 font-bold">Assigned Student(s)</th>
 <th scope="col" class="px-4 py-3.5 font-bold text-center w-36">Actions</th>
 </tr>
 </thead>
@@ -862,14 +862,16 @@ function showError(message) {
     }, 3000);
 }
 
-function generatePassword() {
-    const length = 12;
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < length; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
+function generatePassword(phoneNumber) {
+    // Use the last six digits of the parent's phone number.
+    // Non-numeric characters (such as +, spaces, and hyphens) are ignored.
+    const digits = String(phoneNumber || '').replace(/\\D/g, '');
+
+    if (digits.length < 6) {
+        throw new Error('This parent does not have a valid phone number with at least 6 digits. Update the phone number before generating a password.');
     }
-    return password;
+
+    return digits.slice(-6);
 }
 
 async function fetchStudents() {
@@ -904,13 +906,14 @@ async function fetchStudents() {
                         ? data.data
                         : [];
         allStudents = studentsArray.map(s => ({
-            student_id: String(s.student_id || ''),
-            _id: String(s._id || ''),
-            firstName: s.firstname || s.firstName || '',
-            lastName: s.surname || s.lastName || '',
-            className: s.class || s.className || '',
-            classArm: s.classArm || '',
-            regNo: s.regNo || '',
+            // Parent.studentIds stores MongoDB student _id values.
+            student_id: String(s.student_id || s._id || s.id || ''),
+            _id: String(s._id || s.id || ''),
+            firstName: s.firstname || s.firstName || s.first_name || '',
+            lastName: s.surname || s.lastName || s.lastname || s.last_name || '',
+            className: s.class || s.className || s.class_name || '',
+            classArm: s.classArm || s.class_arm || '',
+            regNo: s.regNo || s.registrationNumber || s.registration_number || '',
             academicSession: s.academicSession || s.session || ''
         }));
         console.log(
@@ -1043,59 +1046,71 @@ async function fetchParents() {
     }
 }
 
+function getParentAssignedStudentRecords(parent) {
+    const ids = Array.isArray(parent?.studentIds) ? parent.studentIds : [];
+
+    return ids.map(entry => {
+        if (entry && typeof entry === 'object') {
+            const id = String(entry._id || entry.student_id || entry.id || '');
+            const firstName = entry.firstname || entry.firstName || entry.first_name || '';
+            const lastName = entry.surname || entry.lastName || entry.lastname || entry.last_name || '';
+            return {
+                id,
+                name: `${firstName} ${lastName}`.trim(),
+                className: entry.class || entry.className || entry.class_name || '',
+                classArm: entry.classArm || entry.class_arm || '',
+                regNo: entry.regNo || entry.registrationNumber || ''
+            };
+        }
+
+        const id = String(entry || '');
+        const student = allStudents.find(s =>
+            String(s._id) === id || String(s.student_id) === id
+        );
+
+        return student
+            ? {
+                id,
+                name: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                className: student.className || '',
+                classArm: student.classArm || '',
+                regNo: student.regNo || ''
+            }
+            : { id, name: '', className: '', classArm: '', regNo: '' };
+    }).filter(student => student.id || student.name);
+}
+
 function renderParents(parents) {
     parentsLoading.style.display = 'none';
     parentsTableBody.innerHTML = '';
+
     if (!parents || parents.length === 0) {
         parentsTable.style.display = 'none';
         parentsEmpty.classList.remove('hidden');
         parentsEmpty.classList.add('flex');
         return;
     }
+
     parentsEmpty.classList.add('hidden');
     parentsEmpty.classList.remove('flex');
     parentsTable.style.display = 'table';
-    parents.forEach((parent) => {
+
+    parents.forEach((parent, index) => {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50/80 transition border-b border-slate-100";
-        const studentBadges = (parent.studentIds || [])
-            .map(student => {
-                if (student && student.firstname && student.surname) {
-                    const studentFullName = `${escapeHTML(student.firstname)} ${escapeHTML(student.surname)}`;
-                    return `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold px-2 py-0.5 rounded-md mr-1 mb-1">${studentFullName}</span>`;
-                }
-                return '';
-            })
-            .filter(Boolean)
-            .join('');
-        const studentCount = (parent.studentIds || []).filter(s => s && s.firstname).length;
         tr.innerHTML = `
+        <td class="px-4 py-3 text-slate-500 font-medium">${index + 1}</td>
         <td class="px-4 py-3 font-semibold text-slate-900">${escapeHTML(parent.name || 'N/A')}</td>
         <td class="px-4 py-3 text-slate-600">${escapeHTML(parent.email || '—')}</td>
         <td class="px-4 py-3 text-slate-600">${escapeHTML(parent.phone || '—')}</td>
-        <td class="px-4 py-3">
-        <div>
-        ${studentBadges || '<span class="text-slate-400 italic">No students assigned</span>'}
-        ${studentCount > 0 ? `<p class="text-[11px] text-slate-500 mt-1">${studentCount} student(s)</p>` : ''}
-        </div>
-        </td>
         <td class="px-4 py-3 text-center">
-        <div class="inline-flex items-center justify-center gap-1">
-        <button class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="View Details" onclick="viewParent('${escapeHTML(parent._id)}')">
-        <i class="fa-solid fa-eye text-xs"></i>
-        </button>
-        <button class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Credentials" onclick="showCredentials('${escapeHTML(parent._id)}')">
-        <i class="fa-solid fa-key text-xs"></i>
-        </button>
-        <button class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Edit Parent" onclick="editParent('${escapeHTML(parent._id)}')">
-        <i class="fa-solid fa-pen-to-square text-xs"></i>
-        </button>
-        <button class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Parent" onclick="deleteParent('${escapeHTML(parent._id)}')">
-        <i class="fa-solid fa-trash text-xs"></i>
-        </button>
-        </div>
-        </td>
-        `;
+            <div class="inline-flex items-center justify-center gap-1">
+                <button class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="View Details" onclick="viewParent('${escapeHTML(parent._id)}')"><i class="fa-solid fa-eye text-xs"></i></button>
+                <button class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Credentials" onclick="showCredentials('${escapeHTML(parent._id)}')"><i class="fa-solid fa-key text-xs"></i></button>
+                <button class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Edit Parent" onclick="editParent('${escapeHTML(parent._id)}')"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
+                <button class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete Parent" onclick="deleteParent('${escapeHTML(parent._id)}')"><i class="fa-solid fa-trash text-xs"></i></button>
+            </div>
+        </td>`;
         parentsTableBody.appendChild(tr);
     });
 }
@@ -1213,7 +1228,8 @@ window.viewParent = function(id) {
             }
 
             const foundStudent = allStudents.find(
-                s => String(s._id) === String(student)
+                s => String(s._id) === String(student) ||
+                     String(s.student_id) === String(student)
             );
 
             if (foundStudent) {
@@ -1228,7 +1244,11 @@ window.viewParent = function(id) {
                 `;
             }
 
-            return '';
+            return `
+                <span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold px-2.5 py-1 rounded-md mr-1 mb-1">
+                    Assigned student
+                </span>
+            `;
         })
         .filter(Boolean)
         .join('');
@@ -1521,7 +1541,7 @@ window.resetParentPassword = async function(id) {
     const isNew = !parent.temporaryPassword;
     if (!confirm(`${isNew ? 'Generate' : 'Reset'} password for this parent?`)) return;
     try {
-        const newPassword = generatePassword();
+        const newPassword = generatePassword(parent.phone);
         const res = await fetch(`${API_BASE_URL}/api/parents/${id}/reset-password`, {
             method: 'POST',
             headers: getAuthHeaders(true),
@@ -1695,7 +1715,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        await fetchParents();
+        // Load the roster too, so parent.studentIds string values can be
+        // resolved to student names in the directory.
+        await Promise.all([fetchParents(), fetchStudents()]);
+        renderParents(allParents);
     } catch (error) {
         console.error('Portal initialization error:', error);
     } finally {
