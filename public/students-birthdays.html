@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Student Birthdays | Gold and Linc Schools</title>
+  <title>Student Birthdays | School Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Inter Font + FontAwesome + Tailwind -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400,600,700,800&display=swap" rel="stylesheet">
@@ -588,9 +588,9 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
       <div class="brand">
-        <img src="mainlogo.png" alt="Logo">
+        <img id="schoolLogo" src="" alt="School logo" style="display:none;">
         <div>
-          <div class="title">Gold and Linc Schools</div>
+          <div class="title" id="schoolName">School Portal</div>
           <div class="subtitle">Admin Portal</div>
         </div>
       </div>
@@ -739,21 +739,120 @@
   </div>
 
   <script>
-    // Spinner overlay logic
-    document.addEventListener('DOMContentLoaded', () => {
-      const spinner = document.getElementById('pageSpinnerOverlay');
-      if (spinner) spinner.style.display = 'flex';
-      setTimeout(() => {
-        if (spinner) {
-          spinner.style.opacity = '0';
-          setTimeout(() => {
-            spinner.style.display = 'none';
-          }, 400);
-        }
-      }, 1200);
-    });
+    // Shared ExamGuard API and active-school context.
+    const API_BASE_URL = 'https://examguard-8rxe.onrender.com/api';
+    const token = localStorage.getItem('token') || '';
+    let allBirthdays = [];
+    let activeSchool = null;
+    let activeSchoolId = '';
 
-    // Sidebar mobile toggle logic
+    function safeParse(value) {
+      if (!value) return null;
+      try { return typeof value === 'string' ? JSON.parse(value) : value; }
+      catch (_) { return null; }
+    }
+
+    function unwrapSchool(value) {
+      if (!value || typeof value !== 'object') return null;
+      let candidate = value;
+      if (candidate.data && typeof candidate.data === 'object') candidate = candidate.data;
+      if (candidate.school && typeof candidate.school === 'object') candidate = candidate.school;
+      if (candidate.data && candidate.data.school && typeof candidate.data.school === 'object') {
+        candidate = candidate.data.school;
+      }
+      return candidate;
+    }
+
+    function getStoredSchool() {
+      const hostSubdomain = (location.hostname || '').split('.')[0].toLowerCase();
+      const candidates = [];
+
+      // School-specific configuration keys used by the other school portal pages.
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (/examguard_school_config|school_config|schoolconfig/i.test(key)) {
+          const parsed = safeParse(localStorage.getItem(key));
+          const school = unwrapSchool(parsed);
+          if (school) candidates.push({ key, school });
+        }
+      }
+
+      // Prefer a config whose key matches the current portal subdomain.
+      const matched = candidates.find(item =>
+        hostSubdomain && item.key.toLowerCase().includes(hostSubdomain)
+      );
+      if (matched) return matched.school;
+      if (candidates.length === 1) return candidates[0].school;
+
+      // Fallback to school context stored with the authenticated session.
+      for (const key of ['currentSchool', 'school', 'schoolData', 'user', 'currentUser', 'authUser']) {
+        const parsed = safeParse(localStorage.getItem(key));
+        const school = unwrapSchool(parsed);
+        if (school && (school._id || school.id || school.schoolId || school.name)) return school;
+      }
+
+      // JWT claims may carry the active school's identifier and name.
+      try {
+        const payload = token.split('.')[1];
+        if (payload) {
+          const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+          return claims.school || claims.schoolData || {
+            _id: claims.schoolObjectId || claims.schoolMongoId || claims.schoolId,
+            name: claims.schoolName,
+            code: claims.schoolCode
+          };
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    function getSchoolIdentifier(school) {
+      if (!school) return '';
+      return school._id || school.mongoId || school.schoolObjectId ||
+        school.schoolMongoId || school.id || school.schoolId || '';
+    }
+
+    function getSchoolLogo(school) {
+      if (!school) return '';
+      const branding = school.branding || {};
+      return school.logoUrl || school.logo_url || school.logo ||
+        school.schoolLogo || branding.logoUrl || branding.logo_url || branding.logo || '';
+    }
+
+    function applySchoolBranding(school) {
+      const name = school && (school.name || school.schoolName || school.school_name);
+      const nameNode = document.getElementById('schoolName');
+      const logoNode = document.getElementById('schoolLogo');
+      const displayName = name || 'School Portal';
+      document.title = `Student Birthdays | ${displayName}`;
+      if (nameNode) nameNode.textContent = displayName;
+      const logo = getSchoolLogo(school);
+      if (logoNode && logo) {
+        logoNode.src = logo;
+        logoNode.style.display = '';
+        logoNode.onerror = () => { logoNode.style.display = 'none'; };
+      }
+    }
+
+    function buildApiHeaders() {
+      const headers = { 'Accept': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (activeSchoolId) headers['X-School-ID'] = activeSchoolId;
+      const schoolCode = activeSchool && (activeSchool.code || activeSchool.schoolCode ||
+        activeSchool.subdomain || activeSchool.slug);
+      if (schoolCode) headers['X-School-Code'] = schoolCode;
+      return headers;
+    }
+
+    function hidePageSpinner() {
+      const spinner = document.getElementById('pageSpinnerOverlay');
+      if (!spinner) return;
+      spinner.style.opacity = '0';
+      setTimeout(() => { spinner.style.display = 'none'; }, 400);
+    }
+
+    // Sidebar mobile toggle logic.
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -780,84 +879,89 @@
 
     sidebarToggle.addEventListener('click', openSidebar);
     sidebarOverlay.addEventListener('click', closeSidebar);
-
     document.querySelectorAll('.nav-link').forEach(link => {
       link.addEventListener('click', () => {
-        if (window.innerWidth <= 768) {
-          closeSidebar();
-        }
+        if (window.innerWidth <= 768) closeSidebar();
       });
     });
-
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeSidebar();
     });
-
     window.addEventListener('resize', handleResize);
     handleResize();
 
-    // ===== BIRTHDAY FUNCTIONALITY =====
-    const token = localStorage.getItem('token');
-    let allBirthdays = [];
+    function getStudentName(student) {
+      return student.name || student.fullName || student.full_name ||
+        [student.firstName || student.firstname, student.lastName || student.lastname || student.surname]
+          .filter(Boolean).join(' ') || 'Student';
+    }
 
-    // Fetch birthdays for a specific month
+    // Fetch birthdays only within the currently authenticated school's context.
     async function fetchBirthdays(month = null) {
       const now = new Date();
       const selectedMonth = month || (now.getMonth() + 1);
-      
-      document.getElementById('pastBirthdays').innerHTML = `
+      const pastGrid = document.getElementById('pastBirthdays');
+      pastGrid.innerHTML = `
         <div class="loading-container">
           <i class="fa fa-spinner fa-spin"></i>
           <span>Loading birthdays...</span>
-        </div>
-      `;
+        </div>`;
 
       try {
-        const res = await fetch(
-          `https://goldlincschools.onrender.com/api/students/birthdays?month=${selectedMonth}`,
-          { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-        const data = await res.json();
-        allBirthdays = Array.isArray(data) ? data : [];
+        if (!token) throw new Error('Your session has expired. Please sign in again.');
+        if (!activeSchoolId) throw new Error('The current school could not be identified. Please sign in through the correct school portal.');
 
-        // Sort into categories
+        const response = await fetch(
+          `${API_BASE_URL}/students/birthdays?month=${encodeURIComponent(selectedMonth)}`,
+          { method: 'GET', headers: buildApiHeaders() }
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.message || payload.error || `Unable to load birthdays (${response.status}).`);
+        }
+
+        const rows = Array.isArray(payload) ? payload :
+          (payload.students || payload.birthdays || payload.data || []);
+        allBirthdays = Array.isArray(rows) ? rows : [];
+
         let past = [], today = [], upcoming = [];
-        
         allBirthdays.forEach(student => {
-          if (!student.dob) return;
+          if (!student || !student.dob) return;
           const dob = new Date(student.dob);
-          if (dob.getMonth() + 1 !== selectedMonth) return;
-          
-          const bday = dob.getDate();
-          if (bday < now.getDate()) past.push(student);
-          else if (bday === now.getDate()) today.push(student);
-          else upcoming.push(student);
+          if (Number.isNaN(dob.getTime()) || dob.getMonth() + 1 !== selectedMonth) return;
+          const birthdayDay = dob.getDate();
+          if (selectedMonth < now.getMonth() + 1 ||
+              (selectedMonth === now.getMonth() + 1 && birthdayDay < now.getDate())) {
+            past.push(student);
+          } else if (selectedMonth === now.getMonth() + 1 && birthdayDay === now.getDate()) {
+            today.push(student);
+          } else {
+            upcoming.push(student);
+          }
         });
 
-        // Sort each group
         past.sort((a, b) => new Date(a.dob).getDate() - new Date(b.dob).getDate());
-        today.sort((a, b) => a.name.localeCompare(b.name));
+        today.sort((a, b) => getStudentName(a).localeCompare(getStudentName(b)));
         upcoming.sort((a, b) => new Date(a.dob).getDate() - new Date(b.dob).getDate());
 
-        // Update stats
         updateStats(past.length, today.length, upcoming.length);
-
-        // Render
         renderBirthdayGroup('pastBirthdays', past, 'past');
         renderBirthdayGroup('todayBirthdays', today, 'today');
         renderBirthdayGroup('upcomingBirthdays', upcoming, 'upcoming');
-      } catch (err) {
-        console.error('Failed to fetch birthdays:', err);
-        document.getElementById('pastBirthdays').innerHTML = `
-          <div class="empty-state">
-            <i class="fa fa-exclamation-circle"></i>
-            <p>Failed to load birthdays</p>
-          </div>
-        `;
+      } catch (error) {
+        console.error('Failed to fetch birthdays:', error);
+        const message = error.message || 'Failed to load birthdays.';
+        ['pastBirthdays', 'todayBirthdays', 'upcomingBirthdays'].forEach(id => {
+          document.getElementById(id).innerHTML = `
+            <div class="empty-state">
+              <i class="fa fa-exclamation-circle"></i>
+              <p>${message}</p>
+            </div>`;
+        });
+        updateStats(0, 0, 0);
       }
     }
 
-    // Update statistics
     function updateStats(pastCount, todayCount, upcomingCount) {
       document.getElementById('pastCount').textContent = pastCount;
       document.getElementById('todayCount').textContent = todayCount;
@@ -867,78 +971,76 @@
       document.getElementById('upcomingCountBadge').textContent = upcomingCount;
     }
 
-    // Render birthday cards
     function renderBirthdayGroup(id, students, type) {
       const grid = document.getElementById(id);
-      
       if (!students.length) {
         const messages = {
           past: 'No previous birthdays this month',
           today: 'No birthdays today',
           upcoming: 'No upcoming birthdays this month'
         };
-        const icons = {
-          past: 'fa-calendar-times',
-          today: 'fa-smile',
-          upcoming: 'fa-calendar'
-        };
-        
+        const icons = { past: 'fa-calendar-times', today: 'fa-smile', upcoming: 'fa-calendar' };
         grid.innerHTML = `
           <div class="empty-state">
             <i class="fa ${icons[type]}"></i>
             <p>${messages[type]}</p>
-          </div>
-        `;
+          </div>`;
         return;
       }
 
       const today = new Date();
-      const cards = students.map(s => {
-        const dob = new Date(s.dob);
+      grid.innerHTML = students.map(student => {
+        const dob = new Date(student.dob);
         const age = today.getFullYear() - dob.getFullYear();
-        const dateStr = `${dob.getDate().toString().padStart(2, '0')}/${(dob.getMonth() + 1).toString().padStart(2, '0')}`;
-        
+        const dateStr = `${String(dob.getDate()).padStart(2, '0')}/${String(dob.getMonth() + 1).padStart(2, '0')}`;
+        const name = getStudentName(student);
+        const photo = student.photo_url || student.photoUrl || student.photo || '';
+        const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1e40af&color=fff&bold=true`;
+        const className = student.className || student.class || student.class_name || 'N/A';
         return `
-          <div class="birthday-card ${type}" tabindex="0" title="${s.name}">
-            <img 
-              class="birthday-avatar" 
-              src="${s.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=1e40af&color=fff&bold=true`}"
-              alt="${s.name}"
-              onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=1e40af&color=fff&bold=true'"
-            >
-            <div class="birthday-name">${s.name}</div>
-            <div class="birthday-info">${s.className || s.class || 'N/A'}</div>
-            <div class="birthday-date">
-              <i class="fa fa-calendar"></i> ${dateStr}
-            </div>
-            <div class="birthday-age">
-              <i class="fa fa-birthday-cake"></i> ${age} years
-            </div>
-          </div>
-        `;
+          <div class="birthday-card ${type}" tabindex="0" title="${escapeHtml(name)}">
+            <img class="birthday-avatar"
+              src="${escapeHtml(photo || fallback)}"
+              alt="${escapeHtml(name)}"
+              onerror="this.onerror=null;this.src='${fallback}'">
+            <div class="birthday-name">${escapeHtml(name)}</div>
+            <div class="birthday-info">${escapeHtml(className)}</div>
+            <div class="birthday-date"><i class="fa fa-calendar"></i> ${dateStr}</div>
+            <div class="birthday-age"><i class="fa fa-birthday-cake"></i> ${age} years</div>
+          </div>`;
       }).join('');
-      
-      grid.innerHTML = cards;
     }
 
-    // Apply month filter
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[char]));
+    }
+
     window.applyMonthFilter = function() {
       const month = document.getElementById('monthFilter').value;
-      if (month) {
-        fetchBirthdays(parseInt(month));
-      } else {
-        fetchBirthdays();
-      }
-    }
+      fetchBirthdays(month ? parseInt(month, 10) : null);
+    };
 
-    // Reset filter
     window.resetFilter = function() {
       document.getElementById('monthFilter').value = '';
       fetchBirthdays();
+    };
+
+    async function initializePage() {
+      const spinner = document.getElementById('pageSpinnerOverlay');
+      if (spinner) spinner.style.display = 'flex';
+      try {
+        activeSchool = getStoredSchool();
+        activeSchoolId = getSchoolIdentifier(activeSchool);
+        applySchoolBranding(activeSchool);
+        await fetchBirthdays();
+      } finally {
+        hidePageSpinner();
+      }
     }
 
-    // Initialize
-    fetchBirthdays();
+    document.addEventListener('DOMContentLoaded', initializePage);
   </script>
 </body>
 </html>
