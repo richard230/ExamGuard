@@ -213,6 +213,9 @@
       color: var(--accent-2);
     }
 
+    .hero-panel{background:linear-gradient(120deg,#102b66,#2456b7);color:#fff;border-radius:18px;padding:26px 28px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;gap:18px;box-shadow:0 12px 30px rgba(22,55,120,.16)}
+    .hero-panel h2{font-size:1.55rem;font-weight:800;margin:0 0 7px}.hero-panel p{margin:0;color:#dbeafe;font-size:.94rem}.hero-actions{display:flex;gap:9px;flex-wrap:wrap}.hero-actions button,.tool-btn{border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer}.hero-actions button{background:#fff;color:#173b83}.tool-btn{background:#edf3ff;color:#1e40af}
+    .birthday-tools{display:grid;grid-template-columns:minmax(190px,2fr) minmax(150px,1fr) minmax(145px,1fr) auto;gap:10px;margin:18px 0 22px}.birthday-tools input,.birthday-tools select{width:100%;min-width:0;border:1px solid #dbe3f0;border-radius:10px;padding:12px 13px;background:#fff;font:inherit;outline:none}.birthday-tools input:focus,.birthday-tools select:focus{border-color:#2563eb;box-shadow:0 0 0 3px #2563eb18}.result-note{font-size:.85rem;color:#64748b;margin:0 0 10px}.birthday-card{position:relative}.birthday-card .birthday-tools-actions{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap;justify-content:center}.birthday-card .birthday-tools-actions a{font-size:.78rem;font-weight:700;padding:7px 9px;border-radius:7px;background:#eff6ff;color:#1d4ed8}.birthday-card .birthday-tools-actions a.greet{background:#ecfdf5;color:#047857}.stat-card{border-radius:13px;padding:18px;text-align:left;position:relative;overflow:hidden}.stat-card:after{content:'🎂';position:absolute;right:14px;bottom:4px;font-size:2rem;opacity:.13}.stat-number{font-size:2.15em}.birthday-section-header{border-radius:10px;padding:14px 15px}
     .birthdays-section {
       background: var(--card-bg);
       border-radius: var(--radius);
@@ -516,9 +519,9 @@
         min-width: 100%;
       }
 
-      .birthday-stats {
-        grid-template-columns: 1fr;
-      }
+      .birthday-stats { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .birthday-tools{grid-template-columns:1fr 1fr}.birthday-tools input{grid-column:1/-1}
+      .hero-panel{align-items:flex-start;flex-direction:column;padding:21px}.hero-actions{width:100%}.hero-actions button{flex:1}
     }
 
     @media (max-width: 600px) {
@@ -549,10 +552,10 @@
         font-size: 1.3rem;
       }
 
-      .birthday-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 12px;
-      }
+      .birthday-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+      .birthday-tools{grid-template-columns:1fr}.birthday-tools input{grid-column:auto}
+      .birthday-stats{gap:7px}.stat-card{padding:12px 9px}.stat-number{font-size:1.55rem}.stat-label{font-size:.72rem}
+      .birthdays-section{padding:14px;border-radius:14px}.birthday-card{padding:11px 8px}.birthday-info{font-size:.78rem}.birthday-age{font-size:.75rem}
 
       .birthday-card {
         padding: 12px;
@@ -657,9 +660,10 @@
 
     <!-- MAIN CONTENT -->
     <main class="main" id="main" role="main" tabindex="-1">
-      <h2 class="birthdays-title"><span>🎂</span> Student Birthdays</h2>
-      
+      <section class="hero-panel"><div><h2><i class="fa fa-cake-candles"></i> Birthday Centre</h2><p>Celebrate your students, plan ahead and never miss a special day.</p></div><div class="hero-actions"><button onclick="window.print()"><i class="fa fa-print"></i> Print</button><button onclick="exportBirthdays()"><i class="fa fa-download"></i> Export list</button></div></section>
       <section class="birthdays-section">
+        <div class="birthday-tools"><input id="birthdaySearch" type="search" placeholder="Search student name or class..." aria-label="Search birthdays"><select id="classFilter" aria-label="Filter by class"><option value="">All classes</option></select><select id="sortFilter" aria-label="Sort birthdays"><option value="date">Sort: Birthday date</option><option value="name">Sort: Student name</option><option value="class">Sort: Class</option></select><button class="tool-btn" onclick="clearBirthdaySearch()"><i class="fa fa-rotate-left"></i> Clear</button></div>
+        <p class="result-note" id="resultNote" aria-live="polite">Showing birthdays for this month</p>
         <!-- Filters -->
         <div class="filters-section">
           <div class="filter-select">
@@ -743,6 +747,7 @@
     const API_BASE_URL = 'https://examguard-8rxe.onrender.com/api';
     const token = localStorage.getItem('token') || '';
     let allBirthdays = [];
+    let birthdayGroups = { past: [], today: [], upcoming: [] };
     let activeSchool = null;
     let activeSchoolId = '';
 
@@ -944,10 +949,9 @@
         today.sort((a, b) => getStudentName(a).localeCompare(getStudentName(b)));
         upcoming.sort((a, b) => new Date(a.dob).getDate() - new Date(b.dob).getDate());
 
-        updateStats(past.length, today.length, upcoming.length);
-        renderBirthdayGroup('pastBirthdays', past, 'past');
-        renderBirthdayGroup('todayBirthdays', today, 'today');
-        renderBirthdayGroup('upcomingBirthdays', upcoming, 'upcoming');
+        birthdayGroups = { past, today, upcoming };
+        populateClassFilter();
+        renderFilteredBirthdays();
       } catch (error) {
         console.error('Failed to fetch birthdays:', error);
         const message = error.message || 'Failed to load birthdays.';
@@ -1007,9 +1011,17 @@
             <div class="birthday-info">${escapeHtml(className)}</div>
             <div class="birthday-date"><i class="fa fa-calendar"></i> ${dateStr}</div>
             <div class="birthday-age"><i class="fa fa-birthday-cake"></i> ${age} years</div>
+            <div class="birthday-tools-actions"><a class="greet" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(`Happy birthday ${name}! Wishing you a wonderful year ahead from your school family.`)}"><i class="fab fa-whatsapp"></i> Send wishes</a></div>
           </div>`;
       }).join('');
     }
+
+    function getClassName(student){return student.className || student.class || student.class_name || student.classroomName || 'N/A';}
+    function populateClassFilter(){const select=document.getElementById('classFilter');const current=select.value;const classes=[...new Set(allBirthdays.map(getClassName).filter(v=>v&&v!=='N/A'))].sort((a,b)=>a.localeCompare(b));select.innerHTML='<option value="">All classes</option>'+classes.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');select.value=classes.includes(current)?current:'';}
+    function renderFilteredBirthdays(){const query=(document.getElementById('birthdaySearch').value||'').trim().toLowerCase();const classValue=document.getElementById('classFilter').value;const sort=document.getElementById('sortFilter').value;let total=0;const groups={};Object.entries(birthdayGroups).forEach(([type,rows])=>{let filtered=rows.filter(st=>{const name=getStudentName(st).toLowerCase(),cls=getClassName(st).toLowerCase();return (!query||name.includes(query)||cls.includes(query))&&(!classValue||getClassName(st)===classValue);});filtered.sort((a,b)=>sort==='name'?getStudentName(a).localeCompare(getStudentName(b)):sort==='class'?getClassName(a).localeCompare(getClassName(b)):new Date(a.dob).getDate()-new Date(b.dob).getDate());groups[type]=filtered;total+=filtered.length;});updateStats(groups.past.length,groups.today.length,groups.upcoming.length);renderBirthdayGroup('pastBirthdays',groups.past,'past');renderBirthdayGroup('todayBirthdays',groups.today,'today');renderBirthdayGroup('upcomingBirthdays',groups.upcoming,'upcoming');document.getElementById('resultNote').textContent=`Showing ${total} student${total===1?'':'s'} · ${allBirthdays.length} birthday record${allBirthdays.length===1?'':'s'} loaded`}
+    window.clearBirthdaySearch=function(){document.getElementById('birthdaySearch').value='';document.getElementById('classFilter').value='';document.getElementById('sortFilter').value='date';renderFilteredBirthdays();};
+    window.exportBirthdays=function(){const rows=[['Student','Class','Date of birth','Age']];allBirthdays.forEach(st=>{if(!st.dob)return;const d=new Date(st.dob);rows.push([getStudentName(st),getClassName(st),d.toLocaleDateString(),new Date().getFullYear()-d.getFullYear()]);});const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='student-birthdays.csv';a.click();URL.revokeObjectURL(url);};
+    ['birthdaySearch','classFilter','sortFilter'].forEach(id=>document.getElementById(id).addEventListener(id==='birthdaySearch'?'input':'change',renderFilteredBirthdays));
 
     function escapeHtml(value) {
       return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
