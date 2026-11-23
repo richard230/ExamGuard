@@ -314,7 +314,7 @@ Signed in as <strong id="adminName" class="text-slate-200">Admin</strong>
 </div>
 </div>
 <div class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" id="parentModalBackdrop">
-<div class="relative bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200" role="dialog" aria-modal="true" aria-labelledby="parentModalTitle">
+<div class="relative bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200" role="dialog" aria-modal="true" aria-labelledby="parentModalTitle">
 <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2" id="parentModalTitle">
 Add Parent
@@ -395,7 +395,7 @@ Add Parent
 </div>
 </div>
 <div class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" id="viewParentModalBackdrop">
-<div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-slate-200" role="dialog" aria-modal="true" aria-labelledby="viewParentModalTitle">
+<div class="relative bg-white rounded-2xl shadow-xl max-w-xl w-full overflow-hidden border border-slate-200" role="dialog" aria-modal="true" aria-labelledby="viewParentModalTitle">
 <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2" id="viewParentModalTitle">
 Parent Profile Details
@@ -409,7 +409,7 @@ Parent Profile Details
 </div>
 </div>
 <div class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" id="credentialsModalBackdrop">
-<div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200" role="dialog" aria-modal="true" aria-labelledby="credentialsModalTitle">
+<div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-slate-200" role="dialog" aria-modal="true" aria-labelledby="credentialsModalTitle">
 <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2" id="credentialsModalTitle">
 Parent Login Access
@@ -862,16 +862,39 @@ function showError(message) {
     }, 3000);
 }
 
-function generatePassword(phoneNumber) {
-    // Use the last six digits of the parent's phone number.
-    // Non-numeric characters (such as +, spaces, and hyphens) are ignored.
-    const digits = String(phoneNumber || '').replace(/\\D/g, '');
+function generatePassword(phoneNumber, previousPassword = '') {
+    // Use the parent's last six phone-number digits, shuffled into a new order.
+    // Ignore formatting characters such as +, spaces, and hyphens.
+    const digits = String(phoneNumber || '').replace(/\D/g, '').slice(-6);
 
     if (digits.length < 6) {
         throw new Error('This parent does not have a valid phone number with at least 6 digits. Update the phone number before generating a password.');
     }
 
-    return digits.slice(-6);
+    const previous = String(previousPassword || '');
+    const hasAlternative = new Set(digits).size > 1;
+    const chars = digits.split('');
+
+    // Fisher-Yates shuffle with cryptographically strong browser randomness.
+    for (let i = chars.length - 1; i > 0; i--) {
+        const random = new Uint32Array(1);
+        crypto.getRandomValues(random);
+        const j = random[0] % (i + 1);
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+
+    let password = chars.join('');
+
+    // If the shuffle happens to reproduce the previous password, rotate the
+    // digits to ensure a different password whenever another arrangement exists.
+    if (hasAlternative && password === previous) {
+        password = password.slice(1) + password[0];
+        if (password === previous) {
+            password = password.slice(1) + password[0];
+        }
+    }
+
+    return password;
 }
 
 async function fetchStudents() {
@@ -1541,7 +1564,7 @@ window.resetParentPassword = async function(id) {
     const isNew = !parent.temporaryPassword;
     if (!confirm(`${isNew ? 'Generate' : 'Reset'} password for this parent?`)) return;
     try {
-        const newPassword = generatePassword(parent.phone);
+        const newPassword = generatePassword(parent.phone, parent.temporaryPassword);
         const res = await fetch(`${API_BASE_URL}/api/parents/${id}/reset-password`, {
             method: 'POST',
             headers: getAuthHeaders(true),
