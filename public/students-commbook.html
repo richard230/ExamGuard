@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Student Communication Book | Gold and Linc Schools</title>
+  <title>Student Communication Book | School Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Inter Font + FontAwesome + Tailwind + Flowbite -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400,600,700,800&display=swap" rel="stylesheet">
@@ -627,7 +627,7 @@
       <div class="brand">
         <img src="mainlogo.png" alt="Logo">
         <div>
-          <div class="title">Gold and Linc Schools</div>
+          <div class="title" id="schoolBrandName">School Portal</div>
           <div class="subtitle">Admin Portal</div>
         </div>
       </div>
@@ -766,307 +766,259 @@
   </div>
 
   <script>
-    // Spinner overlay logic
-    document.addEventListener('DOMContentLoaded', () => {
-      const spinner = document.getElementById('pageSpinnerOverlay');
-      if (spinner) spinner.style.display = 'flex';
-      setTimeout(() => {
-        if (spinner) {
-          spinner.style.opacity = '0';
-          setTimeout(() => {
-            spinner.style.display = 'none';
-          }, 400);
-        }
-      }, 1200);
-    });
+    // Shared ExamGuard API and multi-school context.
+    const API_BASE = 'https://examguard-8rxe.onrender.com/api';
+    const authToken = ['token', 'authToken', 'student_token', 'studentToken']
+      .map(key => localStorage.getItem(key)).find(Boolean) || '';
+    let currentSchool = null, currentSchoolId = '', currentSchoolCode = '';
+    let classList = [], studentsByClass = {}, allMessages = [];
 
-    // Sidebar mobile toggle logic
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+
+    function getSubdomain() {
+      const host = location.hostname.toLowerCase(), parts = host.split('.');
+      return host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host) || parts.length < 3 ? '' : parts[0];
+    }
+    function unwrapSchoolConfig(raw) {
+      if (!raw) return null;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return parsed?.data?.school || parsed?.school || parsed?.data || parsed || null;
+      } catch (_) { return null; }
+    }
+    function getCachedSchool() {
+      const sub = getSubdomain();
+      for (const key of ['schoolConfig', 'currentSchoolConfig', 'school_config',
+        'examguard_school_config' + (sub ? '_' + sub : ''), 'examguard_school_config']) {
+        const value = unwrapSchoolConfig(localStorage.getItem(key));
+        if (value && (value._id || value.schoolId || value.subdomain)) return value;
+      }
+      const id = localStorage.getItem('schoolId') || localStorage.getItem('publicSchoolId') || '';
+      const code = localStorage.getItem('schoolCode') || localStorage.getItem('school_code') || '';
+      return id || code || sub ? { _id: id, schoolId: id, schoolCode: code, subdomain: sub } : null;
+    }
+    function schoolHeaders(extra = {}) {
+      const h = { ...extra };
+      if (authToken) h.Authorization = `Bearer ${authToken}`;
+      if (currentSchoolId) h['X-School-ID'] = currentSchoolId;
+      if (currentSchoolCode) h['X-School-Code'] = currentSchoolCode;
+      return h;
+    }
+    async function apiRequest(path, options = {}) {
+      const url = new URL(`${API_BASE}${path}`);
+      if (currentSchoolId && !['POST','PUT','PATCH','DELETE'].includes((options.method || 'GET').toUpperCase()))
+        url.searchParams.set('schoolId', currentSchoolId);
+      const response = await fetch(url, { ...options, headers: schoolHeaders(options.headers || {}) });
+      let data = {};
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok) throw new Error(data.message || data.error || `Request failed (${response.status})`);
+      return data;
+    }
+    async function resolveSchoolContext() {
+      currentSchool = getCachedSchool();
+      currentSchoolId = currentSchool?._id || currentSchool?.schoolId || currentSchool?.id || '';
+      currentSchoolCode = currentSchool?.schoolCode || currentSchool?.code || currentSchool?.registrationCode || '';
+
+      if (authToken) {
+        try {
+          const me = await apiRequest('/auth/me');
+          const user = me.user || me.data?.user || me;
+          const school = user.school && typeof user.school === 'object' ? user.school : {};
+          const id = school._id || user.schoolId || '';
+          if (id) {
+            currentSchool = { ...(currentSchool || {}), ...school, _id: id };
+            currentSchoolId = id;
+            currentSchoolCode = school.schoolCode || school.code || user.schoolCode || currentSchoolCode;
+          }
+        } catch (e) { console.warn('Auth school lookup:', e.message); }
+      }
+
+      const sub = getSubdomain() || currentSchool?.subdomain || '';
+      if ((!currentSchoolId || !currentSchoolCode) && (sub || currentSchoolId)) {
+        try {
+          const query = currentSchoolId ? `?schoolId=${encodeURIComponent(currentSchoolId)}` : `?subdomain=${encodeURIComponent(sub)}`;
+          const result = await apiRequest('/schools/config' + query);
+          const school = unwrapSchoolConfig(result);
+          if (school) {
+            currentSchool = { ...(currentSchool || {}), ...school };
+            currentSchoolId = school._id || school.schoolId || currentSchoolId;
+            currentSchoolCode = school.schoolCode || school.code || currentSchoolCode;
+          }
+        } catch (e) { console.warn('School config lookup:', e.message); }
+      }
+      if (currentSchool) {
+        if (currentSchoolId) {
+          localStorage.setItem('schoolId', currentSchoolId);
+          localStorage.setItem('publicSchoolId', currentSchoolId);
+        }
+        if (currentSchoolCode) localStorage.setItem('schoolCode', currentSchoolCode);
+        if (currentSchool.subdomain) localStorage.setItem('schoolSubdomain', currentSchool.subdomain);
+        const name = currentSchool.name || currentSchool.schoolName || currentSchool.school_name || currentSchool.institutionName || '';
+        const brandName = document.getElementById('schoolBrandName');
+        if (brandName) brandName.textContent = name || 'School Portal';
+        document.title = name ? `Student Communication Book | ${name}` : 'Student Communication Book | School Portal';
+        const logo = currentSchool.logo || currentSchool.logoUrl || currentSchool.schoolLogo;
+        if (logo) document.querySelector('.brand img').src = logo;
+      }
+    }
+    function hidePageSpinner() {
+      const el = document.getElementById('pageSpinnerOverlay');
+      if (!el) return;
+      el.style.opacity = '0';
+      setTimeout(() => { el.style.display = 'none'; }, 400);
+    }
+
+    // Sidebar controls.
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
-
     function handleResize() {
-      if (window.innerWidth <= 768) {
-        sidebarToggle.style.display = 'flex';
-      } else {
-        sidebarToggle.style.display = 'none';
-        sidebar.classList.remove('active');
-        sidebarOverlay.classList.remove('active');
-      }
+      if (innerWidth <= 768) sidebarToggle.style.display = 'flex';
+      else { sidebarToggle.style.display = 'none'; sidebar.classList.remove('active'); sidebarOverlay.classList.remove('active'); }
     }
-
-    function openSidebar() {
-      sidebar.classList.add('active');
-      sidebarOverlay.classList.add('active');
-    }
-
-    function closeSidebar() {
-      sidebar.classList.remove('active');
-      sidebarOverlay.classList.remove('active');
-    }
-
-    sidebarToggle.addEventListener('click', openSidebar);
+    function closeSidebar() { sidebar.classList.remove('active'); sidebarOverlay.classList.remove('active'); }
+    sidebarToggle.addEventListener('click', () => { sidebar.classList.add('active'); sidebarOverlay.classList.add('active'); });
     sidebarOverlay.addEventListener('click', closeSidebar);
+    document.querySelectorAll('.nav-link').forEach(a => a.addEventListener('click', () => { if (innerWidth <= 768) closeSidebar(); }));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+    addEventListener('resize', handleResize); handleResize();
 
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', () => {
-        if (window.innerWidth <= 768) {
-          closeSidebar();
-        }
-      });
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeSidebar();
-    });
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    // ===== COMMUNICATION BOOK FUNCTIONALITY =====
-    let classList = [];
-    let studentsByClass = {};
-    let allMessages = [];
-    const token = localStorage.getItem('token');
-
-    // Fetch classes
+    function normalizeList(payload, key) {
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload?.[key])) return payload[key];
+      if (Array.isArray(payload?.data?.[key])) return payload.data[key];
+      if (Array.isArray(payload?.data)) return payload.data;
+      return [];
+    }
     async function fetchClasses() {
+      const payload = await apiRequest('/classes');
+      classList = normalizeList(payload, 'classes');
+      const options = classList.map(c => `<option value="${escapeHtml(c._id || c.id)}">${escapeHtml(c.name || c.className || 'Unnamed class')}</option>`).join('');
+      document.getElementById('filterClass').innerHTML = '<option value="">All Classes</option>' + options;
+      document.getElementById('messageClass').innerHTML = '<option value="">Select Class</option>' + options;
+    }
+    async function fetchStudentsForClass(classId, selectId) {
+      const select = document.getElementById(selectId);
+      if (!classId) { select.innerHTML = '<option value="">Select Student</option>'; return; }
       try {
-        const res = await fetch('https://goldlincschools.onrender.com/api/classes', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        classList = Array.isArray(data) ? data : [];
-        
-        const classSelects = [
-          document.getElementById('filterClass'),
-          document.getElementById('messageClass')
-        ];
-        
-        classSelects.forEach(sel => {
-          sel.innerHTML = '<option value="">Select Class</option>' + 
-            classList.map(c => `<option value="${c._id}">${c.name}</option>`).join('');
-        });
-      } catch (err) {
-        console.error('Failed to fetch classes:', err);
-        showError('Failed to load classes');
+        if (!studentsByClass[classId]) {
+          const payload = await apiRequest(`/classes/${encodeURIComponent(classId)}/students`);
+          studentsByClass[classId] = normalizeList(payload, 'students');
+        }
+        select.innerHTML = '<option value="">Select Student</option>' + studentsByClass[classId].map(s => {
+          const id = s._id || s.id;
+          const name = s.name || [s.firstName || s.firstname, s.lastName || s.surname].filter(Boolean).join(' ') || s.fullName || 'Unnamed student';
+          const reg = s.regNo || s.registrationNumber || s.admissionNumber || s.studentId || 'N/A';
+          return `<option value="${escapeHtml(id)}">${escapeHtml(name)} (${escapeHtml(reg)})</option>`;
+        }).join('');
+      } catch (e) {
+        console.error('Student lookup failed:', e);
+        select.innerHTML = '<option value="">Unable to load students</option>';
+        showError(e.message || 'Failed to load students');
       }
     }
-
-    // Fetch students for a class
-    async function fetchStudentsForClass(classId, selId) {
-      const sel = document.getElementById(selId);
-      if (!classId) {
-        sel.innerHTML = '<option value="">Select Student</option>';
-        return;
-      }
-      
-      if (studentsByClass[classId]) {
-        renderStudentSelect(selId, studentsByClass[classId]);
-        return;
-      }
-      
-      try {
-        const res = await fetch(`https://goldlincschools.onrender.com/api/classes/${classId}/students`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        studentsByClass[classId] = Array.isArray(data) ? data : [];
-        renderStudentSelect(selId, studentsByClass[classId]);
-      } catch (err) {
-        console.error('Failed to fetch students:', err);
-        sel.innerHTML = '<option value="">Select Student</option>';
-      }
-    }
-
-    function renderStudentSelect(selId, students) {
-      const sel = document.getElementById(selId);
-      sel.innerHTML = '<option value="">Select Student</option>' +
-        students.map(s => `<option value="${s._id}">${s.name} (${s.regNo || 'N/A'})</option>`).join('');
-    }
-
-    // Event listeners for class selection
-    document.getElementById('messageClass').addEventListener('change', function() {
+    document.getElementById('messageClass').addEventListener('change', function () {
       fetchStudentsForClass(this.value, 'messageStudent');
     });
 
-    // Fetch messages
     async function fetchMessages() {
-      const msgList = document.getElementById('commbookMsgList');
-      msgList.innerHTML = `
-        <div class="spinner-inline">
-          <i class="fa fa-spinner"></i>
-          <span>Loading messages...</span>
-        </div>
-      `;
-      msgList.classList.add('loading');
-
+      const box = document.getElementById('commbookMsgList');
+      box.innerHTML = '<div class="spinner-inline"><i class="fa fa-spinner"></i><span>Loading messages...</span></div>';
+      box.classList.add('loading');
       try {
-        const res = await fetch('https://goldlincschools.onrender.com/api/commbook/messages', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        allMessages = Array.isArray(data) ? data : [];
-        
-        msgList.classList.remove('loading');
-        renderMessages(allMessages);
-        updateMessageCount(allMessages.length);
-      } catch (err) {
-        console.error('Failed to fetch messages:', err);
-        msgList.innerHTML = `<div class="empty-state"><i class="fa fa-exclamation-circle"></i> Failed to load messages</div>`;
-        msgList.classList.remove('loading');
-        showError('Failed to load messages');
+        const payload = await apiRequest('/commbook/messages');
+        allMessages = normalizeList(payload, 'messages');
+        box.classList.remove('loading');
+        renderMessages(allMessages); updateMessageCount(allMessages.length);
+      } catch (e) {
+        console.error('Message lookup failed:', e);
+        box.classList.remove('loading');
+        box.innerHTML = `<div class="empty-state"><i class="fa fa-exclamation-circle"></i> ${escapeHtml(e.message || 'Failed to load messages')}</div>`;
+        showError('Failed to load messages: ' + (e.message || 'Please try again.'));
       }
     }
-
-    // Render messages
     function renderMessages(messages) {
-      const msgList = document.getElementById('commbookMsgList');
-      
-      if (!messages || messages.length === 0) {
-        msgList.innerHTML = `<div class="empty-state"><i class="fa fa-inbox"></i> No messages found</div>`;
-        return;
-      }
-
-      msgList.innerHTML = messages.map(msg => `
-        <div class="comm-msg ${msg.senderRole === 'teacher' ? 'teacher' : msg.senderRole === 'admin' ? 'admin' : 'student'}">
-          <div class="comm-meta">
-            <span class="comm-author">${msg.senderName || 'Unknown'}</span>
-            <span class="comm-badge ${msg.senderRole === 'teacher' ? 'teacher' : msg.senderRole === 'admin' ? 'admin' : 'student'}">
-              ${msg.senderRole ? msg.senderRole.charAt(0).toUpperCase() + msg.senderRole.slice(1) : 'Student'}
-            </span>
-            <span style="color: #aaa;">•</span>
-            <span>${msg.className || 'N/A'}</span>
-            <span style="color: #aaa;">•</span>
-            <span style="font-size: 0.8em;">${msg.date ? new Date(msg.date).toLocaleString() : 'Unknown date'}</span>
-          </div>
-          <div class="comm-content">${msg.content || ''}</div>
-        </div>
-      `).join('');
+      const box = document.getElementById('commbookMsgList');
+      if (!messages?.length) { box.innerHTML = '<div class="empty-state"><i class="fa fa-inbox"></i> No messages found</div>'; return; }
+      box.innerHTML = messages.map(m => {
+        const role = m.senderRole || 'student', cls = role === 'teacher' ? 'teacher' : role === 'admin' ? 'admin' : 'student';
+        const date = m.date || m.createdAt;
+        return `<div class="comm-msg ${cls}"><div class="comm-meta">
+          <span class="comm-author">${escapeHtml(m.senderName || 'Unknown')}</span>
+          <span class="comm-badge ${cls}">${escapeHtml(role.charAt(0).toUpperCase() + role.slice(1))}</span>
+          <span style="color:#aaa">•</span><span>${escapeHtml(m.className || 'N/A')}</span>
+          <span style="color:#aaa">•</span><span style="font-size:.8em">${escapeHtml(date ? new Date(date).toLocaleString() : 'Unknown date')}</span>
+          </div><div class="comm-content">${escapeHtml(m.content || m.message || '')}</div></div>`;
+      }).join('');
     }
-
-    // Apply filters
-    window.applyFilters = function() {
+    window.applyFilters = function () {
       const classId = document.getElementById('filterClass').value;
-      const searchTerm = document.getElementById('searchStudent').value.toLowerCase().trim();
-
+      const term = document.getElementById('searchStudent').value.toLowerCase().trim();
       let filtered = allMessages;
-
-      if (classId) {
-        filtered = filtered.filter(msg => msg.class === classId || msg.classId === classId);
-      }
-
-      if (searchTerm) {
-        filtered = filtered.filter(msg => 
-          (msg.studentName || '').toLowerCase().includes(searchTerm) ||
-          (msg.studentRegNo || '').toLowerCase().includes(searchTerm) ||
-          (msg.content || '').toLowerCase().includes(searchTerm)
-        );
-      }
-
-      renderMessages(filtered);
-      updateMessageCount(filtered.length, allMessages.length);
-    }
-
-    // Reset filters
-    window.resetFilters = function() {
+      if (classId) filtered = filtered.filter(m => String(m.class?._id || m.class || m.classId || '') === classId);
+      if (term) filtered = filtered.filter(m => [m.studentName,m.studentRegNo,m.content,m.message,m.senderName].some(v => String(v || '').toLowerCase().includes(term)));
+      renderMessages(filtered); updateMessageCount(filtered.length, allMessages.length);
+    };
+    window.resetFilters = function () {
       document.getElementById('filterClass').value = '';
       document.getElementById('searchStudent').value = '';
-      renderMessages(allMessages);
-      updateMessageCount(allMessages.length);
+      renderMessages(allMessages); updateMessageCount(allMessages.length);
+    };
+    function updateMessageCount(count, total) {
+      document.getElementById('messageCount').textContent = total !== undefined
+        ? `Showing ${count} of ${total} messages`
+        : `Showing ${count} message${count !== 1 ? 's' : ''}`;
     }
-
-    // Update message count
-    function updateMessageCount(filtered, total) {
-      const countEl = document.getElementById('messageCount');
-      if (total) {
-        countEl.textContent = `Showing ${filtered} of ${total} messages`;
-      } else {
-        countEl.textContent = `Showing ${filtered} message${filtered !== 1 ? 's' : ''}`;
-      }
-    }
-
-    // Character counter
-    document.getElementById('messageContent').addEventListener('input', function() {
+    document.getElementById('messageContent').addEventListener('input', function () {
       document.getElementById('charCount').textContent = this.value.length;
     });
-
-    // Send message
-    window.sendMessage = async function(event) {
+    window.sendMessage = async function (event) {
       event.preventDefault();
-      
       const classId = document.getElementById('messageClass').value;
       const studentId = document.getElementById('messageStudent').value;
       const content = document.getElementById('messageContent').value.trim();
-
-      if (!classId || !studentId || !content) {
-        showError('Please fill in all required fields');
-        return;
-      }
-
-      const submitBtn = event.target.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
-
+      if (!classId || !studentId || !content) { showError('Please fill in all required fields'); return; }
+      const button = event.target.querySelector('button[type="submit"]');
+      button.disabled = true; button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
       try {
-        const res = await fetch('https://goldlincschools.onrender.com/api/commbook/messages', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            class: classId,
-            student: studentId,
-            content: content
-          })
+        await apiRequest('/commbook/messages', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ class: classId, student: studentId, content, ...(currentSchoolId ? { schoolId: currentSchoolId } : {}) })
         });
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-
         showSuccess('Message sent successfully!');
-        document.getElementById('messageContent').value = '';
-        document.getElementById('charCount').textContent = '0';
-        
-        // Reset form
         document.querySelector('.send-form').reset();
-        
-        // Refresh messages
-        setTimeout(fetchMessages, 1000);
-      } catch (err) {
-        console.error('Failed to send message:', err);
-        showError('Failed to send message. Please try again.');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa fa-paper-plane"></i> Send Message';
-      }
-    }
-
-    // Show success message
+        document.getElementById('charCount').textContent = '0';
+        document.getElementById('messageStudent').innerHTML = '<option value="">Select Student</option>';
+        await fetchMessages();
+      } catch (e) { console.error('Send failed:', e); showError(e.message || 'Failed to send message.'); }
+      finally { button.disabled = false; button.innerHTML = '<i class="fa fa-paper-plane"></i> Send Message'; }
+    };
     function showSuccess(message) {
-      const msgEl = document.getElementById('successMessage');
-      msgEl.textContent = message;
-      msgEl.style.display = 'block';
-      setTimeout(() => {
-        msgEl.style.display = 'none';
-      }, 4000);
+      const el = document.getElementById('successMessage'); el.textContent = message; el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
     }
-
-    // Show error message
     function showError(message) {
-      const msgEl = document.getElementById('errorMessage');
-      msgEl.textContent = message;
-      msgEl.style.display = 'block';
-      setTimeout(() => {
-        msgEl.style.display = 'none';
-      }, 4000);
+      const el = document.getElementById('errorMessage'); el.textContent = message; el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
     }
-
-    // Initialize
-    fetchClasses();
-    fetchMessages();
+    async function initializePage() {
+      document.getElementById('pageSpinnerOverlay').style.display = 'flex';
+      try {
+        if (!authToken) throw new Error('Your session has expired. Please sign in again.');
+        await resolveSchoolContext();
+        if (!currentSchoolId && !currentSchoolCode) throw new Error('Unable to identify this school. Open the correct school portal and sign in again.');
+        await Promise.all([fetchClasses(), fetchMessages()]);
+      } catch (e) {
+        console.error('Communication book initialization failed:', e);
+        showError(e.message || 'Unable to load the communication book.');
+        const box = document.getElementById('commbookMsgList');
+        box.classList.remove('loading');
+        box.innerHTML = `<div class="empty-state"><i class="fa fa-exclamation-circle"></i> ${escapeHtml(e.message || 'Unable to load page')}</div>`;
+      } finally { hidePageSpinner(); }
+    }
+    document.addEventListener('DOMContentLoaded', initializePage);
   </script>
 </body>
 </html>
