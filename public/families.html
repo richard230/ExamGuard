@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Gold and Linc Schools - Families</title>
+  <title>Families Directory</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap">
   <style>
@@ -479,6 +479,17 @@
       html { font-size: 13px; }
       .sidebar { width: 97vw; }
     }
+    .page-subtitle{margin:-.35em 0 1.2em;color:#718096;font-size:.94rem}
+    .family-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:0 0 1.3rem}
+    .stat-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;padding:1rem 1.15rem;box-shadow:0 3px 14px rgba(25,50,80,.04)}
+    .stat-card span{display:block;color:#64748b;font-size:.82rem;font-weight:600}.stat-card strong{display:block;font-size:1.7rem;color:#172b4d;margin:.2rem 0}.stat-card small{color:#94a3b8}
+    .refresh-btn{border:1px solid #d8e1ed;background:#fff;color:#334155;padding:.62em 1em;border-radius:7px;font-weight:600;cursor:pointer}
+    .families-list{overflow-x:auto}.families-table{min-width:720px}.families-table tbody tr:hover td{background:#fbfdff}
+    .families-table .action-btn{min-width:34px}.families-table .action-btn:focus-visible,.add-btn:focus-visible,.refresh-btn:focus-visible{outline:3px solid rgba(0,123,255,.22);outline-offset:2px}
+    .families-table td{overflow-wrap:anywhere}.member-badge{display:inline-flex;align-items:center}
+    .error-state{color:#b42318;background:#fff7f6;border:1px solid #fecdca;border-radius:10px;margin:1rem;padding:1rem;text-align:center}
+    .modal-box{max-height:90vh;overflow-y:auto}.modal-form input:disabled{color:#475569;background:#f1f5f9}
+    @media(max-width:650px){.family-stats{grid-template-columns:1fr}.families-actions{flex-wrap:wrap}.families-actions .search-bar{max-width:none;flex-basis:100%;order:3}.families-actions .add-btn,.families-actions .refresh-btn{flex:1}}
     ::-webkit-scrollbar { width: 7px; background: #f4f8fc; }
     ::-webkit-scrollbar-thumb { background: #e2e7ee; border-radius: 4px; }
   </style>
@@ -491,10 +502,10 @@
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="profile">
-      <img src="https://ui-avatars.com/api/?name=Richard+Timothy&background=007bff&color=fff" alt="User Avatar" class="avatar">
+      <img src="https://ui-avatars.com/api/?name=School+Admin&background=007bff&color=fff" alt="User Avatar" class="avatar" id="adminAvatar">
       <div>
-        <div class="name">SCHOOL ICT</div>
-        <div class="role">System Administrator</div>
+        <div class="name" id="sidebarUserName">School Administrator</div>
+        <div class="role" id="sidebarUserRole">System Administrator</div>
       </div>
     </div>
     <div class="search">
@@ -518,8 +529,8 @@
     <header>
       <button id="sidebarToggle" class="sidebar-toggle" aria-label="Open Sidebar">☰</button>
       <div class="school-title">
-        <img src="logo-1679575828 (1).jpeg" alt="Logo" class="logo">
-        <span>GOLD AND LINC SCHOOLS</span>
+        <img src="mainlogo.png" alt="School Logo" class="logo" id="schoolLogo">
+        <span id="schoolName">School Portal</span>
       </div>
       <div class="header-actions">
         <span class="icon" title="Notifications">🔔</span>
@@ -528,8 +539,15 @@
       </div>
     </header>
     <h2 class="families-title"><span>🏡</span> Families Directory</h2>
+    <p class="page-subtitle">Manage family groups, guardians and the students connected to each household.</p>
+    <section class="family-stats" aria-label="Family directory summary">
+      <div class="stat-card"><span>Total families</span><strong id="totalFamilies">—</strong><small>Registered households</small></div>
+      <div class="stat-card"><span>Parents / guardians</span><strong id="totalParents">—</strong><small>Across all families</small></div>
+      <div class="stat-card"><span>Linked students</span><strong id="totalStudents">—</strong><small>Across all families</small></div>
+    </section>
     <div class="families-actions">
-      <button class="add-btn" id="addFamilyBtn"><span>➕</span> Add Family</button>
+      <button class="add-btn" id="addFamilyBtn"><span>＋</span> Add Family</button>
+      <button class="refresh-btn" id="refreshFamiliesBtn" type="button">↻ Refresh</button>
       <div class="search-bar">
         <input type="text" id="familySearchInput" placeholder="Search families..." aria-label="Search families">
       </div>
@@ -587,258 +605,72 @@
   <button class="eclass-fab" aria-label="Open e-Class">e-Class</button>
 
   <script>
-    // Spinner overlay logic
-    document.addEventListener('DOMContentLoaded', () => {
-      const spinner = document.getElementById('pageSpinnerOverlay');
-      if (spinner) spinner.style.display = 'flex';
-      setTimeout(() => {
-        if (spinner) {
-          spinner.style.opacity = '0';
-          setTimeout(() => { spinner.style.display = 'none'; }, 400);
-        }
-      }, 1200);
+  (() => {
+    'use strict';
+    const API_BASE = (window.API_BASE_URL || 'https://examguard-8rxe.onrender.com').replace(/\/$/, '');
+    const $ = id => document.getElementById(id);
+    const spinner = $('pageSpinnerOverlay'), sidebar = $('sidebar'), overlay = $('sidebarOverlay');
+    const familyModalBackdrop=$('familyModalBackdrop'), familyForm=$('familyForm');
+    const familyIdInput=$('familyIdInput'), familyNameInput=$('familyNameInput'), familyContactInput=$('familyContactInput');
+    const parentInputs=$('parentInputs'), studentInputs=$('studentInputs');
+    const loading=$('familiesLoading'), empty=$('familiesEmpty'), table=$('familiesTable'), tbody=$('familiesTableBody');
+    let allFamilies=[], viewMode=false, currentUser=null, schoolCode=null;
+
+    function token(){return localStorage.getItem('adminToken')||localStorage.getItem('token')||localStorage.getItem('authToken')||sessionStorage.getItem('adminToken')||sessionStorage.getItem('token')||'';}
+    function getSchoolContext(){
+      const host=location.hostname.split('.')[0];
+      const candidates=['examguard_school_config_'+host,'schoolConfig','school_config','examguard_school_config'];
+      for(const key of candidates){try{const raw=localStorage.getItem(key);if(!raw)continue;const parsed=JSON.parse(raw);const d=parsed.data||parsed;const sc=d.school||d;const code=sc.schoolId||sc.code||sc.subdomain;if(code){schoolCode=code;return sc;}}catch(_){} }
+      for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key||!key.startsWith('examguard_school_config_'))continue;try{const parsed=JSON.parse(localStorage.getItem(key));const sc=(parsed.data||parsed).school||((parsed.data||parsed));if(sc?.schoolId){schoolCode=sc.schoolId;return sc;}}catch(_){}}
+      return null;
+    }
+    function headers(json=false){const t=token();const h={};if(t)h.Authorization='Bearer '+t;if(json)h['Content-Type']='application/json';if(schoolCode)h['X-School-Code']=schoolCode;return h;}
+    async function api(path,options={}){const res=await fetch(API_BASE+'/api'+path,{...options,headers:{...headers(options.body!==undefined),...(options.headers||{})}});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||data.message||(`Request failed (${res.status})`));return data;}
+    function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function names(list){return (Array.isArray(list)?list:[]).map(x=>typeof x==='string'?x:(x?.name||x?.fullName||x?.studentName||'')).filter(Boolean);}
+    function unwrap(payload){if(Array.isArray(payload))return payload;return payload.families||payload.data?.families||payload.data||[];}
+    function updateStats(){
+      $('totalFamilies').textContent=allFamilies.length;
+      $('totalParents').textContent=allFamilies.reduce((n,f)=>n+names(f.parents).length,0);
+      $('totalStudents').textContent=allFamilies.reduce((n,f)=>n+names(f.students).length,0);
+    }
+    function render(list=allFamilies){loading.style.display='none';tbody.innerHTML='';empty.style.display=list.length?'none':'';table.style.display=list.length?'':'none';
+      list.forEach(f=>{const id=String(f._id||f.id||'');const tr=document.createElement('tr');
+        const ps=names(f.parents), ss=names(f.students);
+        tr.innerHTML=`<td><strong>${esc(f.name||'Unnamed family')}</strong></td><td><div class="member-badges">${ps.map(n=>`<span class="member-badge">${esc(n)}</span>`).join('')||'<span class="muted">—</span>'}</div></td><td><div class="member-badges">${ss.map(n=>`<span class="member-badge">${esc(n)}</span>`).join('')||'<span class="muted">—</span>'}</div></td><td>${esc(f.contact||'—')}</td><td class="actions"><button class="action-btn view" title="View family" aria-label="View family" data-action="view" data-id="${esc(id)}">👁️</button><button class="action-btn edit" title="Edit family" aria-label="Edit family" data-action="edit" data-id="${esc(id)}">✏️</button><button class="action-btn delete" title="Delete family" aria-label="Delete family" data-action="delete" data-id="${esc(id)}">🗑️</button></td>`;tbody.appendChild(tr);
+      });updateStats();
+    }
+    async function fetchFamilies(){loading.style.display='';loading.textContent='Loading families...';empty.style.display='none';table.style.display='none';tbody.innerHTML='';
+      try{if(!token())throw new Error('Please sign in again to access the families directory.');const data=await api('/families');allFamilies=unwrap(data);if(!Array.isArray(allFamilies))allFamilies=[];render(filtered());}
+      catch(err){console.error('Families load failed:',err);loading.style.display='none';empty.style.display='';empty.className='error-state';empty.textContent=err.message||'Unable to load families. Please refresh and try again.';allFamilies=[];updateStats();}
+    }
+    function filtered(){const q=$('familySearchInput').value.trim().toLowerCase();if(!q)return allFamilies;return allFamilies.filter(f=>[f.name,f.contact,...names(f.parents),...names(f.students)].join(' ').toLowerCase().includes(q));}
+    function addMember(container,value='',label='Name'){const row=document.createElement('div');row.className='member-input-row';const input=document.createElement('input');input.type='text';input.placeholder=label;input.value=value;input.required=true;input.maxLength=80;const remove=document.createElement('button');remove.type='button';remove.className='remove-member-btn';remove.innerHTML='&times;';remove.title='Remove';remove.setAttribute('aria-label','Remove '+label);remove.addEventListener('click',()=>{if(container.children.length>1)row.remove();else input.value='';});row.append(input,remove);container.appendChild(row);}
+    function resetForm(){familyForm.reset();familyIdInput.value='';parentInputs.innerHTML='';studentInputs.innerHTML='';addMember(parentInputs,'','Parent / guardian name');addMember(studentInputs,'','Student name');setFormDisabled(false);}
+    function setFormDisabled(disabled){familyForm.querySelectorAll('input,button').forEach(el=>{if(el.id==='closeFamilyModal')return;el.disabled=disabled;});}
+    function openForm(f=null,mode='edit'){resetForm();viewMode=mode==='view';familyModalBackdrop.classList.add('active');familyModalBackdrop.setAttribute('aria-hidden','false');
+      if(f){familyIdInput.value=f._id||f.id||'';familyNameInput.value=f.name||'';familyContactInput.value=f.contact||'';parentInputs.innerHTML='';studentInputs.innerHTML='';(names(f.parents).length?names(f.parents):['']).forEach(n=>addMember(parentInputs,n,'Parent / guardian name'));(names(f.students).length?names(f.students):['']).forEach(n=>addMember(studentInputs,n,'Student name'));}
+      $('familyModalTitle').textContent=viewMode?'Family Details':(f?'Edit Family':'Add Family');$('familyFormSubmitBtn').style.display=viewMode?'none':'';setFormDisabled(viewMode);
+    }
+    function closeModal(){familyModalBackdrop.classList.remove('active');familyModalBackdrop.setAttribute('aria-hidden','true');setFormDisabled(false);$('familyFormSubmitBtn').style.display='';viewMode=false;}
+    async function deleteFamily(id){if(!confirm('Delete this family record? This cannot be undone.'))return;try{await api('/families/'+encodeURIComponent(id),{method:'DELETE'});await fetchFamilies();}catch(e){alert(e.message||'Unable to delete family.');}}
+    tbody.addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b)return;const f=allFamilies.find(x=>String(x._id||x.id)===b.dataset.id);if(!f)return;if(b.dataset.action==='delete')deleteFamily(b.dataset.id);else openForm(f,b.dataset.action);});
+    $('addFamilyBtn').addEventListener('click',()=>openForm());$('closeFamilyModal').addEventListener('click',closeModal);familyModalBackdrop.addEventListener('click',e=>{if(e.target===familyModalBackdrop)closeModal();});
+    $('addParentBtn').addEventListener('click',()=>addMember(parentInputs,'','Parent / guardian name'));$('addStudentBtn').addEventListener('click',()=>addMember(studentInputs,'','Student name'));
+    $('refreshFamiliesBtn').addEventListener('click',fetchFamilies);$('familySearchInput').addEventListener('input',()=>render(filtered()));
+    familyForm.addEventListener('submit',async e=>{e.preventDefault();if(viewMode)return;const id=familyIdInput.value;const payload={name:familyNameInput.value.trim(),contact:familyContactInput.value.trim(),parents:Array.from(parentInputs.querySelectorAll('input')).map(x=>x.value.trim()).filter(Boolean),students:Array.from(studentInputs.querySelectorAll('input')).map(x=>x.value.trim()).filter(Boolean)};
+      if(!payload.name||!payload.parents.length||!payload.students.length){alert('Enter a family name and at least one parent/guardian and student.');return;}
+      const btn=$('familyFormSubmitBtn');btn.disabled=true;btn.textContent='Saving...';try{await api('/families'+(id?'/'+encodeURIComponent(id):''),{method:id?'PATCH':'POST',body:JSON.stringify(payload)});closeModal();await fetchFamilies();}catch(err){alert(err.message||'Unable to save family.');}finally{btn.disabled=false;btn.textContent='Save';}
     });
-
-    // Sidebar mobile toggle logic
-    const sidebar = document.getElementById('sidebar');
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-    function openSidebar() {
-      sidebar.classList.add('active');
-      sidebarOverlay.classList.add('active');
-      document.body.classList.add('sidebar-open');
+    $('sidebarToggle').addEventListener('click',()=>{sidebar.classList.add('active');overlay.classList.add('active');document.body.classList.add('sidebar-open');});
+    function closeSidebar(){sidebar.classList.remove('active');overlay.classList.remove('active');document.body.classList.remove('sidebar-open');}
+    overlay.addEventListener('click',closeSidebar);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSidebar();closeModal();}});
+    async function boot(){const school=getSchoolContext();if(school){$('schoolName').textContent=school.name||school.schoolName||'School Portal';const logo=school.logo||school.logoUrl||school.logoURL;if(logo)$('schoolLogo').src=/^https?:|^data:/.test(logo)?logo:API_BASE+'/'+String(logo).replace(/^\//,'');document.title=($('schoolName').textContent)+' - Families';}
+      try{const me=await api('/auth/me');currentUser=me.user||me.data?.user||me;const display=currentUser.name||currentUser.fullName||currentUser.username||'School Administrator';$('sidebarUserName').textContent=display;$('sidebarUserRole').textContent=currentUser.role||'System Administrator';if(currentUser.avatar||currentUser.photo)$('adminAvatar').src=currentUser.avatar||currentUser.photo;}catch(e){/* directory endpoint will show the actionable auth error */}
+      await fetchFamilies();if(spinner){spinner.style.opacity='0';setTimeout(()=>spinner.style.display='none',250);}
     }
-    function closeSidebar() {
-      sidebar.classList.remove('active');
-      sidebarOverlay.classList.remove('active');
-      document.body.classList.remove('sidebar-open');
-    }
-    sidebarToggle.addEventListener('click', openSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
-
-    // Modal logic for Add/Edit Family
-    const familyModalBackdrop = document.getElementById('familyModalBackdrop');
-    const addFamilyBtn = document.getElementById('addFamilyBtn');
-    const closeFamilyModal = document.getElementById('closeFamilyModal');
-    const familyForm = document.getElementById('familyForm');
-    const familyModalTitle = document.getElementById('familyModalTitle');
-    const familyIdInput = document.getElementById('familyIdInput');
-    const familyNameInput = document.getElementById('familyNameInput');
-    const familyContactInput = document.getElementById('familyContactInput');
-    const parentInputs = document.getElementById('parentInputs');
-    const addParentBtn = document.getElementById('addParentBtn');
-    const studentInputs = document.getElementById('studentInputs');
-    const addStudentBtn = document.getElementById('addStudentBtn');
-
-    function resetFamilyForm() {
-      familyForm.reset();
-      familyIdInput.value = '';
-      parentInputs.innerHTML = '';
-      studentInputs.innerHTML = '';
-      addParentInput('');
-      addStudentInput('');
-    }
-
-    addFamilyBtn.addEventListener('click', () => {
-      resetFamilyForm();
-      familyModalTitle.textContent = 'Add Family';
-      familyModalBackdrop.classList.add('active');
-    });
-    closeFamilyModal.addEventListener('click', () => {
-      familyModalBackdrop.classList.remove('active');
-    });
-    familyModalBackdrop.addEventListener('click', (e) => {
-      if (e.target === familyModalBackdrop) familyModalBackdrop.classList.remove('active');
-    });
-
-    function addParentInput(value) {
-      const row = document.createElement('div');
-      row.className = 'member-input-row';
-      const input = document.createElement('input');
-      input.type = 'text'; input.placeholder = 'Parent Name'; input.value = value || ''; input.required = true; input.maxLength = 32;
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'remove-member-btn';
-      removeBtn.innerHTML = '&times;';
-      removeBtn.title = "Remove";
-      removeBtn.addEventListener('click', () => row.remove());
-      row.appendChild(input);
-      row.appendChild(removeBtn);
-      parentInputs.appendChild(row);
-    }
-    function addStudentInput(value) {
-      const row = document.createElement('div');
-      row.className = 'member-input-row';
-      const input = document.createElement('input');
-      input.type = 'text'; input.placeholder = 'Student Name'; input.value = value || ''; input.required = true; input.maxLength = 32;
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'remove-member-btn';
-      removeBtn.innerHTML = '&times;';
-      removeBtn.title = "Remove";
-      removeBtn.addEventListener('click', () => row.remove());
-      row.appendChild(input);
-      row.appendChild(removeBtn);
-      studentInputs.appendChild(row);
-    }
-    addParentBtn.addEventListener('click', () => addParentInput(''));
-    addStudentBtn.addEventListener('click', () => addStudentInput(''));
-
-    // Families Table Logic
-    const familiesLoading = document.getElementById('familiesLoading');
-    const familiesEmpty = document.getElementById('familiesEmpty');
-    const familiesTable = document.getElementById('familiesTable');
-    const familiesTableBody = document.getElementById('familiesTableBody');
-    const familiesListSection = document.getElementById('familiesListSection');
-    const familySearchInput = document.getElementById('familySearchInput');
-
-    let allFamilies = [];
-
-    async function fetchFamilies() {
-      familiesLoading.style.display = '';
-      familiesEmpty.style.display = 'none';
-      familiesTable.style.display = 'none';
-      familiesTableBody.innerHTML = '';
-      try {
-        const res = await fetch('https://goldlincschools.onrender.com/api/families');
-        if (!res.ok) throw new Error('Failed to fetch families');
-        allFamilies = await res.json();
-        renderFamilies(allFamilies);
-      } catch (e) {
-        familiesLoading.textContent = 'Error loading families.';
-        allFamilies = [];
-        familiesTableBody.innerHTML = '';
-        familiesTable.style.display = 'none';
-        familiesEmpty.style.display = '';
-      }
-    }
-    function renderFamilies(families) {
-      familiesLoading.style.display = 'none';
-      familiesTableBody.innerHTML = '';
-      if (!families.length) {
-        familiesTable.style.display = 'none';
-        familiesEmpty.style.display = '';
-        return;
-      }
-      familiesEmpty.style.display = 'none';
-      familiesTable.style.display = '';
-      families.forEach(fam => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${escapeHTML(fam.name)}</td>
-          <td>
-            <div class="member-badges">${
-              (fam.parents||[]).map(p => `<span class="member-badge">${escapeHTML(p)}</span>`).join('')
-            }</div>
-          </td>
-          <td>
-            <div class="member-badges">${
-              (fam.students||[]).map(s => `<span class="member-badge">${escapeHTML(s)}</span>`).join('')
-            }</div>
-          </td>
-          <td>${escapeHTML(fam.contact||'')}</td>
-          <td class="actions">
-            <button class="action-btn view" title="View" onclick="viewFamily('${fam._id}')">👁️</button>
-            <button class="action-btn edit" title="Edit" onclick="editFamily('${fam._id}')">✏️</button>
-            <button class="action-btn delete" title="Delete" onclick="deleteFamily('${fam._id}')">🗑️</button>
-          </td>
-        `;
-        familiesTableBody.appendChild(tr);
-      });
-    }
-    function escapeHTML(str) {
-      return String(str || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    // Filtering
-    familySearchInput.addEventListener('input', () => {
-      const q = familySearchInput.value.trim().toLowerCase();
-      const filtered = allFamilies.filter(f =>
-        (f.name||'').toLowerCase().includes(q)
-        || (f.contact||'').toLowerCase().includes(q)
-        || (f.parents||[]).join(' ').toLowerCase().includes(q)
-        || (f.students||[]).join(' ').toLowerCase().includes(q)
-      );
-      renderFamilies(filtered);
-    });
-
-    // Add/Edit Family functions
-    window.editFamily = function(id) {
-      const fam = allFamilies.find(f => f._id === id);
-      if (!fam) return;
-      familyModalTitle.textContent = 'Edit Family';
-      familyIdInput.value = fam._id;
-      familyNameInput.value = fam.name || '';
-      familyContactInput.value = fam.contact || '';
-      parentInputs.innerHTML = '';
-      (fam.parents || ['']).forEach(addParentInput);
-      studentInputs.innerHTML = '';
-      (fam.students || ['']).forEach(addStudentInput);
-      familyModalBackdrop.classList.add('active');
-    };
-    window.viewFamily = function(id) {
-      // For now, just open edit modal in view mode (could make a separate modal for pure view)
-      window.editFamily(id);
-      familyModalTitle.textContent = 'View Family';
-      familyForm.querySelectorAll('input,textarea,button.submit-btn').forEach(el => el.disabled = true);
-      closeFamilyModal.disabled = false;
-    };
-    familyModalBackdrop.addEventListener('transitionend', () => {
-      if (!familyModalBackdrop.classList.contains('active')) {
-        familyForm.querySelectorAll('input,textarea,button').forEach(el => el.disabled = false);
-      }
-    });
-
-    window.deleteFamily = async function(id) {
-      if (!confirm('Are you sure you want to delete this family?')) return;
-      try {
-        const res = await fetch(`https://goldlincschools.onrender.com/api/families/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Delete failed');
-        await fetchFamilies();
-      } catch (e) {
-        alert('Error deleting family.');
-      }
-    };
-
-    // Submit Create/Update Family
-    familyForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = familyIdInput.value;
-      const name = familyNameInput.value.trim();
-      const contact = familyContactInput.value.trim();
-      const parents = Array.from(parentInputs.querySelectorAll('input')).map(i => i.value.trim()).filter(Boolean);
-      const students = Array.from(studentInputs.querySelectorAll('input')).map(i => i.value.trim()).filter(Boolean);
-      if (!name || !parents.length || !students.length) {
-        alert('Please fill all required fields.');
-        return;
-      }
-      try {
-        const payload = { name, contact, parents, students };
-        let res;
-        if (id) {
-          res = await fetch(`https://goldlincschools.onrender.com/api/families/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } else {
-          res = await fetch('https://goldlincschools.onrender.com/api/families', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        }
-        if (!res.ok) throw new Error('Save failed');
-        familyModalBackdrop.classList.remove('active');
-        await fetchFamilies();
-      } catch (err) {
-        alert('Error saving family.');
-      }
-    });
-
-    // Initial load
-    fetchFamilies();
+    boot();
+  })();
   </script>
 </body>
 </html>
