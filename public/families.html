@@ -4,341 +4,684 @@
   <meta charset="UTF-8">
   <title>Families Directory</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,600,700,800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,500,600,700,800&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <style>
     :root {
-      --primary: #007bff;
-      --sidebar-bg: #fff;
-      --sidebar-width: 260px;
-      --sidebar-width-mobile: 90vw;
-      --header-height: 64px;
-      --border-radius: 12px;
-      --shadow: 0 2px 8px rgba(0,0,0,0.05);
-      --neutral: #f8f9fa;
-      --card-bg: #fff;
-      --card-shadow: 0 4px 24px rgba(0,0,0,0.07);
-      --font-main: 'Inter', Arial, sans-serif;
+      --primary: #1e40af;
+      --primary-hover: #17338c;
+      --primary-soft: #edf4ff;
+      --sidebar-width: 280px;
+      --topbar-height: 64px;
+      --bg-page: linear-gradient(180deg, #f6f8ff 0%, #eef2ff 100%);
+      --surface: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 6px 24px rgba(15, 23, 42, 0.06);
+      --font-main: 'Inter', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
     }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     html, body {
       margin: 0;
       padding: 0;
-      font-family: var(--font-main);
-      background: var(--neutral);
-      color: #222;
-      height: 100%;
       min-height: 100%;
-      box-sizing: border-box;
+      font-family: var(--font-main);
+      background: var(--bg-page);
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
+
+    body.sidebar-open,
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    /* Loading Spinner */
     #pageSpinnerOverlay {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255,255,255,0.96);
+      background: rgba(255, 255, 255, 0.96);
       position: fixed;
       inset: 0;
       z-index: 9999;
-      transition: opacity 0.4s;
+      transition: opacity 0.3s ease;
     }
+
     .spinner {
-      width: 46px;
-      height: 46px;
-      border: 5px solid #e3e6ea;
-      border-top: 5px solid var(--primary);
+      width: 42px;
+      height: 42px;
+      border: 4px solid #e2e8f0;
+      border-top-color: var(--primary);
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      animation: spin 0.85s linear infinite;
     }
-    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* App Shell */
+    .app {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
 
     /* Sidebar */
     .sidebar {
       position: fixed;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       width: var(--sidebar-width);
-      min-width: 180px;
-      max-width: 320px;
-      height: 100vh;
-      max-height: 100vh;
-      background: var(--sidebar-bg);
-      box-shadow: var(--shadow);
+      height: 100dvh;
+      background: linear-gradient(180deg, #07102a 0%, #0b3b82 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 18px 14px 14px;
       z-index: 1050;
-      padding: 0 0 2rem 0;
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.25s ease;
-      overflow: hidden;
+      box-shadow: 4px 0 24px rgba(2, 11, 24, 0.14);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .profile {
+
+    .sidebar-header {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 1.5rem 1.2rem 1rem 1.2rem;
-      border-bottom: 1px solid #ececec;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 4px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
       flex-shrink: 0;
     }
-    .avatar {
-      width: 48px; height: 48px;
-      border-radius: 50%;
-      border: 2px solid #e3e6ea;
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
     }
-    .name { font-weight: 700; font-size: 1.13em; }
-    .role { font-size: 0.98em; color: #888; margin-top: 2px; }
-    .search {
-      padding: 0.7em 1.2em;
-      flex-shrink: 0;
-      background: var(--sidebar-bg);
-      z-index: 1;
-    }
-    .search input {
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0.6em 0.9em;
-      border-radius: 6px;
-      border: 1px solid #ddd;
-      font-size: 1em;
-      display: block;
+
+    .brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      object-fit: cover;
       background: #fff;
+      flex-shrink: 0;
     }
-    .sidebar nav {
-      flex: 1 1 0%;
-      display: flex;
-      flex-direction: column;
-      gap: 0.25em;
-      margin-top: 1.5em;
-      min-height: 0;
-      overflow-y: auto;
-      overscroll-behavior: contain;
+
+    .brand-text {
+      min-width: 0;
     }
-    .sidebar a {
-      display: flex;
-      align-items: center;
-      gap: 0.7em;
-      padding: 0.85em 1.3em;
-      text-decoration: none;
-      color: #333;
-      font-weight: 500;
-      border-left: 4px solid transparent;
-      border-radius: 0 6px 6px 0;
-      transition: background 0.16s, border-color 0.16s;
-      font-size: 1.05em;
+
+    .brand .title {
+      font-weight: 800;
+      font-size: 1rem;
+      color: #ffe066;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .sidebar a.active, .sidebar a:hover {
-      background: #f1f6fd;
-      border-left: 4px solid var(--primary);
-      color: var(--primary);
+
+    .brand .subtitle {
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      margin-top: 2px;
     }
-    @media (max-width: 750px) {
-      .sidebar {
-        width: var(--sidebar-width-mobile);
-        min-width: 0;
-        max-width: 95vw;
-        height: 100vh;
-        max-height: 100vh;
-        transform: translateX(-105%);
-        box-shadow: 2px 0 18px rgba(0,0,0,0.13);
-        position: fixed;
-        z-index: 1050;
-        overflow: hidden;
-      }
-      .sidebar.active {
-        transform: translateX(0);
-      }
-      .sidebar-toggle {
-        display: inline-flex;
-      }
-      .sidebar-overlay.active {
-        display: block;
-      }
-      body.sidebar-open {
-        overflow: hidden;
-      }
-    }
-    .sidebar-toggle {
+
+    .sidebar-close {
       display: none;
-      background: none;
-      border: none;
-      font-size: 2rem;
-      color: var(--primary);
-      margin-right: 1.2rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      font-size: 1.25rem;
+      line-height: 1;
       cursor: pointer;
       align-items: center;
       justify-content: center;
-      height: var(--header-height);
+      flex-shrink: 0;
     }
+
+    .sidebar-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .nav {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 12px;
+      padding-right: 2px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      color: #e2e8f0;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.94rem;
+      transition: background 0.15s ease, color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .nav a span {
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .nav a:hover,
+    .nav a.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffe066;
+    }
+
+    .sidebar-footer {
+      flex-shrink: 0;
+      margin-top: 10px;
+      padding: 12px 10px 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .sidebar-overlay {
       display: none;
-    }
-    .sidebar-overlay.active {
-      display: block;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.25);
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(2px);
       z-index: 1040;
     }
 
-    .main-content {
-      min-height: 100vh;
-      margin-left: var(--sidebar-width);
-      padding: 0 2.5vw 2vw 2.5vw;
-      transition: margin-left 0.25s;
+    .sidebar-overlay.active {
+      display: block;
     }
-    header {
+
+    /* Topbar */
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: var(--sidebar-width);
+      width: calc(100% - var(--sidebar-width));
+      height: var(--topbar-height);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
       display: flex;
       align-items: center;
-      height: var(--header-height);
-      gap: 1.8em;
-      padding-top: 1.5vw;
-      padding-bottom: 1.5vw;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 900;
     }
-    .school-title {
+
+    .topbar-left,
+    .topbar-actions {
       display: flex;
       align-items: center;
-      gap: 0.7em;
-      font-size: 1.35rem;
-      font-weight: 700;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .page-title {
+      font-weight: 800;
+      font-size: 1.05rem;
       color: var(--primary);
-      letter-spacing: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .logo {
-      width: 32px; height: 32px;
-      border-radius: 6px;
-    }
-    .header-actions {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 1.03em;
-    }
-    .header-actions .icon {
-      font-size: 1.43em;
+
+    .icon-btn {
+      background: transparent;
+      border: 0;
+      font-size: 1.1rem;
       cursor: pointer;
-      opacity: 0.88;
-      transition: opacity 0.2s;
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-main);
+      transition: background 0.15s ease;
     }
-    .header-actions .icon:hover {
-      opacity: 1;
+
+    .icon-btn:hover {
+      background: #f1f5f9;
+    }
+
+    #sidebarToggle {
+      display: none;
+      font-size: 1.3rem;
+      color: var(--primary);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      margin-left: var(--sidebar-width);
+      padding: calc(var(--topbar-height) + 24px) 24px 88px;
     }
 
     .families-title {
-      margin: 1.5em 0 0.7em 0;
-      font-size: 1.4em;
-      font-weight: 700;
+      margin: 0 0 6px;
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 0.5em;
-      color: #333;
+      gap: 8px;
     }
+
+    .page-subtitle {
+      margin: 0 0 20px;
+      color: var(--text-muted);
+      font-size: 0.94rem;
+      line-height: 1.5;
+    }
+
+    /* Stats */
+    .family-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      box-shadow: var(--shadow-sm);
+      min-width: 0;
+    }
+
+    .stat-card span {
+      display: block;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .stat-card strong {
+      display: block;
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin: 4px 0 2px;
+    }
+
+    .stat-card small {
+      display: block;
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+
+    /* Toolbar */
     .families-actions {
       display: flex;
       align-items: center;
-      gap: 1em;
-      margin-bottom: 1.25em;
-    }
-    .families-actions .add-btn {
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      padding: 0.62em 1.2em;
-      border-radius: 7px;
-      font-size: 1.03em;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
-      transition: background 0.18s;
-    }
-    .families-actions .add-btn:hover {
-      background: #005ecb;
-    }
-    .families-actions .search-bar {
-      flex: 1;
-      max-width: 330px;
-    }
-    .families-actions .search-bar input {
-      width: 100%;
-      padding: 0.62em 1em;
-      border-radius: 6px;
-      border: 1px solid #e0e6eb;
-      font-size: 1em;
-      background: #fff;
-      box-sizing: border-box;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
     }
 
+    .add-btn {
+      background: var(--primary);
+      color: #fff;
+      border: 0;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s ease;
+    }
+
+    .add-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .refresh-btn {
+      background: var(--surface);
+      color: #334155;
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s ease;
+    }
+
+    .refresh-btn:hover {
+      background: #f8fafc;
+    }
+
+    .search-bar {
+      flex: 1 1 240px;
+      max-width: 340px;
+      margin-left: auto;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 0.92rem;
+      background: var(--surface);
+      color: var(--text-main);
+    }
+
+    .search-bar input:focus,
+    .modal-form input:focus,
+    .modal-form textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.14);
+    }
+
+    /* Desktop Table */
     .families-list {
       width: 100%;
-      border-radius: var(--border-radius);
-      background: var(--card-bg);
-      box-shadow: var(--card-shadow);
-      overflow: hidden;
-      margin-bottom: 2em;
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      overflow-x: auto;
     }
+
     .families-table {
       width: 100%;
+      min-width: 720px;
       border-collapse: collapse;
     }
-    .families-table th, .families-table td {
-      text-align: left;
-      padding: 1rem 0.8rem;
-      border-bottom: 1px solid #f0f3f7;
-    }
-    .families-table th {
-      background: #f5f8fd;
-      font-weight: 600;
-      color: #1a3157;
-      font-size: 1.04em;
-    }
+
+    .families-table th,
     .families-table td {
-      font-size: 1.02em;
-      color: #373737;
-      background: #fff;
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid #f1f5f9;
       vertical-align: top;
     }
+
+    .families-table th {
+      background: #f8faff;
+      font-weight: 700;
+      color: #1e3a8a;
+      font-size: 0.88rem;
+    }
+
+    .families-table td {
+      font-size: 0.92rem;
+      color: #334155;
+      overflow-wrap: anywhere;
+    }
+
+    .families-table tbody tr:hover td {
+      background: #fafcff;
+    }
+
     .families-table tr:last-child td {
       border-bottom: none;
     }
+
     .member-badges {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5em;
+      gap: 6px;
     }
+
     .member-badge {
-      background: #eaf2fd;
-      color: #2153a2;
-      border-radius: 5px;
-      padding: 0.18em 0.7em;
-      font-size: 0.97em;
-      margin-bottom: 3px;
-      font-weight: 500;
+      background: var(--primary-soft);
+      color: #1e40af;
+      border-radius: 6px;
+      padding: 3px 9px;
+      font-size: 0.82rem;
+      font-weight: 600;
     }
+
     .families-table .actions {
       display: flex;
-      gap: 0.5em;
+      gap: 4px;
     }
+
     .families-table .action-btn {
       background: transparent;
-      border: none;
+      border: 0;
       cursor: pointer;
-      font-size: 1.07em;
-      padding: 0.35em 0.5em;
-      border-radius: 4px;
-      transition: background 0.15s;
+      font-size: 1rem;
+      padding: 6px 8px;
+      border-radius: 7px;
+      transition: background 0.15s ease;
     }
-    .families-table .action-btn.view { color: var(--primary); }
-    .families-table .action-btn.edit { color: #a77b06; }
-    .families-table .action-btn.delete { color: #c82333; }
-    .families-table .action-btn:hover { background: #f1f6fd; }
 
-    .empty-state {
-      text-align: center;
-      color: #9fa7b8;
-      padding: 2.5em 0;
-      font-size: 1.08em;
+    .families-table .action-btn:hover {
+      background: #f1f5f9;
     }
+
+    .empty-state,
     .loading-state {
       text-align: center;
-      color: #888;
-      padding: 2.5em 0;
-      font-size: 1.13em;
+      color: var(--text-muted);
+      padding: 40px 16px;
+      font-size: 0.98rem;
+    }
+
+    .error-state {
+      color: #b42318;
+      background: #fff7f6;
+      border: 1px solid #fecdca;
+      border-radius: 10px;
+      margin: 16px;
+      padding: 14px;
+      text-align: center;
+      font-size: 0.92rem;
+    }
+
+    /* Mobile Card Grid */
+    .family-mobile-grid {
+      display: none;
+    }
+
+    .family-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      min-width: 0;
+    }
+
+    .family-card-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .family-avatar {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #102b66, #3472d5);
+      color: #fff;
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+
+    .family-card-heading {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .family-card-heading h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      overflow-wrap: anywhere;
+    }
+
+    .family-card-heading p {
+      margin: 3px 0 0;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .family-count {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .family-card-details {
+      padding: 12px 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .detail-label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 5px;
+    }
+
+    .detail-label i {
+      color: var(--primary);
+      margin-right: 4px;
+    }
+
+    .family-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .family-chips span {
+      background: #f0f5ff;
+      color: #1e40af;
+      border: 1px solid #dbeafe;
+      border-radius: 7px;
+      padding: 4px 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .family-chips.student-chips span {
+      background: #ecfdf5;
+      color: #047857;
+      border-color: #d1fae5;
+    }
+
+    .family-chips em {
+      font-style: normal;
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
+
+    .family-contact {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #475569;
+      font-size: 0.84rem;
+      overflow-wrap: anywhere;
+    }
+
+    .family-contact i {
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .family-card-actions {
+      display: flex;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .card-action {
+      border: 0;
+      border-radius: 9px;
+      padding: 9px 10px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 38px;
+    }
+
+    .view-action {
+      flex: 1;
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .edit-action {
+      flex: 1;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .delete-action {
+      width: 40px;
+      background: #fef2f2;
+      color: #b91c1c;
     }
 
     /* Modal */
@@ -346,191 +689,278 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(40,40,60,0.35);
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(2px);
       z-index: 1200;
       align-items: center;
       justify-content: center;
+      padding: 16px;
     }
+
     .modal-backdrop.active {
       display: flex;
     }
+
     .modal-box {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
-      padding: 2.2em 2.1em 1.5em 2.1em;
-      max-width: 410px;
-      width: 95vw;
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 14px 40px rgba(15, 23, 42, 0.2);
+      padding: 22px 20px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 88dvh;
+      overflow-y: auto;
       position: relative;
-      animation: modalPop 0.18s;
+      animation: modalPop 0.16s ease-out;
     }
-    @keyframes modalPop { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    @keyframes modalPop {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
     .modal-close-btn {
       position: absolute;
-      top: 0.7em; right: 1em;
-      background: transparent;
-      border: none;
-      font-size: 1.7em;
-      color: #bbb;
+      top: 12px;
+      right: 14px;
+      background: #f1f5f9;
+      border: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-size: 1.25rem;
+      line-height: 1;
+      color: #475569;
       cursor: pointer;
-      z-index: 1;
     }
+
     .modal-title {
-      font-weight: 700;
-      font-size: 1.19em;
-      margin-bottom: 1em;
+      font-weight: 800;
+      font-size: 1.15rem;
+      margin-bottom: 12px;
       color: var(--primary);
+      padding-right: 36px;
     }
+
     .modal-form label {
       display: block;
       font-weight: 600;
-      margin-bottom: 0.25em;
-      margin-top: 0.9em;
-      color: #333;
+      font-size: 0.88rem;
+      margin: 12px 0 6px;
+      color: #334155;
     }
-    .modal-form input, .modal-form textarea {
+
+    .modal-form input,
+    .modal-form textarea {
       width: 100%;
-      padding: 0.62em 1em;
-      border-radius: 6px;
-      border: 1px solid #e0e6eb;
-      font-size: 1em;
-      margin-bottom: 0.7em;
-      box-sizing: border-box;
-      background: #f9fafd;
+      padding: 10px 12px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      font-size: 0.94rem;
+      background: #f8fafc;
+      color: var(--text-main);
     }
-    .modal-form .member-input-row {
+
+    .modal-form input:disabled {
+      color: #475569;
+      background: #f1f5f9;
+    }
+
+    .member-input-row {
       display: flex;
-      gap: 0.5em;
-      margin-bottom: 0.5em;
+      gap: 8px;
+      margin-bottom: 8px;
     }
-    .modal-form .member-input-row input {
+
+    .member-input-row input {
       flex: 1;
+      min-width: 0;
     }
-    .modal-form .remove-member-btn {
-      background: #ffeded;
-      color: #d20a0a;
-      border: none;
-      border-radius: 5px;
-      font-size: 1.09em;
+
+    .remove-member-btn {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 0;
+      border-radius: 9px;
+      width: 38px;
+      font-size: 1.15rem;
       cursor: pointer;
-      padding: 0 0.6em;
-      margin-left: 5px;
-      transition: background 0.13s;
+      flex-shrink: 0;
     }
-    .modal-form .remove-member-btn:hover {
-      background: #ffe0e0;
-    }
-    .modal-form .add-member-btn {
-      background: #eaf2fd;
-      color: #2153a2;
-      border: none;
-      border-radius: 5px;
-      font-size: 0.98em;
-      cursor: pointer;
-      padding: 0.37em 1em;
-      margin-top: 0.3em;
-      margin-bottom: 0.7em;
-      transition: background 0.13s;
-    }
-    .modal-form .add-member-btn:hover {
-      background: #d4e7fa;
-    }
-    .modal-form .form-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.7em;
-      margin-top: 1.3em;
-    }
-    .modal-form .submit-btn {
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      padding: 0.6em 1.4em;
-      border-radius: 7px;
-      font-size: 1.08em;
+
+    .add-member-btn {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border: 0;
+      border-radius: 8px;
+      font-size: 0.86rem;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.17s;
-    }
-    .modal-form .submit-btn:hover {
-      background: #005ecb;
+      padding: 7px 12px;
+      margin-top: 2px;
     }
 
-    @media (max-width: 1100px) {
-      .main-content { margin-left: 0; padding: 0 3vw; }
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
     }
-    @media (max-width: 750px) {
-      .main-content { margin-left: 0; padding: 0 3vw; }
-      .sidebar { width: var(--sidebar-width-mobile); min-width: 0; max-width: 95vw; }
-      .sidebar.active { transform: translateX(0); }
-      .sidebar-toggle { display: inline-flex; }
-      .sidebar-overlay.active { display: block; }
-      body.sidebar-open { overflow: hidden; }
-    }
-    @media (max-width: 600px) {
-      .main-content { padding: 0 2vw; }
-      .profile { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-      .avatar { width: 37px; height: 37px; }
-      .name, .role { font-size: 0.96rem; }
-      .school-title span { font-size: 1.04rem; }
-      header { gap: 0.9em; }
-      .modal-box { padding: 1.1em 0.6em; }
-    }
-    @media (max-width: 400px) {
-      html { font-size: 13px; }
-      .sidebar { width: 97vw; }
-    }
-    .page-subtitle{margin:-.35em 0 1.2em;color:#718096;font-size:.94rem}
-    .family-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:0 0 1.3rem}
-    .stat-card{background:#fff;border:1px solid #e8edf4;border-radius:12px;padding:1rem 1.15rem;box-shadow:0 3px 14px rgba(25,50,80,.04)}
-    .stat-card span{display:block;color:#64748b;font-size:.82rem;font-weight:600}.stat-card strong{display:block;font-size:1.7rem;color:#172b4d;margin:.2rem 0}.stat-card small{color:#94a3b8}
-    .refresh-btn{border:1px solid #d8e1ed;background:#fff;color:#334155;padding:.62em 1em;border-radius:7px;font-weight:600;cursor:pointer}
-    .families-list{overflow-x:auto}.families-table{min-width:720px}.families-table tbody tr:hover td{background:#fbfdff}
-    .families-table .action-btn{min-width:34px}.families-table .action-btn:focus-visible,.add-btn:focus-visible,.refresh-btn:focus-visible{outline:3px solid rgba(0,123,255,.22);outline-offset:2px}
-    .families-table td{overflow-wrap:anywhere}.member-badge{display:inline-flex;align-items:center}
-    .error-state{color:#b42318;background:#fff7f6;border:1px solid #fecdca;border-radius:10px;margin:1rem;padding:1rem;text-align:center}
-    .modal-box{max-height:90vh;overflow-y:auto}.modal-form input:disabled{color:#475569;background:#f1f5f9}
-    @media(max-width:650px){.family-stats{grid-template-columns:1fr}.families-actions{flex-wrap:wrap}.families-actions .search-bar{max-width:none;flex-basis:100%;order:3}.families-actions .add-btn,.families-actions .refresh-btn{flex:1}}
-    ::-webkit-scrollbar { width: 7px; background: #f4f8fc; }
-    ::-webkit-scrollbar-thumb { background: #e2e7ee; border-radius: 4px; }
 
-    /* Shared portal shell: aligned with the Birthday Centre */
-    :root{--sidebar-width:300px;--neutral:#f6f8ff;--primary:#1e40af}
-    *{box-sizing:border-box}
-    body{background:linear-gradient(180deg,#f6f8ff,#eef2ff);color:#07102a;-webkit-font-smoothing:antialiased}
-    .app{min-height:100vh}
-    .sidebar{width:300px;min-width:300px;background:linear-gradient(180deg,#07102a 0%,#0b3b82 100%);color:#fff;padding:20px 16px;gap:14px;box-shadow:4px 0 28px rgba(2,11,24,.12);overflow-y:auto}
-    .brand{display:flex;gap:12px;align-items:center;margin-bottom:8px;padding:0 4px 14px;border-bottom:1px solid rgba(255,255,255,.12)}
-    .brand img{width:44px;height:44px;border-radius:10px;object-fit:cover;background:#fff}
-    .brand .title{font-weight:800;font-size:1.02rem;color:#ffe066;letter-spacing:0}
-    .brand .subtitle{font-size:.85rem;color:#b0c4ff;margin-top:3px}
-    .nav{display:flex;flex-direction:column;gap:8px;margin-top:6px;flex:1}
-    .nav a{display:flex;align-items:center;gap:10px;padding:10px;border:0;border-radius:8px;font-weight:700;font-size:.96rem;color:#e6eefc;text-decoration:none}
-    .nav a.active,.nav a:hover{background:rgba(255,255,255,.08);color:#ffe066;border:0}
-    .main-content{margin-left:300px;padding:100px 20px 28px;min-height:100vh}
-    .topbar{position:fixed;left:300px;top:0;width:calc(100% - 300px);z-index:90;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(255,255,255,.96);border-bottom:1px solid #eef3ff;box-shadow:0 2px 12px rgba(0,0,0,.04);height:64px}
-    .topbar-left,.topbar-actions{display:flex;align-items:center;gap:10px}.page-title{font-weight:800;font-size:1.05rem;color:#1e40af}.icon-btn{background:none;border:0;font-size:18px;cursor:pointer;padding:8px;border-radius:6px}.icon-btn:hover{background:rgba(0,0,0,.05)}
-    #sidebarToggle{display:none}
-    .families-title{margin:0 0 8px;font-size:1.45rem;color:#0f172a}.page-subtitle{margin:0 0 20px;color:#64748b}
-    .family-stats{gap:12px}.stat-card{border:1px solid #e5eaf4;border-radius:13px;box-shadow:0 3px 14px rgba(25,50,80,.04)}
-    .families-list{border:1px solid #e8edf6;border-radius:14px;box-shadow:0 5px 22px rgba(15,23,42,.05)}
-    .families-table th{background:#f1f5ff;color:#1e3a8a}.families-table td{font-size:.94rem}.families-actions .search-bar input{border-radius:10px;padding:11px 13px}
-    .families-actions .add-btn{border-radius:9px;background:#1e40af}.refresh-btn{border-radius:9px}
-    .modal-box{border-radius:16px;max-width:520px}.modal-title{color:#1e40af}
-    @media(max-width:768px){.sidebar{width:280px;min-width:280px;left:-280px;transform:none;transition:left .3s ease;padding:20px 16px}.sidebar.active{left:0;transform:none}.main-content{margin-left:0;padding:84px 14px 22px}.topbar{left:0;width:100%;padding:10px 12px;height:64px}.topbar-actions{gap:2px}#sidebarToggle{display:flex!important;font-size:24px}.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1040}.sidebar-overlay.active{display:block}.family-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stat-card{padding:12px 9px}.stat-card strong{font-size:1.45rem}.stat-card span{font-size:.72rem}.families-actions{flex-wrap:wrap;gap:8px}.families-actions .add-btn,.families-actions .refresh-btn{flex:1}.families-actions .search-bar{flex-basis:100%;max-width:none;order:3}.families-list{overflow:visible}.families-table{min-width:0;border-collapse:separate;border-spacing:0 9px}.families-table thead{display:none}.families-table,.families-table tbody{display:block;width:100%}.families-table tbody tr{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:13px;background:#fff;border:1px solid #e6ecf5;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.035)}.families-table tbody td{display:block;padding:7px 5px;border:0;background:transparent;font-size:.86rem;min-width:0}.families-table tbody td:nth-child(1){grid-column:1/-1;font-size:1rem;border-bottom:1px solid #edf1f7;padding-bottom:10px}.families-table tbody td:nth-child(4){grid-column:1/-1}.families-table tbody td:last-child{grid-column:1/-1;border-top:1px solid #edf1f7;padding-top:10px}.families-table tbody td:nth-child(2):before{content:'Parents / guardians';display:block;color:#64748b;font-size:.7rem;font-weight:700;margin-bottom:5px}.families-table tbody td:nth-child(3):before{content:'Students';display:block;color:#64748b;font-size:.7rem;font-weight:700;margin-bottom:5px}.families-table tbody td:nth-child(4):before{content:'Contact';display:block;color:#64748b;font-size:.7rem;font-weight:700;margin-bottom:4px}.families-table .actions{justify-content:flex-end}.member-badge{font-size:.75rem}.modal-box{width:calc(100vw - 24px);max-height:88vh;padding:1.2em}.modal-form .member-input-row input{min-width:0}}
-    @media(max-width:600px){.main-content{padding:80px 12px 18px}.families-title{font-size:1.3rem}.family-stats{gap:7px}.stat-card{padding:12px 8px}.stat-card strong{font-size:1.35rem}.stat-card small{font-size:.68rem}.topbar .page-title{font-size:1rem}.topbar-actions .icon-btn{font-size:16px;padding:6px}.families-actions .add-btn,.families-actions .refresh-btn{padding:10px 8px;font-size:.88rem}}
-  
-    /* Mobile-first family cards, visually aligned with Birthday Centre */
-    .family-mobile-grid{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:14px 0 28px}
-    .family-card{min-width:0;background:#fff;border:1px solid #e2eaf6;border-radius:17px;padding:15px;box-shadow:0 7px 22px rgba(15,40,85,.065);overflow:hidden}
-    .family-card-head{display:flex;align-items:center;gap:10px;min-width:0;padding-bottom:13px;border-bottom:1px solid #edf1f8}
-    .family-avatar{width:46px;height:46px;flex:0 0 46px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#102b66,#3472d5);color:#fff;font-size:1rem;font-weight:800;box-shadow:0 5px 12px #1e40af25}
-    .family-card-heading{min-width:0;flex:1}.family-card-heading h3{font-size:.98rem;line-height:1.25;color:#102b55;margin:0;overflow-wrap:anywhere;font-weight:800}.family-card-heading p{font-size:.72rem;color:#8492a8;margin:4px 0 0}.family-count{align-self:flex-start;white-space:nowrap;background:#edf4ff;color:#1e40af;border-radius:20px;padding:5px 8px;font-size:.67rem;font-weight:800}
-    .family-card-details{padding:12px 0 10px;display:grid;gap:12px}.family-detail{min-width:0}.detail-label{display:block;color:#64748b;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.035em;margin-bottom:6px}.detail-label i{color:#4775bd;margin-right:4px}.family-chips{display:flex;flex-wrap:wrap;gap:5px;min-width:0}.family-chips span{max-width:100%;overflow-wrap:anywhere;background:#f0f5ff;color:#254b86;border:1px solid #e2ebfb;border-radius:7px;padding:5px 8px;font-size:.72rem;font-weight:600}.family-chips.student-chips span{background:#effaf6;color:#08785b;border-color:#d9f2e8}.family-chips em{font-size:.76rem;color:#a0aabc;font-style:normal}.family-contact{display:flex;align-items:flex-start;gap:8px;color:#52647e;font-size:.78rem;overflow-wrap:anywhere}.family-contact i{color:#3472bd;margin-top:2px}.family-card-actions{display:flex;gap:7px;border-top:1px solid #edf1f8;padding-top:11px}.card-action{border:0;border-radius:9px;padding:9px 8px;font:700 .75rem Inter,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}.view-action{flex:1;background:#edf4ff;color:#1e40af}.edit-action{flex:1;background:#fff7e6;color:#946200}.delete-action{width:38px;background:#fff0ef;color:#c43232}
-    @media(max-width:768px){.main-content{padding:84px 14px 34px}.families-title{font-size:1.45rem;margin-bottom:5px}.page-subtitle{font-size:.84rem;line-height:1.5;margin-bottom:16px}.family-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:17px}.stat-card{padding:13px 10px;border-radius:13px}.stat-card span{font-size:.68rem;line-height:1.3}.stat-card strong{font-size:1.55rem;margin:5px 0}.stat-card small{font-size:.65rem;line-height:1.3}.families-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}.families-actions .add-btn,.families-actions .refresh-btn{width:100%;min-height:44px;font-size:.84rem}.families-actions .search-bar{grid-column:1/-1;order:initial;max-width:none;width:100%}.families-actions .search-bar input{height:46px;border-radius:12px}.families-list{display:none!important}.family-mobile-grid{display:grid}.topbar{padding:10px 12px}.topbar .page-title{font-size:1rem}.topbar-actions .icon-btn{padding:6px}.modal-box{width:calc(100vw - 24px);max-height:88dvh;overflow-y:auto;padding:20px 16px;border-radius:18px}}
-    @media(max-width:600px){.main-content{padding:80px 12px 30px}.families-title{font-size:1.3rem}.family-stats{gap:7px}.stat-card{padding:12px 8px}.stat-card strong{font-size:1.35rem}.stat-card small{font-size:.62rem}.stat-card span{font-size:.65rem}.family-mobile-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.family-card{padding:11px;border-radius:14px}.family-card-head{gap:7px;padding-bottom:10px;align-items:flex-start}.family-avatar{width:37px;height:37px;flex-basis:37px;border-radius:11px;font-size:.85rem}.family-card-heading h3{font-size:.82rem}.family-card-heading p{font-size:.64rem}.family-count{font-size:.58rem;padding:4px 6px}.family-card-details{gap:9px;padding:10px 0}.detail-label{font-size:.61rem;margin-bottom:5px}.family-chips{gap:4px}.family-chips span{font-size:.64rem;padding:4px 6px;border-radius:6px}.family-chips em{font-size:.67rem}.family-contact{font-size:.68rem;gap:5px}.family-card-actions{gap:5px;padding-top:9px}.card-action{font-size:.66rem;padding:8px 5px;border-radius:8px}.delete-action{width:32px}.topbar .page-title{font-size:.94rem}}
-    @media(max-width:370px){.family-mobile-grid{grid-template-columns:1fr}.family-card{padding:14px}.family-card-heading h3{font-size:.95rem}.family-chips span{font-size:.74rem}.card-action{font-size:.75rem}}
+    .submit-btn {
+      background: var(--primary);
+      color: #fff;
+      border: 0;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.94rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
 
+    .submit-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Floating Utility Buttons */
+    .support-tab {
+      position: fixed;
+      right: 16px;
+      bottom: 72px;
+      z-index: 850;
+      background: var(--surface);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-md);
+      cursor: pointer;
+    }
+
+    .eclass-fab {
+      position: fixed;
+      right: 16px;
+      bottom: 18px;
+      z-index: 850;
+      background: var(--primary);
+      color: #fff;
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 700;
+      box-shadow: 0 8px 20px rgba(30, 64, 175, 0.28);
+      cursor: pointer;
+    }
+
+    /* Tablet & Mobile Breakpoints */
+    @media (max-width: 900px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .sidebar.active {
+        transform: translateX(0);
+      }
+
+      .sidebar-close {
+        display: inline-flex;
+      }
+
+      .topbar {
+        left: 0;
+        width: 100%;
+        padding: 0 14px;
+      }
+
+      #sidebarToggle {
+        display: inline-flex;
+      }
+
+      .main-content {
+        margin-left: 0;
+        padding: calc(var(--topbar-height) + 18px) 16px 84px;
+      }
+
+      .families-list {
+        display: none;
+      }
+
+      .family-mobile-grid.has-items {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .main-content {
+        padding: calc(var(--topbar-height) + 14px) 12px 84px;
+      }
+
+      .families-title {
+        font-size: 1.25rem;
+      }
+
+      .family-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .stat-card {
+        padding: 11px 10px;
+      }
+
+      .stat-card strong {
+        font-size: 1.3rem;
+      }
+
+      .stat-card span {
+        font-size: 0.7rem;
+      }
+
+      .stat-card small {
+        font-size: 0.66rem;
+      }
+
+      .families-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .add-btn,
+      .refresh-btn {
+        width: 100%;
+        min-height: 42px;
+      }
+
+      .search-bar {
+        grid-column: 1 / -1;
+        max-width: none;
+        margin-left: 0;
+      }
+
+      .family-mobile-grid.has-items {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .support-tab {
+        bottom: 66px;
+        right: 12px;
+      }
+
+      .eclass-fab {
+        bottom: 14px;
+        right: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -539,81 +969,110 @@
   </div>
 
   <div class="app" id="app">
-  <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
-    <div class="brand">
-      <img id="schoolLogo" src="" alt="School logo" style="display:none;">
-      <div><div class="title" id="schoolName">School Portal</div><div class="subtitle">Admin Portal</div></div>
-    </div>
-    <nav class="nav" aria-label="Primary">
-      <a href="admin.html"><span>🏠</span> Dashboard</a>
-      <a href="admission.html"><span>🎓</span> Admission</a>
-      <a href="people.html"><span>👥</span> People</a>
-      <a href="academics.html"><span>📚</span> Academics</a>
-      <a href="admin-cbt.html"><span>💻</span> CBT Configuration</a>
-      <a href="results.html"><span>📄</span> Results</a>
-      <a href="finance.html"><span>💰</span> Finance</a>
-      <a href="attendance.html"><span>🗓️</span> Attendance</a>
-      <a href="families.html" class="active"><span>🏡</span> Families</a>
-      <a href="students-birthdays.html"><span>🎂</span> Birthday Centre</a>
-      <a href="admin.html"><span>⚙️</span> Settings</a>
-    </nav>
-    <div class="muted-small" style="margin-top:auto;color:#b0c4ff;padding:12px 4px;">Signed in as <span id="sidebarUserName">Admin</span></div>
-  </aside>
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-  <main class="main-content main-content-families">
-    <div class="topbar" role="banner">
-      <div class="topbar-left">
-        <button id="sidebarToggle" class="icon-btn" aria-label="Toggle Sidebar">☰</button>
-        <div class="page-title">Families Directory</div>
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
+      <div class="sidebar-header">
+        <div class="brand">
+          <img id="schoolLogo" src="" alt="School logo" style="display:none;">
+          <div class="brand-text">
+            <div class="title" id="schoolName">School Portal</div>
+            <div class="subtitle">Admin Portal</div>
+          </div>
+        </div>
+        <button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close navigation">&times;</button>
       </div>
-      <div class="topbar-actions"><button class="icon-btn" title="Notifications">🔔</button><button class="icon-btn" title="Help">❓</button><button class="icon-btn" title="Settings">⚙️</button></div>
-    </div>
-    <h2 class="families-title"><span>🏡</span> Families Directory</h2>
-    <p class="page-subtitle">Manage family groups, guardians and the students connected to each household.</p>
-    <section class="family-stats" aria-label="Family directory summary">
-      <div class="stat-card"><span>Total families</span><strong id="totalFamilies">—</strong><small>Registered households</small></div>
-      <div class="stat-card"><span>Parents / guardians</span><strong id="totalParents">—</strong><small>Across all families</small></div>
-      <div class="stat-card"><span>Linked students</span><strong id="totalStudents">—</strong><small>Across all families</small></div>
-    </section>
-    <div class="families-actions">
-      <button class="add-btn" id="addFamilyBtn"><span>＋</span> Add Family</button>
-      <button class="refresh-btn" id="refreshFamiliesBtn" type="button">↻ Refresh</button>
-      <div class="search-bar">
-        <input type="text" id="familySearchInput" placeholder="Search families..." aria-label="Search families">
-      </div>
-    </div>
 
-    <div class="family-mobile-grid" id="familyMobileGrid" aria-live="polite"></div>
-    <div class="families-list" id="familiesListSection">
-      <div class="loading-state" id="familiesLoading">Loading families...</div>
-      <div class="empty-state" id="familiesEmpty" style="display:none;">No families found.</div>
-      <table class="families-table" id="familiesTable" style="display:none;">
-        <thead>
-          <tr>
-            <th>Family Name</th>
-            <th>Parent(s) / Guardian(s)</th>
-            <th>Students</th>
-            <th>Contact</th>
-            <th style="min-width: 115px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="familiesTableBody">
-          <!-- Families rows will be loaded here -->
-        </tbody>
-      </table>
-    </div>
-  </main>
+      <nav class="nav" aria-label="Primary">
+        <a href="admin.html"><span>🏠</span> Dashboard</a>
+        <a href="admission.html"><span>🎓</span> Admission</a>
+        <a href="people.html"><span>👥</span> People</a>
+        <a href="academics.html"><span>📚</span> Academics</a>
+        <a href="admin-cbt.html"><span>💻</span> CBT Configuration</a>
+        <a href="results.html"><span>📄</span> Results</a>
+        <a href="finance.html"><span>💰</span> Finance</a>
+        <a href="attendance.html"><span>🗓️</span> Attendance</a>
+        <a href="families.html" class="active"><span>🏡</span> Families</a>
+        <a href="students-birthdays.html"><span>🎂</span> Birthday Centre</a>
+        <a href="admin.html"><span>⚙️</span> Settings</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        Signed in as <strong id="sidebarUserName">Admin</strong>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main-content main-content-families">
+      <header class="topbar" role="banner">
+        <div class="topbar-left">
+          <button id="sidebarToggle" class="icon-btn" type="button" aria-label="Toggle Sidebar">☰</button>
+          <div class="page-title">Families Directory</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" type="button" title="Notifications" aria-label="Notifications">🔔</button>
+          <button class="icon-btn" type="button" title="Help" aria-label="Help">❓</button>
+          <button class="icon-btn" type="button" title="Settings" aria-label="Settings">⚙️</button>
+        </div>
+      </header>
+
+      <h2 class="families-title"><span>🏡</span> Families Directory</h2>
+      <p class="page-subtitle">Manage family groups, guardians and the students connected to each household.</p>
+
+      <section class="family-stats" aria-label="Family directory summary">
+        <div class="stat-card">
+          <span>Total families</span>
+          <strong id="totalFamilies">—</strong>
+          <small>Registered households</small>
+        </div>
+        <div class="stat-card">
+          <span>Parents / guardians</span>
+          <strong id="totalParents">—</strong>
+          <small>Across all families</small>
+        </div>
+        <div class="stat-card">
+          <span>Linked students</span>
+          <strong id="totalStudents">—</strong>
+          <small>Across all families</small>
+        </div>
+      </section>
+
+      <div class="families-actions">
+        <button class="add-btn" id="addFamilyBtn" type="button"><span>＋</span> Add Family</button>
+        <button class="refresh-btn" id="refreshFamiliesBtn" type="button">↻ Refresh</button>
+        <div class="search-bar">
+          <input type="text" id="familySearchInput" placeholder="Search families..." aria-label="Search families">
+        </div>
+      </div>
+
+      <div class="family-mobile-grid" id="familyMobileGrid" aria-live="polite"></div>
+
+      <div class="families-list" id="familiesListSection">
+        <div class="loading-state" id="familiesLoading">Loading families...</div>
+        <div class="empty-state" id="familiesEmpty" style="display:none;">No families found.</div>
+        <table class="families-table" id="familiesTable" style="display:none;">
+          <thead>
+            <tr>
+              <th>Family Name</th>
+              <th>Parent(s) / Guardian(s)</th>
+              <th>Students</th>
+              <th>Contact</th>
+              <th style="min-width: 115px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="familiesTableBody"></tbody>
+        </table>
+      </div>
+    </main>
   </div>
 
-  <!-- Modal for Add/Edit Family -->
-  <div class="modal-backdrop" id="familyModalBackdrop">
+  <!-- Modal for Add/View/Edit Family -->
+  <div class="modal-backdrop" id="familyModalBackdrop" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="familyModalTitle">
-      <button class="modal-close-btn" id="closeFamilyModal" aria-label="Close">&times;</button>
+      <button type="button" class="modal-close-btn" id="closeFamilyModal" aria-label="Close">&times;</button>
       <div class="modal-title" id="familyModalTitle">Add Family</div>
       <form id="familyForm" class="modal-form" autocomplete="off">
         <input type="hidden" id="familyIdInput">
+
         <label for="familyNameInput">Family Name</label>
         <input type="text" id="familyNameInput" required maxlength="60" placeholder="e.g. The Smith Family">
 
@@ -635,78 +1094,402 @@
     </div>
   </div>
 
-  <button class="support-tab" aria-label="Open Support">Support</button>
-  <button class="eclass-fab" aria-label="Open e-Class">e-Class</button>
+  <button type="button" class="support-tab" aria-label="Open Support">Support</button>
+  <button type="button" class="eclass-fab" aria-label="Open e-Class">e-Class</button>
 
   <script>
   (() => {
     'use strict';
     const API_BASE = (window.API_BASE_URL || 'https://examguard-8rxe.onrender.com').replace(/\/$/, '');
     const $ = id => document.getElementById(id);
-    const spinner = $('pageSpinnerOverlay'), sidebar = $('sidebar'), overlay = $('sidebarOverlay');
-    const familyModalBackdrop=$('familyModalBackdrop'), familyForm=$('familyForm');
-    const familyIdInput=$('familyIdInput'), familyNameInput=$('familyNameInput'), familyContactInput=$('familyContactInput');
-    const parentInputs=$('parentInputs'), studentInputs=$('studentInputs');
-    const loading=$('familiesLoading'), empty=$('familiesEmpty'), table=$('familiesTable'), tbody=$('familiesTableBody'), mobileGrid=$('familyMobileGrid');
-    let allFamilies=[], viewMode=false, currentUser=null, schoolCode=null, activeSchoolId='';
+    const spinner = $('pageSpinnerOverlay');
+    const sidebar = $('sidebar');
+    const overlay = $('sidebarOverlay');
+    const familyModalBackdrop = $('familyModalBackdrop');
+    const familyForm = $('familyForm');
+    const familyIdInput = $('familyIdInput');
+    const familyNameInput = $('familyNameInput');
+    const familyContactInput = $('familyContactInput');
+    const parentInputs = $('parentInputs');
+    const studentInputs = $('studentInputs');
+    const loading = $('familiesLoading');
+    const empty = $('familiesEmpty');
+    const table = $('familiesTable');
+    const tbody = $('familiesTableBody');
+    const mobileGrid = $('familyMobileGrid');
 
-    function token(){return localStorage.getItem('adminToken')||localStorage.getItem('token')||localStorage.getItem('authToken')||sessionStorage.getItem('adminToken')||sessionStorage.getItem('token')||'';}
-    function getSchoolContext(){
-      const host=location.hostname.split('.')[0];
-      const candidates=['examguard_school_config_'+host,'schoolConfig','school_config','examguard_school_config'];
-      for(const key of candidates){try{const raw=localStorage.getItem(key);if(!raw)continue;const parsed=JSON.parse(raw);const d=parsed.data||parsed;const sc=d.school||d;const code=sc.schoolId||sc.code||sc.subdomain;if(code){schoolCode=code;activeSchoolId=sc._id||sc.mongoId||sc.schoolObjectId||sc.schoolMongoId||sc.id||'';return sc;}}catch(_){} }
-      for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key||!key.startsWith('examguard_school_config_'))continue;try{const parsed=JSON.parse(localStorage.getItem(key));const sc=(parsed.data||parsed).school||((parsed.data||parsed));if(sc?.schoolId){schoolCode=sc.schoolId;activeSchoolId=sc._id||sc.mongoId||sc.schoolObjectId||sc.schoolMongoId||sc.id||'';return sc;}}catch(_){}}
+    let allFamilies = [];
+    let viewMode = false;
+    let currentUser = null;
+    let schoolCode = null;
+    let activeSchoolId = '';
+
+    function token() {
+      return localStorage.getItem('adminToken') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('adminToken') ||
+        sessionStorage.getItem('token') || '';
+    }
+
+    function getSchoolContext() {
+      const host = location.hostname.split('.')[0];
+      const candidates = ['examguard_school_config_' + host, 'schoolConfig', 'school_config', 'examguard_school_config'];
+      for (const key of candidates) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          const d = parsed.data || parsed;
+          const sc = d.school || d;
+          const code = sc.schoolId || sc.code || sc.subdomain;
+          if (code) {
+            schoolCode = code;
+            activeSchoolId = sc._id || sc.mongoId || sc.schoolObjectId || sc.schoolMongoId || sc.id || '';
+            return sc;
+          }
+        } catch (_) {}
+      }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith('examguard_school_config_')) continue;
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key));
+          const sc = (parsed.data || parsed).school || (parsed.data || parsed);
+          if (sc?.schoolId) {
+            schoolCode = sc.schoolId;
+            activeSchoolId = sc._id || sc.mongoId || sc.schoolObjectId || sc.schoolMongoId || sc.id || '';
+            return sc;
+          }
+        } catch (_) {}
+      }
       return null;
     }
-    function headers(json=false){const t=token();const h={};if(t)h.Authorization='Bearer '+t;if(json)h['Content-Type']='application/json';if(activeSchoolId)h['X-School-ID']=activeSchoolId;if(schoolCode)h['X-School-Code']=schoolCode;return h;}
-    async function api(path,options={}){const res=await fetch(API_BASE+'/api'+path,{...options,headers:{...headers(options.body!==undefined),...(options.headers||{})}});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||data.message||(`Request failed (${res.status})`));return data;}
-    function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-    function names(list){return (Array.isArray(list)?list:[]).map(x=>typeof x==='string'?x:(x?.name||x?.fullName||x?.studentName||'')).filter(Boolean);}
-    function unwrap(payload){if(Array.isArray(payload))return payload;return payload.families||payload.data?.families||payload.results||payload.data?.results||(Array.isArray(payload.data)?payload.data:[]);}
-    function updateStats(){
-      $('totalFamilies').textContent=allFamilies.length;
-      $('totalParents').textContent=allFamilies.reduce((n,f)=>n+names(f.parents).length,0);
-      $('totalStudents').textContent=allFamilies.reduce((n,f)=>n+names(f.students).length,0);
+
+    function headers(json = false) {
+      const t = token();
+      const h = {};
+      if (t) h.Authorization = 'Bearer ' + t;
+      if (json) h['Content-Type'] = 'application/json';
+      if (activeSchoolId) h['X-School-ID'] = activeSchoolId;
+      if (schoolCode) h['X-School-Code'] = schoolCode;
+      return h;
     }
-    function render(list=allFamilies){loading.style.display='none';tbody.innerHTML='';mobileGrid.innerHTML='';empty.style.display=list.length?'none':'';table.style.display=list.length?'':'none';mobileGrid.style.display=list.length?'grid':'none';
-      list.forEach(f=>{const id=String(f._id||f.id||'');const tr=document.createElement('tr');
-        const ps=names(f.parents), ss=names(f.students), familyName=f.name||'Unnamed family';
-        tr.innerHTML=`<td><strong>${esc(familyName)}</strong></td><td><div class="member-badges">${ps.map(n=>`<span class="member-badge">${esc(n)}</span>`).join('')||'<span class="muted">—</span>'}</div></td><td><div class="member-badges">${ss.map(n=>`<span class="member-badge">${esc(n)}</span>`).join('')||'<span class="muted">—</span>'}</div></td><td>${esc(f.contact||'—')}</td><td class="actions"><button class="action-btn view" title="View family" aria-label="View family" data-action="view" data-id="${esc(id)}">👁️</button><button class="action-btn edit" title="Edit family" aria-label="Edit family" data-action="edit" data-id="${esc(id)}">✏️</button><button class="action-btn delete" title="Delete family" aria-label="Delete family" data-action="delete" data-id="${esc(id)}">🗑️</button></td>`;tbody.appendChild(tr);
-        const card=document.createElement('article');card.className='family-card';
-        const initials=familyName.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
-        card.innerHTML=`<div class="family-card-head"><div class="family-avatar">${esc(initials||'F')}</div><div class="family-card-heading"><h3>${esc(familyName)}</h3><p><i class="fa-solid fa-house-user"></i> Family household</p></div><span class="family-count">${ss.length} ${ss.length===1?'student':'students'}</span></div><div class="family-card-details"><div class="family-detail"><span class="detail-label"><i class="fa-solid fa-user-group"></i> Parents / guardians</span><div class="family-chips">${ps.length?ps.map(n=>`<span>${esc(n)}</span>`).join(''):'<em>Not specified</em>'}</div></div><div class="family-detail"><span class="detail-label"><i class="fa-solid fa-graduation-cap"></i> Linked students</span><div class="family-chips student-chips">${ss.length?ss.map(n=>`<span>${esc(n)}</span>`).join(''):'<em>Not specified</em>'}</div></div><div class="family-contact"><i class="fa-solid fa-phone"></i><span>${esc(f.contact||'No contact information')}</span></div></div><div class="family-card-actions"><button data-action="view" data-id="${esc(id)}" class="card-action view-action"><i class="fa-regular fa-eye"></i> View details</button><button data-action="edit" data-id="${esc(id)}" class="card-action edit-action"><i class="fa-solid fa-pen"></i> Edit</button><button data-action="delete" data-id="${esc(id)}" class="card-action delete-action" aria-label="Delete family"><i class="fa-regular fa-trash-can"></i></button></div>`;
+
+    async function api(path, options = {}) {
+      const res = await fetch(API_BASE + '/api' + path, {
+        ...options,
+        headers: { ...headers(options.body !== undefined), ...(options.headers || {}) }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || `Request failed (${res.status})`);
+      return data;
+    }
+
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function names(list) {
+      return (Array.isArray(list) ? list : [])
+        .map(x => typeof x === 'string' ? x : (x?.name || x?.fullName || x?.studentName || ''))
+        .filter(Boolean);
+    }
+
+    function unwrap(payload) {
+      if (Array.isArray(payload)) return payload;
+      return payload.families || payload.data?.families || payload.results || payload.data?.results || (Array.isArray(payload.data) ? payload.data : []);
+    }
+
+    function updateStats() {
+      $('totalFamilies').textContent = allFamilies.length;
+      $('totalParents').textContent = allFamilies.reduce((n, f) => n + names(f.parents).length, 0);
+      $('totalStudents').textContent = allFamilies.reduce((n, f) => n + names(f.students).length, 0);
+    }
+
+    function render(list = allFamilies) {
+      loading.style.display = 'none';
+      tbody.innerHTML = '';
+      mobileGrid.innerHTML = '';
+      empty.className = 'empty-state';
+      empty.textContent = 'No families found.';
+      empty.style.display = list.length ? 'none' : '';
+      table.style.display = list.length ? '' : 'none';
+      mobileGrid.classList.toggle('has-items', list.length > 0);
+
+      list.forEach(f => {
+        const id = String(f._id || f.id || '');
+        const ps = names(f.parents);
+        const ss = names(f.students);
+        const familyName = f.name || 'Unnamed family';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${esc(familyName)}</strong></td>
+          <td><div class="member-badges">${ps.map(n => `<span class="member-badge">${esc(n)}</span>`).join('') || '<span>—</span>'}</div></td>
+          <td><div class="member-badges">${ss.map(n => `<span class="member-badge">${esc(n)}</span>`).join('') || '<span>—</span>'}</div></td>
+          <td>${esc(f.contact || '—')}</td>
+          <td class="actions">
+            <button type="button" class="action-btn view" title="View family" aria-label="View family" data-action="view" data-id="${esc(id)}">👁️</button>
+            <button type="button" class="action-btn edit" title="Edit family" aria-label="Edit family" data-action="edit" data-id="${esc(id)}">✏️</button>
+            <button type="button" class="action-btn delete" title="Delete family" aria-label="Delete family" data-action="delete" data-id="${esc(id)}">🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+
+        const card = document.createElement('article');
+        card.className = 'family-card';
+        const initials = familyName.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase();
+        card.innerHTML = `
+          <div class="family-card-head">
+            <div class="family-avatar">${esc(initials || 'F')}</div>
+            <div class="family-card-heading">
+              <h3>${esc(familyName)}</h3>
+              <p><i class="fa-solid fa-house-user"></i> Family household</p>
+            </div>
+            <span class="family-count">${ss.length} ${ss.length === 1 ? 'student' : 'students'}</span>
+          </div>
+          <div class="family-card-details">
+            <div class="family-detail">
+              <span class="detail-label"><i class="fa-solid fa-user-group"></i> Parents / guardians</span>
+              <div class="family-chips">${ps.length ? ps.map(n => `<span>${esc(n)}</span>`).join('') : '<em>Not specified</em>'}</div>
+            </div>
+            <div class="family-detail">
+              <span class="detail-label"><i class="fa-solid fa-graduation-cap"></i> Linked students</span>
+              <div class="family-chips student-chips">${ss.length ? ss.map(n => `<span>${esc(n)}</span>`).join('') : '<em>Not specified</em>'}</div>
+            </div>
+            <div class="family-contact">
+              <i class="fa-solid fa-phone"></i>
+              <span>${esc(f.contact || 'No contact information')}</span>
+            </div>
+          </div>
+          <div class="family-card-actions">
+            <button type="button" data-action="view" data-id="${esc(id)}" class="card-action view-action"><i class="fa-regular fa-eye"></i> View</button>
+            <button type="button" data-action="edit" data-id="${esc(id)}" class="card-action edit-action"><i class="fa-solid fa-pen"></i> Edit</button>
+            <button type="button" data-action="delete" data-id="${esc(id)}" class="card-action delete-action" aria-label="Delete family"><i class="fa-regular fa-trash-can"></i></button>
+          </div>
+        `;
         mobileGrid.appendChild(card);
-      });updateStats();
+      });
+
+      updateStats();
     }
-    async function fetchFamilies(){loading.style.display='';loading.textContent='Loading families...';empty.style.display='none';table.style.display='none';tbody.innerHTML='';
-      try{if(!token())throw new Error('Please sign in again to access the families directory.');const data=await api('/families');allFamilies=unwrap(data);if(!Array.isArray(allFamilies))allFamilies=[];render(filtered());}
-      catch(err){console.error('Families load failed:',err);loading.style.display='none';empty.style.display='';empty.className='error-state';empty.textContent=err.message||'Unable to load families. Please refresh and try again.';allFamilies=[];updateStats();}
+
+    async function fetchFamilies() {
+      loading.style.display = '';
+      loading.textContent = 'Loading families...';
+      empty.style.display = 'none';
+      table.style.display = 'none';
+      mobileGrid.classList.remove('has-items');
+      tbody.innerHTML = '';
+      mobileGrid.innerHTML = '';
+
+      try {
+        if (!token()) throw new Error('Please sign in again to access the families directory.');
+        const data = await api('/families');
+        allFamilies = unwrap(data);
+        if (!Array.isArray(allFamilies)) allFamilies = [];
+        render(filtered());
+      } catch (err) {
+        console.error('Families load failed:', err);
+        loading.style.display = 'none';
+        empty.style.display = '';
+        empty.className = 'error-state';
+        empty.textContent = err.message || 'Unable to load families. Please refresh and try again.';
+        allFamilies = [];
+        updateStats();
+      }
     }
-    function filtered(){const q=$('familySearchInput').value.trim().toLowerCase();if(!q)return allFamilies;return allFamilies.filter(f=>[f.name,f.contact,...names(f.parents),...names(f.students)].join(' ').toLowerCase().includes(q));}
-    function addMember(container,value='',label='Name'){const row=document.createElement('div');row.className='member-input-row';const input=document.createElement('input');input.type='text';input.placeholder=label;input.value=value;input.required=true;input.maxLength=80;const remove=document.createElement('button');remove.type='button';remove.className='remove-member-btn';remove.innerHTML='&times;';remove.title='Remove';remove.setAttribute('aria-label','Remove '+label);remove.addEventListener('click',()=>{if(container.children.length>1)row.remove();else input.value='';});row.append(input,remove);container.appendChild(row);}
-    function resetForm(){familyForm.reset();familyIdInput.value='';parentInputs.innerHTML='';studentInputs.innerHTML='';addMember(parentInputs,'','Parent / guardian name');addMember(studentInputs,'','Student name');setFormDisabled(false);}
-    function setFormDisabled(disabled){familyForm.querySelectorAll('input,button').forEach(el=>{if(el.id==='closeFamilyModal')return;el.disabled=disabled;});}
-    function openForm(f=null,mode='edit'){resetForm();viewMode=mode==='view';familyModalBackdrop.classList.add('active');familyModalBackdrop.setAttribute('aria-hidden','false');
-      if(f){familyIdInput.value=f._id||f.id||'';familyNameInput.value=f.name||'';familyContactInput.value=f.contact||'';parentInputs.innerHTML='';studentInputs.innerHTML='';(names(f.parents).length?names(f.parents):['']).forEach(n=>addMember(parentInputs,n,'Parent / guardian name'));(names(f.students).length?names(f.students):['']).forEach(n=>addMember(studentInputs,n,'Student name'));}
-      $('familyModalTitle').textContent=viewMode?'Family Details':(f?'Edit Family':'Add Family');$('familyFormSubmitBtn').style.display=viewMode?'none':'';setFormDisabled(viewMode);
+
+    function filtered() {
+      const q = $('familySearchInput').value.trim().toLowerCase();
+      if (!q) return allFamilies;
+      return allFamilies.filter(f =>
+        [f.name, f.contact, ...names(f.parents), ...names(f.students)].join(' ').toLowerCase().includes(q)
+      );
     }
-    function closeModal(){familyModalBackdrop.classList.remove('active');familyModalBackdrop.setAttribute('aria-hidden','true');setFormDisabled(false);$('familyFormSubmitBtn').style.display='';viewMode=false;}
-    async function deleteFamily(id){if(!confirm('Delete this family record? This cannot be undone.'))return;try{await api('/families/'+encodeURIComponent(id),{method:'DELETE'});await fetchFamilies();}catch(e){alert(e.message||'Unable to delete family.');}}
-    function handleFamilyAction(e){const b=e.target.closest('button[data-action]');if(!b)return;const f=allFamilies.find(x=>String(x._id||x.id)===b.dataset.id);if(!f)return;if(b.dataset.action==='delete')deleteFamily(b.dataset.id);else openForm(f,b.dataset.action);} tbody.addEventListener('click',handleFamilyAction);mobileGrid.addEventListener('click',handleFamilyAction);
-    $('addFamilyBtn').addEventListener('click',()=>openForm());$('closeFamilyModal').addEventListener('click',closeModal);familyModalBackdrop.addEventListener('click',e=>{if(e.target===familyModalBackdrop)closeModal();});
-    $('addParentBtn').addEventListener('click',()=>addMember(parentInputs,'','Parent / guardian name'));$('addStudentBtn').addEventListener('click',()=>addMember(studentInputs,'','Student name'));
-    $('refreshFamiliesBtn').addEventListener('click',fetchFamilies);$('familySearchInput').addEventListener('input',()=>render(filtered()));
-    familyForm.addEventListener('submit',async e=>{e.preventDefault();if(viewMode)return;const id=familyIdInput.value;const payload={name:familyNameInput.value.trim(),contact:familyContactInput.value.trim(),parents:Array.from(parentInputs.querySelectorAll('input')).map(x=>x.value.trim()).filter(Boolean),students:Array.from(studentInputs.querySelectorAll('input')).map(x=>x.value.trim()).filter(Boolean)};
-      if(!payload.name||!payload.parents.length||!payload.students.length){alert('Enter a family name and at least one parent/guardian and student.');return;}
-      const btn=$('familyFormSubmitBtn');btn.disabled=true;btn.textContent='Saving...';try{await api('/families'+(id?'/'+encodeURIComponent(id):''),{method:id?'PATCH':'POST',body:JSON.stringify(payload)});closeModal();await fetchFamilies();}catch(err){alert(err.message||'Unable to save family.');}finally{btn.disabled=false;btn.textContent='Save';}
+
+    function addMember(container, value = '', label = 'Name') {
+      const row = document.createElement('div');
+      row.className = 'member-input-row';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = label;
+      input.value = value;
+      input.required = true;
+      input.maxLength = 80;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove-member-btn';
+      remove.innerHTML = '&times;';
+      remove.title = 'Remove';
+      remove.setAttribute('aria-label', 'Remove ' + label);
+      remove.addEventListener('click', () => {
+        if (container.children.length > 1) row.remove();
+        else input.value = '';
+      });
+      row.append(input, remove);
+      container.appendChild(row);
+    }
+
+    function resetForm() {
+      familyForm.reset();
+      familyIdInput.value = '';
+      parentInputs.innerHTML = '';
+      studentInputs.innerHTML = '';
+      addMember(parentInputs, '', 'Parent / guardian name');
+      addMember(studentInputs, '', 'Student name');
+      setFormDisabled(false);
+    }
+
+    function setFormDisabled(disabled) {
+      familyForm.querySelectorAll('input, button').forEach(el => {
+        if (el.id === 'closeFamilyModal') return;
+        el.disabled = disabled;
+      });
+    }
+
+    function openForm(f = null, mode = 'edit') {
+      resetForm();
+      viewMode = mode === 'view';
+      familyModalBackdrop.classList.add('active');
+      familyModalBackdrop.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+
+      if (f) {
+        familyIdInput.value = f._id || f.id || '';
+        familyNameInput.value = f.name || '';
+        familyContactInput.value = f.contact || '';
+        parentInputs.innerHTML = '';
+        studentInputs.innerHTML = '';
+        (names(f.parents).length ? names(f.parents) : ['']).forEach(n => addMember(parentInputs, n, 'Parent / guardian name'));
+        (names(f.students).length ? names(f.students) : ['']).forEach(n => addMember(studentInputs, n, 'Student name'));
+      }
+
+      $('familyModalTitle').textContent = viewMode ? 'Family Details' : (f ? 'Edit Family' : 'Add Family');
+      $('familyFormSubmitBtn').style.display = viewMode ? 'none' : '';
+      setFormDisabled(viewMode);
+    }
+
+    function closeModal() {
+      familyModalBackdrop.classList.remove('active');
+      familyModalBackdrop.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      setFormDisabled(false);
+      $('familyFormSubmitBtn').style.display = '';
+      viewMode = false;
+    }
+
+    async function deleteFamily(id) {
+      if (!confirm('Delete this family record? This cannot be undone.')) return;
+      try {
+        await api('/families/' + encodeURIComponent(id), { method: 'DELETE' });
+        await fetchFamilies();
+      } catch (e) {
+        alert(e.message || 'Unable to delete family.');
+      }
+    }
+
+    function handleFamilyAction(e) {
+      const b = e.target.closest('button[data-action]');
+      if (!b) return;
+      const f = allFamilies.find(x => String(x._id || x.id) === b.dataset.id);
+      if (!f) return;
+      if (b.dataset.action === 'delete') deleteFamily(b.dataset.id);
+      else openForm(f, b.dataset.action);
+    }
+
+    tbody.addEventListener('click', handleFamilyAction);
+    mobileGrid.addEventListener('click', handleFamilyAction);
+    $('addFamilyBtn').addEventListener('click', () => openForm());
+    $('closeFamilyModal').addEventListener('click', closeModal);
+    familyModalBackdrop.addEventListener('click', e => {
+      if (e.target === familyModalBackdrop) closeModal();
     });
-    $('sidebarToggle').addEventListener('click',()=>{sidebar.classList.add('active');overlay.classList.add('active');document.body.classList.add('sidebar-open');});
-    function closeSidebar(){sidebar.classList.remove('active');overlay.classList.remove('active');document.body.classList.remove('sidebar-open');}
-    overlay.addEventListener('click',closeSidebar);document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSidebar();closeModal();}});
-    async function boot(){const school=getSchoolContext();if(school){$('schoolName').textContent=school.name||school.schoolName||'School Portal';const logo=school.logo||school.logoUrl||school.logoURL;if(logo){$('schoolLogo').src=/^https?:|^data:/.test(logo)?logo:API_BASE+'/'+String(logo).replace(/^\//,'');$('schoolLogo').style.display='block';}document.title=($('schoolName').textContent)+' - Families';}
-      try{const me=await api('/auth/me');currentUser=me.user||me.data?.user||me;const display=currentUser.name||currentUser.fullName||currentUser.username||'School Administrator';$('sidebarUserName').textContent=display;if(currentUser.avatar||currentUser.photo)$('adminAvatar').src=currentUser.avatar||currentUser.photo;}catch(e){/* directory endpoint will show the actionable auth error */}
-      await fetchFamilies();if(spinner){spinner.style.opacity='0';setTimeout(()=>spinner.style.display='none',250);}
+    $('addParentBtn').addEventListener('click', () => addMember(parentInputs, '', 'Parent / guardian name'));
+    $('addStudentBtn').addEventListener('click', () => addMember(studentInputs, '', 'Student name'));
+    $('refreshFamiliesBtn').addEventListener('click', fetchFamilies);
+    $('familySearchInput').addEventListener('input', () => render(filtered()));
+
+    familyForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (viewMode) return;
+      const id = familyIdInput.value;
+      const payload = {
+        name: familyNameInput.value.trim(),
+        contact: familyContactInput.value.trim(),
+        parents: Array.from(parentInputs.querySelectorAll('input')).map(x => x.value.trim()).filter(Boolean),
+        students: Array.from(studentInputs.querySelectorAll('input')).map(x => x.value.trim()).filter(Boolean)
+      };
+      if (!payload.name || !payload.parents.length || !payload.students.length) {
+        alert('Enter a family name and at least one parent/guardian and student.');
+        return;
+      }
+      const btn = $('familyFormSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      try {
+        await api('/families' + (id ? '/' + encodeURIComponent(id) : ''), {
+          method: id ? 'PATCH' : 'POST',
+          body: JSON.stringify(payload)
+        });
+        closeModal();
+        await fetchFamilies();
+      } catch (err) {
+        alert(err.message || 'Unable to save family.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+      }
+    });
+
+    function openSidebar() {
+      sidebar.classList.add('active');
+      overlay.classList.add('active');
+      document.body.classList.add('sidebar-open');
     }
+
+    function closeSidebar() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      document.body.classList.remove('sidebar-open');
+    }
+
+    $('sidebarToggle').addEventListener('click', openSidebar);
+    $('sidebarClose').addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeSidebar();
+        closeModal();
+      }
+    });
+
+    async function boot() {
+      const school = getSchoolContext();
+      if (school) {
+        $('schoolName').textContent = school.name || school.schoolName || 'School Portal';
+        const logo = school.logo || school.logoUrl || school.logoURL;
+        if (logo) {
+          $('schoolLogo').src = /^https?:|^data:/.test(logo) ? logo : API_BASE + '/' + String(logo).replace(/^\//, '');
+          $('schoolLogo').style.display = 'block';
+        }
+        document.title = $('schoolName').textContent + ' - Families';
+      }
+      try {
+        const me = await api('/auth/me');
+        currentUser = me.user || me.data?.user || me;
+        $('sidebarUserName').textContent = currentUser.name || currentUser.fullName || currentUser.username || 'School Administrator';
+      } catch (_) {}
+      await fetchFamilies();
+      if (spinner) {
+        spinner.style.opacity = '0';
+        setTimeout(() => { spinner.style.display = 'none'; }, 250);
+      }
+    }
+
     boot();
   })();
   </script>
