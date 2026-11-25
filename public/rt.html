@@ -296,10 +296,8 @@
                 <div class="absolute right-28 -bottom-24 h-52 w-52 rounded-full bg-sky-400/10 blur-2xl"></div>
                 <div class="relative z-10 p-5 sm:p-7 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
                     <div class="max-w-2xl">
-                        <p class="text-[10px] uppercase tracking-[.22em] font-extrabold text-sky-200 mb-2">Faculty workspace</p>
-                        <h1 class="text-2xl sm:text-3xl font-black tracking-tight">Welcome back, <span id="overviewWelcomeName">Teacher</span></h1>
-                        <p class="text-sm text-slate-200 mt-2 max-w-xl">Your teaching workspace is ready. Review your assigned classes, manage learning activities and keep student progress moving.</p>
-                        <p id="overviewTodayDate" class="text-[11px] font-semibold text-sky-100/80 mt-4"></p>
+                                                <h1 class="text-2xl sm:text-3xl font-black tracking-tight">Welcome back, <span id="overviewWelcomeName">Teacher</span></h1>
+                                                <p id="overviewTodayDate" class="text-[11px] font-semibold text-sky-100/80 mt-4"></p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" onclick="switchPanel('students')" class="rounded-xl bg-white text-brand-900 px-4 py-3 text-xs font-extrabold shadow hover:bg-sky-50 transition">View students <span aria-hidden="true">→</span></button>
@@ -1458,14 +1456,14 @@ function updateGradebookProgress() {
 
     async function loadCollections() {
         try {
-            assessmentDatabase = await fetchUnifiedQuestionBank();
+            const loaded = await fetchUnifiedQuestionBank();
+            if (Array.isArray(loaded)) assessmentDatabase = loaded;
             renderCollections();
             return assessmentDatabase;
         } catch (e) {
             console.error('Error loading collections:', e);
-            assessmentDatabase = [];
             renderCollections();
-            return [];
+            return assessmentDatabase;
         }
     }
 
@@ -1661,10 +1659,16 @@ async function submitCollectionWithClassSubject(collectionName) {
             return;
         }
 
-        // Clear input
         document.getElementById('newCollectionName').value = '';
 
-        // Show success
+        const createdId = String(collection._id || collection.id || '');
+        const alreadyPresent = assessmentDatabase.some(item =>
+            String(item._id || item.id || '') === createdId && createdId
+        );
+        if (!alreadyPresent) assessmentDatabase.unshift(collection);
+        renderCollections();
+        populateCollectionSelects();
+
         showCustomModal({
             title: 'Collection Created',
             message: `"${collectionName}" has been created successfully.`,
@@ -1672,8 +1676,15 @@ async function submitCollectionWithClassSubject(collectionName) {
             icon: '✅'
         });
 
-        // Reload collections
-        loadCollections();
+        const refreshedCollections = await fetchUnifiedQuestionBank();
+        if (Array.isArray(refreshedCollections)) {
+            const byId = new Map();
+            refreshedCollections.forEach(item => byId.set(String(item._id || item.id), item));
+            if (createdId && !byId.has(createdId)) byId.set(createdId, collection);
+            assessmentDatabase = Array.from(byId.values());
+            renderCollections();
+            populateCollectionSelects();
+        }
 
     } catch (error) {
         hideLoadingSpinner();
@@ -1707,8 +1718,9 @@ async function createCollectionAPI(name, classId, subjectId) {
                 subjectId: subjectId || null
             })
         });
-        if (!res.ok) throw new Error('Failed to create collection');
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Failed to create collection');
+        if (!data.collection) throw new Error('The server did not return the created collection.');
         return data.collection;
     } catch (e) {
         console.error('Error creating collection:', e);
@@ -3935,7 +3947,7 @@ async function commitAssignmentDeployment(event) {
         if (!confirmed) return;
         ['teacherToken', 'token', 'authToken'].forEach(key => localStorage.removeItem(key));
         token = '';
-        window.location.assign('teacher-login.html');
+        window.location.assign('/login');
     }
     async function uploadTeacherMedia(kind, input) {
         const file = input?.files?.[0]; if (!file) return;
