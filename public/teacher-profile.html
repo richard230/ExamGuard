@@ -154,6 +154,9 @@
       .profile-field{width:100%;min-height:42px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:10px 12px;font-weight:600;color:#0f172a;outline:none;transition:border-color .15s,box-shadow .15s}
       .profile-field:focus{background:#fff;border-color:#64748b;box-shadow:0 0 0 3px rgba(100,116,139,.12)}
       .profile-field::placeholder{color:#94a3b8}
+      .profile-summary-item{min-width:0;padding:12px 13px;border:1px solid #e8edf3;border-radius:13px;background:#fff}
+      .profile-summary-item span{display:block;color:#64748b;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+      .profile-summary-item strong{display:block;color:#0f172a;font-size:12px;overflow-wrap:anywhere}
     </style>
 
 </head>
@@ -551,6 +554,39 @@
 
         <div id="panel-profile" class="space-y-5 hidden">
             <section class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div><p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-brand-600">Faculty identity</p><h2 class="text-xl font-extrabold text-slate-900">My Professional Profile</h2><p class="text-xs text-slate-500 mt-1">Review your registered details, photograph and signature.</p></div>
+                    <button type="button" onclick="showTeacherProfileEditor()" class="bg-brand-900 text-white rounded-xl px-5 py-3 text-xs font-extrabold">Edit my details</button>
+                </div>
+                <div class="mt-5 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
+                    <div class="flex flex-col items-center gap-3 rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                        <img id="teacherProfilePhotoPreview" alt="Teacher profile photograph" class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md bg-white" src="" onerror="this.style.display='none';document.getElementById('teacherPhotoFallback').style.display='flex'">
+                        <div id="teacherPhotoFallback" class="w-32 h-32 rounded-full bg-brand-100 text-brand-900 items-center justify-center text-3xl font-black" style="display:flex">T</div>
+                        <div class="text-center"><p id="teacherCardName" class="font-extrabold text-slate-900">Teacher</p><p id="teacherCardDesignation" class="text-xs text-slate-500">Faculty Member</p></div>
+                        <label class="w-full text-center cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Upload photograph<input id="teacherPhotoUpload" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" onchange="uploadTeacherMedia('photo',this)"></label>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="teacherProfileSummary">
+                            <div class="profile-summary-item"><span>Full name</span><strong id="teacherCardFullName">—</strong></div>
+                            <div class="profile-summary-item"><span>Email address</span><strong id="teacherCardEmail">—</strong></div>
+                            <div class="profile-summary-item"><span>Phone number</span><strong id="teacherCardPhone">—</strong></div>
+                            <div class="profile-summary-item"><span>Department</span><strong id="teacherCardDepartment">—</strong></div>
+                            <div class="profile-summary-item"><span>Qualification</span><strong id="teacherCardQualification">—</strong></div>
+                            <div class="profile-summary-item"><span>Years of experience</span><strong id="teacherCardExperience">—</strong></div>
+                            <div class="profile-summary-item"><span>Residential address</span><strong id="teacherCardAddress">—</strong></div>
+                            <div class="profile-summary-item"><span>Assigned classes</span><strong id="teacherCardClasses">—</strong></div>
+                        </div>
+                        <div class="mt-4 rounded-2xl border border-dashed border-slate-300 p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                            <div class="flex-1"><p class="text-xs font-extrabold text-slate-800">Specimen signature</p><p class="text-[11px] text-slate-500 mt-1">Upload a clear PNG, JPG or WebP image of your signature.</p><label class="inline-flex mt-3 cursor-pointer rounded-xl bg-slate-900 text-white px-4 py-2.5 text-xs font-bold">Upload signature<input id="teacherSignatureUpload" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" onchange="uploadTeacherMedia('signature',this)"></label></div>
+                            <div class="w-full sm:w-56 h-24 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-2"><img id="teacherSignaturePreview" alt="Teacher signature" class="max-w-full max-h-full object-contain" style="display:none"><span id="teacherSignatureEmpty" class="text-[10px] text-slate-400">No signature uploaded</span></div>
+                        </div>
+                        <p id="teacherMediaStatus" class="text-[11px] mt-3" aria-live="polite"></p>
+                    </div>
+                </div>
+            </section>
+            <section id="teacherProfileEditor" class="hidden">
+                <div class="flex items-center justify-between gap-3 mb-3"><div><h3 class="font-extrabold text-slate-900">Edit profile information</h3><p class="text-xs text-slate-500">Update the details you are permitted to manage.</p></div><button type="button" onclick="hideTeacherProfileEditor()" class="text-xs font-bold text-brand-800">Back to profile</button></div>
+                <section class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 mb-5">
                     <div>
                         <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-brand-600">Account settings</p>
@@ -602,9 +638,10 @@
                         <button type="submit" class="w-full sm:w-auto bg-brand-900 hover:bg-brand-800 text-white font-bold px-6 py-3 rounded-xl text-xs uppercase tracking-wider transition">Save profile changes</button>
                     </div>
                 </form>
+                </section>
             </section>
 
-            <section class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+            <section id="teacherSecurityEditor" class="hidden bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div class="border-b border-slate-100 pb-4 mb-4">
                     <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-amber-600">Security</p>
                     <h2 class="text-base font-extrabold text-slate-900">Change password</h2>
@@ -1291,6 +1328,7 @@ function updateGradebookProgress() {
             setValue('profileEmergencyName', data.emergency_name);
             setValue('profileEmergencyPhone', data.emergency_phone);
             setValue('profileEmergencyRelationship', data.emergency_relationship);
+            renderTeacherProfileCard(data);
             return data;
         } catch (e) {
             console.error('Error fetching teacher profile:', e);
@@ -1743,14 +1781,14 @@ async function loadAcademicFilters() {
         document.getElementById('headerTeacherName').textContent = teacher.name || 'Teacher';
         document.getElementById('headerTeacherTitle').textContent = teacher.designation || 'Faculty Member';
         document.getElementById('sidebarDept').textContent = teacher.department || 'Department';
-        document.getElementById('profileName').value = teacher.name || '';
-        document.getElementById('profileTitle').value = teacher.designation || '';
-        document.getElementById('profileDept').value = teacher.department || '';
+        // Profile form fields are populated safely by fetchTeacherProfile().
+        renderTeacherProfileCard(teacher);
         await loadAcademicFilters();
 
         // Step 2: Load classes and students
         updateLoadingStatus('Loading class data...');
         teacher.classes = await fetchTeacherClasses();
+        renderTeacherProfileCard(teacher);
         
         for (const cls of teacher.classes) {
             updateLoadingStatus(`Loading students for ${cls.name}...`);
@@ -3802,6 +3840,40 @@ async function commitAssignmentDeployment(event) {
     }
 
     // ============ PROFILE FUNCTIONS ============
+    function renderTeacherProfileCard(data = teacher || {}) {
+        const fullName = data.name || [data.first_name, data.other_names, data.last_name].filter(Boolean).join(' ') || 'Teacher';
+        const put = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value || '—'; };
+        put('teacherCardName', fullName); put('teacherCardFullName', fullName);
+        put('teacherCardDesignation', data.designation || 'Faculty Member'); put('teacherCardEmail', data.email);
+        put('teacherCardPhone', data.phone); put('teacherCardDepartment', data.department);
+        put('teacherCardQualification', data.qualification); put('teacherCardExperience', data.experience === 0 ? '0 years' : (data.experience ? `${data.experience} years` : '—'));
+        put('teacherCardAddress', data.address);
+        put('teacherCardClasses', (data.classes || []).map(c => c.name).filter(Boolean).join(', ') || 'Not assigned');
+        const photo = document.getElementById('teacherProfilePhotoPreview');
+        const fallback = document.getElementById('teacherPhotoFallback');
+        if (photo && fallback) { if (data.photo_url) { photo.src = data.photo_url; photo.style.display = 'block'; fallback.style.display = 'none'; } else { photo.removeAttribute('src'); photo.style.display = 'none'; fallback.style.display = 'flex'; fallback.textContent = (fullName.trim()[0] || 'T').toUpperCase(); } }
+        const sig = document.getElementById('teacherSignaturePreview'); const empty = document.getElementById('teacherSignatureEmpty');
+        if (sig && empty) { if (data.signature_url) { sig.src = data.signature_url; sig.style.display = 'block'; empty.style.display = 'none'; } else { sig.removeAttribute('src'); sig.style.display = 'none'; empty.style.display = 'block'; } }
+    }
+    function showTeacherProfileEditor() { document.getElementById('teacherProfileEditor')?.classList.remove('hidden'); document.getElementById('teacherSecurityEditor')?.classList.remove('hidden'); document.getElementById('teacherProfileEditor')?.scrollIntoView({behavior:'smooth',block:'start'}); }
+    function hideTeacherProfileEditor() { document.getElementById('teacherProfileEditor')?.classList.add('hidden'); document.getElementById('teacherSecurityEditor')?.classList.add('hidden'); document.getElementById('panel-profile')?.scrollIntoView({behavior:'smooth',block:'start'}); }
+    async function uploadTeacherMedia(kind, input) {
+        const file = input?.files?.[0]; if (!file) return;
+        const status = document.getElementById('teacherMediaStatus');
+        const allowed = ['image/jpeg','image/png','image/webp'];
+        if (!allowed.includes(file.type)) { status.textContent = 'Choose a PNG, JPG or WebP image.'; status.className = 'text-[11px] mt-3 text-rose-600'; input.value=''; return; }
+        if (file.size > 1.5 * 1024 * 1024) { status.textContent = 'Image must be 1.5 MB or smaller.'; status.className = 'text-[11px] mt-3 text-rose-600'; input.value=''; return; }
+        status.textContent = 'Uploading image…'; status.className = 'text-[11px] mt-3 text-slate-500';
+        try {
+            const dataUrl = await new Promise((resolve,reject) => { const reader = new FileReader(); reader.onload=()=>resolve(reader.result); reader.onerror=reject; reader.readAsDataURL(file); });
+            const res = await fetch(`${API_BASE_URL}/api/teachers/me/media`, {method:'PATCH',headers:{...authHeaders(),'Content-Type':'application/json'},body:JSON.stringify({kind, image:dataUrl})});
+            const result = await res.json().catch(()=>({})); if (!res.ok) throw new Error(result.error || 'Image upload failed.');
+            teacher = await fetchTeacherProfile() || teacher; renderTeacherProfileCard(teacher);
+            status.textContent = kind === 'photo' ? 'Profile photograph updated.' : 'Signature updated.'; status.className = 'text-[11px] mt-3 text-emerald-700 font-semibold';
+        } catch (err) { status.textContent = err.message || 'Image upload failed.'; status.className = 'text-[11px] mt-3 text-rose-600'; }
+        finally { input.value=''; }
+    }
+
     async function updateTeacherProfile(event) {
         if (event) event.preventDefault();
         const form = document.getElementById('profileForm');
@@ -3836,9 +3908,10 @@ async function commitAssignmentDeployment(event) {
             if (!res.ok) throw new Error(data.error || 'Failed to update profile.');
             teacher = await fetchTeacherProfile();
             if (teacher) {
-                document.getElementById('headerTeacherName').textContent = teacher.name || 'Teacher';
-                document.getElementById('headerTeacherTitle').textContent = teacher.designation || 'Faculty Member';
-                document.getElementById('sidebarDept').textContent = teacher.department || 'Department';
+                const hn=document.getElementById('headerTeacherName'); if(hn) hn.textContent=teacher.name || 'Teacher';
+                const ht=document.getElementById('headerTeacherTitle'); if(ht) ht.textContent=teacher.designation || 'Faculty Member';
+                const sd=document.getElementById('sidebarDept'); if(sd) sd.textContent=teacher.department || 'Department';
+                renderTeacherProfileCard(teacher);
             }
             const status = document.getElementById('profileSaveStatus');
             if (status) status.textContent = 'Profile changes saved successfully.';
