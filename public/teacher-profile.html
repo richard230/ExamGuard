@@ -213,6 +213,13 @@
             </button>
         </nav>
 
+        <div class="px-4 pb-4">
+            <button type="button" onclick="logoutTeacher()" class="w-full flex items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-100 px-4 py-3 text-sm font-bold transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H9m4 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Logout
+            </button>
+        </div>
+
         <div class="p-4 border-t border-brand-800/60 bg-brand-950/20 text-[11px] text-center text-brand-100/60">
             System Node: <strong class="text-white font-semibold" id="systemNode">Faculty_LMS_2026</strong>
         </div>
@@ -223,10 +230,13 @@
             <img id="mobileSchoolLogo" src="mainlogo.png" class="h-7 w-auto bg-white p-0.5 rounded-lg" alt="School Logo">
             <span id="mobileSchoolName" class="font-serif font-bold text-sm tracking-wide">School LMS</span>
         </div>
+        <div class="flex items-center gap-2">
+        <button type="button" onclick="logoutTeacher()" class="bg-rose-600 hover:bg-rose-700 px-3 py-2 rounded-xl text-xs font-extrabold text-white transition active:scale-95">Logout</button>
         <button type="button" onclick="openBottomNav()" class="bg-brand-800 border border-brand-500/40 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition active:scale-95 flex items-center">
             <span>LMS Menu</span>
             <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
+        </div>
     </header>
 
     <div id="bottomDrawerOverlay" onclick="closeBottomNav(event)" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden transition-opacity duration-300 opacity-0">
@@ -553,7 +563,7 @@
 </div>
 
         <div id="panel-profile" class="space-y-5 hidden">
-            <section class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+            <section id="teacherProfileView" class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div><p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-brand-600">Faculty identity</p><h2 class="text-xl font-extrabold text-slate-900">My Professional Profile</h2><p class="text-xs text-slate-500 mt-1">Review your registered details, photograph and signature.</p></div>
                     <button type="button" onclick="showTeacherProfileEditor()" class="bg-brand-900 text-white rounded-xl px-5 py-3 text-xs font-extrabold">Edit my details</button>
@@ -3855,8 +3865,25 @@ async function commitAssignmentDeployment(event) {
         const sig = document.getElementById('teacherSignaturePreview'); const empty = document.getElementById('teacherSignatureEmpty');
         if (sig && empty) { if (data.signature_url) { sig.src = data.signature_url; sig.style.display = 'block'; empty.style.display = 'none'; } else { sig.removeAttribute('src'); sig.style.display = 'none'; empty.style.display = 'block'; } }
     }
-    function showTeacherProfileEditor() { document.getElementById('teacherProfileEditor')?.classList.remove('hidden'); document.getElementById('teacherSecurityEditor')?.classList.remove('hidden'); document.getElementById('teacherProfileEditor')?.scrollIntoView({behavior:'smooth',block:'start'}); }
-    function hideTeacherProfileEditor() { document.getElementById('teacherProfileEditor')?.classList.add('hidden'); document.getElementById('teacherSecurityEditor')?.classList.add('hidden'); document.getElementById('panel-profile')?.scrollIntoView({behavior:'smooth',block:'start'}); }
+    function showTeacherProfileEditor() {
+        document.getElementById('teacherProfileView')?.classList.add('hidden');
+        document.getElementById('teacherProfileEditor')?.classList.remove('hidden');
+        document.getElementById('teacherSecurityEditor')?.classList.remove('hidden');
+        document.getElementById('teacherProfileEditor')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    function hideTeacherProfileEditor() {
+        document.getElementById('teacherProfileEditor')?.classList.add('hidden');
+        document.getElementById('teacherSecurityEditor')?.classList.add('hidden');
+        document.getElementById('teacherProfileView')?.classList.remove('hidden');
+        document.getElementById('teacherProfileView')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    function logoutTeacher() {
+        const confirmed = window.confirm('Are you sure you want to log out of the teacher portal?');
+        if (!confirmed) return;
+        ['teacherToken', 'token', 'authToken'].forEach(key => localStorage.removeItem(key));
+        token = '';
+        window.location.assign('teacher-login.html');
+    }
     async function uploadTeacherMedia(kind, input) {
         const file = input?.files?.[0]; if (!file) return;
         const status = document.getElementById('teacherMediaStatus');
