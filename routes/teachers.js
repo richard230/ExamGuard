@@ -118,9 +118,8 @@ router.get('/me', tenantTeacherAuth, async (req, res) => {
   res.json({
     id: teacher._id,
     name: `${teacher.first_name} ${teacher.last_name}`,
-    email: teacher.email,
-    phone: teacher.phone || '',
     email: teacher.email || '',
+    phone: teacher.phone || '',
     first_name: teacher.first_name || '',
     last_name: teacher.last_name || '',
     other_names: teacher.other_names || '',
@@ -138,6 +137,7 @@ router.get('/me', tenantTeacherAuth, async (req, res) => {
     emergency_phone: teacher.emergency_phone || '',
     emergency_relationship: teacher.emergency_relationship || '',
     photo_url: teacher.photo || null,
+    signature_url: teacher.signature || null,
     classes: classData
   });
 });
@@ -310,6 +310,28 @@ router.patch('/me', tenantTeacherAuth, async (req, res) => {
   } catch (err) {
     return errorResponse(res, err);
   }
+});
+
+// PATCH /api/teachers/me/media - Update teacher photograph or specimen signature.
+router.patch('/me/media', tenantTeacherAuth, async (req, res) => {
+  try {
+    const { kind, image } = req.body || {};
+    if (!['photo', 'signature'].includes(kind)) return res.status(400).json({ error: 'Media type must be photo or signature.' });
+    if (typeof image !== 'string' || image.length > 2_100_000) return res.status(400).json({ error: 'Image is missing or exceeds the 1.5 MB upload limit.' });
+    const match = image.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) return res.status(400).json({ error: 'Only JPG, PNG and WebP images are accepted.' });
+    const bytes = Buffer.from(match[2], 'base64');
+    if (!bytes.length || bytes.length > 1_572_864) return res.status(400).json({ error: 'Image must be 1.5 MB or smaller.' });
+    const schoolId = getSchoolId(req);
+    const field = kind === 'photo' ? 'photo' : 'signature';
+    const teacher = await Staff.findOneAndUpdate(
+      { _id: req.staff._id, schoolId, access_level: 'Teacher' },
+      { $set: { [field]: image } },
+      { new: true }
+    ).select('photo signature');
+    if (!teacher) return res.status(404).json({ error: 'Teacher profile not found.' });
+    return res.json({ success: true, message: kind === 'photo' ? 'Profile photograph updated.' : 'Signature updated.', photo_url: teacher.photo || null, signature_url: teacher.signature || null });
+  } catch (err) { return errorResponse(res, err); }
 });
 
 // PATCH /api/teachers/me/password - Verify current password before changing it.
