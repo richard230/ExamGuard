@@ -835,7 +835,7 @@ router.get(
 router.patch('/me', authMiddleware, async (req, res) => {
   try {
     const updates = {};
-    const allowed = ['name', 'email', 'phone', 'displayName', 'bio'];
+    const allowed = ['name', 'email', 'phone', 'displayName', 'bio', 'address', 'occupation', 'emergencyContactName', 'emergencyContactPhone'];
     for (const k of allowed) {
       if (Object.prototype.hasOwnProperty.call(req.body, k)) {
         updates[k] = req.body[k];
@@ -863,12 +863,27 @@ router.patch('/me', authMiddleware, async (req, res) => {
       if (updates.bio) map.bio = updates.bio;
       updated = await Student.findByIdAndUpdate(req.user.id, { $set: map }, { new: true }).lean();
     } else if (role === 'parent') {
-      const map = {};
-      if (updates.name) map.name = updates.name;
-      if (updates.email) map.email = updates.email;
-      if (updates.phone) map.phone = updates.phone;
-      if (updates.bio) map.bio = updates.bio;
-      updated = await Parent.findByIdAndUpdate(req.user.id, { $set: map }, { new: true }).lean();
+      const parent = await Parent.findOne({ _id: req.user.id, schoolId: req.user.schoolId });
+      if (!parent) return res.status(404).json({ success: false, error: 'Parent account not found.' });
+      const parentFields = ['name', 'email', 'phone', 'address', 'occupation', 'emergencyContactName', 'emergencyContactPhone'];
+      for (const field of parentFields) {
+        if (!Object.prototype.hasOwnProperty.call(req.body, field)) continue;
+        const value = typeof req.body[field] === 'string' ? req.body[field].trim() : '';
+        if (field === 'name' && !value) return res.status(400).json({ success: false, error: 'Full name is required.' });
+        if (field === 'email') {
+          const email = value.toLowerCase();
+          if (!/^.+@.+\\..+$/.test(email)) return res.status(400).json({ success: false, error: 'Enter a valid email address.' });
+          const duplicate = await Parent.findOne({ _id: { $ne: parent._id }, schoolId: parent.schoolId, email });
+          if (duplicate) return res.status(409).json({ success: false, error: 'This email is already used by another parent in this school.' });
+          parent.email = email;
+        } else {
+          parent[field] = value;
+        }
+      }
+      await parent.save();
+      updated = parent.toObject();
+      delete updated.password;
+      delete updated.temporaryPassword;
     } else if (role === 'staff') {
       const map = {};
       if (updates.name) {
@@ -937,7 +952,7 @@ router.post('/me/avatar', authMiddleware, async (req, res) => {
     if (role === 'student') {
       modelUpdated = await Student.findByIdAndUpdate(req.user.id, { $set: { avatarUrl, avatarPublicId: publicId } }, { new: true }).lean();
     } else if (role === 'parent') {
-      modelUpdated = await Parent.findByIdAndUpdate(req.user.id, { $set: { avatarUrl, avatarPublicId: publicId } }, { new: true }).lean();
+      modelUpdated = await Parent.findByIdAndUpdate({ _id: req.user.id, schoolId: req.user.schoolId }, { $set: { profilePhoto: avatarUrl } }, { new: true }).lean();
     } else if (role === 'staff') {
       modelUpdated = await Staff.findByIdAndUpdate(req.user.id, { $set: { avatarUrl, avatarPublicId: publicId } }, { new: true }).lean();
     } else {
@@ -959,11 +974,11 @@ router.delete('/me/avatar', authMiddleware, async (req, res) => {
     let current = null;
 
     if (role === 'student') current = await Student.findById(req.user.id).lean();
-    else if (role === 'parent') current = await Parent.findById(req.user.id).lean();
+    else if (role === 'parent') current = await Parent.findOne({ _id: req.user.id, schoolId: req.user.schoolId }).lean();
     else if (role === 'staff') current = await Staff.findById(req.user.id).lean();
     else current = await User.findById(req.user.id).lean();
 
-    const publicId = current?.avatarPublicId;
+    const publicId = role === 'parent' ? null : current?.avatarPublicId;
 
     if (publicId) {
       try {
@@ -977,7 +992,7 @@ router.delete('/me/avatar', authMiddleware, async (req, res) => {
     if (role === 'student') {
       await Student.findByIdAndUpdate(req.user.id, { $unset: { avatarUrl: '', avatarPublicId: '' } });
     } else if (role === 'parent') {
-      await Parent.findByIdAndUpdate(req.user.id, { $unset: { avatarUrl: '', avatarPublicId: '' } });
+      await Parent.findOneAndUpdate({ _id: req.user.id, schoolId: req.user.schoolId }, { $unset: { profilePhoto: '' } });
     } else if (role === 'staff') {
       await Staff.findByIdAndUpdate(req.user.id, { $unset: { avatarUrl: '', avatarPublicId: '' } });
     } else {
@@ -1066,6 +1081,9 @@ router.post('/change-password', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'currentPassword and newPassword are required.' });
     }
 
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ success: false, error: 'New password must be at least 8 characters long.' });
+    }
     const role = req.user.role;
     let account = null;
     let passwordField = 'password'; // default
@@ -1076,7 +1094,7 @@ router.post('/change-password', authMiddleware, async (req, res) => {
     } else if (role === 'student') {
       account = await Student.findById(req.user.id);
     } else if (role === 'parent') {
-      account = await Parent.findById(req.user.id);
+      account = await Parent.findOne({ _id: req.user.id, schoolId: req.user.schoolId }).select('+password');
     } else {
       account = await User.findById(req.user.id);
     }
