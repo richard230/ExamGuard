@@ -119,9 +119,24 @@ router.get('/me', tenantTeacherAuth, async (req, res) => {
     id: teacher._id,
     name: `${teacher.first_name} ${teacher.last_name}`,
     email: teacher.email,
-    phone: teacher.phone,
-    designation: teacher.designation,
-    department: teacher.department,
+    phone: teacher.phone || '',
+    email: teacher.email || '',
+    first_name: teacher.first_name || '',
+    last_name: teacher.last_name || '',
+    other_names: teacher.other_names || '',
+    gender: teacher.gender || '',
+    dob: teacher.dob || '',
+    marital_status: teacher.marital_status || '',
+    address: teacher.address || '',
+    designation: teacher.designation || '',
+    department: teacher.department || '',
+    qualification: teacher.qualification || '',
+    experience: teacher.experience ?? '',
+    previous_employer: teacher.previous_employer || '',
+    specialization: teacher.specialization || '',
+    emergency_name: teacher.emergency_name || '',
+    emergency_phone: teacher.emergency_phone || '',
+    emergency_relationship: teacher.emergency_relationship || '',
     photo_url: teacher.photo || null,
     classes: classData
   });
@@ -206,29 +221,127 @@ router.get('/:id/cbt-results/:resultId', tenantTeacherAuth, async (req, res) => 
     res.status(500).json({ error: err.message });
   }
 });
-// PATCH /api/teachers/me - Update own profile
+// PATCH /api/teachers/me - Update only approved, non-privileged profile fields.
 router.patch('/me', tenantTeacherAuth, async (req, res) => {
-  if (req.body.login_password) {
-    req.body.login_password = await bcrypt.hash(req.body.login_password, 10);
+  try {
+    const schoolId = getSchoolId(req);
+    const allowedFields = [
+      'first_name', 'last_name', 'other_names', 'phone', 'email',
+      'gender', 'dob', 'marital_status', 'address',
+      'designation', 'department', 'qualification', 'experience',
+      'previous_employer', 'specialization',
+      'emergency_name', 'emergency_phone', 'emergency_relationship'
+    ];
+    const update = {};
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) {
+        update[field] = req.body[field];
+      }
+    }
+
+    if (!Object.keys(update).length) {
+      return res.status(400).json({ error: 'No valid profile fields were supplied.' });
+    }
+
+    for (const field of ['first_name', 'last_name', 'other_names', 'phone', 'email',
+      'address', 'designation', 'department', 'qualification', 'previous_employer',
+      'specialization', 'emergency_name', 'emergency_phone', 'emergency_relationship']) {
+      if (typeof update[field] === 'string') update[field] = update[field].trim();
+    }
+    if (update.email) update.email = update.email.toLowerCase();
+    if (update.email === '') update.email = undefined;
+
+    if (update.experience !== undefined && update.experience !== '') {
+      const years = Number(update.experience);
+      if (!Number.isFinite(years) || years < 0 || years > 60) {
+        return res.status(400).json({ error: 'Experience must be a number between 0 and 60.' });
+      }
+      update.experience = years;
+    } else if (update.experience === '') {
+      update.experience = undefined;
+    }
+
+    if (update.dob) {
+      const date = new Date(update.dob);
+      if (Number.isNaN(date.getTime())) return res.status(400).json({ error: 'Enter a valid date of birth.' });
+      update.dob = date;
+    }
+    if (update.gender && !['Male', 'Female', 'Other'].includes(update.gender)) {
+      return res.status(400).json({ error: 'Invalid gender value.' });
+    }
+    if (update.marital_status && !['Single', 'Married', 'Divorced', 'Widowed'].includes(update.marital_status)) {
+      return res.status(400).json({ error: 'Invalid marital status.' });
+    }
+
+    const teacher = await Staff.findOneAndUpdate(
+      { _id: req.staff._id, schoolId, access_level: 'Teacher' },
+      { $set: update },
+      { new: true, runValidators: true }
+    );
+    if (!teacher) return res.status(404).json({ error: 'Teacher profile not found.' });
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      profile: {
+        id: teacher._id,
+        name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim(),
+        first_name: teacher.first_name || '',
+        last_name: teacher.last_name || '',
+        other_names: teacher.other_names || '',
+        email: teacher.email || '',
+        phone: teacher.phone || '',
+        gender: teacher.gender || '',
+        dob: teacher.dob || '',
+        marital_status: teacher.marital_status || '',
+        address: teacher.address || '',
+        designation: teacher.designation || '',
+        department: teacher.department || '',
+        qualification: teacher.qualification || '',
+        experience: teacher.experience ?? '',
+        previous_employer: teacher.previous_employer || '',
+        specialization: teacher.specialization || '',
+        emergency_name: teacher.emergency_name || '',
+        emergency_phone: teacher.emergency_phone || '',
+        emergency_relationship: teacher.emergency_relationship || '',
+        photo_url: teacher.photo || null
+      }
+    });
+  } catch (err) {
+    return errorResponse(res, err);
   }
-  const schoolId = getSchoolId(req);
-  const update = { ...req.body };
-  delete update.schoolId;
-  delete update.access_level;
-  const teacher = await Staff.findOneAndUpdate(
-    { _id: req.staff._id, schoolId, access_level: 'Teacher' },
-    update,
-    { new: true, runValidators: true }
-  );
-  res.json({
-    id: teacher._id,
-    name: `${teacher.first_name} ${teacher.last_name}`,
-    email: teacher.email,
-    phone: teacher.phone,
-    designation: teacher.designation,
-    department: teacher.department,
-    photo_url: teacher.photo || null,
-  });
+});
+
+// PATCH /api/teachers/me/password - Verify current password before changing it.
+router.patch('/me/password', tenantTeacherAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({ error: 'Current password and new password are required.' });
+    }
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      return res.status(400).json({ error: 'New password must be between 8 and 128 characters.' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: 'Your new password must be different from the current password.' });
+    }
+
+    // teacherAuth loads the Staff document (including login_password) for this authenticated teacher.
+    const matches = await bcrypt.compare(currentPassword, req.staff.login_password || '');
+    if (!matches) return res.status( currentPassword ? 400 : 401).json({ error: 'Current password is incorrect.' });
+
+    const schoolId = getSchoolId(req);
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const result = await Staff.updateOne(
+      { _id: req.staff._id, schoolId, access_level: 'Teacher' },
+      { $set: { login_password: passwordHash } }
+    );
+    if (!result.matchedCount) return res.status(404).json({ error: 'Teacher account not found.' });
+
+    return res.json({ success: true, message: 'Password changed successfully. Use your new password next time you sign in.' });
+  } catch (err) {
+    return errorResponse(res, err);
+  }
 });
 
 router.get('/:id/students', tenantTeacherAuth, async (req, res) => {
