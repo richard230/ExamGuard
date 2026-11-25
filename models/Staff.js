@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const StaffSchema = new mongoose.Schema({
   photo: String,
+  signature: String,
   first_name: String,
   last_name: String,
   other_names: String,
