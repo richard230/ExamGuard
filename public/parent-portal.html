@@ -91,9 +91,31 @@
             font-size: 0.85rem;
             margin-top: 8px;
         }
+        .spinner { display:inline-block; width:12px; height:12px; border:2px solid rgba(59,130,246,.3); border-top-color:var(--school-primary,#2563eb); border-radius:50%; animation:spin .6s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        /* Keep the Profile and Results panels close to the fixed topbar,
+           matching the tighter start position of the main dashboard. */
+        #profileSection,
+        #resultsSection {
+            margin-top: -1.5rem !important;
+        }
+        @media (max-width: 767px) {
+            #profileSection,
+            #resultsSection {
+                margin-top: -1rem !important;
+            }
+        }
+        @media print {
+          body * { visibility:hidden !important; }
+          #resultsDisplay, #resultsDisplay * { visibility:visible !important; }
+          #resultsDisplay { position:absolute !important; inset:0 auto auto 0 !important; display:block !important; width:100% !important; max-width:100% !important; padding:0 !important; margin:0 !important; }
+          #resultsDisplay .no-print { display:none !important; }
+          #resultsDisplay .expandable-container { max-height:none !important; overflow:visible !important; }
+          #resultsDisplay .shadow-sm, #resultsDisplay .shadow-md, #resultsDisplay .shadow-lg, #resultsDisplay .shadow-xl { box-shadow:none !important; }
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col md:flex-row overflow-x-hidden" onload="initializeDashboard()">
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen overflow-hidden" onload="initializeDashboard()">
     <div id="loadingOverlay" class="loading-overlay">
         <div class="spinner-container">
             <div class="spinner-ring"></div>
@@ -134,7 +156,7 @@
         </div>
     </div>
 
-    <aside class="hidden md:flex flex-col w-72 bg-slate-900 text-white shrink-0 shadow-2xl relative z-30 border-r border-slate-800">
+    <aside id="desktopSidebar" class="hidden md:flex flex-col fixed inset-y-0 left-0 w-72 bg-slate-900 text-white shrink-0 shadow-2xl z-50 border-r border-slate-800 overflow-y-auto">
         <div class="p-6 border-b border-slate-800/80 bg-slate-950/40 flex items-center space-x-3">
             <div class="bg-white p-1 rounded-xl shadow-inner flex items-center justify-center shrink-0">
                 <img id="schoolLogo" src="" class="h-9 w-auto object-contain" alt="School Logo">
@@ -152,11 +174,11 @@
         </div>
         <nav class="flex-grow px-4 space-y-1.5">
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">Control Workspace</p>
-            <a href="#" class="flex items-center px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-md transition-all">
+            <a href="#" data-portal-nav="dashboard" onclick="showPortalSection('dashboard'); return false;" class="flex items-center px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-md transition-all">
                 <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                 Main Dashboard
             </a>
-            <a href="ward-results" class="flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
+            <a href="#" data-portal-nav="results" onclick="showPortalSection('results'); return false;" class="flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
                 <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Result Sheet Archive
             </a>
@@ -168,7 +190,7 @@
                 <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                 Tuition Ledger & Receipts
             </a>
-            <button type="button" onclick="openParentProfile()" class="w-full text-left flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
+            <button type="button" data-portal-nav="profile" onclick="openParentProfile()" class="w-full text-left flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
                 <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 My Profile
             </button>
@@ -182,7 +204,7 @@
         </div>
     </aside>
 
-    <header class="md:hidden w-full bg-slate-900 text-white h-16 px-4 flex items-center justify-between shadow-md sticky top-0 z-40">
+    <header class="md:hidden fixed top-0 inset-x-0 bg-slate-900 text-white h-16 px-4 flex items-center justify-between shadow-md z-[60]">
         <div class="flex items-center space-x-2.5">
             <img id="mobileSchoolLogo" src="" class="h-7 w-auto bg-white p-0.5 rounded-lg" alt="School Logo">
             <span id="mobileSchoolName" class="font-serif font-bold text-sm tracking-wide">School Portal</span>
@@ -207,11 +229,11 @@
                 </select>
             </div>
             <div class="grid grid-cols-1 gap-2 text-sm font-bold">
-                <a href="#" onclick="forceCloseBottomNav()" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                <a href="#" onclick="forceCloseBottomNav(); showPortalSection('dashboard'); return false;" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
                     <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-gold-400 mr-2"></span>Main Dashboard</span>
                     <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
-                <a href="ward-results" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                <a href="#" onclick="forceCloseBottomNav(); showPortalSection('results'); return false;" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
                     <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></span>Results Portal</span>
                     <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
@@ -231,7 +253,14 @@
         </div>
     </div>
 
-    <main class="flex-grow p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto w-full overflow-hidden">
+    <header id="desktopTopbar" class="hidden md:flex fixed top-0 left-72 right-0 h-[76px] z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm items-center justify-between px-7 lg:px-9">
+  <div><p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-brand-600">Parent Workspace</p><h1 id="portalPageTitle" class="text-lg font-extrabold text-slate-900">Main Dashboard</h1></div>
+  <div class="flex items-center gap-3"><div class="text-right"><p id="topbarParentName" class="text-sm font-bold text-slate-800">Parent</p><p class="text-[10px] text-slate-400 font-semibold">Connected Parent Account</p></div><div class="h-9 w-9 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center font-black" id="topbarParentInitials">P</div></div>
+</header>
+
+<main id="portalMain" class="fixed top-16 md:top-[76px] bottom-0 left-0 md:left-72 right-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 space-y-8 w-full md:w-auto max-w-none">
+        <section id="dashboardSection" class="portal-view space-y-8">
+
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-50 to-transparent pointer-events-none"></div>
@@ -375,7 +404,7 @@
             </div>
             <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <p class="text-xs text-slate-600">Showing top 5 subjects from most recent submission</p>
-                <a href="ward-results" class="inline-flex items-center text-xs font-bold text-brand-600 hover:text-brand-700 transition">
+                <a href="#" onclick="showPortalSection('results'); return false;" class="inline-flex items-center text-xs font-bold text-brand-600 hover:text-brand-700 transition">
                     View Complete Report
                     <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -438,13 +467,14 @@
                 </div>
             </div>
         </aside>
-    </main>
 
-<div id="parentProfileModal" class="fixed inset-0 z-[9000] hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3 sm:p-6">
-  <section class="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white shadow-2xl">
-    <div class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur sm:px-7">
+        </section>
+<section id="profileSection" class="portal-view hidden space-y-6 w-full">
+  <div class="w-full max-w-none rounded-3xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+  <section class="w-full">
+    <div class="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-7">
       <div><p class="text-xs font-bold uppercase tracking-widest text-brand-600">Account</p><h2 class="text-xl font-extrabold text-slate-900">My Profile</h2></div>
-      <button type="button" onclick="closeParentProfile()" class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">Close</button>
+      <button type="button" onclick="showPortalSection('dashboard')" class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">Back</button>
     </div>
     <div class="p-5 sm:p-7">
       <div class="mb-6 flex flex-col gap-4 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center">
@@ -480,7 +510,935 @@
     </div>
   </section>
 </div>
+  </div>
+</section>
+    <section id="resultsSection" class="portal-view hidden space-y-6 w-full">
+    <!-- Results access form: use the full available portal content width -->
+    <section class="w-full max-w-none px-0 py-0">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-md p-6 sm:p-8">
+            <h2 class="text-2xl font-bold text-brand-900 font-serif mb-2">Access Your Child's Results</h2>
+            <p class="text-gray-600 text-sm mb-8">All information is secure and confidential. Your child's results are protected with encryption.</p>
+            <form id="resultsForm" class="space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Select Your Child</h3>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Student *</label>
+                        <select id="studentSelector" required onchange="onStudentSelect()" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                            <option value="">Select a child...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Student Credentials</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Admission/Registration Number *</label>
+                            <input type="text" id="admissionNumber" required readonly placeholder="Auto-filled from student data" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition cursor-not-allowed opacity-75">
+                            <p class="text-xs text-gray-500 mt-1">This field is auto-filled based on selected child</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">PIN/Scratch Card *</label>
+                            <input type="password" id="scratchCard" required placeholder="Enter PIN or scratch card code" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                        </div>
+                    </div>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Academic Period</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Session *</label>
+                            <select id="session" required class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                                <option value="">Select Session...</option>
+                                <option value="2027-2028">2027-2028</option>
+                                <option value="2026-2027">2026-2027</option>
+                                <option value="2025-2026">2025-2026</option>
+                                <option value="2024-2025">2024-2025</option>
+                                <option value="2023-2024">2023-2024</option>
+                                <option value="2022-2023">2022-2023</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Term *</label>
+                            <select id="term" required class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                                <option value="">Select Term...</option>
+                                <option value="FIRST TERM">FIRST TERM</option>
+                                <option value="SECOND TERM">SECOND TERM</option>
+                                <option value="THIRD TERM">THIRD TERM</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Class/Grade *</label>
+                        <input type="text" id="psrStudentClass" readonly placeholder="Auto-filled from student data" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition cursor-not-allowed opacity-75">
+                        <p class="text-xs text-gray-500 mt-1">This field is auto-filled based on selected child</p>
+                    </div>
+                </div>
+                <div class="mb-6 pb-6 border-b border-gray-200">
+                    <label class="flex items-start cursor-pointer">
+                        <input type="checkbox" id="confirmIdentity" required class="w-4 h-4 text-brand-600 rounded border-gray-300 mt-1">
+                        <span class="ml-2 text-xs text-gray-600">I confirm that I am an authorized parent/guardian and have the right to access these results.</span>
+                    </label>
+                </div>
+                <div id="errorMessage" class="hidden p-4 mb-4 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg"></div>
+                <div id="successMessage" class="hidden p-4 mb-4 text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg"></div>
+                <div id="loadingState" class="hidden p-4 mb-4 text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg flex items-center">
+                    <span class="spinner mr-2"></span>
+                    <span>Loading your child's results...</span>
+                </div>
+                <button type="submit" id="submitBtn" class="w-full bg-brand-500 hover:bg-brand-800 text-white font-semibold p-4 rounded-lg text-base shadow-md transition-all duration-300 uppercase tracking-wide flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    View Child's Results
+                </button>
+                <p class="text-center text-xs text-gray-500 mt-4">Your data is secure and encrypted. We never share your information.</p>
+            </form>
+        </div>
+    </section>
 
+    <!-- Results Display Section (Upgraded, Expandable & Compressible View) -->
+    <div id="resultsDisplay" class="hidden w-full max-w-none mx-0 px-0 py-6 lg:py-8">
+        
+        <!-- Header Controls Bar -->
+        <div class="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div>
+                <span class="text-xs font-semibold uppercase tracking-widest text-brand-600 bg-brand-50 px-3 py-1 rounded-full border border-brand-100">Academic Assessment</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-brand-900 font-serif mt-2">Student Performance Report</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Expand / Compress Button -->
+                <button id="toggleExpandBtn" onclick="toggleResultView()" class="inline-flex items-center px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 hover:text-brand-600 shadow-sm transition">
+                    <svg id="toggleExpandIcon" class="w-4 h-4 mr-2 text-brand-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                    <span id="toggleExpandText">Expand Full View</span>
+                </button>
+                <!-- Print Button -->
+                <button onclick="printResults()" class="inline-flex items-center px-4 py-2.5 bg-brand-500 text-white rounded-lg text-sm font-semibold hover:bg-brand-800 shadow-sm transition">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    Print Result
+                </button>
+                <!-- Back Button -->
+                <button onclick="backToForm()" class="inline-flex items-center px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    Check Another
+                </button>
+            </div>
+        </div>
+
+        <!-- Official Notice Banner -->
+        <div class="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-xl shadow-sm">
+            <div class="flex items-start">
+                <div class="flex-shrink-0 mt-0.5">
+                    <svg class="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-bold uppercase tracking-wide text-amber-900">Official Result Preview Notification</p>
+                    <p class="text-xs text-amber-800 mt-0.5">This report provides an online performance transcript. For authenticated stamped archives, please log into your parent portal dashboard.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Report Container -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden transition-all duration-300">
+            
+            <!-- Student Information Header Card -->
+            <div class="bg-gradient-to-r from-brand-900 via-brand-800 to-brand-900 text-white p-6 sm:p-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/10 pb-6">
+                    <div class="flex items-center space-x-4">
+                        <div id="studentAvatarInitials" class="w-14 h-14 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-xl font-bold font-serif text-gold-500 uppercase">
+                            --
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-brand-100 uppercase tracking-widest mb-0.5">Student Full Name</p>
+                            <h3 id="resultStudentName" class="text-2xl font-bold tracking-tight text-white font-serif">-</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/15 flex items-center space-x-3">
+                        <span class="text-xs uppercase font-medium tracking-wider text-brand-100">Overall Grade:</span>
+                        <span id="resultGrade" class="text-2xl font-black text-gold-500 font-serif">--</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 text-sm">
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Reg Number</p>
+                        <p id="resultAdmission" class="font-semibold text-white font-mono tracking-wide">--</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Class / Grade</p>
+                        <p id="resultClass" class="font-semibold text-white">--</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Academic Session</p>
+                        <p id="resultSession" class="font-semibold text-white">--</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Term</p>
+                        <p id="resultTerm" class="font-semibold text-white">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject Scores Breakdown Table Container (Expandable & Compressible) -->
+            <div class="p-6 sm:p-8 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-base font-bold text-gray-900 uppercase tracking-wider flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        Subject Assessment Results
+                    </h4>
+                    <span id="subjectCountBadge" class="text-xs font-semibold bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">0 Subjects Listed</span>
+                </div>
+
+                <!-- Expandable Table Wrapper -->
+                <div class="relative">
+                    <div id="resultsTableContainer" class="expandable-container overflow-x-auto overflow-y-auto max-h-[380px] rounded-xl border border-gray-200">
+                        <table class="w-full min-w-max text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 border-b border-gray-200 text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    <th class="px-6 py-3.5">Subject</th>
+                                    <th class="px-6 py-3.5 text-center">Score (%)</th>
+                                    <th class="px-6 py-3.5 text-center">Grade</th>
+                                    <th class="px-6 py-3.5 text-center">Status</th>
+                                    <th class="px-6 py-3.5 text-left">Academic Remark</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody" class="divide-y divide-gray-100 text-sm font-medium">
+                                <!-- Dynamic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Compressed Fade Gradient Hint Overlay -->
+                    <div id="tableFadeOverlay" class="no-print absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-xl flex items-end justify-center pb-1">
+                    </div>
+                </div>
+
+                <!-- Compression & Expansion In-line Quick Control -->
+                <div class="no-print flex justify-center mt-3">
+                    <button onclick="toggleResultView()" class="text-xs font-bold text-brand-600 hover:text-brand-800 inline-flex items-center py-1 px-3 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-full transition">
+                        <span id="quickToggleText">Show All Subjects (Expand)</span>
+                        <svg id="quickToggleIcon" class="w-3.5 h-3.5 ml-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Performance Analytics Summary Cards -->
+            <div class="p-6 sm:p-8 bg-slate-50/70">
+                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Performance Summary Analytics</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    
+                    <!-- Average Score Card -->
+                    <div class="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Average Score</span>
+                            <span class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            </span>
+                        </div>
+                        <p id="averageScore" class="text-3xl font-extrabold text-blue-600 tracking-tight">0%</p>
+                        <p class="text-xs text-gray-500 mt-1">Cumulative term average</p>
+                    </div>
+
+                    <!-- Subjects Passed Card -->
+                    <div class="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Subjects Passed</span>
+                            <span class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                        </div>
+                        <p id="subjectsPassed" class="text-3xl font-extrabold text-emerald-600 tracking-tight">0/0</p>
+                        <p class="text-xs text-gray-500 mt-1">Pass benchmark threshold (≥50%)</p>
+                    </div>
+
+                    <!-- Best Performing Subject Card -->
+                    <div class="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Top Subject</span>
+                            <span class="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                            </span>
+                        </div>
+                        <p id="bestSubject" class="text-lg font-bold text-gray-900 truncate mt-1">--</p>
+                        <p class="text-xs text-amber-600 font-semibold mt-1">Highest individual score</p>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Floating Trigger Button for How It Works -->
+    <button onclick="toggleHowItWorksDrawer(true)" class="fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-30 flex items-center space-x-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-3 rounded-full shadow-xl transition-all transform hover:scale-105 focus:outline-none">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span class="text-xs sm:text-sm font-bold uppercase tracking-wider">How It Works</span>
+    </button>
+
+    <!-- Parabola Curve Base Drawer Modal -->
+    <div id="howItWorksModal" class="fixed inset-0 z-50 hidden transition-opacity duration-300">
+        <!-- Backdrop -->
+        <div onclick="toggleHowItWorksDrawer(false)" class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+
+        <!-- Drawer Content -->
+        <div id="howItWorksDrawer" class="fixed bottom-0 left-0 right-0 max-w-2xl mx-auto transform translate-y-full transition-transform duration-300 ease-out">
+            <!-- Parabola Curved Header -->
+            <div class="relative w-full overflow-hidden leading-none">
+                <svg class="w-full h-10 text-white block" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                    <path d="M0,100 Q500,0 1000,100 Z" fill="currentColor"></path>
+                </svg>
+                <div class="absolute top-3 left-1/2 transform -translate-x-1/2 w-12 h-1.5 bg-gray-300 rounded-full"></div>
+            </div>
+
+            <!-- Drawer Inner Body -->
+            <div class="bg-white px-6 pb-8 pt-2 shadow-2xl rounded-b-none max-h-[80vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+                    <div class="flex items-center space-x-2">
+                        <div class="p-2 bg-brand-50 text-brand-600 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-brand-900 font-serif">How It Works</h3>
+                    </div>
+                    <button onclick="toggleHowItWorksDrawer(false)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-10 w-10 rounded-full bg-brand-500 text-white font-bold">1</div>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-brand-900 mb-1">Select Your Child</h3>
+                            <p class="text-gray-600 text-sm">The active student from your dashboard has been pre-selected. Select a different child if needed.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-10 w-10 rounded-full bg-brand-500 text-white font-bold">2</div>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-brand-900 mb-1">Enter PIN/Scratch Card</h3>
+                            <p class="text-gray-600 text-sm">Provide your child's PIN or scratch card code along with the session, term, and class details.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-10 w-10 rounded-full bg-brand-500 text-white font-bold">3</div>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-brand-900 mb-1">View Results</h3>
+                            <p class="text-gray-600 text-sm">See your child's scores, grades, and performance analytics with detailed subject breakdowns.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </section>
+
+    </main>
+
+
+
+
+<script>
+(function () {
+        const API_BASE_URL = window.API_BASE_URL || 'https://examguard-8rxe.onrender.com';
+        const API_BASE = `${API_BASE_URL}/api`;
+        const token = localStorage.getItem('parentToken') || localStorage.getItem('token') || localStorage.getItem('authToken');
+        const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng';
+        const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE}/schools/config`;
+
+        let parentData = null;
+        let allStudents = [];
+        let currentSelectedStudent = null;
+        let currentSchool = null;
+        let isResultExpanded = false;
+
+        /* Toggle Expand / Compress View Function */
+        function toggleResultView() {
+            const container = document.getElementById('resultsTableContainer');
+            const toggleText = document.getElementById('toggleExpandText');
+            const toggleIcon = document.getElementById('toggleExpandIcon');
+            const quickToggleText = document.getElementById('quickToggleText');
+            const quickToggleIcon = document.getElementById('quickToggleIcon');
+            const fadeOverlay = document.getElementById('tableFadeOverlay');
+
+            isResultExpanded = !isResultExpanded;
+
+            if (isResultExpanded) {
+                container.style.maxHeight = '2500px';
+                if (fadeOverlay) fadeOverlay.classList.add('hidden');
+                
+                if (toggleText) toggleText.textContent = 'Compress View';
+                if (toggleIcon) toggleIcon.classList.add('rotate-180');
+
+                if (quickToggleText) quickToggleText.textContent = 'Compress View (Hide)';
+                if (quickToggleIcon) quickToggleIcon.classList.add('rotate-180');
+            } else {
+                container.style.maxHeight = '380px';
+                if (fadeOverlay) fadeOverlay.classList.remove('hidden');
+
+                if (toggleText) toggleText.textContent = 'Expand Full View';
+                if (toggleIcon) toggleIcon.classList.remove('rotate-180');
+
+                if (quickToggleText) quickToggleText.textContent = 'Show All Subjects (Expand)';
+                if (quickToggleIcon) quickToggleIcon.classList.remove('rotate-180');
+            }
+        }
+
+        function toggleHowItWorksDrawer(show) {
+            const modal = document.getElementById('howItWorksModal');
+            const drawer = document.getElementById('howItWorksDrawer');
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    drawer.classList.remove('translate-y-full');
+                    drawer.classList.add('translate-y-0');
+                }, 10);
+            } else {
+                drawer.classList.remove('translate-y-0');
+                drawer.classList.add('translate-y-full');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function decodeJwtPayload(token) {
+            try {
+                if (!token) return null;
+                const parts = token.split('.');
+                if (parts.length !== 3) return null;
+                const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                const json = decodeURIComponent(
+                    atob(base64)
+                        .split('')
+                        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                        .join('')
+                );
+                return JSON.parse(json);
+            } catch (error) {
+                console.error('JWT decode error:', error);
+                return null;
+            }
+        }
+
+        function getTenantSubdomain() {
+            const storedSubdomain = localStorage.getItem('schoolSubdomain');
+            if (storedSubdomain) return storedSubdomain.trim().toLowerCase();
+            const hostname = window.location.hostname.toLowerCase();
+            const suffix = `.${BASE_DOMAIN}`;
+            if (hostname.endsWith(suffix)) {
+                const subdomain = hostname.slice(0, -suffix.length);
+                if (subdomain && !subdomain.includes('.')) return subdomain;
+            }
+            const parts = hostname.split('.');
+            if (parts.length >= 3) return parts[0];
+            return '';
+        }
+
+        async function loadSchoolConfig() {
+            const subdomain = getTenantSubdomain();
+
+            if (!subdomain) {
+                if (window.__parentPortalSchool) {
+                    currentSchool = window.__parentPortalSchool;
+                    applySchoolBranding(currentSchool);
+                    return currentSchool;
+                }
+                throw new Error('School could not be identified from this portal address.');
+            }
+
+            console.log('🏫 Loading school configuration:', subdomain);
+
+            const cacheKey = `examguard_school_config_${subdomain}`;
+            let cachedConfig = null;
+
+            try {
+                cachedConfig = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+            } catch (error) {
+                console.warn('Could not read cached school configuration.');
+            }
+
+            if (cachedConfig) {
+                currentSchool = cachedConfig;
+                applySchoolBranding(currentSchool);
+            }
+
+            try {
+                const response = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`School configuration request failed (${response.status})`);
+                }
+
+                const result = await response.json();
+                console.log('📋 Raw school configuration response:', result);
+
+                const config = result.data || result;
+                const school = config.school || {};
+                const branding = config.branding || {};
+
+                if (!school.schoolId && !school._id && !school.id) {
+                    throw new Error('Invalid school configuration received from server.');
+                }
+
+                currentSchool = {
+                    ...school,
+                    branding,
+                    academic: config.academic || {},
+                    localization: config.localization || {},
+                    authentication: config.authentication || {},
+                    portals: config.portals || {},
+                    features: config.features || {},
+                    payments: config.payments || {},
+                    communication: config.communication || {},
+                    pwa: config.pwa || {}
+                };
+
+                localStorage.setItem(cacheKey, JSON.stringify(currentSchool));
+                localStorage.setItem('schoolSubdomain', subdomain);
+
+                if (currentSchool.schoolId) {
+                    localStorage.setItem('schoolId', currentSchool.schoolId);
+                }
+
+                applySchoolBranding(currentSchool);
+                console.log('✅ School configuration loaded:', currentSchool);
+                return currentSchool;
+            } catch (error) {
+                console.error('❌ School config error:', error);
+                if (cachedConfig) {
+                    console.warn('⚠️ Using cached school configuration.');
+                    currentSchool = cachedConfig;
+                    applySchoolBranding(currentSchool);
+                    return currentSchool;
+                }
+                throw error;
+            }
+        }
+
+        function applySchoolBranding(school) {
+            if (!school) return;
+
+            const branding = school.branding || {};
+            const logos = branding.logos || {};
+            const schoolName = school.schoolName || school.name || 'School';
+            const logo = school.logoUrl || school.logo || branding.logoUrl || branding.logo || logos.main || logos.light || logos.dark || '';
+            const colors = branding.colors || {};
+
+            const primary = colors.primary || branding.primary || branding.primaryColor || school.primaryColor || '#0284c7';
+            const secondary = colors.secondary || branding.secondary || branding.secondaryColor || school.secondaryColor || '#075985';
+            const accent = colors.accent || branding.accent || branding.accentColor || school.accentColor || '#fbbf24';
+
+            const contact = school.contact || {};
+            const email = contact.email || school.email || school.adminEmail || '';
+            const phone = contact.phone || school.phone || school.phoneNumber || '';
+            const motto = school.motto || branding.motto || 'Parent Portal';
+
+            document.documentElement.style.setProperty('--school-primary', primary);
+            document.documentElement.style.setProperty('--school-secondary', secondary);
+            document.documentElement.style.setProperty('--school-accent', accent);
+
+            document.title = `Check Child's Results | ${schoolName}`;
+
+            const logoElement = document.getElementById('schoolLogo');
+            if (logoElement) {
+                if (logo) {
+                    logoElement.src = logo;
+                    logoElement.alt = `${schoolName} Logo`;
+                    logoElement.classList.remove('hidden');
+                    logoElement.style.display = 'block';
+                    logoElement.onerror = function () {
+                        console.error('❌ School logo failed to load:', this.src);
+                        this.onerror = null;
+                        this.style.display = 'none';
+                    };
+                } else {
+                    logoElement.removeAttribute('src');
+                    logoElement.alt = `${schoolName} Logo`;
+                    logoElement.style.display = 'none';
+                }
+            }
+
+            const nameElement = document.getElementById('schoolName');
+            if (nameElement) nameElement.textContent = schoolName;
+
+            const mottoElement = document.getElementById('schoolMotto');
+            if (mottoElement) mottoElement.textContent = motto;
+
+            const emailElement = document.getElementById('schoolEmail');
+            if (emailElement) emailElement.textContent = email || '--';
+
+            const phoneElement = document.getElementById('schoolPhone');
+            if (phoneElement) phoneElement.textContent = phone || '--';
+
+            if (logo) {
+                let favicon = document.querySelector('link[rel="icon"]');
+                if (!favicon) {
+                    favicon = document.createElement('link');
+                    favicon.rel = 'icon';
+                    document.head.appendChild(favicon);
+                }
+                favicon.href = logo;
+            }
+
+            let themeColor = document.querySelector('meta[name="theme-color"]');
+            if (!themeColor) {
+                themeColor = document.createElement('meta');
+                themeColor.name = 'theme-color';
+                document.head.appendChild(themeColor);
+            }
+            themeColor.content = primary;
+
+            console.log('🎨 School branding applied:', { schoolName, logo, primary, secondary, accent });
+        }
+
+        function validateSchoolContext() {
+            const jwtPayload = decodeJwtPayload(token);
+            const tokenSchoolId = jwtPayload?.schoolId ? String(jwtPayload.schoolId) : '';
+            const configMongoId = currentSchool?._id || currentSchool?.id || '';
+            const parentSchoolId = parentData?.schoolId || parentData?.school?._id || parentData?.school?.id || '';
+
+            console.log('🔐 School context:', { tokenSchoolId, configMongoId, parentSchoolId });
+
+            if (tokenSchoolId && parentSchoolId && tokenSchoolId !== String(parentSchoolId)) {
+                throw new Error('Your parent account belongs to a different school.');
+            }
+            if (tokenSchoolId && configMongoId && tokenSchoolId !== String(configMongoId)) {
+                throw new Error('This school portal does not match your account.');
+            }
+            return true;
+        }
+
+        function getAuthHeaders() {
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+            if (currentSchool?.schoolId) {
+                headers['X-School-Code'] = currentSchool.schoolId;
+            }
+            return headers;
+        }
+
+        async function initializePage() {
+            console.log('🚀 Initializing Parent Results Checker...');
+            if (!token) {
+                console.warn('⚠️ No authentication token found.');
+                window.location.href = 'login.html';
+                return;
+            }
+            try {
+                await loadSchoolConfig();
+                await loadParentData();
+                validateSchoolContext();
+                await loadStudents();
+                if (allStudents.length > 0) {
+                    const preferredStudent = window.__parentPortalSelectedStudent;
+                    const preferredExists = preferredStudent && allStudents.some(student => String(student._id) === String(preferredStudent));
+                    currentSelectedStudent = preferredExists ? String(preferredStudent) : String(allStudents[0]._id);
+                    document.getElementById('studentSelector').value = currentSelectedStudent;
+                    onStudentSelect();
+                }
+                console.log('✅ Page initialization complete.');
+            } catch (err) {
+                console.error('❌ Initialization error:', err);
+                showError(err.message || 'Failed to initialize the page.');
+                throw err;
+            }
+        }
+
+        async function loadParentData() {
+            try {
+                console.log('📥 Loading parent data...');
+                const res = await fetch(`${API_BASE}/parents/me`, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        localStorage.removeItem('parentToken');
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('authToken');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                parentData = await res.json();
+                console.log('✅ Parent data loaded:', {
+                    name: parentData.name,
+                    students: parentData.students?.length || 0,
+                    schoolId: parentData.schoolId || parentData.school?._id || null
+                });
+                return parentData;
+            } catch (err) {
+                console.error('❌ Error loading parent data:', err);
+                throw err;
+            }
+        }
+
+        async function loadStudents() {
+            try {
+                console.log('📥 Loading students...');
+                allStudents = parentData.students || [];
+                console.log(`✅ ${allStudents.length} students loaded`);
+                const selector = document.getElementById('studentSelector');
+                selector.innerHTML = '<option value="">Select a child...</option>';
+                allStudents.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student._id;
+                    option.textContent = `${student.name} (${student.class || 'N/A'})`;
+                    selector.appendChild(option);
+                });
+                return allStudents;
+            } catch (err) {
+                console.error('❌ Error loading students:', err);
+                throw err;
+            }
+        }
+
+        function onStudentSelect() {
+            const selector = document.getElementById('studentSelector');
+            const selectedId = selector.value;
+            if (!selectedId) {
+                document.getElementById('admissionNumber').value = '';
+                document.getElementById('psrStudentClass').value = '';
+                currentSelectedStudent = null;
+                return;
+            }
+            currentSelectedStudent = selectedId;
+            const student = allStudents.find(s => String(s._id) === String(selectedId));
+            if (student) {
+                document.getElementById('admissionNumber').value = student.regNo || '';
+                document.getElementById('psrStudentClass').value = student.class || '';
+                console.log('✓ Student selected:', {
+                    name: student.name,
+                    regNo: student.regNo,
+                    class: student.class,
+                    schoolId: student.schoolId
+                });
+            }
+        }
+
+        document.getElementById('resultsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await handleResultSearch();
+        });
+
+        async function handleResultSearch() {
+            const admission = document.getElementById('admissionNumber').value.trim().toUpperCase();
+            const scratchCard = document.getElementById('scratchCard').value.trim();
+            const session = document.getElementById('session').value;
+            const term = document.getElementById('term').value;
+            const studentClass = document.getElementById('psrStudentClass').value;
+            const confirmIdentity = document.getElementById('confirmIdentity').checked;
+
+            if (!admission || !scratchCard || !session || !term || !studentClass || !confirmIdentity) {
+                showError('Please fill in all required fields and confirm your identity.');
+                return;
+            }
+
+            hideMessages();
+            showLoading();
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+
+            try {
+                const params = new URLSearchParams({
+                    regNo: admission,
+                    scratchCard: scratchCard,
+                    class: studentClass,
+                    session: session,
+                    term: term
+                });
+
+                if (currentSchool?.schoolId) {
+                    params.set('schoolId', currentSchool.schoolId);
+                }
+
+                const subdomain = getTenantSubdomain();
+                if (subdomain) {
+                    params.set('schoolSubdomain', subdomain);
+                }
+
+                console.log('📤 Checking results for school:', currentSchool?.schoolName);
+
+                const response = await fetch(`${API_BASE}/results/check?${params.toString()}`, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log('✅ Results received:', data);
+                    displayResults(data, admission, session, term, studentClass);
+                    showSuccess('Results loaded successfully!');
+                } else {
+                    console.warn('⚠️ API Error:', data);
+                    showError(data.error || 'No results found for the provided credentials. Please check and try again.');
+                }
+            } catch (error) {
+                console.error('❌ Result search error:', error);
+                showError("An error occurred while fetching your child's results. Please try again.");
+            } finally {
+                hideLoading();
+                submitBtn.disabled = false;
+            }
+        }
+
+        function displayResults(data, admission, session, term, studentClass) {
+            const studentName = data.student?.name || 'N/A';
+
+            document.getElementById('resultStudentName').textContent = studentName;
+            document.getElementById('resultAdmission').textContent = admission;
+            document.getElementById('resultSession').textContent = session;
+            document.getElementById('resultTerm').textContent = term;
+            document.getElementById('resultClass').textContent = studentClass;
+
+            // Student Initials
+            const initials = studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
+            document.getElementById('studentAvatarInitials').textContent = initials;
+
+            const results = data.results || [];
+            if (!results || results.length === 0) {
+                showError('No subject results found.');
+                return;
+            }
+
+            document.getElementById('subjectCountBadge').textContent = `${results.length} Subjects Listed`;
+
+            const scores = results.map(s => Number(s.total) || 0);
+            const average = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            const passed = results.filter(s => Number(s.total) >= 50).length;
+            const best = results.reduce((a, b) => Number(a.total) > Number(b.total) ? a : b);
+
+            document.getElementById('averageScore').textContent = average + '%';
+            document.getElementById('subjectsPassed').textContent = `${passed}/${results.length}`;
+            document.getElementById('bestSubject').textContent = `${best.subject} (${best.total}%)`;
+
+            const overallGrade = average >= 70 ? 'A' : average >= 60 ? 'B' : average >= 50 ? 'C' : average >= 45 ? 'D' : average >= 40 ? 'E' : 'F';
+
+            document.getElementById('resultGrade').textContent = overallGrade;
+
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = '';
+
+            results.forEach((subject, idx) => {
+                const row = document.createElement('tr');
+                row.className = idx % 2 === 0 ? 'bg-white hover:bg-slate-50 transition' : 'bg-slate-50/50 hover:bg-slate-100/60 transition';
+                
+                const gradeBadge = getGradeBadgeHTML(subject.grade);
+                const passedSubject = Number(subject.total) >= 50;
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-semibold text-gray-900 whitespace-nowrap">
+                        ${subject.subject || '-'}
+                    </td>
+                    <td class="px-6 py-4 text-center font-bold text-base text-gray-900 whitespace-nowrap">
+                        ${subject.total ?? '-'}
+                    </td>
+                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                        ${gradeBadge}
+                    </td>
+                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${passedSubject ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                            <span class="w-1.5 h-1.5 mr-1.5 rounded-full ${passedSubject ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                            ${passedSubject ? 'Pass' : 'Fail'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-left text-xs text-gray-600 whitespace-nowrap font-medium">
+                        ${subject.remarks || '-'}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Default to compressed state initially
+            isResultExpanded = false;
+            const container = document.getElementById('resultsTableContainer');
+            if (container) container.style.maxHeight = '380px';
+            const fadeOverlay = document.getElementById('tableFadeOverlay');
+            if (fadeOverlay) fadeOverlay.classList.remove('hidden');
+
+            document.getElementById('resultsForm').parentElement.parentElement.classList.add('hidden');
+            document.getElementById('resultsDisplay').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function getGradeBadgeHTML(grade) {
+            const g = String(grade || '').toUpperCase();
+            let colors = 'bg-gray-100 text-gray-800 border-gray-200';
+            switch (g) {
+                case 'A': colors = 'bg-emerald-100 text-emerald-800 border-emerald-300'; break;
+                case 'B': colors = 'bg-blue-100 text-blue-800 border-blue-300'; break;
+                case 'C': colors = 'bg-amber-100 text-amber-800 border-amber-300'; break;
+                case 'D': colors = 'bg-orange-100 text-orange-800 border-orange-300'; break;
+                case 'E': colors = 'bg-rose-100 text-rose-800 border-rose-300'; break;
+                case 'F': colors = 'bg-red-100 text-red-800 border-red-300'; break;
+            }
+            return `<span class="inline-block px-3 py-1 rounded-md border text-xs font-black font-serif ${colors}">${g || '-'}</span>`;
+        }
+
+        function backToForm() {
+            document.getElementById('resultsForm').parentElement.parentElement.classList.remove('hidden');
+            document.getElementById('resultsDisplay').classList.add('hidden');
+            document.getElementById('resultsForm').reset();
+            document.getElementById('studentSelector').value = currentSelectedStudent;
+            onStudentSelect();
+            hideMessages();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function printResults() {
+            window.print();
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.classList.remove('hidden');
+        }
+
+        function showLoading() {
+            document.getElementById('loadingState').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingState').classList.hidden = true;
+            document.getElementById('loadingState').classList.add('hidden');
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').classList.add('hidden');
+            document.getElementById('successMessage').classList.add('hidden');
+        }
+
+        window.initializeParentResultsSection = initializePage;
+        window.onStudentSelect = onStudentSelect;
+        window.toggleResultView = toggleResultView;
+        window.toggleHowItWorksDrawer = toggleHowItWorksDrawer;
+        window.backToForm = backToForm;
+        window.printResults = printResults;
+    
+})();
+</script>
 
 <script>
 const API_BASE = window.API_BASE || "https://examguard-8rxe.onrender.com/api";
@@ -491,8 +1449,7 @@ function parentProfileHeaders() {
 }
 function openParentProfile() {
     if (!parentData) return;
-    const modal = document.getElementById('parentProfileModal');
-    modal.classList.remove('hidden'); modal.classList.add('flex');
+    showPortalSection('profile');
     const form = document.getElementById('parentProfileForm');
     ['name','email','phone','address','occupation','emergencyContactName','emergencyContactPhone'].forEach(key => {
         if (form.elements[key]) form.elements[key].value = parentData[key] || '';
@@ -503,10 +1460,7 @@ function openParentProfile() {
     document.getElementById('profileDisplayEmail').textContent = parentData.email || '';
     setParentProfileTab('details');
 }
-function closeParentProfile() {
-    const modal = document.getElementById('parentProfileModal');
-    modal.classList.add('hidden'); modal.classList.remove('flex');
-}
+function closeParentProfile() { showPortalSection('dashboard'); }
 function setParentProfileTab(tab) {
     const details = tab === 'details';
     document.getElementById('parentProfileDetails').classList.toggle('hidden', !details);
@@ -628,6 +1582,48 @@ let allStudents = [];
 let currentSelectedStudent = null;
 let currentGradeTerm = 1;
 let errorConfirmCallback = null;
+
+let activePortalSection = 'dashboard';
+let parentResultsInitialized = false;
+function showPortalSection(section) {
+    if (!['dashboard', 'profile', 'results'].includes(section)) section = 'dashboard';
+    activePortalSection = section;
+    document.querySelectorAll('.portal-view').forEach(view => view.classList.add('hidden'));
+    const targetId = section === 'dashboard' ? 'dashboardSection' : section === 'profile' ? 'profileSection' : 'resultsSection';
+    const target = document.getElementById(targetId);
+    if (target) target.classList.remove('hidden');
+    const title = document.getElementById('portalPageTitle');
+    if (title) title.textContent = section === 'dashboard' ? 'Main Dashboard' : section === 'profile' ? 'My Profile' : 'Check Results';
+    document.querySelectorAll('[data-portal-nav]').forEach(link => {
+        const active = link.dataset.portalNav === section;
+        link.classList.toggle('bg-gradient-to-r', active);
+        link.classList.toggle('from-brand-600', active);
+        link.classList.toggle('to-brand-500', active);
+        link.classList.toggle('text-white', active);
+        link.classList.toggle('shadow-md', active);
+        link.classList.toggle('text-slate-300', !active);
+        link.classList.toggle('bg-slate-800/60', !active);
+    });
+    if (section === 'results') {
+        window.__parentPortalSchool = currentSchool;
+        window.__parentPortalSelectedStudent = currentSelectedStudent;
+        if (!parentResultsInitialized && typeof window.initializeParentResultsSection === 'function') {
+            parentResultsInitialized = true;
+            window.initializeParentResultsSection().catch(error => {
+                parentResultsInitialized = false;
+                showErrorModal('Results Portal Error', error.message || 'Unable to initialize the results portal.');
+            });
+        } else if (parentResultsInitialized) {
+            const selector = document.getElementById('studentSelector');
+            if (selector && currentSelectedStudent && Array.from(selector.options).some(option => option.value === String(currentSelectedStudent))) {
+                selector.value = String(currentSelectedStudent);
+                if (typeof window.onStudentSelect === 'function') window.onStudentSelect();
+            }
+        }
+    }
+    const scroller = document.getElementById('portalMain');
+    if (scroller) scroller.scrollTop = 0;
+}
 
 async function initializeDashboard() {
     if (!getParentToken()) {
@@ -857,6 +1853,10 @@ function updateParentUI() {
     const parentId = document.getElementById('parentId');
     if (parentId) parentId.textContent = parentData._id ? String(parentData._id).slice(-8) : '--';
 
+    const topbarParentName = document.getElementById('topbarParentName');
+    if (topbarParentName) topbarParentName.textContent = parentName;
+    const topbarInitials = document.getElementById('topbarParentInitials');
+    if (topbarInitials) topbarInitials.textContent = parentName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     const mobileParentName = document.getElementById('mobileParentName');
     if (mobileParentName) mobileParentName.textContent = parentName;
 }
@@ -930,6 +1930,14 @@ async function switchToStudent(studentId) {
 
     currentSelectedStudent = studentId;
     syncWardSelectors();
+    window.__parentPortalSelectedStudent = currentSelectedStudent;
+    if (parentResultsInitialized) {
+        const resultsSelector = document.getElementById('studentSelector');
+        if (resultsSelector && Array.from(resultsSelector.options).some(option => option.value === studentId)) {
+            resultsSelector.value = studentId;
+            if (typeof window.onStudentSelect === 'function') window.onStudentSelect();
+        }
+    }
 
     try {
         showLoadingSpinner('Loading Student Data', 'Fetching academic information...');
