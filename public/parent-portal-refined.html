@@ -1,0 +1,2265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Dashboard | ExamGuard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: 'var(--school-primary, #2563eb)',
+                            600: '#1d4ed8',
+                            800: 'var(--school-secondary, #1e40af)',
+                            900: '#0f172a',
+                        },
+                        gold: {
+                            400: 'var(--school-accent, #f59e0b)',
+                            500: '#d97706',
+                            600: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .parabolic-top {
+            border-top-left-radius: 50% 40px;
+            border-top-right-radius: 50% 40px;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .spinner-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .spinner-ring {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.15);
+            border-top: 4px solid var(--school-primary, #2563eb);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .spinner-text {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .spinner-status {
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .spinner { display:inline-block; width:12px; height:12px; border:2px solid rgba(59,130,246,.3); border-top-color:var(--school-primary,#2563eb); border-radius:50%; animation:spin .6s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @media print {
+          body * { visibility:hidden !important; }
+          #resultsDisplay, #resultsDisplay * { visibility:visible !important; }
+          #resultsDisplay { position:absolute !important; inset:0 auto auto 0 !important; display:block !important; width:100% !important; max-width:100% !important; padding:0 !important; margin:0 !important; }
+          #resultsDisplay .no-print { display:none !important; }
+          #resultsDisplay .expandable-container { max-height:none !important; overflow:visible !important; }
+          #resultsDisplay .shadow-sm, #resultsDisplay .shadow-md, #resultsDisplay .shadow-lg, #resultsDisplay .shadow-xl { box-shadow:none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen overflow-hidden" onload="initializeDashboard()">
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner-container">
+            <div class="spinner-ring"></div>
+            <div class="spinner-text">
+                <div id="spinnerMainText">Loading Dashboard</div>
+                <div id="spinnerStatus" class="spinner-status">Initializing system...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="errorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div id="errorModalCard" class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-all duration-300">
+            <div class="p-6 text-center space-y-4">
+                <div class="mx-auto w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center border border-rose-100 shadow-sm shrink-0">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 id="errorModalTitle" class="text-base font-extrabold text-slate-900">An Error Occurred</h3>
+                    <p class="text-xs text-slate-500 mt-1">The system encountered an error while processing your request.</p>
+                </div>
+                <div class="text-left bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                    <span class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Error Details</span>
+                    <p id="errorModalMessage" class="text-xs font-mono text-rose-700 break-words max-h-32 overflow-y-auto pr-1">
+                        No additional details provided.
+                    </p>
+                </div>
+                <div class="flex items-center space-x-3 pt-2">
+                    <button type="button" onclick="closeErrorModal()" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition active:scale-95">
+                        Dismiss
+                    </button>
+                    <button id="errorModalPrimaryBtn" type="button" onclick="closeErrorModal()" class="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <aside id="desktopSidebar" class="hidden md:flex flex-col fixed inset-y-0 left-0 w-72 bg-slate-900 text-white shrink-0 shadow-2xl z-50 border-r border-slate-800 overflow-y-auto">
+        <div class="p-6 border-b border-slate-800/80 bg-slate-950/40 flex items-center space-x-3">
+            <div class="bg-white p-1 rounded-xl shadow-inner flex items-center justify-center shrink-0">
+                <img id="schoolLogo" src="" class="h-9 w-auto object-contain" alt="School Logo">
+            </div>
+            <div>
+                <span id="schoolName" class="block text-base font-extrabold tracking-tight uppercase font-serif">School Portal</span>
+                <span class="block text-[10px] text-brand-500 uppercase tracking-widest font-extrabold -mt-0.5">Parents Terminal</span>
+            </div>
+        </div>
+        <div class="p-4 mx-4 my-5 bg-slate-800/60 rounded-2xl border border-slate-700/60 backdrop-blur-sm">
+            <label class="block text-[10px] font-bold text-brand-100 uppercase tracking-wider mb-1.5 px-1">Active Ward Account</label>
+            <select id="wardSelector" onchange="switchWard(this)" class="w-full bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white focus:ring-1 focus:ring-brand-500 cursor-pointer">
+                <option value="">Select Student</option>
+            </select>
+        </div>
+        <nav class="flex-grow px-4 space-y-1.5">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">Control Workspace</p>
+            <a href="#" data-portal-nav="dashboard" onclick="showPortalSection('dashboard'); return false;" class="flex items-center px-4 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-md transition-all">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                Main Dashboard
+            </a>
+            <a href="#" data-portal-nav="results" onclick="showPortalSection('results'); return false;" class="flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Result Sheet Archive
+            </a>
+            <a href="#" onclick="showErrorModal('Parent\'s Wallet', 'Parent\'s Wallet gateway feature is coming soon.')" class="flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                Parent's Wallet
+            </a>
+            <a href="#" onclick="showErrorModal('Gateway Link', 'Tuition ledger gateway link feature is coming soon.')" class="flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                Tuition Ledger & Receipts
+            </a>
+            <button type="button" data-portal-nav="profile" onclick="openParentProfile()" class="w-full text-left flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                My Profile
+            </button>
+            <a href="#" onclick="logoutUser()" class="flex items-center px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all">
+                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Logout
+            </a>
+        </nav>
+        <div class="p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs text-center text-slate-400">
+            Current Session: <strong id="currentSession" class="text-white font-semibold">--</strong>
+        </div>
+    </aside>
+
+    <header class="md:hidden fixed top-0 inset-x-0 bg-slate-900 text-white h-16 px-4 flex items-center justify-between shadow-md z-[60]">
+        <div class="flex items-center space-x-2.5">
+            <img id="mobileSchoolLogo" src="" class="h-7 w-auto bg-white p-0.5 rounded-lg" alt="School Logo">
+            <span id="mobileSchoolName" class="font-serif font-bold text-sm tracking-wide">School Portal</span>
+        </div>
+        <button type="button" onclick="openBottomNav()" class="flex items-center space-x-1.5 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition active:scale-95">
+            <span>Menu</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+    </header>
+
+    <div id="bottomDrawerOverlay" onclick="closeBottomNav(event)" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden transition-opacity duration-300 opacity-0">
+        <div id="bottomDrawerCard" class="absolute bottom-0 inset-x-0 bg-slate-900 text-white parabolic-top transform translate-y-full transition-transform duration-300 border-t-2 border-gold-400 p-6">
+            <div class="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-800 rounded-full"></div>
+            <div class="text-center mb-4">
+                <p class="font-serif text-lg font-bold" id="mobileParentName">Parent Name</p>
+                <p class="text-[11px] text-brand-500 font-medium">Connected Parent Portal</p>
+            </div>
+            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-4">
+                <label class="block text-[10px] font-bold text-brand-500 uppercase tracking-wider mb-2">Switch Active Ward</label>
+                <select id="mobileWardSelector" onchange="switchWard(this)" class="w-full bg-slate-900 border border-slate-700 rounded-xl text-sm font-bold text-white py-2.5 px-3">
+                    <option value="">Select Student</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-1 gap-2 text-sm font-bold">
+                <a href="#" onclick="forceCloseBottomNav(); showPortalSection('dashboard'); return false;" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-gold-400 mr-2"></span>Main Dashboard</span>
+                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                <a href="#" onclick="forceCloseBottomNav(); showPortalSection('results'); return false;" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></span>Results Portal</span>
+                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                <a href="#" onclick="forceCloseBottomNav(); showErrorModal('Parent\'s Wallet', 'Parent\'s Wallet gateway feature is coming soon.');" class="w-full bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></span>Parent's Wallet</span>
+                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                <button onclick="forceCloseBottomNav(); openParentProfile();" class="w-full text-left bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-gold-400 mr-2"></span>My Profile</span>
+                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <button onclick="logoutUser()" class="w-full text-left bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                    <span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></span>Logout</span>
+                    <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <header id="desktopTopbar" class="hidden md:flex fixed top-0 left-72 right-0 h-[76px] z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm items-center justify-between px-7 lg:px-9">
+  <div><p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-brand-600">Parent Workspace</p><h1 id="portalPageTitle" class="text-lg font-extrabold text-slate-900">Main Dashboard</h1></div>
+  <div class="flex items-center gap-3"><div class="text-right"><p id="topbarParentName" class="text-sm font-bold text-slate-800">Parent</p><p class="text-[10px] text-slate-400 font-semibold">Connected Parent Account</p></div><div class="h-9 w-9 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center font-black" id="topbarParentInitials">P</div></div>
+</header>
+
+<main id="portalMain" class="fixed top-16 md:top-[76px] bottom-0 left-0 md:left-72 right-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 space-y-8 w-full md:w-auto max-w-none">
+        <section id="dashboardSection" class="portal-view space-y-8">
+
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-50 to-transparent pointer-events-none"></div>
+                <div>
+                    <div class="flex items-center space-x-2.5 mb-4">
+                        <div class="p-2 bg-brand-50 rounded-xl text-brand-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>
+                        <span class="text-xs font-bold uppercase tracking-widest text-brand-600">Parent Registry Profile</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 text-xs">
+                        <div>
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Full Name</p>
+                            <p class="text-sm font-bold text-slate-900 mt-0.5" id="parentFullName">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Parent ID</p>
+                            <p class="text-sm font-mono font-bold text-slate-900 mt-0.5" id="parentId">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Portal Access</p>
+                            <span class="inline-flex items-center bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-emerald-100 mt-1">
+                                <span class="w-1 h-1 bg-emerald-500 rounded-full mr-1 animate-pulse"></span> Granted
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-50 to-transparent pointer-events-none"></div>
+                <div>
+                    <div class="flex items-center space-x-2.5 mb-4">
+                        <div class="p-2 bg-brand-50 rounded-xl text-brand-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479l6.16 3.422z"/>
+                            </svg>
+                        </div>
+                        <span class="text-xs font-bold uppercase tracking-widest text-brand-600">Active Student Ledger</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 text-xs">
+                        <div>
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Full Name</p>
+                            <p class="text-sm font-bold text-slate-900 mt-0.5" id="studentFullName">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Class</p>
+                            <p class="text-sm font-bold text-slate-900 mt-0.5" id="studentClass">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Registration No</p>
+                            <p class="text-sm font-mono font-bold text-slate-900 mt-0.5" id="studentRegNo">--</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Student ID</p>
+                            <p class="text-sm font-mono font-bold text-slate-900 mt-0.5" id="studentId">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center space-x-4 hover:shadow-md transition">
+                <div class="p-3 bg-emerald-50 rounded-xl text-emerald-600"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg></div>
+                <div>
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Term Attendance</p>
+                    <p class="text-lg font-black text-slate-900 mt-0.5" id="attendance">--</p>
+                    <p class="text-[10px] text-emerald-600 font-bold" id="attendanceNote">Loading...</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center space-x-4 hover:shadow-md transition">
+                <div class="p-3 bg-blue-50 rounded-xl text-blue-600 shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                    </svg>
+                </div>
+                <div class="flex-grow">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Fees Status</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1" id="feesStatus">₦0.00</p>
+                    <span class="inline-flex items-center bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5" id="feesStatusBadge">
+                        <span class="w-1.5 h-1.5 bg-emerald-600 rounded-full mr-1.5"></span>
+                        Cleared
+                    </span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center space-x-4 hover:shadow-md transition">
+                <div class="p-3 bg-indigo-50 rounded-xl text-indigo-600"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg></div>
+                <div>
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">CA Average</p>
+                    <p class="text-lg font-black text-slate-900 mt-0.5" id="caAverage">--</p>
+                    <p class="text-[10px] text-brand-600 font-bold" id="caRanking">Loading...</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center space-x-4 hover:shadow-md transition">
+                <div class="p-3 bg-amber-50 rounded-xl text-gold-600"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2h8a1 1 0 000-2 2 2 0 00-2 2v10a2 2 0 002 2 1 1 0 000-2h-8a1 1 0 000 2 2 2 0 002-2V5z"/></svg></div>
+                <div>
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Session</p>
+                    <p id="sessionValue" class="text-sm font-bold text-slate-900 mt-0.5">--</p>
+                    <span class="inline-flex bg-slate-100 text-slate-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase mt-1">Active</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-5 border-b border-slate-100 bg-gradient-to-r from-brand-50 to-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Recent Results Summary</h3>
+                        <p class="text-xs text-slate-500 mt-1" id="resultTermSession">Most recent uploaded results</p>
+                    </div>
+                    <svg class="w-8 h-8 text-brand-500/20" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a1 1 0 001 1h12a1 1 0 001-1V6a2 2 0 00-2-2H4zm12 12H4a2 2 0 01-2-2v-4a1 1 0 00-1-1H.5a.5.5 0 00-.5.5v4a4 4 0 004 4h12a4 4 0 004-4v-4a.5.5 0 00-.5-.5H17a1 1 0 00-1 1v4a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 font-extrabold border-b border-slate-100 uppercase tracking-wider">
+                            <th class="p-4 pl-6">Subject</th>
+                            <th class="p-4 text-center">Score</th>
+                            <th class="p-4 text-center">Grade</th>
+                            <th class="p-4 pr-6 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentResultsTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                        <tr>
+                            <td colspan="4" class="p-8 text-center">
+                                <div class="text-slate-400">Select a student to view recent results</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <p class="text-xs text-slate-600">Showing top 5 subjects from most recent submission</p>
+                <a href="#" onclick="showPortalSection('results'); return false;" class="inline-flex items-center text-xs font-bold text-brand-600 hover:text-brand-700 transition">
+                    View Complete Report
+                    <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Active Assignments & Projects</h3>
+                <p class="text-xs text-slate-500">Track homework tasks and project deadlines.</p>
+            </div>
+            <div id="assignmentsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                    <p class="text-slate-400">Select a student to view assignments</p>
+                </div>
+            </div>
+        </div>
+
+        <aside class="space-y-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Registry Dispatch Board</h3>
+                    <p class="text-xs text-slate-500">Official real-time updates from management desks.</p>
+                </div>
+                <div class="space-y-4 divide-y divide-slate-100">
+                    <div class="pt-0 space-y-1.5">
+                        <span class="inline-block text-[9px] font-black tracking-wider uppercase bg-rose-50 border border-rose-100 text-rose-700 px-2 py-0.5 rounded-md">Urgent Notice</span>
+                        <h4 class="text-xs font-bold text-slate-900">Mid-Term Intermission Break</h4>
+                        <p class="text-[11px] text-slate-500 leading-relaxed">The campus compound will close for midterm recess starting next Wednesday. Terminal lessons resume the subsequent Monday.</p>
+                    </div>
+                    <div class="pt-4 space-y-1.5">
+                        <span class="inline-block text-[9px] font-black tracking-wider uppercase bg-brand-50 border border-brand-100 text-brand-700 px-2 py-0.5 rounded-md">Event Desk</span>
+                        <h4 class="text-xs font-bold text-slate-900">Open-Day Lesson Matrix Inspection</h4>
+                        <p class="text-[11px] text-slate-500 leading-relaxed">Parents are welcome to inspect physical lesson cards and consult directly with module tutors from 10:00 AM.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-slate-900 to-slate-950 rounded-2xl shadow-xl p-6 text-white space-y-4 relative overflow-hidden border border-slate-800">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-brand-500/10 rounded-full blur-xl pointer-events-none"></div>
+                <div>
+                    <h3 class="text-sm font-bold uppercase tracking-wider font-serif">Registry Gateways</h3>
+                    <p class="text-[11px] text-slate-400">Secure automated operations pipelines.</p>
+                </div>
+                <div class="space-y-2 text-xs font-bold">
+                    <button onclick="handleFeesAction(currentSelectedStudent, false)" class="w-full text-left bg-slate-800/80 hover:bg-slate-800 p-3 rounded-xl border border-slate-700/60 flex items-center justify-between transition">
+                        <span>Pay School Fees</span>
+                        <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                    <button onclick="showErrorModal('Form Tutor Desk', 'Encrypted communication gateway is coming soon.')" class="w-full text-left bg-slate-800/80 hover:bg-slate-800 p-3 rounded-xl border border-slate-700/60 flex items-center justify-between transition">
+                        <span>Message Form Tutor Desk</span>
+                        <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        </section>
+<section id="profileSection" class="portal-view hidden space-y-6 w-full">
+  <div class="w-full max-w-none rounded-3xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+  <section class="w-full">
+    <div class="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-7">
+      <div><p class="text-xs font-bold uppercase tracking-widest text-brand-600">Account</p><h2 class="text-xl font-extrabold text-slate-900">My Profile</h2></div>
+      <button type="button" onclick="showPortalSection('dashboard')" class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">Back</button>
+    </div>
+    <div class="p-5 sm:p-7">
+      <div class="mb-6 flex flex-col gap-4 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center">
+        <img id="parentProfilePhoto" src="" alt="Parent profile" class="h-20 w-20 rounded-2xl border-4 border-white bg-white object-cover shadow">
+        <div class="min-w-0 flex-1"><h3 id="profileDisplayName" class="text-lg font-extrabold text-slate-900">Parent</h3><p id="profileDisplayEmail" class="text-sm text-slate-500"></p><p class="mt-1 text-xs text-slate-400">Parent account</p></div>
+        <label class="cursor-pointer rounded-xl bg-white px-4 py-2.5 text-center text-xs font-bold text-slate-700 shadow-sm ring-1 ring-slate-200">Change photo<input id="parentPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" onchange="uploadParentPhoto(this)"></label>
+      </div>
+      <div class="mb-5 flex flex-wrap gap-2 border-b border-slate-100 pb-4">
+        <button type="button" onclick="setParentProfileTab('details')" id="profileTabDetails" class="rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white">Personal details</button>
+        <button type="button" onclick="setParentProfileTab('security')" id="profileTabSecurity" class="rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">Security</button>
+      </div>
+      <div id="parentProfileDetails">
+        <form id="parentProfileForm" onsubmit="saveParentProfile(event)" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label class="text-xs font-bold text-slate-600">Full name<input name="name" required maxlength="100" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500"></label>
+          <label class="text-xs font-bold text-slate-600">Email address<input name="email" type="email" required maxlength="150" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500"></label>
+          <label class="text-xs font-bold text-slate-600">Phone number<input name="phone" type="tel" maxlength="30" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500"></label>
+          <label class="text-xs font-bold text-slate-600">Occupation<input name="occupation" maxlength="100" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500"></label>
+          <label class="text-xs font-bold text-slate-600 sm:col-span-2">Residential address<textarea name="address" rows="2" maxlength="500" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500"></textarea></label>
+          <label class="text-xs font-bold text-slate-600">Emergency contact name<input name="emergencyContactName" maxlength="100" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500"></label>
+          <label class="text-xs font-bold text-slate-600">Emergency contact phone<input name="emergencyContactPhone" type="tel" maxlength="30" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-800 outline-none focus:border-brand-500"></label>
+          <div class="flex justify-end sm:col-span-2"><button id="saveParentProfileBtn" type="submit" class="rounded-xl bg-brand-600 px-6 py-3 text-xs font-extrabold text-white shadow-lg shadow-blue-900/10">Save changes</button></div>
+        </form>
+      </div>
+      <div id="parentProfileSecurity" class="hidden">
+        <form onsubmit="changeParentPassword(event)" class="max-w-xl space-y-4">
+          <label class="block text-xs font-bold text-slate-600">Current password<input name="currentPassword" type="password" required autocomplete="current-password" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"></label>
+          <label class="block text-xs font-bold text-slate-600">New password<input name="newPassword" type="password" required minlength="8" autocomplete="new-password" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"></label>
+          <label class="block text-xs font-bold text-slate-600">Confirm new password<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password" class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"></label>
+          <button type="submit" class="rounded-xl bg-brand-600 px-6 py-3 text-xs font-extrabold text-white">Update password</button>
+        </form>
+      </div>
+      <p id="parentProfileMessage" class="mt-4 hidden rounded-xl px-4 py-3 text-xs font-semibold" role="status"></p>
+    </div>
+  </section>
+</div>
+  </div>
+</section>
+    <section id="resultsSection" class="portal-view hidden space-y-6 w-full">
+    <!-- Results access form: use the full available portal content width -->
+    <section class="w-full max-w-none px-0 py-4 lg:py-6">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-md p-6 sm:p-8">
+            <h2 class="text-2xl font-bold text-brand-900 font-serif mb-2">Access Your Child's Results</h2>
+            <p class="text-gray-600 text-sm mb-8">All information is secure and confidential. Your child's results are protected with encryption.</p>
+            <form id="resultsForm" class="space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Select Your Child</h3>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Student *</label>
+                        <select id="studentSelector" required onchange="onStudentSelect()" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                            <option value="">Select a child...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Student Credentials</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Admission/Registration Number *</label>
+                            <input type="text" id="admissionNumber" required readonly placeholder="Auto-filled from student data" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition cursor-not-allowed opacity-75">
+                            <p class="text-xs text-gray-500 mt-1">This field is auto-filled based on selected child</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">PIN/Scratch Card *</label>
+                            <input type="password" id="scratchCard" required placeholder="Enter PIN or scratch card code" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                        </div>
+                    </div>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Academic Period</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Session *</label>
+                            <select id="session" required class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                                <option value="">Select Session...</option>
+                                <option value="2027-2028">2027-2028</option>
+                                <option value="2026-2027">2026-2027</option>
+                                <option value="2025-2026">2025-2026</option>
+                                <option value="2024-2025">2024-2025</option>
+                                <option value="2023-2024">2023-2024</option>
+                                <option value="2022-2023">2022-2023</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Term *</label>
+                            <select id="term" required class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                                <option value="">Select Term...</option>
+                                <option value="FIRST TERM">FIRST TERM</option>
+                                <option value="SECOND TERM">SECOND TERM</option>
+                                <option value="THIRD TERM">THIRD TERM</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Class/Grade *</label>
+                        <input type="text" id="psrStudentClass" readonly placeholder="Auto-filled from student data" class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition cursor-not-allowed opacity-75">
+                        <p class="text-xs text-gray-500 mt-1">This field is auto-filled based on selected child</p>
+                    </div>
+                </div>
+                <div class="mb-6 pb-6 border-b border-gray-200">
+                    <label class="flex items-start cursor-pointer">
+                        <input type="checkbox" id="confirmIdentity" required class="w-4 h-4 text-brand-600 rounded border-gray-300 mt-1">
+                        <span class="ml-2 text-xs text-gray-600">I confirm that I am an authorized parent/guardian and have the right to access these results.</span>
+                    </label>
+                </div>
+                <div id="errorMessage" class="hidden p-4 mb-4 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg"></div>
+                <div id="successMessage" class="hidden p-4 mb-4 text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg"></div>
+                <div id="loadingState" class="hidden p-4 mb-4 text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg flex items-center">
+                    <span class="spinner mr-2"></span>
+                    <span>Loading your child's results...</span>
+                </div>
+                <button type="submit" id="submitBtn" class="w-full bg-brand-500 hover:bg-brand-800 text-white font-semibold p-4 rounded-lg text-base shadow-md transition-all duration-300 uppercase tracking-wide flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    View Child's Results
+                </button>
+                <p class="text-center text-xs text-gray-500 mt-4">Your data is secure and encrypted. We never share your information.</p>
+            </form>
+        </div>
+    </section>
+
+    <!-- Results Display Section (Upgraded, Expandable & Compressible View) -->
+    <div id="resultsDisplay" class="hidden w-full max-w-none mx-0 px-0 py-6 lg:py-8">
+        
+        <!-- Header Controls Bar -->
+        <div class="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div>
+                <span class="text-xs font-semibold uppercase tracking-widest text-brand-600 bg-brand-50 px-3 py-1 rounded-full border border-brand-100">Academic Assessment</span>
+                <h2 class="text-2xl md:text-3xl font-bold text-brand-900 font-serif mt-2">Student Performance Report</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Expand / Compress Button -->
+                <button id="toggleExpandBtn" onclick="toggleResultView()" class="inline-flex items-center px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 hover:text-brand-600 shadow-sm transition">
+                    <svg id="toggleExpandIcon" class="w-4 h-4 mr-2 text-brand-600 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                    <span id="toggleExpandText">Expand Full View</span>
+                </button>
+                <!-- Print Button -->
+                <button onclick="printResults()" class="inline-flex items-center px-4 py-2.5 bg-brand-500 text-white rounded-lg text-sm font-semibold hover:bg-brand-800 shadow-sm transition">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    Print Result
+                </button>
+                <!-- Back Button -->
+                <button onclick="backToForm()" class="inline-flex items-center px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    Check Another
+                </button>
+            </div>
+        </div>
+
+        <!-- Official Notice Banner -->
+        <div class="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-xl shadow-sm">
+            <div class="flex items-start">
+                <div class="flex-shrink-0 mt-0.5">
+                    <svg class="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-xs font-bold uppercase tracking-wide text-amber-900">Official Result Preview Notification</p>
+                    <p class="text-xs text-amber-800 mt-0.5">This report provides an online performance transcript. For authenticated stamped archives, please log into your parent portal dashboard.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Report Container -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden transition-all duration-300">
+            
+            <!-- Student Information Header Card -->
+            <div class="bg-gradient-to-r from-brand-900 via-brand-800 to-brand-900 text-white p-6 sm:p-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/10 pb-6">
+                    <div class="flex items-center space-x-4">
+                        <div id="studentAvatarInitials" class="w-14 h-14 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-xl font-bold font-serif text-gold-500 uppercase">
+                            --
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-brand-100 uppercase tracking-widest mb-0.5">Student Full Name</p>
+                            <h3 id="resultStudentName" class="text-2xl font-bold tracking-tight text-white font-serif">-</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/15 flex items-center space-x-3">
+                        <span class="text-xs uppercase font-medium tracking-wider text-brand-100">Overall Grade:</span>
+                        <span id="resultGrade" class="text-2xl font-black text-gold-500 font-serif">--</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 text-sm">
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Reg Number</p>
+                        <p id="resultAdmission" class="font-semibold text-white font-mono tracking-wide">--</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Class / Grade</p>
+                        <p id="resultClass" class="font-semibold text-white">--</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Academic Session</p>
+                        <p id="resultSession" class="font-semibold text-white">--</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-brand-100 uppercase tracking-wider mb-1">Term</p>
+                        <p id="resultTerm" class="font-semibold text-white">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject Scores Breakdown Table Container (Expandable & Compressible) -->
+            <div class="p-6 sm:p-8 border-b border-gray-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-base font-bold text-gray-900 uppercase tracking-wider flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        Subject Assessment Results
+                    </h4>
+                    <span id="subjectCountBadge" class="text-xs font-semibold bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">0 Subjects Listed</span>
+                </div>
+
+                <!-- Expandable Table Wrapper -->
+                <div class="relative">
+                    <div id="resultsTableContainer" class="expandable-container overflow-x-auto overflow-y-auto max-h-[380px] rounded-xl border border-gray-200">
+                        <table class="w-full min-w-max text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 border-b border-gray-200 text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    <th class="px-6 py-3.5">Subject</th>
+                                    <th class="px-6 py-3.5 text-center">Score (%)</th>
+                                    <th class="px-6 py-3.5 text-center">Grade</th>
+                                    <th class="px-6 py-3.5 text-center">Status</th>
+                                    <th class="px-6 py-3.5 text-left">Academic Remark</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody" class="divide-y divide-gray-100 text-sm font-medium">
+                                <!-- Dynamic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Compressed Fade Gradient Hint Overlay -->
+                    <div id="tableFadeOverlay" class="no-print absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-xl flex items-end justify-center pb-1">
+                    </div>
+                </div>
+
+                <!-- Compression & Expansion In-line Quick Control -->
+                <div class="no-print flex justify-center mt-3">
+                    <button onclick="toggleResultView()" class="text-xs font-bold text-brand-600 hover:text-brand-800 inline-flex items-center py-1 px-3 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-full transition">
+                        <span id="quickToggleText">Show All Subjects (Expand)</span>
+                        <svg id="quickToggleIcon" class="w-3.5 h-3.5 ml-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Performance Analytics Summary Cards -->
+            <div class="p-6 sm:p-8 bg-slate-50/70">
+                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Performance Summary Analytics</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    
+                    <!-- Average Score Card -->
+                    <div class="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Average Score</span>
+                            <span class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            </span>
+                        </div>
+                        <p id="averageScore" class="text-3xl font-extrabold text-blue-600 tracking-tight">0%</p>
+                        <p class="text-xs text-gray-500 mt-1">Cumulative term average</p>
+                    </div>
+
+                    <!-- Subjects Passed Card -->
+                    <div class="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Subjects Passed</span>
+                            <span class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                        </div>
+                        <p id="subjectsPassed" class="text-3xl font-extrabold text-emerald-600 tracking-tight">0/0</p>
+                        <p class="text-xs text-gray-500 mt-1">Pass benchmark threshold (≥50%)</p>
+                    </div>
+
+                    <!-- Best Performing Subject Card -->
+                    <div class="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Top Subject</span>
+                            <span class="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                            </span>
+                        </div>
+                        <p id="bestSubject" class="text-lg font-bold text-gray-900 truncate mt-1">--</p>
+                        <p class="text-xs text-amber-600 font-semibold mt-1">Highest individual score</p>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Floating Trigger Button for How It Works -->
+    <button onclick="toggleHowItWorksDrawer(true)" class="fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-30 flex items-center space-x-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-3 rounded-full shadow-xl transition-all transform hover:scale-105 focus:outline-none">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span class="text-xs sm:text-sm font-bold uppercase tracking-wider">How It Works</span>
+    </button>
+
+    <!-- Parabola Curve Base Drawer Modal -->
+    <div id="howItWorksModal" class="fixed inset-0 z-50 hidden transition-opacity duration-300">
+        <!-- Backdrop -->
+        <div onclick="toggleHowItWorksDrawer(false)" class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+
+        <!-- Drawer Content -->
+        <div id="howItWorksDrawer" class="fixed bottom-0 left-0 right-0 max-w-2xl mx-auto transform translate-y-full transition-transform duration-300 ease-out">
+            <!-- Parabola Curved Header -->
+            <div class="relative w-full overflow-hidden leading-none">
+                <svg class="w-full h-10 text-white block" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                    <path d="M0,100 Q500,0 1000,100 Z" fill="currentColor"></path>
+                </svg>
+                <div class="absolute top-3 left-1/2 transform -translate-x-1/2 w-12 h-1.5 bg-gray-300 rounded-full"></div>
+            </div>
+
+            <!-- Drawer Inner Body -->
+            <div class="bg-white px-6 pb-8 pt-2 shadow-2xl rounded-b-none max-h-[80vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+                    <div class="flex items-center space-x-2">
+                        <div class="p-2 bg-brand-50 text-brand-600 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-brand-900 font-serif">How It Works</h3>
+                    </div>
+                    <button onclick="toggleHowItWorksDrawer(false)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-10 w-10 rounded-full bg-brand-500 text-white font-bold">1</div>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-brand-900 mb-1">Select Your Child</h3>
+                            <p class="text-gray-600 text-sm">The active student from your dashboard has been pre-selected. Select a different child if needed.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-10 w-10 rounded-full bg-brand-500 text-white font-bold">2</div>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-brand-900 mb-1">Enter PIN/Scratch Card</h3>
+                            <p class="text-gray-600 text-sm">Provide your child's PIN or scratch card code along with the session, term, and class details.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0">
+                            <div class="flex items-center justify-center h-10 w-10 rounded-full bg-brand-500 text-white font-bold">3</div>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-brand-900 mb-1">View Results</h3>
+                            <p class="text-gray-600 text-sm">See your child's scores, grades, and performance analytics with detailed subject breakdowns.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </section>
+
+    </main>
+
+
+
+
+<script>
+(function () {
+        const API_BASE_URL = window.API_BASE_URL || 'https://examguard-8rxe.onrender.com';
+        const API_BASE = `${API_BASE_URL}/api`;
+        const token = localStorage.getItem('parentToken') || localStorage.getItem('token') || localStorage.getItem('authToken');
+        const BASE_DOMAIN = window.EXAMGUARD_BASE_DOMAIN || 'goldlincschools.com.ng';
+        const SCHOOL_CONFIG_ENDPOINT = window.SCHOOL_CONFIG_ENDPOINT || `${API_BASE}/schools/config`;
+
+        let parentData = null;
+        let allStudents = [];
+        let currentSelectedStudent = null;
+        let currentSchool = null;
+        let isResultExpanded = false;
+
+        /* Toggle Expand / Compress View Function */
+        function toggleResultView() {
+            const container = document.getElementById('resultsTableContainer');
+            const toggleText = document.getElementById('toggleExpandText');
+            const toggleIcon = document.getElementById('toggleExpandIcon');
+            const quickToggleText = document.getElementById('quickToggleText');
+            const quickToggleIcon = document.getElementById('quickToggleIcon');
+            const fadeOverlay = document.getElementById('tableFadeOverlay');
+
+            isResultExpanded = !isResultExpanded;
+
+            if (isResultExpanded) {
+                container.style.maxHeight = '2500px';
+                if (fadeOverlay) fadeOverlay.classList.add('hidden');
+                
+                if (toggleText) toggleText.textContent = 'Compress View';
+                if (toggleIcon) toggleIcon.classList.add('rotate-180');
+
+                if (quickToggleText) quickToggleText.textContent = 'Compress View (Hide)';
+                if (quickToggleIcon) quickToggleIcon.classList.add('rotate-180');
+            } else {
+                container.style.maxHeight = '380px';
+                if (fadeOverlay) fadeOverlay.classList.remove('hidden');
+
+                if (toggleText) toggleText.textContent = 'Expand Full View';
+                if (toggleIcon) toggleIcon.classList.remove('rotate-180');
+
+                if (quickToggleText) quickToggleText.textContent = 'Show All Subjects (Expand)';
+                if (quickToggleIcon) quickToggleIcon.classList.remove('rotate-180');
+            }
+        }
+
+        function toggleHowItWorksDrawer(show) {
+            const modal = document.getElementById('howItWorksModal');
+            const drawer = document.getElementById('howItWorksDrawer');
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    drawer.classList.remove('translate-y-full');
+                    drawer.classList.add('translate-y-0');
+                }, 10);
+            } else {
+                drawer.classList.remove('translate-y-0');
+                drawer.classList.add('translate-y-full');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function decodeJwtPayload(token) {
+            try {
+                if (!token) return null;
+                const parts = token.split('.');
+                if (parts.length !== 3) return null;
+                const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                const json = decodeURIComponent(
+                    atob(base64)
+                        .split('')
+                        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                        .join('')
+                );
+                return JSON.parse(json);
+            } catch (error) {
+                console.error('JWT decode error:', error);
+                return null;
+            }
+        }
+
+        function getTenantSubdomain() {
+            const storedSubdomain = localStorage.getItem('schoolSubdomain');
+            if (storedSubdomain) return storedSubdomain.trim().toLowerCase();
+            const hostname = window.location.hostname.toLowerCase();
+            const suffix = `.${BASE_DOMAIN}`;
+            if (hostname.endsWith(suffix)) {
+                const subdomain = hostname.slice(0, -suffix.length);
+                if (subdomain && !subdomain.includes('.')) return subdomain;
+            }
+            const parts = hostname.split('.');
+            if (parts.length >= 3) return parts[0];
+            return '';
+        }
+
+        async function loadSchoolConfig() {
+            const subdomain = getTenantSubdomain();
+
+            if (!subdomain) {
+                if (window.__parentPortalSchool) {
+                    currentSchool = window.__parentPortalSchool;
+                    applySchoolBranding(currentSchool);
+                    return currentSchool;
+                }
+                throw new Error('School could not be identified from this portal address.');
+            }
+
+            console.log('🏫 Loading school configuration:', subdomain);
+
+            const cacheKey = `examguard_school_config_${subdomain}`;
+            let cachedConfig = null;
+
+            try {
+                cachedConfig = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+            } catch (error) {
+                console.warn('Could not read cached school configuration.');
+            }
+
+            if (cachedConfig) {
+                currentSchool = cachedConfig;
+                applySchoolBranding(currentSchool);
+            }
+
+            try {
+                const response = await fetch(`${SCHOOL_CONFIG_ENDPOINT}?subdomain=${encodeURIComponent(subdomain)}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`School configuration request failed (${response.status})`);
+                }
+
+                const result = await response.json();
+                console.log('📋 Raw school configuration response:', result);
+
+                const config = result.data || result;
+                const school = config.school || {};
+                const branding = config.branding || {};
+
+                if (!school.schoolId && !school._id && !school.id) {
+                    throw new Error('Invalid school configuration received from server.');
+                }
+
+                currentSchool = {
+                    ...school,
+                    branding,
+                    academic: config.academic || {},
+                    localization: config.localization || {},
+                    authentication: config.authentication || {},
+                    portals: config.portals || {},
+                    features: config.features || {},
+                    payments: config.payments || {},
+                    communication: config.communication || {},
+                    pwa: config.pwa || {}
+                };
+
+                localStorage.setItem(cacheKey, JSON.stringify(currentSchool));
+                localStorage.setItem('schoolSubdomain', subdomain);
+
+                if (currentSchool.schoolId) {
+                    localStorage.setItem('schoolId', currentSchool.schoolId);
+                }
+
+                applySchoolBranding(currentSchool);
+                console.log('✅ School configuration loaded:', currentSchool);
+                return currentSchool;
+            } catch (error) {
+                console.error('❌ School config error:', error);
+                if (cachedConfig) {
+                    console.warn('⚠️ Using cached school configuration.');
+                    currentSchool = cachedConfig;
+                    applySchoolBranding(currentSchool);
+                    return currentSchool;
+                }
+                throw error;
+            }
+        }
+
+        function applySchoolBranding(school) {
+            if (!school) return;
+
+            const branding = school.branding || {};
+            const logos = branding.logos || {};
+            const schoolName = school.schoolName || school.name || 'School';
+            const logo = school.logoUrl || school.logo || branding.logoUrl || branding.logo || logos.main || logos.light || logos.dark || '';
+            const colors = branding.colors || {};
+
+            const primary = colors.primary || branding.primary || branding.primaryColor || school.primaryColor || '#0284c7';
+            const secondary = colors.secondary || branding.secondary || branding.secondaryColor || school.secondaryColor || '#075985';
+            const accent = colors.accent || branding.accent || branding.accentColor || school.accentColor || '#fbbf24';
+
+            const contact = school.contact || {};
+            const email = contact.email || school.email || school.adminEmail || '';
+            const phone = contact.phone || school.phone || school.phoneNumber || '';
+            const motto = school.motto || branding.motto || 'Parent Portal';
+
+            document.documentElement.style.setProperty('--school-primary', primary);
+            document.documentElement.style.setProperty('--school-secondary', secondary);
+            document.documentElement.style.setProperty('--school-accent', accent);
+
+            document.title = `Check Child's Results | ${schoolName}`;
+
+            const logoElement = document.getElementById('schoolLogo');
+            if (logoElement) {
+                if (logo) {
+                    logoElement.src = logo;
+                    logoElement.alt = `${schoolName} Logo`;
+                    logoElement.classList.remove('hidden');
+                    logoElement.style.display = 'block';
+                    logoElement.onerror = function () {
+                        console.error('❌ School logo failed to load:', this.src);
+                        this.onerror = null;
+                        this.style.display = 'none';
+                    };
+                } else {
+                    logoElement.removeAttribute('src');
+                    logoElement.alt = `${schoolName} Logo`;
+                    logoElement.style.display = 'none';
+                }
+            }
+
+            const nameElement = document.getElementById('schoolName');
+            if (nameElement) nameElement.textContent = schoolName;
+
+            const mottoElement = document.getElementById('schoolMotto');
+            if (mottoElement) mottoElement.textContent = motto;
+
+            const emailElement = document.getElementById('schoolEmail');
+            if (emailElement) emailElement.textContent = email || '--';
+
+            const phoneElement = document.getElementById('schoolPhone');
+            if (phoneElement) phoneElement.textContent = phone || '--';
+
+            if (logo) {
+                let favicon = document.querySelector('link[rel="icon"]');
+                if (!favicon) {
+                    favicon = document.createElement('link');
+                    favicon.rel = 'icon';
+                    document.head.appendChild(favicon);
+                }
+                favicon.href = logo;
+            }
+
+            let themeColor = document.querySelector('meta[name="theme-color"]');
+            if (!themeColor) {
+                themeColor = document.createElement('meta');
+                themeColor.name = 'theme-color';
+                document.head.appendChild(themeColor);
+            }
+            themeColor.content = primary;
+
+            console.log('🎨 School branding applied:', { schoolName, logo, primary, secondary, accent });
+        }
+
+        function validateSchoolContext() {
+            const jwtPayload = decodeJwtPayload(token);
+            const tokenSchoolId = jwtPayload?.schoolId ? String(jwtPayload.schoolId) : '';
+            const configMongoId = currentSchool?._id || currentSchool?.id || '';
+            const parentSchoolId = parentData?.schoolId || parentData?.school?._id || parentData?.school?.id || '';
+
+            console.log('🔐 School context:', { tokenSchoolId, configMongoId, parentSchoolId });
+
+            if (tokenSchoolId && parentSchoolId && tokenSchoolId !== String(parentSchoolId)) {
+                throw new Error('Your parent account belongs to a different school.');
+            }
+            if (tokenSchoolId && configMongoId && tokenSchoolId !== String(configMongoId)) {
+                throw new Error('This school portal does not match your account.');
+            }
+            return true;
+        }
+
+        function getAuthHeaders() {
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+            if (currentSchool?.schoolId) {
+                headers['X-School-Code'] = currentSchool.schoolId;
+            }
+            return headers;
+        }
+
+        async function initializePage() {
+            console.log('🚀 Initializing Parent Results Checker...');
+            if (!token) {
+                console.warn('⚠️ No authentication token found.');
+                window.location.href = 'login.html';
+                return;
+            }
+            try {
+                await loadSchoolConfig();
+                await loadParentData();
+                validateSchoolContext();
+                await loadStudents();
+                if (allStudents.length > 0) {
+                    const preferredStudent = window.__parentPortalSelectedStudent;
+                    const preferredExists = preferredStudent && allStudents.some(student => String(student._id) === String(preferredStudent));
+                    currentSelectedStudent = preferredExists ? String(preferredStudent) : String(allStudents[0]._id);
+                    document.getElementById('studentSelector').value = currentSelectedStudent;
+                    onStudentSelect();
+                }
+                console.log('✅ Page initialization complete.');
+            } catch (err) {
+                console.error('❌ Initialization error:', err);
+                showError(err.message || 'Failed to initialize the page.');
+                throw err;
+            }
+        }
+
+        async function loadParentData() {
+            try {
+                console.log('📥 Loading parent data...');
+                const res = await fetch(`${API_BASE}/parents/me`, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        localStorage.removeItem('parentToken');
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('authToken');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                parentData = await res.json();
+                console.log('✅ Parent data loaded:', {
+                    name: parentData.name,
+                    students: parentData.students?.length || 0,
+                    schoolId: parentData.schoolId || parentData.school?._id || null
+                });
+                return parentData;
+            } catch (err) {
+                console.error('❌ Error loading parent data:', err);
+                throw err;
+            }
+        }
+
+        async function loadStudents() {
+            try {
+                console.log('📥 Loading students...');
+                allStudents = parentData.students || [];
+                console.log(`✅ ${allStudents.length} students loaded`);
+                const selector = document.getElementById('studentSelector');
+                selector.innerHTML = '<option value="">Select a child...</option>';
+                allStudents.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student._id;
+                    option.textContent = `${student.name} (${student.class || 'N/A'})`;
+                    selector.appendChild(option);
+                });
+                return allStudents;
+            } catch (err) {
+                console.error('❌ Error loading students:', err);
+                throw err;
+            }
+        }
+
+        function onStudentSelect() {
+            const selector = document.getElementById('studentSelector');
+            const selectedId = selector.value;
+            if (!selectedId) {
+                document.getElementById('admissionNumber').value = '';
+                document.getElementById('psrStudentClass').value = '';
+                currentSelectedStudent = null;
+                return;
+            }
+            currentSelectedStudent = selectedId;
+            const student = allStudents.find(s => String(s._id) === String(selectedId));
+            if (student) {
+                document.getElementById('admissionNumber').value = student.regNo || '';
+                document.getElementById('psrStudentClass').value = student.class || '';
+                console.log('✓ Student selected:', {
+                    name: student.name,
+                    regNo: student.regNo,
+                    class: student.class,
+                    schoolId: student.schoolId
+                });
+            }
+        }
+
+        document.getElementById('resultsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await handleResultSearch();
+        });
+
+        async function handleResultSearch() {
+            const admission = document.getElementById('admissionNumber').value.trim().toUpperCase();
+            const scratchCard = document.getElementById('scratchCard').value.trim();
+            const session = document.getElementById('session').value;
+            const term = document.getElementById('term').value;
+            const studentClass = document.getElementById('psrStudentClass').value;
+            const confirmIdentity = document.getElementById('confirmIdentity').checked;
+
+            if (!admission || !scratchCard || !session || !term || !studentClass || !confirmIdentity) {
+                showError('Please fill in all required fields and confirm your identity.');
+                return;
+            }
+
+            hideMessages();
+            showLoading();
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+
+            try {
+                const params = new URLSearchParams({
+                    regNo: admission,
+                    scratchCard: scratchCard,
+                    class: studentClass,
+                    session: session,
+                    term: term
+                });
+
+                if (currentSchool?.schoolId) {
+                    params.set('schoolId', currentSchool.schoolId);
+                }
+
+                const subdomain = getTenantSubdomain();
+                if (subdomain) {
+                    params.set('schoolSubdomain', subdomain);
+                }
+
+                console.log('📤 Checking results for school:', currentSchool?.schoolName);
+
+                const response = await fetch(`${API_BASE}/results/check?${params.toString()}`, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log('✅ Results received:', data);
+                    displayResults(data, admission, session, term, studentClass);
+                    showSuccess('Results loaded successfully!');
+                } else {
+                    console.warn('⚠️ API Error:', data);
+                    showError(data.error || 'No results found for the provided credentials. Please check and try again.');
+                }
+            } catch (error) {
+                console.error('❌ Result search error:', error);
+                showError("An error occurred while fetching your child's results. Please try again.");
+            } finally {
+                hideLoading();
+                submitBtn.disabled = false;
+            }
+        }
+
+        function displayResults(data, admission, session, term, studentClass) {
+            const studentName = data.student?.name || 'N/A';
+
+            document.getElementById('resultStudentName').textContent = studentName;
+            document.getElementById('resultAdmission').textContent = admission;
+            document.getElementById('resultSession').textContent = session;
+            document.getElementById('resultTerm').textContent = term;
+            document.getElementById('resultClass').textContent = studentClass;
+
+            // Student Initials
+            const initials = studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ST';
+            document.getElementById('studentAvatarInitials').textContent = initials;
+
+            const results = data.results || [];
+            if (!results || results.length === 0) {
+                showError('No subject results found.');
+                return;
+            }
+
+            document.getElementById('subjectCountBadge').textContent = `${results.length} Subjects Listed`;
+
+            const scores = results.map(s => Number(s.total) || 0);
+            const average = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+            const passed = results.filter(s => Number(s.total) >= 50).length;
+            const best = results.reduce((a, b) => Number(a.total) > Number(b.total) ? a : b);
+
+            document.getElementById('averageScore').textContent = average + '%';
+            document.getElementById('subjectsPassed').textContent = `${passed}/${results.length}`;
+            document.getElementById('bestSubject').textContent = `${best.subject} (${best.total}%)`;
+
+            const overallGrade = average >= 70 ? 'A' : average >= 60 ? 'B' : average >= 50 ? 'C' : average >= 45 ? 'D' : average >= 40 ? 'E' : 'F';
+
+            document.getElementById('resultGrade').textContent = overallGrade;
+
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = '';
+
+            results.forEach((subject, idx) => {
+                const row = document.createElement('tr');
+                row.className = idx % 2 === 0 ? 'bg-white hover:bg-slate-50 transition' : 'bg-slate-50/50 hover:bg-slate-100/60 transition';
+                
+                const gradeBadge = getGradeBadgeHTML(subject.grade);
+                const passedSubject = Number(subject.total) >= 50;
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-semibold text-gray-900 whitespace-nowrap">
+                        ${subject.subject || '-'}
+                    </td>
+                    <td class="px-6 py-4 text-center font-bold text-base text-gray-900 whitespace-nowrap">
+                        ${subject.total ?? '-'}
+                    </td>
+                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                        ${gradeBadge}
+                    </td>
+                    <td class="px-6 py-4 text-center whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${passedSubject ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                            <span class="w-1.5 h-1.5 mr-1.5 rounded-full ${passedSubject ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                            ${passedSubject ? 'Pass' : 'Fail'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-left text-xs text-gray-600 whitespace-nowrap font-medium">
+                        ${subject.remarks || '-'}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Default to compressed state initially
+            isResultExpanded = false;
+            const container = document.getElementById('resultsTableContainer');
+            if (container) container.style.maxHeight = '380px';
+            const fadeOverlay = document.getElementById('tableFadeOverlay');
+            if (fadeOverlay) fadeOverlay.classList.remove('hidden');
+
+            document.getElementById('resultsForm').parentElement.parentElement.classList.add('hidden');
+            document.getElementById('resultsDisplay').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function getGradeBadgeHTML(grade) {
+            const g = String(grade || '').toUpperCase();
+            let colors = 'bg-gray-100 text-gray-800 border-gray-200';
+            switch (g) {
+                case 'A': colors = 'bg-emerald-100 text-emerald-800 border-emerald-300'; break;
+                case 'B': colors = 'bg-blue-100 text-blue-800 border-blue-300'; break;
+                case 'C': colors = 'bg-amber-100 text-amber-800 border-amber-300'; break;
+                case 'D': colors = 'bg-orange-100 text-orange-800 border-orange-300'; break;
+                case 'E': colors = 'bg-rose-100 text-rose-800 border-rose-300'; break;
+                case 'F': colors = 'bg-red-100 text-red-800 border-red-300'; break;
+            }
+            return `<span class="inline-block px-3 py-1 rounded-md border text-xs font-black font-serif ${colors}">${g || '-'}</span>`;
+        }
+
+        function backToForm() {
+            document.getElementById('resultsForm').parentElement.parentElement.classList.remove('hidden');
+            document.getElementById('resultsDisplay').classList.add('hidden');
+            document.getElementById('resultsForm').reset();
+            document.getElementById('studentSelector').value = currentSelectedStudent;
+            onStudentSelect();
+            hideMessages();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function printResults() {
+            window.print();
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.classList.remove('hidden');
+        }
+
+        function showLoading() {
+            document.getElementById('loadingState').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingState').classList.hidden = true;
+            document.getElementById('loadingState').classList.add('hidden');
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').classList.add('hidden');
+            document.getElementById('successMessage').classList.add('hidden');
+        }
+
+        window.initializeParentResultsSection = initializePage;
+        window.onStudentSelect = onStudentSelect;
+        window.toggleResultView = toggleResultView;
+        window.toggleHowItWorksDrawer = toggleHowItWorksDrawer;
+        window.backToForm = backToForm;
+        window.printResults = printResults;
+    
+})();
+</script>
+
+<script>
+const API_BASE = window.API_BASE || "https://examguard-8rxe.onrender.com/api";
+
+function parentProfileHeaders() {
+    const token = getParentToken();
+    return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+function openParentProfile() {
+    if (!parentData) return;
+    showPortalSection('profile');
+    const form = document.getElementById('parentProfileForm');
+    ['name','email','phone','address','occupation','emergencyContactName','emergencyContactPhone'].forEach(key => {
+        if (form.elements[key]) form.elements[key].value = parentData[key] || '';
+    });
+    const photo = parentData.profilePhoto || parentData.avatarUrl || '';
+    document.getElementById('parentProfilePhoto').src = photo || 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100%" height="100%" fill="#e2e8f0"/><circle cx="50" cy="38" r="18" fill="#94a3b8"/><path d="M15 100c3-25 17-36 35-36s32 11 35 36" fill="#94a3b8"/></svg>');
+    document.getElementById('profileDisplayName').textContent = parentData.name || 'Parent';
+    document.getElementById('profileDisplayEmail').textContent = parentData.email || '';
+    setParentProfileTab('details');
+}
+function closeParentProfile() { showPortalSection('dashboard'); }
+function setParentProfileTab(tab) {
+    const details = tab === 'details';
+    document.getElementById('parentProfileDetails').classList.toggle('hidden', !details);
+    document.getElementById('parentProfileSecurity').classList.toggle('hidden', details);
+    document.getElementById('profileTabDetails').className = `rounded-xl px-4 py-2 text-xs font-bold ${details ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'}`;
+    document.getElementById('profileTabSecurity').className = `rounded-xl px-4 py-2 text-xs font-bold ${!details ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'}`;
+    showParentProfileMessage('');
+}
+function showParentProfileMessage(message, isError=false) {
+    const el = document.getElementById('parentProfileMessage');
+    if (!message) { el.classList.add('hidden'); return; }
+    el.textContent = message; el.classList.remove('hidden');
+    el.className = `mt-4 rounded-xl px-4 py-3 text-xs font-semibold ${isError ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`;
+}
+async function saveParentProfile(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = document.getElementById('saveParentProfileBtn');
+    const payload = Object.fromEntries(['name','email','phone','address','occupation','emergencyContactName','emergencyContactPhone'].map(k => [k, form.elements[k].value.trim()]));
+    button.disabled = true; button.textContent = 'Saving...';
+    try {
+        const response = await fetch(`${API_BASE}/auth/me`, { method: 'PATCH', headers: parentProfileHeaders(), body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Unable to update profile.');
+        parentData = { ...parentData, ...payload };
+        updateParentUI();
+        document.getElementById('profileDisplayName').textContent = payload.name;
+        document.getElementById('profileDisplayEmail').textContent = payload.email;
+        showParentProfileMessage('Your profile has been updated successfully.');
+    } catch (error) { showParentProfileMessage(error.message, true); }
+    finally { button.disabled = false; button.textContent = 'Save changes'; }
+}
+async function uploadParentPhoto(input) {
+    const file = input.files && input.files[0]; if (!file) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+        showParentProfileMessage('Choose a JPG, PNG or WEBP image up to 5 MB.', true); input.value = ''; return;
+    }
+    try {
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file);
+        });
+        const response = await fetch(`${API_BASE}/auth/me/avatar`, { method: 'POST', headers: parentProfileHeaders(), body: JSON.stringify({ photoBase64: dataUrl }) });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Photo upload failed.');
+        parentData.profilePhoto = data.url;
+        document.getElementById('parentProfilePhoto').src = data.url;
+        showParentProfileMessage('Profile photo updated.');
+    } catch (error) { showParentProfileMessage(error.message, true); }
+    finally { input.value = ''; }
+}
+async function changeParentPassword(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const currentPassword = form.elements.currentPassword.value;
+    const newPassword = form.elements.newPassword.value;
+    if (newPassword !== form.elements.confirmPassword.value) return showParentProfileMessage('The new passwords do not match.', true);
+    if (newPassword.length < 8) return showParentProfileMessage('Use at least 8 characters for your new password.', true);
+    try {
+        const response = await fetch(`${API_BASE}/auth/change-password`, { method: 'POST', headers: parentProfileHeaders(), body: JSON.stringify({ currentPassword, newPassword }) });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Unable to change password.');
+        form.reset(); showParentProfileMessage('Password updated successfully.');
+    } catch (error) { showParentProfileMessage(error.message, true); }
+}
+
+
+
+
+function decodeJwtPayload(token) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+
+        const base64 = parts[1]
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+
+        const json = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        );
+
+        return JSON.parse(json);
+    } catch (err) {
+        console.warn('Unable to decode JWT:', err);
+        return null;
+    }
+}
+
+function isTokenValid(token) {
+    if (!token) return false;
+    const payload = decodeJwtPayload(token);
+    if (!payload) return false;
+
+    if (payload.exp && Date.now() >= payload.exp * 1000) {
+        return false;
+    }
+
+    return true;
+}
+
+function getParentToken() {
+    const parentToken = localStorage.getItem('parentToken');
+    const normalToken = localStorage.getItem('token');
+    const authToken = localStorage.getItem('authToken');
+
+    if (isTokenValid(parentToken)) return parentToken;
+    if (isTokenValid(normalToken)) return normalToken;
+    if (isTokenValid(authToken)) return authToken;
+
+    return '';
+}
+
+let parentData = null;
+let currentSchool = null;
+let allStudents = [];
+let currentSelectedStudent = null;
+let currentGradeTerm = 1;
+let errorConfirmCallback = null;
+
+let activePortalSection = 'dashboard';
+let parentResultsInitialized = false;
+function showPortalSection(section) {
+    if (!['dashboard', 'profile', 'results'].includes(section)) section = 'dashboard';
+    activePortalSection = section;
+    document.querySelectorAll('.portal-view').forEach(view => view.classList.add('hidden'));
+    const targetId = section === 'dashboard' ? 'dashboardSection' : section === 'profile' ? 'profileSection' : 'resultsSection';
+    const target = document.getElementById(targetId);
+    if (target) target.classList.remove('hidden');
+    const title = document.getElementById('portalPageTitle');
+    if (title) title.textContent = section === 'dashboard' ? 'Main Dashboard' : section === 'profile' ? 'My Profile' : 'Check Results';
+    document.querySelectorAll('[data-portal-nav]').forEach(link => {
+        const active = link.dataset.portalNav === section;
+        link.classList.toggle('bg-gradient-to-r', active);
+        link.classList.toggle('from-brand-600', active);
+        link.classList.toggle('to-brand-500', active);
+        link.classList.toggle('text-white', active);
+        link.classList.toggle('shadow-md', active);
+        link.classList.toggle('text-slate-300', !active);
+        link.classList.toggle('bg-slate-800/60', !active);
+    });
+    if (section === 'results') {
+        window.__parentPortalSchool = currentSchool;
+        window.__parentPortalSelectedStudent = currentSelectedStudent;
+        if (!parentResultsInitialized && typeof window.initializeParentResultsSection === 'function') {
+            parentResultsInitialized = true;
+            window.initializeParentResultsSection().catch(error => {
+                parentResultsInitialized = false;
+                showErrorModal('Results Portal Error', error.message || 'Unable to initialize the results portal.');
+            });
+        } else if (parentResultsInitialized) {
+            const selector = document.getElementById('studentSelector');
+            if (selector && currentSelectedStudent && Array.from(selector.options).some(option => option.value === String(currentSelectedStudent))) {
+                selector.value = String(currentSelectedStudent);
+                if (typeof window.onStudentSelect === 'function') window.onStudentSelect();
+            }
+        }
+    }
+    const scroller = document.getElementById('portalMain');
+    if (scroller) scroller.scrollTop = 0;
+}
+
+async function initializeDashboard() {
+    if (!getParentToken()) {
+        showErrorModal('Authentication Required', 'No active login session found. Please log in to continue.', () => {
+            window.location.href = '/login';
+        });
+        return;
+    }
+
+    try {
+        showLoadingSpinner('Loading Parent Dashboard', 'Connecting to school portal...');
+
+        updateLoadingStatus('Loading parent information...');
+        await loadParentData();
+
+        updateLoadingStatus('Loading school information...');
+        loadCurrentSchool();
+
+        updateLoadingStatus('Loading student information...');
+        await loadStudents();
+
+        if (allStudents.length > 0) {
+            currentSelectedStudent = String(allStudents[0]._id);
+            syncWardSelectors();
+            updateLoadingStatus('Loading student details...');
+            await loadStudentDetails();
+        } else {
+            showNoStudentState();
+        }
+
+        hideLoadingSpinner();
+    } catch (err) {
+        console.error('❌ Dashboard initialization failed:', err);
+        hideLoadingSpinner();
+        showErrorModal('Initialization Error', err.message || 'Failed to initialize parent dashboard.');
+    }
+}
+
+function showLoadingSpinner(message = 'Loading Dashboard', status = 'Initializing system...') {
+    const overlay = document.getElementById('loadingOverlay');
+    if (!overlay) return;
+    document.getElementById('spinnerMainText').textContent = message;
+    document.getElementById('spinnerStatus').textContent = status;
+    overlay.classList.remove('hidden');
+}
+
+function hideLoadingSpinner() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (!overlay) return;
+    setTimeout(() => overlay.classList.add('hidden'), 300);
+}
+
+function updateLoadingStatus(status) {
+    const statusEl = document.getElementById('spinnerStatus');
+    if (statusEl) statusEl.textContent = status;
+}
+
+function showErrorModal(title, message, onConfirm = null) {
+    const modal = document.getElementById('errorModal');
+    const card = document.getElementById('errorModalCard');
+    const titleEl = document.getElementById('errorModalTitle');
+    const msgEl = document.getElementById('errorModalMessage');
+
+    if (titleEl) titleEl.textContent = title || 'An Error Occurred';
+    if (msgEl) msgEl.textContent = message || 'Unknown error occurred.';
+
+    errorConfirmCallback = onConfirm;
+
+    if (modal && card) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            card.classList.remove('scale-95');
+            card.classList.add('scale-100');
+        }, 10);
+    }
+}
+
+function closeErrorModal() {
+    const modal = document.getElementById('errorModal');
+    const card = document.getElementById('errorModalCard');
+
+    if (modal && card) {
+        modal.classList.add('opacity-0');
+        card.classList.remove('scale-100');
+        card.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            if (typeof errorConfirmCallback === 'function') {
+                const callback = errorConfirmCallback;
+                errorConfirmCallback = null;
+                callback();
+            }
+        }, 300);
+    }
+}
+
+function getAuthHeaders() {
+    const currentToken = getParentToken();
+    return {
+        'Authorization': `Bearer ${currentToken}`,
+        'Content-Type': 'application/json'
+    };
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-NG', {
+        style: 'currency',
+        currency: 'NGN',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(amount);
+}
+
+function loadCurrentSchool() {
+    try {
+        if (!parentData || !parentData.school) {
+            throw new Error('Your parent account is not linked to a valid school.');
+        }
+
+        currentSchool = parentData.school;
+        applySchoolBranding(currentSchool);
+        return currentSchool;
+    } catch (err) {
+        console.error('❌ Error loading school:', err);
+        throw err;
+    }
+}
+
+function applySchoolBranding(school) {
+    if (!school) return;
+
+    const schoolName = school.schoolName || school.name || 'School Portal';
+    const logo = school.logoUrl || school.branding?.logoUrl || '';
+    const session = school.currentSession || school.academicSession || '2025/2026';
+
+    const desktopName = document.getElementById('schoolName');
+    if (desktopName) desktopName.textContent = schoolName;
+
+    const mobileName = document.getElementById('mobileSchoolName');
+    if (mobileName) mobileName.textContent = schoolName;
+
+    const desktopLogo = document.getElementById('schoolLogo');
+    if (desktopLogo) {
+        if (logo) desktopLogo.src = logo;
+        else desktopLogo.style.display = 'none';
+    }
+
+    const mobileLogo = document.getElementById('mobileSchoolLogo');
+    if (mobileLogo) {
+        if (logo) mobileLogo.src = logo;
+        else mobileLogo.style.display = 'none';
+    }
+
+    const currentSessionEl = document.getElementById('currentSession');
+    if (currentSessionEl) currentSessionEl.textContent = session;
+
+    const sessionValueEl = document.getElementById('sessionValue');
+    if (sessionValueEl) sessionValueEl.textContent = session;
+
+    const branding = school.branding || {};
+    const primary = branding.primary || branding.primaryColor || '#2563eb';
+    const secondary = branding.secondary || branding.secondaryColor || '#1e40af';
+    const accent = branding.accent || branding.accentColor || '#f59e0b';
+
+    document.documentElement.style.setProperty('--school-primary', primary);
+    document.documentElement.style.setProperty('--school-secondary', secondary);
+    document.documentElement.style.setProperty('--school-accent', accent);
+
+    document.title = `${schoolName} | Parent Dashboard`;
+}
+
+async function loadParentData() {
+    try {
+        const token = getParentToken();
+
+        if (!token) {
+            throw new Error('No valid parent authentication token was found. Please log in again.');
+        }
+
+        const res = await fetch(`${API_BASE}/parents/me`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const rawResponse = await res.text();
+        let data = {};
+
+        try {
+            data = rawResponse ? JSON.parse(rawResponse) : {};
+        } catch {
+            data = { message: rawResponse };
+        }
+
+        if (res.status === 401) {
+            localStorage.removeItem('parentToken');
+            throw new Error(data.message || data.error || 'Your parent session has expired. Please log in again.');
+        }
+
+        if (res.status === 403) {
+            throw new Error(data.message || data.error || 'You do not have permission to access the parent portal.');
+        }
+
+        if (!res.ok) {
+            throw new Error(data.message || data.error || `Unable to load parent profile. HTTP ${res.status}`);
+        }
+
+        parentData = data;
+        updateParentUI();
+        return parentData;
+    } catch (err) {
+        console.error('❌ Error loading parent:', err);
+        throw err;
+    }
+}
+
+function updateParentUI() {
+    if (!parentData) return;
+
+    const parentName = parentData.name || 'Parent';
+    const parentFullName = document.getElementById('parentFullName');
+    if (parentFullName) parentFullName.textContent = parentName;
+
+    const parentId = document.getElementById('parentId');
+    if (parentId) parentId.textContent = parentData._id ? String(parentData._id).slice(-8) : '--';
+
+    const topbarParentName = document.getElementById('topbarParentName');
+    if (topbarParentName) topbarParentName.textContent = parentName;
+    const topbarInitials = document.getElementById('topbarParentInitials');
+    if (topbarInitials) topbarInitials.textContent = parentName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+    const mobileParentName = document.getElementById('mobileParentName');
+    if (mobileParentName) mobileParentName.textContent = parentName;
+}
+
+async function loadStudents() {
+    try {
+        const students = Array.isArray(parentData?.students) ? parentData.students : [];
+
+        allStudents = students.map(student => ({
+            ...student,
+            _id: String(student._id || student.id || ''),
+            name: student.name || `${student.firstname || student.firstName || ''} ${student.surname || student.lastName || ''}`.trim(),
+            class: student.class || student.className || 'N/A',
+            regNo: student.regNo || student.regNumber || 'N/A',
+            student_id: student.student_id || ''
+        })).filter(student => student._id);
+
+        populateWardSelectors();
+        return allStudents;
+    } catch (err) {
+        console.error('❌ Error loading students:', err);
+        throw err;
+    }
+}
+
+function populateWardSelectors() {
+    const selectors = [
+        document.getElementById('wardSelector'),
+        document.getElementById('mobileWardSelector')
+    ].filter(Boolean);
+
+    selectors.forEach(selector => {
+        selector.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = allStudents.length ? 'Select Student' : 'No Student Assigned';
+        selector.appendChild(defaultOption);
+
+        allStudents.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student._id;
+            option.textContent = `${student.name || 'Student'} (${student.class || 'N/A'})`;
+            selector.appendChild(option);
+        });
+
+        if (currentSelectedStudent) {
+            selector.value = currentSelectedStudent;
+        } else if (allStudents.length) {
+            selector.value = allStudents[0]._id;
+        }
+    });
+}
+
+function syncWardSelectors() {
+    const desktop = document.getElementById('wardSelector');
+    const mobile = document.getElementById('mobileWardSelector');
+
+    if (desktop) desktop.value = currentSelectedStudent || '';
+    if (mobile) mobile.value = currentSelectedStudent || '';
+}
+
+async function switchToStudent(studentId) {
+    if (!studentId) return;
+    studentId = String(studentId);
+
+    if (currentSelectedStudent === studentId) {
+        syncWardSelectors();
+        return;
+    }
+
+    currentSelectedStudent = studentId;
+    syncWardSelectors();
+    window.__parentPortalSelectedStudent = currentSelectedStudent;
+    if (parentResultsInitialized) {
+        const resultsSelector = document.getElementById('studentSelector');
+        if (resultsSelector && Array.from(resultsSelector.options).some(option => option.value === studentId)) {
+            resultsSelector.value = studentId;
+            if (typeof window.onStudentSelect === 'function') window.onStudentSelect();
+        }
+    }
+
+    try {
+        showLoadingSpinner('Loading Student Data', 'Fetching academic information...');
+        await loadStudentDetails();
+        hideLoadingSpinner();
+    } catch (err) {
+        console.error('❌ Student switch failed:', err);
+        hideLoadingSpinner();
+        showErrorModal('Student Switching Error', 'Failed to load student details: ' + (err.message || 'Unknown error'));
+    }
+}
+
+function switchWard(element) {
+    let studentId = '';
+
+    if (element && element.value) {
+        studentId = element.value;
+    } else if (element && element.target) {
+        studentId = element.target.value;
+    } else {
+        const desktopSelector = document.getElementById('wardSelector');
+        const mobileSelector = document.getElementById('mobileWardSelector');
+        studentId = desktopSelector?.value || mobileSelector?.value || '';
+    }
+
+    if (studentId) {
+        switchToStudent(studentId);
+        forceCloseBottomNav();
+    }
+}
+
+async function loadStudentDetails() {
+    if (!currentSelectedStudent) {
+        showNoStudentState();
+        return;
+    }
+
+    const student = allStudents.find(student => String(student._id) === String(currentSelectedStudent));
+    if (!student) {
+        return;
+    }
+
+    updateStudentInfoDisplay(student);
+
+    await Promise.allSettled([
+        loadStudentGrades(student._id),
+        loadRecentResults(student._id),
+        loadStudentAssignments(student._id),
+        loadFeesSummary()
+    ]);
+}
+
+function updateStudentInfoDisplay(student) {
+    const fullName = document.getElementById('studentFullName');
+    const studentClass = document.getElementById('studentClass');
+    const regNo = document.getElementById('studentRegNo');
+    const studentId = document.getElementById('studentId');
+
+    if (fullName) fullName.textContent = student.name || '--';
+    if (studentClass) studentClass.textContent = student.class || '--';
+    if (regNo) regNo.textContent = student.regNo || '--';
+    if (studentId) studentId.textContent = student.student_id || String(student._id).slice(-8);
+
+    const academicStats = student.academicStats || {};
+    const attendanceStats = student.attendanceStats || {};
+    const feesStats = student.feesStats || {};
+
+    const attendance = Number(attendanceStats.averageAttendancePercentage) || 0;
+    const average = Number(academicStats.averageScore) || 0;
+    const outstanding = Number(feesStats.outstanding) || 0;
+
+    const attendanceEl = document.getElementById('attendance');
+    if (attendanceEl) attendanceEl.textContent = `${attendance}%`;
+
+    const attendanceNote = document.getElementById('attendanceNote');
+    if (attendanceNote) attendanceNote.textContent = 'Current term';
+
+    const caAverage = document.getElementById('caAverage');
+    if (caAverage) caAverage.textContent = average.toFixed(1);
+
+    const caRanking = document.getElementById('caRanking');
+    if (caRanking) caRanking.textContent = 'Recent average';
+
+    updateFeesDisplay(outstanding);
+}
+
+function updateFeesDisplay(outstanding) {
+    const feesStatus = document.getElementById('feesStatus');
+    if (feesStatus) feesStatus.textContent = formatCurrency(outstanding);
+
+    const feesStatusBadge = document.getElementById('feesStatusBadge');
+    if (feesStatusBadge) {
+        if (outstanding === 0) {
+            feesStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-600 rounded-full mr-1.5"></span> Cleared`;
+            feesStatusBadge.className = 'inline-flex items-center bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5';
+        } else {
+            feesStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-amber-600 rounded-full mr-1.5"></span> Pending`;
+            feesStatusBadge.className = 'inline-flex items-center bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5';
+        }
+    }
+}
+
+async function loadStudentGrades(studentId) {
+    try {
+        const url = `${API_BASE}/parents/me/students/${studentId}/grades?term=${currentGradeTerm}`;
+        const res = await fetch(url, { headers: getAuthHeaders() });
+
+        if (!res.ok) {
+            return;
+        }
+
+        const data = await res.json();
+        updateGradeStatistics(data);
+    } catch (err) {
+        console.error('❌ Error loading grades:', err);
+    }
+}
+
+function updateGradeStatistics(data) {
+    const records = Array.isArray(data?.records) ? data.records : [];
+    if (!records.length) return;
+
+    const scores = records.map(record => {
+        const ca1 = Number(record.ca1) || 0;
+        const ca2 = Number(record.ca2) || 0;
+        const exam = Number(record.exam) || 0;
+        return ca1 + ca2 + exam;
+    });
+
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const caAverage = document.getElementById('caAverage');
+    if (caAverage) caAverage.textContent = average.toFixed(1);
+}
+
+async function loadRecentResults(studentId) {
+    try {
+        const url = `${API_BASE}/parents/me/students/${studentId}/results`;
+        const res = await fetch(url, { headers: getAuthHeaders() });
+
+        if (!res.ok) {
+            renderRecentResults([]);
+            return;
+        }
+
+        const data = await res.json();
+        const results = Array.isArray(data.results) ? data.results : Array.isArray(data.records) ? data.records : [];
+        renderRecentResults(results.slice(0, 5));
+
+        const termSession = document.getElementById('resultTermSession');
+        if (termSession && (data.term || data.session)) {
+            termSession.textContent = `${data.term ? 'Term ' + data.term + ' - ' : ''}${data.session || ''}`;
+        }
+    } catch (err) {
+        console.error('❌ Error loading results:', err);
+        renderRecentResults([]);
+    }
+}
+
+function renderRecentResults(records) {
+    const tbody = document.getElementById('recentResultsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!records || !records.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="p-8 text-center text-slate-400">
+                    No results uploaded yet
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    records.slice(0, 5).forEach(record => {
+        const ca1 = Number(record.ca1 || record.ca1_score) || 0;
+        const ca2 = Number(record.ca2 || record.ca2_score) || 0;
+        const exam = Number(record.exam || record.exam_score) || 0;
+        let score = Number(record.score || record.total);
+
+        if (isNaN(score) || score === 0) score = ca1 + ca2 + exam;
+
+        let gradeLetters = record.grade || 'N/A';
+        if (!gradeLetters || gradeLetters === 'N/A') {
+            if (score >= 70) gradeLetters = 'A';
+            else if (score >= 60) gradeLetters = 'B';
+            else if (score >= 50) gradeLetters = 'C';
+            else if (score >= 45) gradeLetters = 'D';
+            else if (score >= 40) gradeLetters = 'E';
+            else gradeLetters = 'F';
+        }
+
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-slate-50/60 transition';
+        row.innerHTML = `
+            <td class="p-4 pl-6 font-bold text-slate-900">${record.subject || 'Unknown'}</td>
+            <td class="p-4 text-center font-mono font-bold">${score.toFixed(1)}</td>
+            <td class="p-4 text-center">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg font-bold text-[11px]
+                    ${score >= 70 ? 'bg-emerald-50 text-emerald-700' : 
+                      score >= 50 ? 'bg-blue-50 text-blue-700' : 
+                      'bg-amber-50 text-amber-700'}">
+                    ${gradeLetters}
+                </span>
+            </td>
+            <td class="p-4 pr-6 text-center">
+                <span class="inline-flex items-center text-[11px] font-bold">
+                    <span class="w-2 h-2 rounded-full mr-1.5 ${score >= 50 ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
+                    ${score >= 50 ? 'Pass' : 'Review'}
+                </span>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function loadStudentAssignments(studentId) {
+    try {
+        const url = `${API_BASE}/parents/me/students/${studentId}/assignments`;
+        const res = await fetch(url, { headers: getAuthHeaders() });
+
+        if (!res.ok) {
+            renderAssignments([]);
+            return;
+        }
+
+        const data = await res.json();
+        const assignments = Array.isArray(data) ? data : (data.assignments || []);
+        renderAssignments(assignments);
+    } catch (err) {
+        console.error('❌ Error loading assignments:', err);
+        renderAssignments([]);
+    }
+}
+
+function renderAssignments(assignments) {
+    const container = document.getElementById('assignmentsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!assignments || !assignments.length) {
+        container.innerHTML = `
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center col-span-full">
+                <p class="text-slate-400">No active assignments</p>
+            </div>
+        `;
+        return;
+    }
+
+    assignments.forEach(assignment => {
+        const dueDate = new Date(assignment.dueDate || assignment.deadline);
+        const today = new Date();
+        const isOverdue = dueDate < today;
+        const daysLeft = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+        const card = document.createElement('div');
+        card.className = `p-4 border rounded-2xl ${isOverdue ? 'bg-rose-50 border-rose-200' : 'bg-blue-50 border-blue-200'}`;
+        card.innerHTML = `
+            <div class="flex items-start justify-between mb-2">
+                <h4 class="font-bold text-sm ${isOverdue ? 'text-rose-900' : 'text-blue-900'}">${assignment.title || 'Untitled'}</h4>
+                <span class="text-[10px] font-bold ${isOverdue ? 'bg-rose-200 text-rose-700' : 'bg-blue-200 text-blue-700'} px-2 py-1 rounded-lg">
+                    ${isOverdue ? 'Overdue' : daysLeft + (daysLeft === 1 ? ' day' : ' days')}
+                </span>
+            </div>
+            <p class="text-[11px] ${isOverdue ? 'text-rose-700' : 'text-blue-700'} mb-2">${assignment.description || 'No description'}</p>
+            <p class="text-[10px] text-slate-500">Due: ${dueDate.toLocaleDateString('en-NG')}</p>
+        `;
+        container.appendChild(card);
+    });
+}
+
+async function loadFeesSummary() {
+    try {
+        const student = allStudents.find(s => String(s._id) === String(currentSelectedStudent));
+        if (!student) return;
+        const feesStats = student.feesStats || {};
+        const outstanding = feesStats.outstanding || 0;
+        updateFeesDisplay(outstanding);
+    } catch (err) {
+        console.error('❌ Error loading fees summary:', err);
+    }
+}
+
+function showNoStudentState() {
+    const fields = ['studentFullName', 'studentClass', 'studentRegNo', 'studentId', 'attendance', 'caAverage'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '--';
+    });
+    renderRecentResults([]);
+    renderAssignments([]);
+}
+
+function handleFeesAction(studentId, isCleared) {
+    if (!studentId) return;
+    if (isCleared) {
+        window.location.href = `fees-receipt.html?studentId=${studentId}`;
+    } else {
+        window.location.href = `fees-payment.html?studentId=${studentId}`;
+    }
+}
+
+function logoutUser() {
+    localStorage.removeItem('parentToken');
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+}
+
+function openBottomNav() {
+    const overlay = document.getElementById('bottomDrawerOverlay');
+    const card = document.getElementById('bottomDrawerCard');
+    if (overlay && card) {
+        overlay.classList.remove('hidden');
+        setTimeout(() => {
+            overlay.classList.remove('opacity-0');
+            card.classList.remove('translate-y-full');
+        }, 10);
+    }
+}
+
+function forceCloseBottomNav() {
+    const overlay = document.getElementById('bottomDrawerOverlay');
+    const card = document.getElementById('bottomDrawerCard');
+    if (overlay && card) {
+        overlay.classList.add('opacity-0');
+        card.classList.add('translate-y-full');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+    }
+}
+
+function closeBottomNav(event) {
+    if (event && event.target !== document.getElementById('bottomDrawerOverlay')) return;
+    forceCloseBottomNav();
+}
+</script>
+</body>
+</html>
