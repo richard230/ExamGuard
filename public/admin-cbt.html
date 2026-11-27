@@ -857,346 +857,346 @@ async function loadExamsTable() {
 window.showUploadExam = showUploadExam;
 window.showScheduleExam = showScheduleExam;
 
+// Shared Quill configuration used by question and option editors.
+// Image handlers are attached to each real editor instance below; never to Quill.prototype.
+function getQuillConfig() {
+  return {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ header: [1, 2, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['image', 'code-block'],
+        ['clean']
+      ]
+    }
+  };
+}
+
+async function selectLocalImage(quill) {
+  if (!quill) return;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      const response = await fetch(`${API_BASE}/api/upload/image`, {
+        method: 'POST',
+        body: formData,
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken') || ''}` }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) {
+        throw new Error(data.message || data.error || 'Image upload failed.');
+      }
+      const range = quill.getSelection(true);
+      quill.insertEmbed(range ? range.index : quill.getLength(), 'image', data.url, 'user');
+      quill.setSelection((range ? range.index : quill.getLength()) + 1, 0, 'silent');
+    } catch (error) {
+      console.error('Question editor image upload failed:', error);
+      alert(error.message || 'Image upload failed. Please try again.');
+    }
+  };
+  input.click();
+}
+
 // 2. Upload Exam
-async function showUploadExam() {
-    setActiveCBTTab('upload');
-    document.getElementById('pageTitle').textContent = 'Upload New Exam';
-  const classes = await fetch(`${API_BASE}/api/classes${tenantQuery()}`, {
-    headers: getAuthHeaders()
-  }).then(r => r.json()).catch(() => []);
-  const subjects = await fetch(`${API_BASE}/api/subjects${tenantQuery()}`, {
-    headers: getAuthHeaders()
-  }).then(r => r.json()).catch(() => []);
-  document.getElementById('contentArea').innerHTML = `
-    <h2 class="text-2xl font-bold mb-6 text-[#22305a]">Upload New Exam</h2>
-    <form id="uploadExamForm" class="space-y-6 max-w-3xl">
-      <div class="form-group">
-        <label class="block text-gray-700 font-semibold mb-2">Title <span class="text-red-500">*</span></label>
-        <input name="title" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
+async function showUploadExam(existingExam = null) {
+  const editing = Boolean(existingExam && (existingExam._id || existingExam.id));
+  const examId = existingExam?._id || existingExam?.id || '';
+  setActiveCBTTab('upload');
+  document.getElementById('pageTitle').textContent = editing ? 'Edit Exam' : 'Upload New Exam';
+
+  const content = document.getElementById('contentArea');
+  content.innerHTML = `
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <button type="button" onclick="showExams()" class="text-blue-600 hover:text-blue-800 font-semibold mb-3">
+          <i class="fa fa-arrow-left mr-2"></i>Back to Exams
+        </button>
+        <h2 class="text-2xl font-bold text-[#22305a]">${editing ? 'Edit Posted Exam' : 'Upload New Exam'}</h2>
+        <p class="text-sm text-gray-500 mt-1">${editing ? 'Update the exam details, questions and correct answers.' : 'Create an exam with rich-text questions and answer options.'}</p>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="form-group">
-          <label class="block text-gray-700 font-semibold mb-2">Class <span class="text-red-500">*</span></label>
-          <select name="class" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <option value="">Select Class</option>
-            ${classes.map(c => `<option value="${c._id}">${c.name}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="block text-gray-700 font-semibold mb-2">Subject <span class="text-red-500">*</span></label>
-          <select name="subject" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <option value="">Select Subject</option>
-            ${subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="block text-gray-700 font-semibold mb-2">Duration (minutes) <span class="text-red-500">*</span></label>
-        <input name="duration" type="number" min="1" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
-      </div>
-      <div class="form-group">
-        <label class="block text-gray-700 font-semibold mb-3">Questions <span class="text-red-500">*</span></label>
-        <div id="questionsList" class="space-y-4"></div>
-        <button type="button" class="cbt-btn mt-4" id="addQuestionBtn"><i class="fa fa-plus mr-2"></i> Add Question</button>
-      </div>
-      <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-lg transition-all"><i class="fa fa-upload mr-2"></i>Upload Exam</button>
-    </form>
-    <div id="uploadExamMsg" class="mt-6"></div>
+      ${editing ? '<span class="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-bold">EDITING EXISTING EXAM</span>' : ''}
+    </div>
+    <div id="examEditorLoading" class="py-8 text-center text-blue-600"><i class="fa fa-spinner fa-spin mr-2"></i>Preparing exam editor...</div>
   `;
 
-  let questions = [];
+  try {
+    const [classResponse, subjectResponse] = await Promise.all([
+      fetch(`${API_BASE}/api/classes${tenantQuery()}`, { headers: getAuthHeaders() }),
+      fetch(`${API_BASE}/api/subjects${tenantQuery()}`, { headers: getAuthHeaders() })
+    ]);
+    const [classData, subjectData] = await Promise.all([
+      classResponse.json().catch(() => []),
+      subjectResponse.json().catch(() => [])
+    ]);
+    const classes = Array.isArray(classData) ? classData :
+      (classData.classes || classData.data?.classes || classData.data || []);
+    const subjects = Array.isArray(subjectData) ? subjectData :
+      (subjectData.subjects || subjectData.data?.subjects || subjectData.data || []);
+    if (!Array.isArray(classes) || !Array.isArray(subjects)) {
+      throw new Error('Could not load the school classes and subjects.');
+    }
 
-  function renderQuestions() {
-    const qlist = document.getElementById('questionsList');
-    if (!qlist) return;
-    qlist.innerHTML = '';
-    questions.forEach((q, qi) => {
-      qlist.innerHTML += `
-      <div class="border-2 border-gray-200 rounded-xl bg-white p-6 hover:shadow-md transition-shadow" data-question-idx="${qi}">
-        <div class="flex items-center justify-between mb-4">
-          <div class="font-bold text-lg text-[#2647a6]">Question ${qi + 1}</div>
-          <button type="button" class="text-red-600 hover:bg-red-50 p-2 rounded-lg transition" onclick="removeQuestion(${qi})"><i class="fa fa-trash"></i></button>
+    const normalizeRef = value => value && typeof value === 'object'
+      ? (value._id || value.id || value)
+      : (value || '');
+    const classValue = normalizeRef(existingExam?.class?._id || existingExam?.class || existingExam?.classId);
+    const subjectValue = normalizeRef(existingExam?.subject?._id || existingExam?.subject || existingExam?.subjectId);
+    let questions = (Array.isArray(existingExam?.questions) ? existingExam.questions : []).map(q => {
+      const opts = Array.isArray(q.options) ? q.options.map(o =>
+        typeof o === 'string' ? { value: o } : { ...o, value: o.value || '' }
+      ) : [];
+      let answer = Array.isArray(q.answer) ? q.answer.map(Number) :
+        (Number.isInteger(Number(q.answer)) ? [Number(q.answer)] : []);
+      return { ...q, text: q.text || '', options: opts, answer, score: Number(q.score) || 1 };
+    });
+
+    content.innerHTML = `
+      <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+        <div>
+          <button type="button" onclick="showExams()" class="text-blue-600 hover:text-blue-800 font-semibold mb-3">
+            <i class="fa fa-arrow-left mr-2"></i>Back to Exams
+          </button>
+          <h2 class="text-2xl font-bold text-[#22305a]">${editing ? 'Edit Posted Exam' : 'Upload New Exam'}</h2>
+          <p class="text-sm text-gray-500 mt-1">${editing ? 'Changes will be saved to this exam.' : 'Create an exam with rich-text questions and answer options.'}</p>
         </div>
-        <label class="block text-gray-700 font-semibold mb-2">Question Text:</label>
-        <div id="qtext-quill-${qi}" class="quill-editor mb-4 bg-white"></div>
-        <div class="flex items-end gap-4 mb-4">
-          <div class="flex-1">
-            <label class="block text-gray-700 font-semibold mb-2">Score:</label>
-            <input type="number" min="1" value="${q.score || 1}" class="score-input w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Points for this question"/>
+        ${editing ? '<span class="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-bold">EDITING EXISTING EXAM</span>' : ''}
+      </div>
+      <form id="uploadExamForm" class="space-y-6 max-w-4xl">
+        <div>
+          <label class="block text-gray-700 font-semibold mb-2">Title <span class="text-red-500">*</span></label>
+          <input name="title" required value="${String(existingExam?.title || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-gray-700 font-semibold mb-2">Class <span class="text-red-500">*</span></label>
+            <select name="class" required class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+              <option value="">Select Class</option>
+              ${classes.map(c => `<option value="${c._id || c.id}" ${(String(c._id || c.id) === String(classValue)) ? 'selected' : ''}>${c.name || c.className || 'Class'}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-gray-700 font-semibold mb-2">Subject <span class="text-red-500">*</span></label>
+            <select name="subject" required class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+              <option value="">Select Subject</option>
+              ${subjects.map(sub => `<option value="${sub._id || sub.id}" ${(String(sub._id || sub.id) === String(subjectValue)) ? 'selected' : ''}>${sub.name || sub.subjectName || 'Subject'}</option>`).join('')}
+            </select>
           </div>
         </div>
-        <label class="block text-gray-700 font-semibold mb-3">Options:</label>
-        <div id="optionsList-${qi}" class="space-y-3 mb-4"></div>
-        <button type="button" class="cbt-btn mb-4" onclick="addOption(${qi})"><i class="fa fa-plus mr-1"></i> Add Option</button>
-        <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <label class="block text-gray-700 font-semibold mb-3">Select Correct Answer(s) <span class="text-red-500">*</span></label>
-          <div id="correctAnswersCheckboxes-${qi}" class="grid grid-cols-2 gap-3"></div>
+        <div>
+          <label class="block text-gray-700 font-semibold mb-2">Duration (minutes) <span class="text-red-500">*</span></label>
+          <input name="duration" type="number" min="1" required value="${Number(existingExam?.duration) || ''}" class="w-full px-4 py-3 border border-gray-300 rounded-lg"/>
         </div>
-      </div>
-      `;
-    });
-    questions.forEach((q, qi) => {
-      let container = document.getElementById(`qtext-quill-${qi}`);
-      if(container && !container.__quill) {
-        let quill = new Quill(container, getQuillConfig());
-        if(q.text) quill.root.innerHTML = q.text;
-        quill.on('text-change', () => { questions[qi].text = quill.root.innerHTML; });
-        container.__quill = quill;
-      }
-      renderOptions(qi);
-      renderCorrectAnswerCheckboxes(qi);
-    });
-  }
+        <div>
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <label class="block text-gray-700 font-semibold">Questions <span class="text-red-500">*</span></label>
+            <span id="questionCount" class="text-xs text-gray-500">0 questions</span>
+          </div>
+          <div id="questionsList" class="space-y-4"></div>
+          <button type="button" class="cbt-btn mt-4" id="addQuestionBtn"><i class="fa fa-plus mr-2"></i>Add Question</button>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button type="submit" id="saveExamBtn" class="flex-1 min-w-[200px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-lg">
+            <i class="fa ${editing ? 'fa-save' : 'fa-upload'} mr-2"></i>${editing ? 'Save Exam Changes' : 'Upload Exam'}
+          </button>
+          <button type="button" onclick="showExams()" class="px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
+        </div>
+      </form>
+      <div id="uploadExamMsg" class="mt-6" aria-live="polite"></div>
+    `;
 
-  window.removeQuestion = function(idx) {
-    questions.splice(idx, 1);
-    renderQuestions();
-    attachUploadFormHandler();
-  };
+    function renderQuestions() {
+      const qlist = document.getElementById('questionsList');
+      if (!qlist) return;
+      qlist.innerHTML = questions.map((q, qi) => `
+        <div class="border-2 border-gray-200 rounded-xl bg-white p-5" data-question-idx="${qi}">
+          <div class="flex items-center justify-between mb-4">
+            <div class="font-bold text-lg text-[#2647a6]">Question ${qi + 1}</div>
+            <button type="button" class="text-red-600 hover:bg-red-50 p-2 rounded-lg" data-remove-question="${qi}" title="Remove question"><i class="fa fa-trash"></i></button>
+          </div>
+          <label class="block text-gray-700 font-semibold mb-2">Question Text</label>
+          <div id="qtext-quill-${qi}" class="quill-editor mb-4 bg-white"></div>
+          <label class="block text-gray-700 font-semibold mb-2">Score / Marks</label>
+          <input type="number" min="1" value="${q.score || 1}" data-score="${qi}" class="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg mb-4"/>
+          <label class="block text-gray-700 font-semibold mb-3">Options</label>
+          <div id="optionsList-${qi}" class="space-y-3 mb-4"></div>
+          <button type="button" class="cbt-btn mb-4" data-add-option="${qi}"><i class="fa fa-plus mr-1"></i>Add Option</button>
+          <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <label class="block text-gray-700 font-semibold mb-3">Select Correct Answer(s) <span class="text-red-500">*</span></label>
+            <div id="correctAnswersCheckboxes-${qi}" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('questionCount').textContent = `${questions.length} question(s)`;
 
-  document.getElementById('addQuestionBtn').onclick = function() {
-    questions.push({ text: '', options: [], answer: [], score: 1 });
-    renderQuestions();
-    attachUploadFormHandler();
-  };
-
-  window.addOption = function(qi) {
-    if (!questions[qi].options) questions[qi].options = [];
-    questions[qi].options.push({ value: '' });
-    renderOptions(qi);
-    renderCorrectAnswerCheckboxes(qi);
-  };
-
-  window.removeOption = function(qi, oi) {
-    questions[qi].options.splice(oi, 1);
-    if (!Array.isArray(questions[qi].answer)) {
-      questions[qi].answer = [];
+      questions.forEach((q, qi) => {
+        const qEditor = document.getElementById(`qtext-quill-${qi}`);
+        if (qEditor && !qEditor.__quill) {
+          const quill = new Quill(qEditor, getQuillConfig());
+          if (q.text) quill.root.innerHTML = q.text;
+          quill.on('text-change', () => { questions[qi].text = quill.root.innerHTML; });
+          quill.getModule('toolbar').addHandler('image', () => selectLocalImage(quill));
+          qEditor.__quill = quill;
+        }
+        renderOptions(qi);
+        renderCorrectAnswers(qi);
+      });
     }
-    questions[qi].answer = questions[qi].answer.filter(idx => idx !== oi);
-    renderOptions(qi);
-    renderCorrectAnswerCheckboxes(qi);
-  }
 
-  function renderOptions(qi) {
-    const olist = document.getElementById(`optionsList-${qi}`);
-    if (!olist) return;
-    olist.innerHTML = '';
-    (questions[qi].options||[]).forEach((opt, oi) => {
-      olist.innerHTML += `
-        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50" data-option-idx="${oi}">
+    function renderOptions(qi) {
+      const target = document.getElementById(`optionsList-${qi}`);
+      if (!target) return;
+      target.innerHTML = (questions[qi].options || []).map((opt, oi) => `
+        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
           <div class="flex items-center justify-between mb-3">
-            <span class="font-semibold text-gray-700">Option ${String.fromCharCode(65+oi)}</span>
-            <button type="button" class="text-red-600 hover:bg-red-50 p-2 rounded transition" onclick="removeOption(${qi},${oi})"><i class="fa fa-trash"></i></button>
+            <span class="font-semibold text-gray-700">Option ${String.fromCharCode(65 + oi)}</span>
+            <button type="button" class="text-red-600 hover:bg-red-50 p-2 rounded" data-remove-option="${qi}:${oi}" title="Remove option"><i class="fa fa-trash"></i></button>
           </div>
           <div id="q${qi}-opt-quill-${oi}" class="quill-editor bg-white"></div>
         </div>
-      `;
-    });
-    (questions[qi].options||[]).forEach((opt, oi) => {
-      let container = document.getElementById(`q${qi}-opt-quill-${oi}`);
-      if(container && !container.__quill) {
-        let quill = new Quill(container, getQuillConfig());
-        if(opt.value) quill.root.innerHTML = opt.value;
-        quill.on('text-change', () => { questions[qi].options[oi].value = quill.root.innerHTML; });
-        container.__quill = quill;
-      }
-    });
-    const scoreInput = document.querySelector(`[data-question-idx="${qi}"] .score-input`);
-    if (scoreInput) {
-      scoreInput.onchange = function() { questions[qi].score = Number(this.value) || 1; };
-    }
-  }
-
-  function renderCorrectAnswerCheckboxes(qi) {
-    const checkboxContainer = document.getElementById(`correctAnswersCheckboxes-${qi}`);
-    if (!checkboxContainer) return;
-    
-    if (!Array.isArray(questions[qi].answer)) {
-      questions[qi].answer = [];
-    }
-
-    checkboxContainer.innerHTML = '';
-    (questions[qi].options||[]).forEach((opt, oi) => {
-      const isChecked = questions[qi].answer.includes(oi);
-      checkboxContainer.innerHTML += `
-        <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-100 cursor-pointer transition">
-          <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCorrectAnswer(${qi}, ${oi})" class="w-4 h-4">
-          <span class="text-gray-700 font-medium">Option ${String.fromCharCode(65+oi)}</span>
-        </label>
-      `;
-    });
-  }
-
-  window.toggleCorrectAnswer = function(qi, oi) {
-    if (!Array.isArray(questions[qi].answer)) {
-      questions[qi].answer = [];
-    }
-    if (questions[qi].answer.includes(oi)) {
-      questions[qi].answer = questions[qi].answer.filter(idx => idx !== oi);
-    } else {
-      questions[qi].answer.push(oi);
-    }
-  }
-
-  function getQuillConfig() {
-    return {
-      theme: 'snow',
-      modules: {
-        toolbar: [
-          [{ 'header': [1, 2, false] }],
-          ['bold', 'italic', 'underline'],
-          [{ list: 'ordered'}, { list: 'bullet' }],
-          ['image', 'code-block'],
-          ['clean']
-        ]
-      }
-    }
-  }
-
-  Quill.prototype.getModule('toolbar').addHandler('image', function() {
-    selectLocalImage(this.quill);
-  });
-
-  async function selectLocalImage(quill) {
-    const input = document.createElement('input');
-    input.setAttribute('type', 'file');
-    input.setAttribute('accept', 'image/*');
-    input.click();
-    input.onchange = async () => {
-      const file = input.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch(`${API_BASE}/api/upload/image`, { 
-        method: 'POST', 
-        body: formData,
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}` }
+      `).join('');
+      (questions[qi].options || []).forEach((opt, oi) => {
+        const editor = document.getElementById(`q${qi}-opt-quill-${oi}`);
+        if (editor && !editor.__quill) {
+          const quill = new Quill(editor, getQuillConfig());
+          if (opt.value) quill.root.innerHTML = opt.value;
+          quill.on('text-change', () => { questions[qi].options[oi].value = quill.root.innerHTML; });
+          quill.getModule('toolbar').addHandler('image', () => selectLocalImage(quill));
+          editor.__quill = quill;
+        }
       });
-      const data = await res.json();
-      if(data.url){
-        const range = quill.getSelection();
-        quill.insertEmbed(range ? range.index : 0, 'image', data.url);
-      } else {
-        alert('Image upload failed.');
-      }
-    };
-  }
+    }
 
-  function patchAllQuills() {
-    document.querySelectorAll('.quill-editor').forEach(ed => {
-      if (ed.__quill) {
-        ed.__quill.getModule('toolbar').addHandler('image', function() {
-          selectLocalImage(ed.__quill)
-        });
+    function renderCorrectAnswers(qi) {
+      const target = document.getElementById(`correctAnswersCheckboxes-${qi}`);
+      if (!target) return;
+      target.innerHTML = (questions[qi].options || []).map((opt, oi) => `
+        <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-blue-100 cursor-pointer">
+          <input type="checkbox" data-correct-answer="${qi}:${oi}" ${(questions[qi].answer || []).includes(oi) ? 'checked' : ''} class="w-4 h-4"/>
+          <span class="text-gray-700 font-medium">Option ${String.fromCharCode(65 + oi)}</span>
+        </label>
+      `).join('');
+    }
+
+    document.getElementById('questionsList').addEventListener('click', e => {
+      const removeQ = e.target.closest('[data-remove-question]');
+      const addOpt = e.target.closest('[data-add-option]');
+      const removeOpt = e.target.closest('[data-remove-option]');
+      if (removeQ) {
+        questions.splice(Number(removeQ.dataset.removeQuestion), 1);
+        renderQuestions();
+      } else if (addOpt) {
+        const qi = Number(addOpt.dataset.addOption);
+        questions[qi].options.push({ value: '' });
+        renderOptions(qi);
+        renderCorrectAnswers(qi);
+      } else if (removeOpt) {
+        const [qi, oi] = removeOpt.dataset.removeOption.split(':').map(Number);
+        questions[qi].options.splice(oi, 1);
+        questions[qi].answer = (questions[qi].answer || []).filter(a => a !== oi).map(a => a > oi ? a - 1 : a);
+        renderOptions(qi);
+        renderCorrectAnswers(qi);
       }
     });
-  }
+    document.getElementById('questionsList').addEventListener('change', e => {
+      if (e.target.matches('[data-score]')) {
+        questions[Number(e.target.dataset.score)].score = Number(e.target.value) || 1;
+      }
+      if (e.target.matches('[data-correct-answer]')) {
+        const [qi, oi] = e.target.dataset.correctAnswer.split(':').map(Number);
+        const answers = questions[qi].answer || [];
+        questions[qi].answer = e.target.checked
+          ? [...new Set([...answers, oi])]
+          : answers.filter(a => a !== oi);
+      }
+    });
+    document.getElementById('addQuestionBtn').addEventListener('click', () => {
+      questions.push({ text: '', options: [], answer: [], score: 1 });
+      renderQuestions();
+    });
 
-  const observer = new MutationObserver(() => { patchAllQuills(); });
-  observer.observe(document.body, { childList: true, subtree: true });
+    renderQuestions();
 
-  attachUploadFormHandler();
-  renderQuestions();
-
-  function attachUploadFormHandler() {
-    const uploadForm = document.getElementById('uploadExamForm');
-    if (!uploadForm) return;
-
-    uploadForm.onsubmit = async function(e) {
+    document.getElementById('uploadExamForm').addEventListener('submit', async e => {
       e.preventDefault();
-
-      const fd = new FormData(this);
-      const title = fd.get('title');
-      const classId = fd.get('class');
-      const subjectId = fd.get('subject');
-      const duration = Number(fd.get('duration'));
-
-      if (!title || !classId || !subjectId || !duration) {
-        document.getElementById('uploadExamMsg').innerHTML =
-          `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">All exam fields are required.</div>`; 
-        return;
-      }
-
-      if (!questions.length) {
-        document.getElementById('uploadExamMsg').innerHTML =
-          `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Add at least one question.</div>`; 
-        return;
-      }
-
-      // Validate questions
-      for (let [i, q] of questions.entries()) {
-        if (!q.text || !(q.options && q.options.length >= 2)) {
-          document.getElementById('uploadExamMsg').innerHTML =
-            `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Question ${i+1} must have text and at least 2 options.</div>`; 
-          return;
-        }
-        for (let [j, o] of (q.options || []).entries()) {
-          if (!o.value) {
-            document.getElementById('uploadExamMsg').innerHTML =
-              `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Question ${i+1} Option ${String.fromCharCode(65+j)} cannot be empty.</div>`; 
-            return;
-          }
-        }
-        if (!Array.isArray(q.answer) || q.answer.length === 0) {
-          document.getElementById('uploadExamMsg').innerHTML =
-            `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Select at least one correct answer for Question ${i+1}.</div>`; 
-          return;
-        }
-        for (let ans of q.answer) {
-          if (typeof ans !== 'number' || ans < 0 || ans >= q.options.length) {
-            document.getElementById('uploadExamMsg').innerHTML =
-              `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Invalid correct answer selection for Question ${i+1}.</div>`; 
-              return;
-          }
-        }
-      }
-
+      const form = e.currentTarget;
+      const msg = document.getElementById('uploadExamMsg');
+      const submit = document.getElementById('saveExamBtn');
+      const fd = new FormData(form);
       const payload = {
-        title,
-        class: classId,
-        subject: subjectId,
-        duration,
+        title: String(fd.get('title') || '').trim(),
+        class: fd.get('class'),
+        subject: fd.get('subject'),
+        duration: Number(fd.get('duration')),
         questions: questions.map(q => ({
           text: q.text,
           options: q.options,
-          answer: Number(q.answer[0]),
-          score: q.score || 1
+          answer: Number((q.answer || [])[0]),
+          score: Number(q.score) || 1
         }))
       };
 
-      const submitBtn = uploadForm.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      document.getElementById('uploadExamMsg').innerHTML =
-        `<div class="p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg flex items-center gap-2"><i class="fa fa-spinner fa-spin"></i> Uploading...</div>`;
+      if (!payload.title || !payload.class || !payload.subject || !payload.duration || payload.duration < 1) {
+        msg.innerHTML = '<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Please complete all required exam details.</div>';
+        return;
+      }
+      if (!questions.length) {
+        msg.innerHTML = '<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Add at least one question.</div>';
+        return;
+      }
+      for (let qi = 0; qi < questions.length; qi++) {
+        const q = questions[qi];
+        if (!q.text || !q.text.replace(/<[^>]*>/g, '').trim() || q.options.length < 2) {
+          msg.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Question ${qi + 1} needs question text and at least two options.</div>`;
+          return;
+        }
+        for (let oi = 0; oi < q.options.length; oi++) {
+          if (!q.options[oi].value || !q.options[oi].value.replace(/<[^>]*>/g, '').trim()) {
+            msg.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Question ${qi + 1}, option ${String.fromCharCode(65 + oi)} cannot be empty.</div>`;
+            return;
+          }
+        }
+        if (!Array.isArray(q.answer) || !q.answer.length || q.answer.some(a => a < 0 || a >= q.options.length)) {
+          msg.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Select a correct answer for Question ${qi + 1}.</div>`;
+          return;
+        }
+      }
 
+      submit.disabled = true;
+      submit.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>Saving...';
+      msg.innerHTML = '<div class="p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg"><i class="fa fa-spinner fa-spin mr-2"></i>Saving exam...</div>';
       try {
-        const res = await fetch(`${API_BASE}/api/exam${tenantQuery()}`, {
-          method: 'POST',
+        const response = await fetch(editing ? `${API_BASE}/api/exam/${examId}` : `${API_BASE}/api/exam${tenantQuery()}`, {
+          method: editing ? 'PUT' : 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify(payload)
         });
-
-        const data = await res.json();
-
-        if (data.error) {
-          document.getElementById('uploadExamMsg').innerHTML =
-            `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">${data.error}</div>`;
-        } else {
-          document.getElementById('uploadExamMsg').innerHTML =
-            `<div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg font-semibold">✅ Exam uploaded successfully.</div>`;
-
-          uploadForm.reset();
-          questions = [];
-          setTimeout(showExams, 1200);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.error || result.success === false) {
+          throw new Error(result.error || result.message || `Unable to ${editing ? 'update' : 'upload'} exam (${response.status}).`);
         }
-      } catch (err) {
-        console.error(err);
-        document.getElementById('uploadExamMsg').innerHTML =
-          `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">Network or server error.</div>`;
-      } finally {
-        submitBtn.disabled = false;
+        msg.innerHTML = `<div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg font-semibold">✓ ${editing ? 'Exam changes saved successfully.' : 'Exam uploaded successfully.'}</div>`;
+        setTimeout(showExams, 1200);
+      } catch (error) {
+        console.error('Exam save failed:', error);
+        msg.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">${error.message || 'Network or server error.'}</div>`;
+        submit.disabled = false;
+        submit.innerHTML = `<i class="fa ${editing ? 'fa-save' : 'fa-upload'} mr-2"></i>${editing ? 'Save Exam Changes' : 'Upload Exam'}`;
       }
-    };
+    });
+  } catch (error) {
+    console.error('Unable to initialize exam editor:', error);
+    content.innerHTML = `
+      <button type="button" onclick="showExams()" class="text-blue-600 font-semibold mb-4"><i class="fa fa-arrow-left mr-2"></i>Back to Exams</button>
+      <div class="p-5 rounded-xl border border-red-200 bg-red-50 text-red-700">${error.message || 'Unable to load the exam editor.'}</div>
+    `;
   }
 }
 
@@ -1900,12 +1900,20 @@ window.viewExam = async function(id) {
 }
 
 window.editExam = async function(id) {
-  const ex = await fetch(`${API_BASE}/api/exam/${id}`, {
-    headers: getAuthHeaders()
-  }).then(r=>r.json());
-  if(ex.error){alert(ex.error); return;}
-  alert('Edit Exam is not implemented for advanced question editor. Please delete and re-upload for now.');
-  showExams();
+  try {
+    document.getElementById('pageTitle').textContent = 'Edit Exam';
+    document.getElementById('contentArea').innerHTML = '<div class="py-16 text-center text-blue-600"><i class="fa fa-spinner fa-spin mr-2"></i>Loading exam for editing...</div>';
+    const response = await fetch(`${API_BASE}/api/exam/${id}`, { headers: getAuthHeaders() });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.error) throw new Error(payload.error || payload.message || `Unable to load exam (${response.status}).`);
+    const exam = payload.exam || payload.data?.exam || payload.data || payload;
+    if (!exam || !Array.isArray(exam.questions)) throw new Error('The exam details or questions were not returned by the server.');
+    await showUploadExam({ ...exam, _id: exam._id || id });
+  } catch (error) {
+    console.error('Edit exam load failed:', error);
+    alert(error.message || 'Unable to load this exam for editing.');
+    showExams();
+  }
 }
 
 window.deleteExam = async function(id) {
