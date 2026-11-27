@@ -386,44 +386,122 @@ router.post('/:id/stop', authMiddleware, adminAuth, async (req, res) => {
 
 // ============ PUT ROUTES ============
 
-// ✅ UPDATED: PUT /api/exam/:id - Update exam
+// PUT /api/exam/:id - Update an existing exam, including its class and subject.
 router.put('/:id', authMiddleware, adminAuth, async (req, res) => {
   try {
-    const { title, duration, questions, scheduledFor } = req.body;
     const school = await resolveCurrentSchool(req);
-    if (!school) return res.status(401).json({ success: false, error: 'Unauthorized: No active school is associated with this account.' });
-    
+    if (!school) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: No active school is associated with this account.'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid exam ID.' });
+    }
+
+    const schoolId = schoolScope(school);
+    const exam = await Exam.findOne({ _id: req.params.id, schoolId });
+    if (!exam) {
+      return res.status(404).json({ success: false, error: 'Exam not found.' });
+    }
+
+    const body = req.body || {};
     const updateData = {};
-    if (title) updateData.title = title;
-    if (duration) updateData.duration = duration;
-    if (questions) updateData.questions = questions;
-    if (scheduledFor) updateData.scheduledFor = scheduledFor;
-    
-    const exam = await Exam.findOne({ _id: req.params.id, schoolId: schoolScope(school) });
-    if (!exam) return res.status(404).json({ error: 'Exam not found.' });
-    
-    // ✅ Generate code if scheduling and code doesn't exist
-    if (scheduledFor && !exam.examCode) {
-      updateData.examCode = await ensureUniqueExamCode(schoolScope(school));
+
+    if (Object.prototype.hasOwnProperty.call(body, 'title')) {
+      const title = String(body.title || '').trim();
+      if (!title) {
+        return res.status(400).json({ success: false, error: 'Exam title is required.' });
+      }
+      updateData.title = title;
+    }
+
+    // Save the newly selected class, and prevent cross-school references.
+    if (Object.prototype.hasOwnProperty.call(body, 'class')) {
+      const classId = String(body.class || '').trim();
+      if (!mongoose.Types.ObjectId.isValid(classId)) {
+        return res.status(400).json({ success: false, error: 'Please select a valid class.' });
+      }
+
+      const selectedClass = await Class.findOne({ _id: classId, schoolId }).select('_id');
+      if (!selectedClass) {
+        return res.status(400).json({ success: false, error: 'The selected class was not found in this school.' });
+      }
+      updateData.class = selectedClass._id;
+    }
+
+    // Save the newly selected subject, and prevent cross-school references.
+    if (Object.prototype.hasOwnProperty.call(body, 'subject')) {
+      const subjectId = String(body.subject || '').trim();
+      if (!mongoose.Types.ObjectId.isValid(subjectId)) {
+        return res.status(400).json({ success: false, error: 'Please select a valid subject.' });
+      }
+
+      const selectedSubject = await Subject.findOne({ _id: subjectId, schoolId }).select('_id');
+      if (!selectedSubject) {
+        return res.status(400).json({ success: false, error: 'The selected subject was not found in this school.' });
+      }
+      updateData.subject = selectedSubject._id;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'duration')) {
+      const duration = Number(body.duration);
+      if (!Number.isFinite(duration) || duration <= 0) {
+        return res.status(400).json({ success: false, error: 'Duration must be greater than zero.' });
+      }
+      updateData.duration = duration;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'questions')) {
+      if (!Array.isArray(body.questions) || body.questions.length === 0) {
+        return res.status(400).json({ success: false, error: 'An exam must contain at least one question.' });
+      }
+      updateData.questions = body.questions;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'scheduledFor')) {
+      updateData.scheduledFor = body.scheduledFor;
+    }
+
+    if (body.scheduledFor && !exam.examCode) {
+      updateData.examCode = await ensureUniqueExamCode(schoolId);
       updateData.codeGeneratedAt = new Date();
       updateData.isCodeActive = true;
       updateData.status = 'Scheduled';
     }
-    
+
     Object.assign(exam, updateData);
     await exam.save();
-    
-    res.json({ 
-      success: true, 
+
+    await exam.populate([
+      { path: 'class', select: 'name' },
+      { path: 'subject', select: 'name' }
+    ]);
+
+    return res.json({
+      success: true,
+      message: 'Exam updated successfully.',
       exam: {
         _id: exam._id,
-        examCode: exam.examCode
+        title: exam.title,
+        class: exam.class?._id || exam.class,
+        className: exam.class?.name || null,
+        subject: exam.subject?._id || exam.subject,
+        subjectName: exam.subject?.name || null,
+        duration: exam.duration,
+        scheduledFor: exam.scheduledFor,
+        examCode: exam.examCode || null,
+        questions: exam.questions
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Update exam error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Failed to update exam.' });
   }
 });
+
 
 // ============ DELETE ROUTES ============
 
