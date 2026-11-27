@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 
 const optionSchema = new mongoose.Schema({
@@ -5,15 +6,13 @@ const optionSchema = new mongoose.Schema({
 }, { _id: false });
 
 const questionSchema = new mongoose.Schema({
-  text: { type: String, required: true }, // HTML (Quill) supported
+  text: { type: String, required: true },
   options: { type: [optionSchema], required: true },
-  answer: { type: Number, required: true }, // index of the correct option
+  answer: { type: Number, required: true },
   score: { type: Number, default: 1 }
 }, { _id: false });
 
-// CBT Exam Model
 const examSchema = new mongoose.Schema({
-  // Multi-school / tenant owner
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'School',
@@ -48,9 +47,7 @@ const examSchema = new mongoose.Schema({
     required: true
   },
 
-  scheduledFor: {
-    type: Date
-  },
+  scheduledFor: Date,
 
   status: {
     type: String,
@@ -63,36 +60,21 @@ const examSchema = new mongoose.Schema({
     ref: 'Staff'
   },
 
-  // Exam Code Fields
+  // Optional examination access code.
+  // Uniqueness is enforced by the school-scoped partial index below.
   examCode: {
     type: String,
-    unique: true,
-    sparse: true,
-    index: true
+    trim: true
   },
 
-  codeGeneratedAt: {
-    type: Date
-  },
-
-  codeExpiresAt: {
-    type: Date
-  },
+  codeGeneratedAt: Date,
+  codeExpiresAt: Date,
 
   isCodeActive: {
     type: Boolean,
     default: true
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-
-  updatedAt: {
-    type: Date,
-    default: Date.now
   }
+
 }, {
   timestamps: true
 });
@@ -101,6 +83,18 @@ const examSchema = new mongoose.Schema({
 examSchema.index({ schoolId: 1, class: 1 });
 examSchema.index({ schoolId: 1, subject: 1 });
 examSchema.index({ schoolId: 1, status: 1 });
-examSchema.index({ schoolId: 1, examCode: 1 }, { unique: true, sparse: true });
+
+// Only enforce uniqueness when examCode is an actual string.
+// Missing and null exam codes will not conflict.
+examSchema.index(
+  { schoolId: 1, examCode: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      examCode: { $type: 'string' }
+    },
+    name: 'schoolId_1_examCode_1'
+  }
+);
 
 module.exports = mongoose.model('Exam', examSchema);
